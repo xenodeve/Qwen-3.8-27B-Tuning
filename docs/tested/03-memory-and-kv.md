@@ -66,6 +66,92 @@ acceptance column are not in yet**; do not read this table as settled.
 
 *Raw: `results/kv-vram-160k.jsonl`. Report 24 §V1 when complete.*
 
+## The recurrent state, and why `--spec-draft-n-max` is a VRAM knob
+
+**Measured 2026-08-22 from `logs/dflash2-*.log` and `logs/ceil-*.log`.** This is
+the largest single thing this project had never looked at.
+
+Qwen3.8 is a hybrid: 48 Gated DeltaNet layers whose **recurrent state is a
+separate allocation from the KV cache**, reported on its own line as
+`llama_memory_recurrent: CUDA0 RS buffer size`.
+
+### It does not scale with context
+
+| ctx | KV buffer (q4_0) | **RS buffer** |
+|---:|---:|---:|
+| 32,768 | 576.00 MiB | **149.62 MiB** |
+| 65,536 | 1152.00 MiB | **149.62 MiB** |
+| 98,304 | 1728.00 MiB | **149.62 MiB** |
+| 131,072 | 2304.00 MiB | **149.62 MiB** |
+
+Flat to two decimals across a 4x range of depth. Deepening context does not
+touch it.
+
+### It scales with the DRAFT COUNT instead
+
+At ctx 16,384 with `--spec-type draft-dflash` and `--spec-draft-n-max 4`, the RS
+buffer is **748.12 MiB** — and `748.12 / 149.62 = 5.0000`.
+
+Source confirms the mechanism. `common/common.h:390`:
+
+```cpp
+return needs_rs_seq ? draft.n_max : 0u;
+```
+
+`need_n_rs_seq()` returns `draft.n_max` for `DRAFT_MTP`, `DRAFT_EAGLE3`,
+`DRAFT_DFLASH` and `DRAFT_DSPARK`; `common/common.cpp:1699` assigns it to
+`cparams.n_rs_seq`. The allocation is one base copy plus one per draft position,
+so the state has somewhere to roll back to when a draft is rejected.
+
+> **RS buffer = 149.62 MiB x (1 + `--spec-draft-n-max`)** for this model.
+
+| arm | `n-max` | RS buffer |
+|---|---:|---:|
+| `ngram-mod` alone (no model drafter) | — | **149.62 MiB** |
+| `draft-dflash`, default | 3 | 598.5 MiB |
+| `draft-dflash`, **what report 29 measured** | 4 | **748.12 MiB** |
+| `draft-dflash`, at the `block_size - 1` clamp | 7 | **1,197 MiB** |
+
+`ngram-mod` pays none of it — it is not a model drafter, so `need_n_rs_seq()`
+returns 0. That is a second, previously unrecorded reason the n-gram family is
+cheap here, on top of holding no weights.
+
+### What this means for the drafter's measured cost
+
+Report 29 recorded the DFlash2 drafter at **1,936 MiB resident** (free VRAM
+2,376 without it against 440 with it). That number is now decomposed:
+
+| | MiB |
+|---|---:|
+| drafter weights (`Qwen3.8-27B-DFlash2-Q4_K_M.gguf`) | ~1,086 |
+| drafter KV buffer (`f16`) | 45.00 |
+| drafter compute buffer | 269.29 |
+| **extra recurrent state on the TARGET** (748.12 − 149.62) | **598.50** |
+| total | **~1,998** |
+
+Against 1,936 measured. **Roughly a third of "the drafter's cost" is not the
+drafter** — it is the target model's own recurrent state, replicated so
+speculation can roll back.
+
+### Two corrections this forces
+
+**`-ctkd` / `-ctvd` are not the lever they were called.** On 2026-08-22 they were
+recorded here as a VRAM lever on the grounds that the drafter cost 1,936 MiB and
+its KV ran at `f16` while the target ran `q4_0`. The drafter's KV buffer is
+**45.00 MiB**. Moving it to `q4_0` saves roughly **34 MiB**, not hundreds. The
+flag is still untested and still free to try; the estimate was wrong.
+
+**`--spec-draft-n-max` is not free.** An external scan called raising it from 4
+toward the clamp of 7 "the biggest single unclaimed win" on throughput. It is
+also **+449 MiB** of recurrent state, on a card whose margin at depth is ~600
+MiB. Raise it and measure residency in the same round, or the throughput number
+will be measured on an arm that spilled.
+
+🔴 **Not yet measured:** whether the drafter's compute buffer (269.29 MiB, six
+times its own KV) scales with `-ub`, with `n-max`, or with neither.
+
+---
+
 ## `--ctx-checkpoints`
 
 External research: frees ~900 MiB. Measured: **10–16 MiB**, and no change to any
