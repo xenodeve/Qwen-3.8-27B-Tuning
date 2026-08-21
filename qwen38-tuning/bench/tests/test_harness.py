@@ -1112,3 +1112,30 @@ def test_acceptance_rejects_more_accepted_than_drafted():
     except ValueError:
         return
     raise AssertionError("accepted > drafted must raise, not report 180 %")
+
+
+from harness import line_repetition_pct
+
+
+def test_line_repetition_is_the_name_the_reasoning_check_uses():
+    # `filler_repetition_pct` was written to check a benchmark prompt. It got
+    # used on a reasoning trace on 2026-08-21 to settle whether the model was
+    # looping, which is the more valuable question -- so the general name is
+    # canonical and the original stays as an alias rather than a second copy.
+    assert line_repetition_pct is filler_repetition_pct
+
+
+def test_reasoning_that_never_repeats_scores_zero():
+    # The measurement that retracted the "it loops" claim: 6,899 characters of
+    # reasoning on the `damerau` task, not one line recurring.
+    trace = ("The user wants a function damerau_levenshtein(a, b).\n"
+             "Normally a transposition costs 2, but here it says 1.\n"
+             "Let me check with a worked example.\n"
+             "So this is the optimal string alignment variant.\n")
+    assert line_repetition_pct(trace) == 0.0
+
+
+def test_a_trace_stuck_on_one_thought_scores_high():
+    # What looping would actually look like, for contrast.
+    stuck = ("Wait, let me reconsider.\nActually that is wrong.\n") * 6
+    assert line_repetition_pct(stuck) > 80.0

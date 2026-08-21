@@ -38,9 +38,14 @@ hardware:
 > every step, like a paranoia** (compared to bf16).
 
 If quantization damage shows up as *self-doubt* rather than as wrong answers,
-then our measured failure — the model loops inside the reasoning block until the
-token budget runs out and never emits a fence — **is not a format failure.** It
-is the same effect four times further down the bit ladder.
+then our measured failure would be the same effect four times further down the
+bit ladder.
+
+> **Corrected 08:30 — the premise was wrong.** This paragraph read *"the model
+> loops inside the reasoning block until the token budget runs out"*. A full
+> trace scores **0.00 % line repetition** and ends on `stop`. It thinks at
+> length and finishes. What survives is the bpw correlation in the table above;
+> the mechanism attached to it does not. See `CORRECTIONS.md` §12.
 
 That reframes the fix. A grammar constrains the *output*; it cannot stop a model
 from spending 8,192 tokens deciding. That is consistent with what we measured:

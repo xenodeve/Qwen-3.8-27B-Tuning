@@ -29,7 +29,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from harness import check_tool_call
+from harness import check_tool_call, line_repetition_pct
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 ENDPOINT = "http://127.0.0.1:8080/v1/chat/completions"
@@ -204,7 +204,24 @@ def main():
         # patch instead are three different defects with three different fixes.
         if not verdict["ok"] or not nested or rt is False:
             row["reply_excerpt"] = ((msg.get("content") or "")[:600] or None)
-            row["reasoning_excerpt"] = ((msg.get("reasoning_content") or "")[:400] or None)
+            reasoning = msg.get("reasoning_content") or ""
+            row["reasoning_excerpt"] = (reasoning[:400] or None)
+            # Instrument fault, 2026-08-21: this probe recorded a reasoning
+            # LENGTH of 16,341 characters and kept 400 of the text. Three
+            # documents then asserted the model was "looping" -- an inference
+            # nobody could check, because the trace was gone. It was not
+            # looping: a full capture scored 0.00 % line repetition and ended on
+            # `stop`, and the code it wrote passed.
+            #
+            # So keep the whole trace, and answer the question with a number
+            # rather than leaving it to be inferred from the length.
+            if reasoning:
+                row["reasoning_repetition_pct"] = line_repetition_pct(reasoning)
+                d = ROOT / "logs" / "reasoning"
+                d.mkdir(parents=True, exist_ok=True)
+                f = d / ("%s-trial%s.txt" % (args.label, trial))
+                f.write_text(reasoning, encoding="utf-8")
+                row["reasoning_path"] = str(f)
         with out.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
         print("  trial %-3d call=%-5s nested=%-5s roundtrip=%-5s %s"

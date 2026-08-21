@@ -70,6 +70,12 @@ RULES = [
      "the suite is 103 tests",
      "bench/README.md"),
 
+    ("reasoning-loops",
+     r"loop(?:s|ing)?\s+(?:inside|in)\s+(?:the\s+)?reasoning|reasons?\s+until\s+the\s+budget",
+     "the model does not loop -- a full trace scores 0.00 % repetition and ends "
+     "on `stop`; the failure is in the agent loop",
+     "CORRECTIONS.md 12"),
+
     ("acceptance-one-generation",
      r"acceptance\s*(?:of|:)?\s*\d|acceptance\s+(?:from|collapse|100\s*%|4\s*%)",
      "rows before 2026-08-21 06:12 measured acceptance on the FIRST of five "

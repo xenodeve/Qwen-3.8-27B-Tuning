@@ -207,7 +207,7 @@ def compose_developer(skills):
     return sep.join(list(skills) + [CONTRACT])
 
 
-def filler_repetition_pct(text):
+def line_repetition_pct(text):
     """Percentage of non-blank lines that are exact duplicates of an earlier line.
 
     Instrument fault 8, 2026-08-21. `depth_sweep.filler()` repeats one class
@@ -234,6 +234,11 @@ def filler_repetition_pct(text):
             repeats += 1
         seen.add(l)
     return round(100.0 * repeats / len(lines), 2)
+
+
+# Written to check a benchmark prompt; its more valuable use turned out to be a
+# reasoning trace. Same function, the name the caller needs.
+filler_repetition_pct = line_repetition_pct
 
 
 def draft_acceptance(timings):

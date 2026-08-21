@@ -169,6 +169,24 @@ that rests on them needs re-measuring, not re-reading.
 
 ---
 
+## 12. The model does not loop in its reasoning — it thinks, and finishes
+
+Asserted in three documents on the strength of three numbers: reasoning up to
+16,341 characters, tool round trips completing 10/16, and three corpus tasks
+producing no output in 190–248 s. **None of them is the reasoning text**, and
+the probe kept only 400 of its characters.
+
+A full capture: **6,899 characters, 0.00 % line repetition, `finish_reason:
+stop`**, and the code it then wrote passes. Long reasoning is this model's
+documented normal mode. The same task takes 62.6 s direct and 247.6 s through
+OpenCode with nothing to show, so **the failure is in the agent loop.**
+
+*Full record: [post-mortem](2026-08-21-inferred-looping-from-three-numbers.md).
+Fixed in `bench/protocol_gate.py` — the trace is kept and
+`reasoning_repetition_pct` is recorded on every row.*
+
+---
+
 ---
 
 ## What has NOT been contradicted

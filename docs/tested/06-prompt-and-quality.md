@@ -37,8 +37,13 @@ is the fastest arm and it accepts 15 of 30. It answers wrong, quickly.
 
 ## The format failure, and what was tried against it
 
-The measured blocker: the model loops inside the reasoning block until the token
-budget runs out and never emits a fence. 7 of 48 attempts truncate on budget.
+The measured blocker: attempts end without a fenced code block. 7 of 48 truncate
+on budget.
+
+> **Corrected 2026-08-21 08:30.** This line read *"the model loops inside the
+> reasoning block"*. It does not — a full trace scores **0.00 % line
+> repetition** and ends on `stop`. It reasons at length, which is this model's
+> normal mode, and finishes. `CORRECTIONS.md` §12.
 
 | treatment | contract pass | accepted | reading |
 |---|---|---|---|
