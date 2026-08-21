@@ -90,3 +90,14 @@ probe was far too short to see.
   e.g. *"don't hedge, make conclusions, work forward, don't reconsider"*. Costs
   nothing, aims straight at the blocker.
 - **`reasoning_effort: low` on a 2-bit artifact, through the corpus.**
+
+## KV cache type against prefill — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| Is `q8_0` KV faster than `q4_0` for prefill? | **No reliable difference.** 714/882.5 against 984/871.1 over two reversed rounds; the within-arm spread is wider than the gap | report 27 |
+| Is `f16` KV worth trying? | **Not measurable here.** 2,048 MiB of KV left 427 and 242 MiB free, both rows in the collapse regime | report 27 |
+| Does `iq4_nl` KV work? | **No.** Prefill abandoned at the 737 s timeout, twice | report 27 |
+| Can prefill be tuned at all? | **No.** Every setting-level lever is measured and none move it | report 27 |
+
+Raw: `qwen38-tuning/results/prefill-kv-type.jsonl`.
