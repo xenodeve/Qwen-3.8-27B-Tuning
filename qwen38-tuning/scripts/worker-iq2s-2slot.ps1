@@ -25,15 +25,29 @@ WHAT THIS REPLACES. Turning off memory.enableManagedAutoMemory in
 feature: Qwen Code stops updating its own memories. This profile gets the same
 result server-side and keeps the feature. Report 26.
 
-THE PRICE. 110,592 of KV against 98,304, and a window per conversation of 55,296
-rather than 98,304. That is still comfortably above the 54,499-token request
-measured for Qwen Code, but it is not a lot of room, and a harness with a bigger
-prefix should use profile B and pay the prefill instead.
+THE PRICE, AND IT IS A HARD LIMIT. Each slot gets 55,296 tokens. That was sized
+against a Qwen Code request measured at 54,499 -- from a benchmark prompt, in a
+directory with no project history. A real interactive session measured 71,910
+and this profile rejects it outright:
 
-```
-  .\scripts\worker-iq2s-2slot.ps1
-  .\scripts\warm-cache.ps1 -Work C:\AI     # pays the one cold prefill
-```
+    API Error: 400 request (71910 tokens) exceeds the available context size
+    (55296 tokens), try increasing it
+
+Two slots for a 71,910-token conversation would need 143,820 of context. The
+deepest this card holds fully resident is 131,072, and only at --fit-target 192,
+which settles at 233-424 MiB free. **So this profile is for short sessions only,
+and a session grows.** CORRECTIONS 17.
+
+IF YOUR SESSION IS LARGER, the eviction is still real and the choices are
+worker-iq2s-quality.ps1 at 98,304 with one slot and the cold start, or turning
+memory.enableManagedAutoMemory off in ~/.qwen/settings.json, which removes the
+eviction at any prompt size and costs Qwen Code its own memory updates.
+
+CHECK BEFORE YOU CHOOSE. scripts/bench-cold-start.py reports the largest prefill
+the server actually saw. Run it from the directory you really work in, on a
+session that resembles yours -- a one-line prompt in an empty directory has
+under-measured this three times.
+
 #>
 param([int]$Ctx = 110592, [int]$Port = 8080)
 $ErrorActionPreference = 'Continue'

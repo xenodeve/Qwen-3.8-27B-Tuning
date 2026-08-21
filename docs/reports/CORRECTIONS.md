@@ -344,6 +344,44 @@ evicting the slot — it is the *conclusion drawn from it* that was too narrow.
 
 ---
 
+## 17. The two-slot profile does not fit a real session, and the benchmark is why
+
+`worker-iq2s-2slot.ps1` shipped in §16 with `-c 110592 -np 2`, giving 55,296 per
+slot, sized against a Qwen Code request measured at **54,499 tokens**. The
+developer's actual interactive session is **71,910**:
+
+```text
+  API Error: 400 request (71910 tokens) exceeds the available context size
+  (55296 tokens), try increasing it
+```
+
+**Two slots cannot serve that conversation on this card.** Each would need
+71,910, so 143,820 of context; the deepest this GPU holds fully resident is
+131,072, and only with `--fit-target 192`, which settles at 233-424 MiB free.
+The profile is correct only for a session small enough to fit half the window,
+and a session grows.
+
+**This is the third time a measured prompt size was smaller than reality**, and
+each time the number came from `bench-cold-start.py` driving Qwen Code with
+`-p "reply with exactly the word: ok"` from a directory with no project history:
+
+| claimed | actual | how it surfaced |
+|---|---|---|
+| 16,796 | 54,499 | a 400 at `-c 32768` (§15) |
+| 54,499 | 71,910 | a 400 at `-np 2`, 55,296 per slot (here) |
+
+**A one-line synthetic prompt is not a session.** The harness's request size is
+dominated by conversation history and project context, neither of which the
+benchmark creates. Every window sized from it is sized from a floor.
+
+**What survives.** The mechanism and the cure in §16 are unaffected: two slots at
+`-sps 0.95` really do stop the eviction, measured at 0 tokens prefilled. It is
+the *capacity* that was picked from the wrong number. For a 71,910-token session
+the choices are a single slot and the cold start, or
+`memory.enableManagedAutoMemory` off, which removes the eviction at any size.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":
