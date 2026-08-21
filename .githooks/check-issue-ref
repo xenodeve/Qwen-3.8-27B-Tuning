@@ -1,0 +1,47 @@
+#!/bin/sh
+# T4 guard — every push carries a GitHub issue reference.
+#
+# Unlike the Claude `PreToolUse` gate, this runs in git, so it binds ANY agent
+# (Claude, Codex, Gemini) and any human pushing from this clone.
+#
+# Exit 0 = a reference was found · exit 1 = none.
+set -u
+
+fail() {
+  echo "check-issue-ref: no issue reference found for this work." >&2
+  echo "  A reference may live in the branch name (feat/42-thing), any commit" >&2
+  echo "  message on the branch, or the PR body (#42). Add one, or file the" >&2
+  echo "  issue first — work without a tracked issue is what goes missing." >&2
+  exit 1
+}
+
+# Branch name: the number must sit in the issue-slug position right after the
+# type prefix (feat/42-thing), so `chore/bump-node-22` isn't mistaken for one.
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+
+# A wip/ branch is the sanctioned escape hatch for a deliberate one-off freeze.
+# It buys nothing silently: the branch name itself is the declaration.
+case "$branch" in wip/*) exit 0 ;; esac
+
+if echo "$branch" | grep -Eq '(^|/)#?[0-9]+(-|$)'; then
+  exit 0
+fi
+
+# Commits ON this branch only. A #ref that exists solely on the base branch is
+# someone else's work and must not vouch for this push.
+base="${BASE_REF:-origin/main}"
+if git rev-parse --verify --quiet "$base" >/dev/null 2>&1; then
+  range="$base..HEAD"
+else
+  range="HEAD"          # no base to compare against — fall back to full history
+fi
+if git log --format=%B "$range" 2>/dev/null | grep -Eq '#[0-9]+'; then
+  exit 0
+fi
+
+# The PR body, passed in by CI (`gh pr view --json body -q .body`).
+if echo "${PR_BODY:-}" | grep -Eq '#[0-9]+'; then
+  exit 0
+fi
+
+fail

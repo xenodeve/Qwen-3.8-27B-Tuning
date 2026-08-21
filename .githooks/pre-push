@@ -1,0 +1,29 @@
+#!/bin/sh
+# T4 pre-push hook — the agent-agnostic enforcement tier.
+#
+# The Claude `PreToolUse` gate only sees commands Claude runs. This runs inside
+# git, so it binds every agent on the repo (Claude, Codex, Gemini) and every
+# human pushing from this clone. Enable once per clone:
+#
+#     git config core.hooksPath .githooks
+#
+# It is deliberately opt-in per clone: a hook nobody enabled is honest, a hook
+# that silently rewrites someone's workflow is not.
+set -u
+
+dir="$(dirname "$0")"
+status=0
+
+sh "$dir/check-tree-budget" || status=1
+sh "$dir/check-issue-ref"   || status=1
+sh "$dir/check-gate-ledger" || status=1
+
+if [ "$status" -ne 0 ]; then
+  echo "" >&2
+  echo "pre-push blocked by a T4 guard (above)." >&2
+  echo "  Fix the cause, or push from a wip/ branch for a deliberate freeze." >&2
+  echo "  Bypassing with --no-verify is possible and discouraged: the same" >&2
+  echo "  checks run in CI, where they cannot be bypassed." >&2
+fi
+
+exit "$status"

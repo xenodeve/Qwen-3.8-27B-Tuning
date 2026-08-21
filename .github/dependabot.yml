@@ -1,0 +1,49 @@
+# T4 Dependabot — install as `.github/dependabot.yml` (NOT under workflows/).
+#
+# This file only configures *version* updates. Dependabot ALERTS and SECURITY
+# updates are repo settings, off by default on private repos and not implied by
+# this file — enable them separately (ci-cd-layer.md has the API calls).
+#
+# The grouping below is the point. Ungrouped Dependabot opens one PR per bump;
+# a repo with 40 dev-dependencies produces a wall of PRs, the team learns to
+# rubber-stamp them, and the one that actually breaks the build gets merged with
+# the rest. Same failure as a perpetually-red gate: the signal stops being read.
+version: 2
+
+updates:
+  # --- one block per ecosystem/directory. A monorepo needs one per component ---
+      # Patch/minor together: individually boring, collectively worth one review.
+      minor-and-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+      # Majors are NOT grouped — each one is a breaking-change review of its own.
+    commit-message:
+      prefix: chore                   # conventional-commit style, per the T4 tracker rule
+      include: scope
+    labels: [dependencies]
+
+  # Actions pin drift is a real supply-chain path: a compromised action runs with
+  # your workflow's token. Keep them updated even though nothing "depends" on them.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: chore
+    labels: [dependencies]
+
+  # Python component? Uncomment and point at its directory.
+  - package-ecosystem: pip
+  #   directory: /MIT
+  #   schedule: { interval: weekly }
+  #   groups:
+  #     minor-and-patch:
+  #       patterns: ['*']
+  #       update-types: [minor, patch]
+
+# A Dependabot PR still has to pass every required check — that's the whole
+# safety model for merging one. Never make bot PRs exempt from the ruleset;
+# an auto-merge on a green gate is fine, an auto-merge that skips it is not.

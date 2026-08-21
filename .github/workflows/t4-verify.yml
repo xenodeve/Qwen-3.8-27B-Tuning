@@ -1,0 +1,77 @@
+# T4 verify — the server-side ship gate, and the enforcement local hooks cannot
+# be. Local hooks only catch agent-run commands; this also covers a human
+# merging on the web and cannot be `--no-hooks`'d away.
+#
+# Three required checks on `main`: `lint`, `typecheck`, `test`.
+#
+# **There is deliberately no `build` job.** The stock T4 workflow has four, and
+# this repo builds nothing — it is Python, PowerShell and Markdown. A `build`
+# job that runs `true` would be green forever and would look like a gate, which
+# is the exact failure `ci-cd-layer.md` warns about. Three checks that mean
+# something beat four where one is theatre.
+#
+# Keep in sync with `.claude/t4.json` "verify" — the local gate should fail for
+# the same reasons this does, just sooner.
+name: T4 verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: t4-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the gate only reads the code. Never grant write here — a
+# workflow that can push is a workflow that can bypass the gate it enforces.
+permissions:
+  contents: read
+
+jobs:
+  # The documentation IS the deliverable here, so a dead link is a real defect.
+  # Both scripts exit 0 on success; audit-stale-claims reports and never gates,
+  # by design — see scripts/README.md for why a prose gate is a bad idea.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Every relative markdown link resolves
+        run: python scripts/check-doc-links.py
+      - name: Report claims later measurements superseded
+        run: python scripts/audit-stale-claims.py
+
+  # No type checker is configured. Compiling every module still catches the
+  # class of defect that actually bit this repo: a heredoc patch that produced
+  # an unterminated string literal, twice in one session.
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Every Python module parses
+        run: |
+          python -m compileall -q qwen38-tuning/bench scripts
+      - name: Every shell queue script parses
+        run: |
+          for f in qwen38-tuning/scripts/*.sh; do bash -n "$f" || exit 1; done
+
+  # The real gate. Every test here is named after an incident where the
+  # instrument returned a believable number instead of a failure.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet pytest
+      - name: Harness suite
+        working-directory: qwen38-tuning/bench
+        run: python -m pytest tests/ -q

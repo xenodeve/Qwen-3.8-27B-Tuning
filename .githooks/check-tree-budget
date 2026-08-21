@@ -1,0 +1,46 @@
+#!/bin/sh
+# T4 guard — a push must not carry a large dirty working tree.
+#
+# Distilled from a real incident in MangaDock: a 312-file WIP accumulated on a
+# shared branch and blocked the next stage of work. The rule it enforces is
+# "every session starts from a clean tree"; the budget is what makes that
+# checkable rather than aspirational.
+#
+# Exit 0 = within budget · exit 1 = over.
+set -u
+
+MAX_TRACKED="${T4_MAX_TRACKED:-25}"
+MAX_UNTRACKED="${T4_MAX_UNTRACKED:-50}"
+
+status=$(git status --porcelain 2>/dev/null)
+tracked=$(echo "$status" | grep -cv '^??')
+untracked=$(echo "$status" | grep -c '^??')
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+
+# Build artifacts are blocked unconditionally. A wip/ freeze is a statement about
+# *how much* unfinished work is in flight, never a licence to commit generated
+# output — that's the one thing no branch name makes acceptable.
+artifacts=$(echo "$status" | sed 's/^...//' | grep -Ei \
+  '(^|/)(node_modules|dist|build|coverage|test-results|playwright-report|_render_dump|\.next|\.turbo)(/|$)|\.(log|tmp)$' \
+  | head -5)
+if [ -n "$artifacts" ]; then
+  echo "check-tree-budget: build artifacts must not be pushed." >&2
+  echo "$artifacts" | sed 's/^/  /' >&2
+  echo "  Add them to .gitignore, or remove them. A wip/ branch does NOT exempt this." >&2
+  exit 1
+fi
+
+# The count gate. A wip/ branch is the sanctioned escape hatch for a deliberate
+# one-time freeze, so it skips this — and only this.
+case "$branch" in wip/*) exit 0 ;; esac
+
+if [ "$tracked" -gt "$MAX_TRACKED" ] || [ "$untracked" -gt "$MAX_UNTRACKED" ]; then
+  echo "check-tree-budget: working tree is over budget." >&2
+  echo "  tracked changes: $tracked (max $MAX_TRACKED) · untracked: $untracked (max $MAX_UNTRACKED)" >&2
+  echo "  Commit the work to an issue-scoped branch, or push from a wip/ branch" >&2
+  echo "  for a deliberate one-time freeze. A large dirty tree is how work gets" >&2
+  echo "  lost and how the next session starts from an unknown state." >&2
+  exit 1
+fi
+
+exit 0

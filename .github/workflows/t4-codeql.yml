@@ -1,0 +1,59 @@
+# T4 CodeQL — static analysis for the defect class tests never catch: injection
+# paths, unsafe deserialization, path traversal, hardcoded credentials in code
+# that passes every unit test.
+#
+# COST, stated plainly: free on PUBLIC repos. On a PRIVATE repo, code scanning
+# requires GitHub Advanced Security (paid, per active committer). If you don't
+# have it, don't leave a broken workflow in the repo — delete this file and use
+# the fallbacks listed in ci-cd-layer.md instead.
+#
+# Install as `.github/workflows/t4-codeql.yml`. Required check name: `analyze`.
+name: T4 CodeQL
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # A weekly run catches newly-published query results against unchanged code —
+  # the vulnerability class where your code didn't change but the analysis did.
+  schedule:
+    - cron: '0 3 * * 1'
+
+concurrency:
+  group: t4-codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write            # required: this is how results are uploaded
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false              # one language failing must not hide the others
+      matrix:
+        # NOTE: a matrix makes the check name `analyze (javascript-typescript)`,
+        # not `analyze` — require the matrix-expanded names in the ruleset. See
+        # ci-cd-layer.md on job name vs required-check context.
+        language: ['python']   # add: python, java, go, ruby, csharp, cpp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          language: ${{ matrix.language }}
+          # security-extended trades a longer run for more findings. Start on
+          # the default suite; widen once the backlog is at zero, or the first
+          # run buries a real finding under noise nobody triages.
+          queries: security-extended
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
+
+# Findings land in the Security tab, NOT in the PR check by default. Code
+# scanning results only BLOCK a merge if you say so — see ci-cd-layer.md
+# ("alerts are not gates"). Decide that deliberately; an unblocking scanner
+# whose alerts nobody reads is theater with a green badge.

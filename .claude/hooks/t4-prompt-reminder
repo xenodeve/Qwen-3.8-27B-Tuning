@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# SYNC: this file must stay BYTE-IDENTICAL to skills/t4/t4-project-bootstrap/references/hooks/t4-prompt-reminder
+#       (tests/hooks/test-bootstrap-sync.sh). Edit here, then copy over -- the bootstrap
+#       ships its own copies so a repo installed without the plugin is self-contained.
+# T4 UserPromptSubmit hook — a short rails reminder, injected every turn in a T4
+# repo so the workflow doesn't get buried as the session grows. Guard only; no
+# per-session dedup (re-anchoring each turn is the point). Kept intentionally
+# short to avoid context bloat.
+set -uo pipefail
+
+cat >/dev/null  # drain stdin (payload unused)
+
+[ -f ".claude/t4.json" ] || exit 0
+
+# The reminder is a static, JSON-safe literal (no quotes / backslashes / control
+# chars), so it needs no escaping — emit it directly.
+reminder="T4 repo — stay on the rails: route this task through the \`using-t4\` map before acting. For build/feature/issue/PR work, follow \`t4-dev-workflow\` (PRD -> issues -> PR gate; a PR needs a referenced issue; TDD is mandatory). Record what you ship (\`t4-agent-memory\`). Don't work from memory of a skill — load the current one."
+
+printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$reminder"
+exit 0

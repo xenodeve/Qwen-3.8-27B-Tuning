@@ -1,0 +1,78 @@
+#!/bin/sh
+# T4 guard — every push states what happened to each judgment gate.
+#
+# The mechanically-enforced gates have hooks. The judgment gates — /simplify,
+# /code-review, /scrutinize, /security-review, /verify — have none, and
+# `t4-dev-workflow` says plainly that hooks "can raise the cost of skipping a
+# judgment skill but can't verify the reasoning". Until this guard the cost was
+# zero: on 2026-08-04 an AFK batch opened nine PRs (pal-mcp-server #44-#48, #50;
+# xeno-skills #100-#103) with three of those gates run zero times, and nothing
+# failed, warned, or went missing. Paying them afterwards found a real defect in
+# seven of the ten PRs, so the omission was not harmless — it was invisible.
+#
+# This guard does NOT force a gate to run. `not-run` is a legal value and passes.
+# What it forbids is expressing an omission as SILENCE, because silence reads as
+# completeness in the only report anybody reads.
+#
+# Exit 0 = every gate is stated · exit 1 = one is not.
+set -u
+
+GATES="simplify code-review scrutinize security-review verify"
+EXAMPLE="T4-Gates: simplify=ran code-review=ran scrutinize=ran security-review=n-a verify=ran"
+
+no_ledger() {
+  echo "check-gate-ledger: no gate ledger found for this work." >&2
+  echo "  Add a trailer to any commit on this branch stating every judgment gate:" >&2
+  echo "" >&2
+  echo "    $EXAMPLE" >&2
+  echo "" >&2
+  echo "  Legal values are ran | not-run | n-a. 'not-run' is allowed — this guard" >&2
+  echo "  forbids saying nothing about a gate, not skipping one." >&2
+  exit 1
+}
+
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+
+# A wip/ branch is the sanctioned escape hatch for a deliberate one-off freeze,
+# the same one check-issue-ref honours. The branch name itself is the declaration.
+case "$branch" in wip/*) exit 0 ;; esac
+
+# Commits ON this branch only. A ledger that exists solely on the base branch is
+# someone else's claim about someone else's work and must not vouch for this push.
+base="${BASE_REF:-origin/main}"
+if git rev-parse --verify --quiet "$base" >/dev/null 2>&1; then
+  range="$base..HEAD"
+else
+  range="HEAD"          # no base to compare against — fall back to full history
+fi
+
+# The claim is about the branch, not its tip: a follow-up commit must not
+# invalidate a ledger already recorded. Last one wins if there are several.
+ledger="$(git log --format=%B "$range" 2>/dev/null | grep -E '^[[:space:]]*T4-Gates:' | tail -n 1)"
+[ -n "$ledger" ] || no_ledger
+
+missing=""
+for gate in $GATES; do
+  value="$(printf '%s\n' "$ledger" | tr ' ' '\n' | sed -n "s/^$gate=//p" | tail -n 1)"
+  if [ -z "$value" ]; then
+    missing="$missing $gate"
+    continue
+  fi
+  case "$value" in
+    ran|not-run|n-a) ;;
+    *)
+      echo "check-gate-ledger: '$value' is not a legal value for $gate." >&2
+      echo "  Legal values are ran | not-run | n-a." >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ -n "$missing" ]; then
+  echo "check-gate-ledger: the gate ledger is incomplete —$missing not stated." >&2
+  echo "  State every gate. An omitted one is indistinguishable from a passed one," >&2
+  echo "  which is the entire defect this guard exists for." >&2
+  exit 1
+fi
+
+exit 0
