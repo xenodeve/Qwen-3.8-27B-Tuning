@@ -226,6 +226,89 @@ original context is already written down.
 
 ---
 
+## 3.5 The decision this benchmark has to serve
+
+The FP8 ceiling answers *how much is lost to quantization*. It does not answer
+the question the developer actually has to decide: **within a fixed VRAM
+budget, which rung do we serve?**
+
+Three things compete for the same ~9.5 GB, and buying more of one means less of
+the other two:
+
+```text
+  bits-per-weight   x   context window   x   drafter
+```
+
+That is why Q2 is not merely an economy. **A context window that turns out to
+be over-provisioned is the currency that buys a higher rung.** If real tasks
+peak at 40,000 tokens and we serve 98,304, the returned VRAM is not "savings" --
+it is the difference between IQ2_XXS and IQ2_S, or between no drafter and
+DFlash2.
+
+### The ladder, measured on disk 2026-08-22
+
+| artifact | on disk | fits in ~9.5 GB free? |
+|---|---:|---|
+| `UD-Q4_K_XL` | 16.69 GB | **no** |
+| `UD-Q3_K_XL` | 12.52 GB | **no** |
+| `UD-Q2_K_XL` | 9.15 GB | weights only, essentially no room for KV or a drafter |
+| `UD-IQ2_XXS` (pre-V3) | 8.39 GB | yes, thin |
+| `AD-IQ2_XXS` (AtomicChat) | 8.36 GB | yes, thin |
+| **`UD-IQ2_S`** | **7.80 GB** | yes — **and it has never been loaded once.** Ledger row, open since 2026-08-20 |
+| `AD-IQ1_M` | 7.91 GB | yes |
+| `UD-IQ2_XXS` (Dynamic V3) | 6.77 GB | yes, with room to spare — the current default |
+| `UD-IQ1_M` | 6.27 GB | yes |
+| `UD-IQ1_S` | 5.77 GB | yes |
+
+Drafters, same budget: `DFlash2-Q4_K_M` 1.06 GB on disk, `mtp-Qwen3.8-27B-Q4_0`
+1.28 GB.
+
+### File size is not resident cost — measure it
+
+**Measured 2026-08-22:** the DFlash2 drafter is **1.06 GB on disk and 1,936 MiB
+resident** (free VRAM 2,376 MiB without it, 440 MiB with it, same boot, same
+window). A factor of 1.79. Every row above is an *input* to the arithmetic, not
+the answer.
+
+Worse, `--fit` **cannot measure the drafter at all** -- it logs `[spec] failed
+to measure draft model memory` and then chooses layers without accounting for
+it (issue #17). So a configuration that "fits" according to `--fit` may not.
+
+**Therefore: each rung's resident cost is measured, not computed.** Boot it,
+read free VRAM, record it. One boot per rung, before any task runs.
+
+### The frontier, and what Phase 5 does
+
+Once Q2 gives a required window, each rung has one honest question: *at that
+window, does it fit, and what does it score?*
+
+**Phase 5 — the budget frontier.** For each rung that fits the Q2 window:
+
+1. Boot it at that window and record resident VRAM and the layer split
+   (`expect_layers=65`; the default read returns the drafter's `6+0`).
+2. If a drafter also fits, record that as a separate point.
+3. Run the Phase 2 task subset.
+4. Plot PASS rate against rung.
+
+The output is not a winner. It is a **frontier**: the highest rung that still
+fits the window real work needs, with its task score beside it. The developer
+picks the point; the benchmark supplies the axes.
+
+**`UD-IQ2_S` is the first rung to run.** It sits between the artifact that fails
+on format (2.16 bpw) and the one that works (2.64), it has been in the cache
+since 2026-08-20 01:36 without ever being loaded, and choosing between artifacts
+on quality is currently a decision with no evidence at all — report 27 says so
+in those words.
+
+### Do not assume the ladder is monotonic
+
+More bits is not automatically better here, and this project has the receipt:
+`draft-mtp` is +81 % at 16K and -71 % at 131,072 on the *same* artifact. A rung
+that scores worse than the one below it is a finding, not a measurement error —
+record it and check it, do not smooth it.
+
+---
+
 ## 4. Verification — how a task is scored
 
 Read from each repo's own configuration on 2026-08-22. **Where a repo has a T4
@@ -417,6 +500,21 @@ injection* is the wrong delivery mechanism for them, which is a different and
 more actionable finding. Say which of the two the data supports, and do not
 let a throughput result be read as a judgment on the content.
 
+### Phase 5 — the budget frontier (the phase that produces the decision)
+
+Specified in **§3.5**, which carries the ladder, the measured resident cost, and
+why file size is not it. Summarised here so §6 is not missing a phase:
+
+For every rung that fits the window Q2 justifies — boot it, record resident VRAM
+and the layer split, add a drafter if it still fits, run the Phase 2 subset,
+and plot PASS rate against rung.
+
+**Start with `UD-IQ2_S`**: 7.80 GB, in the cache since 2026-08-20 01:36, never
+loaded once, and sitting exactly between the artifact that fails on format and
+the one that works.
+
+The output is a frontier, not a winner. The developer picks the point.
+
 ---
 
 ## 7. Per-task procedure
@@ -487,6 +585,7 @@ Wall-clock is the constraint; the GPU serves one arm at a time.
 | 4 | **Phase 2** — decoders, 6–8 tasks × 2 arms × 3 rounds | 36–48 | the long pole, and the only phase that needs pairing |
 | 5 | **Phase 3** — standard vs clink, subset × 2 | 12–16 | clink back-ends are slow in wall-clock, cheap in money |
 | 6 | **Phase 4** — skills on/off, subset × 2 (× 2 models) | 12–32 | run on the reference too if budget allows |
+| 7 | **Phase 5** — the budget frontier, rungs that fit × subset | 18–40 | the phase that produces the decision. Needs Q2's window first |
 
 **Stop after any phase and the work still has value** — that ordering is
 deliberate. Phase 0 alone answers Q4's headline. Phase 0 + 1 answers Q4 and Q2,
