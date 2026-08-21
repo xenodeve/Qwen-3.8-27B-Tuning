@@ -269,3 +269,58 @@ The experiment is a control group: same folder, same fresh session, same `hi`,
 and capture the call count, the tokens per call, the cached-token count and the
 time to first token from both. Until that is run, **no claim should be made about
 why the gateway is faster.**
+
+## The hidden skill is unreachable, not merely unadvertised
+
+**Measured 2026-08-21.** `~/.qwen/skills/animation` was flagged with
+`disable-model-invocation: true`, and the CLI was asked to invoke it **by exact
+name** in both states:
+
+| state | what the Skill tool returned |
+|---|---|
+| advertised | the call was made and **declined by the permission layer** in non-interactive mode |
+| flagged | *"Skill 'animation' not found (it is not among the available skills)"* |
+
+Two different failures. The second is the registry saying the skill does not
+exist, not a permission denial.
+
+**So the flag cannot carry a Dynamic Skill Injection design that hides a skill
+and has a router ask the model to call it.** It removes the skill from the
+model's reach entirely. Injecting the skill's *content* into the prompt when it
+is needed remains possible; asking the model to invoke a hidden one does not.
+
+## The gateway receives the same payload and is simply faster
+
+**Control group, 2026-08-21.** Same folder, same fresh session, same `hi`, same
+352-skill catalogue, captured through a recording proxy in front of
+`gateway.9arm.co` — Qwen3.8-27B FP8 instead of the local IQ2_S:
+
+| call | messages | tools | prompt tokens | TTFB | wall |
+|---|---|---|---|---|---|
+| 1 | 1 | 0 | 54 | 0.52 s | 0.52 s |
+| 2 | 2 | 1 | not reported | 3.40 s | 3.40 s |
+| 3 | 2 | 8 | **54,478** | 4.97 s | 8.94 s |
+| 4 | 5 | 1 | not reported | 3.97 s | 3.97 s |
+| 5 | 5 | 8 | **57,700** | 1.41 s | 3.16 s |
+
+**Total wall time: 19.4 s**, against roughly 171 s of prefill locally.
+
+**The harness is not doing anything different.** 54,478 and 57,700 against the
+local 54,485 and 56,277 — the same calls, carrying the same catalogue. Nothing is
+stripped or transformed on the way.
+
+**Three hypotheses, resolved:**
+
+- *A different call path* — **refuted.** Five calls either side, same shapes.
+- *A reported cross-request prefix cache* — **not reported.**
+  `prompt_tokens_details.cached_tokens` is absent from every response.
+- *Prefill throughput* — **supported, and it is the whole difference.** 54,478
+  tokens at 4.97 s to first byte implies roughly **11,000 tok/s** against our 900.
+  Call 5 then takes 57,700 tokens to first byte in **1.41 s**, which is the
+  signature of prefix reuse on top of that: the same prefix, a quarter of the
+  latency.
+
+**So the catalogue is the root cause of the work this machine performs, and the
+gateway is not spared it — it absorbs the same 112,000+ input tokens an order of
+magnitude faster.** Removing the catalogue is still the only lever available
+here, because the other one is a different class of hardware.

@@ -178,3 +178,14 @@ Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
 | How many skills are installed? | **257** in `~/.qwen/skills` | report 26 |
 | Why is the same catalogue free on the gateway? | **Unexplained.** Prefix cache, prefill throughput, or a different call path — none tested | report 26 |
 
+
+## The two open questions, closed — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| Is a flagged skill still invocable by name? | **No.** The registry reports it *not found*; advertised, the same call is only blocked by permissions | report 26 |
+| Does the gateway receive a smaller payload? | **No.** 54,478 and 57,700 tokens against the local 54,485 and 56,277, five calls either side | report 26 |
+| Does the gateway report a prefix cache? | **No.** `cached_tokens` is absent from every response | report 26 |
+| Then why is it fast? | **Prefill throughput.** 54,478 tokens at 4.97 s to first byte is ~11,000 tok/s against our 900; the second big call reuses the prefix and drops to 1.41 s | report 26 |
+| End to end for the same `hi` | **19.4 s on the gateway against ~171 s of local prefill** | report 26 |
+
