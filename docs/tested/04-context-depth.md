@@ -166,3 +166,15 @@ Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
 | Do the two modes share a cache prefix? | **70 tokens.** They cannot warm each other | report 26 |
 | How was it measured? | Requests captured through a proxy, rendered by the server's `/apply-template`, counted by its `/tokenize` | report 26 |
 
+
+## Removing the catalogue without losing the skills — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| Does `disable-model-invocation: true` remove a skill from the catalogue? | **Yes, exactly.** 18 files flagged, 18 fewer advertised | report 26 |
+| What does one skill cost? | **~87 tokens.** 38,064 -> 36,496 for 18 skills | report 26 |
+| What would flagging all 344 user-scope skills save? | roughly **30,000 tokens**, keeping every file, MCP server, memory feature and extension | report 26 |
+| Is a flagged skill still invocable? | **Not tested.** That is the half that matters | — |
+| How many skills are installed? | **257** in `~/.qwen/skills` | report 26 |
+| Why is the same catalogue free on the gateway? | **Unexplained.** Prefix cache, prefill throughput, or a different call path — none tested | report 26 |
+

@@ -224,3 +224,48 @@ Ranked by what the measurement supports:
    while removing it from the advertisement. **Not tested here.**
 
 Nothing on this list touches the server, the quantization, or CUDA.
+
+## `disable-model-invocation: true` works, and it is linear
+
+**Measured 2026-08-21.** Eighteen skills in `~/.qwen/skills` had the line added
+to their frontmatter, the catalogue was captured again through the proxy, and the
+files were restored:
+
+| | skills advertised | catalogue |
+|---|---|---|
+| baseline | 352 | 38,064 tok |
+| 18 skills flagged | 334 | 36,496 tok |
+| **per skill** | **−1** | **−87 tok** |
+
+Exactly 18 fewer entries for 18 files. **The mechanism does what its name says
+and the cost is linear**, so applying it to all 344 user-scope skills removes
+roughly **30,000 tokens** — most of the 38,064 — while every skill file, every
+MCP server, the memory features and the extensions all stay in place.
+
+That is the difference between this and `--safe-mode`, which buys the same
+reduction by turning everything off.
+
+**Not tested: whether a flagged skill is still invocable.** The point is not to
+delete skills from the prompt, it is to keep them reachable while they are idle,
+and that half has no measurement behind it yet.
+
+`~/.qwen/skills` holds **257** skills, not the 69 an earlier depth-limited count
+reported.
+
+## Still open: why the same catalogue costs nothing on a gateway
+
+The same Qwen Code, the same 352 skills, against Qwen3.8-27B FP8 on a remote
+gateway, answers quickly. **That is not explained by anything measured here.**
+The catalogue is the root cause of the *work this machine performs*; it is not
+the reason the two endpoints differ. Three candidates, none tested:
+
+- the gateway holds a cross-request prefix cache over a 38,064-token block that
+  never changes, which is the ideal case for one;
+- its prefill throughput is an order of magnitude above 900 tok/s, so 153,621
+  tokens cost seconds rather than minutes;
+- the harness takes a different path against it and never sends four calls.
+
+The experiment is a control group: same folder, same fresh session, same `hi`,
+and capture the call count, the tokens per call, the cached-token count and the
+time to first token from both. Until that is run, **no claim should be made about
+why the gateway is faster.**
