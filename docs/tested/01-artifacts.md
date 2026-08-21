@@ -65,3 +65,15 @@ at 7.80 GiB sits in the gap, already on disk, never opened. Registered in
   weights can do when quantization is not the constraint.
   *Raw: none — run through `mcp__pal__clink`, graded by hand with
   `run_bench.verify`. Four calls, 2026-08-21.*
+
+## IQ2_XXS against IQ2_S, head to head — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| Does `UD-IQ2_XXS` prefill faster? | **No.** 1,133 against 1,114-1,121 tok/s, a 1.6 % gap inside the noise floor | report 27 |
+| Does it decode faster? | **Yes, 57 %.** 77.4 against 49.2 tok/s, reproducible to 0.3 % | report 27 |
+| How much VRAM does it free? | **1,056 MiB**, and that is the distance from the collapse regime | report 27 |
+| Does the swap shorten the cold start? | **No.** The cold start is prefill, and prefill does not move | report 27 |
+| What does it cost in quality? | **Unmeasured here.** The five vendor points are from a 4,096-context curve; there is no real-work run on `UD-IQ2_S` to compare against profile A's 6 of 10 | — |
+
+Raw: `qwen38-tuning/results/artifact-prefill.jsonl`.
