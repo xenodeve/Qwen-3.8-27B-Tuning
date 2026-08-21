@@ -1,0 +1,6 @@
+﻿{"effort":"low","run":1,"wall_s":67.8,"completion_tokens":453,"reasoning_chars":384,"rounds":3,"tool_calls":2,"bad_arg_parses":0,"reached_patch":true}
+{"effort":"low","run":2,"wall_s":85.3,"completion_tokens":608,"reasoning_chars":570,"rounds":4,"tool_calls":4,"bad_arg_parses":0,"reached_patch":true}
+{"effort":"medium","run":1,"wall_s":85.6,"completion_tokens":610,"reasoning_chars":621,"rounds":4,"tool_calls":4,"bad_arg_parses":0,"reached_patch":true}
+{"effort":"medium","run":2,"wall_s":50.1,"completion_tokens":352,"reasoning_chars":212,"rounds":3,"tool_calls":2,"bad_arg_parses":0,"reached_patch":true}
+{"effort":"xhigh","run":1,"wall_s":84.2,"completion_tokens":588,"reasoning_chars":632,"rounds":4,"tool_calls":4,"bad_arg_parses":0,"reached_patch":true}
+{"effort":"xhigh","run":2,"wall_s":106.9,"completion_tokens":741,"reasoning_chars":1008,"rounds":4,"tool_calls":4,"bad_arg_parses":0,"reached_patch":true}

@@ -1,0 +1,42 @@
+# Unsloth Dynamic V3.0 (Quantization Strategy)  
+Unsloth’s **Dynamic V3.0** (preview) quantization combines mixed precision and importance metrics to maximize fidelity. รายงานรุ่น Qwen 3.8 (GGUF) ระบุว่าการใช้ Dynamic V3.0 ทำให้ได้ความแม่นยำ top-1 สูงขึ้นกว่า quant อื่นๆ ราว **>10%** ในความจุเท่ากัน. ใน model card จะเห็นว่า artefact หลายขนาดถูกสร้าง เช่น **UD-IQ2_XXS 7.27 GB**, **UD-IQ2_S 8.37 GB**, **UD-Q2_K_XL 9.83 GB** (2-bit) เป็นต้น. ในการทดสอบของเรา พบว่า UD-IQ2_XXS (ประเมิน 8.39 GiB) สามารถรันบน GPU เต็ม (65/65 layers) ได้โดยเร็วประมาณ 42.4 tok/s พร้อมรักษาคุณภาพเทียบเท่าการใช้ Q4. ข้อมูลใน model card ยังชี้ว่าเวอร์ชัน 4-bit (UD-Q4_K_M/X) มีขนาด ~16–17 GB และรองรับ MTP “MTP Q4_0” ซึ่งแสดงว่ามี multi-token prediction ถูกฝึกไว้ (ดู `MTP` ในรายชื่อ model file). อย่างไรก็ตาม เราพบว่า **MTP** เมื่อใช้กับโมเดลเกือบเต็ม GPU (เช่น IQ2) มักทำให้ VRAM เกิน ทำให้ช้าลง (เทียบได้จากทดสอบ Qwen3.6-35B ก่อนหน้า) เนื่องจากเลเยอร์ท้ายต้องย้ายไป CPU.  
+
+# Ornith-1.5: โมเดลใหม่สาย Agentic Coding  
+DeepReinforce เพิ่งเปิดตัว **Ornith-1.5** รุ่นล่าสุด เป็นชุดโมเดล LLM เปิด (MIT license) ที่โฟกัสงาน reasoning, coding, agentic เริ่มต้นจากแนวคิด **Self-Improvement** ของ Ornith-1.0 โดยให้โมเดลสร้าง task ใหม่, scaffold, แล้วใช้ rollout RL ปรับปรุงผลลัพธ์. Ornith-1.5 มีสามสเกลหลัก: **397B MoE**, **35B MoE** (3-expert active), และ **9B dense**. บริษัทรายงานผลเบนช์มาร์กสูงสุดในกลุ่มโอเพ่นซอร์ส: รุ่น 397B ทำ **86.1** บน Terminal-Bench 2.1 และ **56.0** บน DeepSWE (เทียบ Claude 4.8 ที่ 85.0, 59.0). รุ่น 35B-A3B “เปิดใช้งาน” 3 พารามิเตอร์ต่อโทเคน ก็เหนือกว่า Qwen 3.6-35B (68.5 vs 43.4 ใน TB2.1) และชนะโมเดล dense ขนาดใหญ่กว่า เช่น Gemma4-31B และ Muse-30B ในหลายงาน coding/agentic (e.g. SWE Verified 79.0 vs 52.0/76.0). รุ่น 9B dense แม้ตัวเล็กแต่ก็แรง: ทำ **47.0** ใน TB2.1 และ **70.6** ใน SWE-Bench Verified, “ตีตื้น” หรือเกือบชนะ Gemma4-31B (พื้นที่ใหญ่กว่า). สรุปคือ Ornith-1.5 ทั้งสามขนาดแสดงศักยภาพสูง และมีเวอร์ชัน quantized (FP8, GGUF, MLX, NVFP4) เผยแพร่ใน HF ซึ่งน่าสนใจที่จะนำมาทดสอบกับงานเรา.
+
+# Speculative Decoding & Draft Engines  
+เนื่องจากสมรรถนะ (throughput) ของโมเดลไม่ได้ขึ้นกับแค่โมเดลและ quant แต่ยังขึ้นกับการ decode เร็วๆ ด้วย, ควรสำรวจโหมด decoding เร่งด้วย draft:  
+- **MTP (Multi-Token Prediction)**: โหมดฝึกผลหลายโทเคนพร้อมกัน (multi-step prediction) โดยเน้นเวอร์ชันหัวนอก (head-offload) เช่น Qwen3.8 ฝึก MTP ได้ขึ้น จึงรองรับการพยากรณ์ครั้งละหลายโทเคนโดยไม่ต้องโหลด external drafter. ข้อได้เปรียบคือง่ายไม่มีไฟล์เสริม แต่ก็ “แย่ง VRAM” ทำให้ถ้า RAM น้อยลงจะช้าลง (จากที่เคยทดสอบ MTP กับ Qwen3.6-35B พบว่า MTP-2 ลด throughput ของ IQ2 เพราะ 6 layer ย้ายไป CPU).  
+- **EAGLE-3**: เร็ว  prediction autoregressive บน “feature” (หยิบ hidden state มาใช้), รองรับการประมวลผลขนานเลเยอร์ และทำ token generation ตาม superposition ของหลายเลเยอร์. รายงานว่าทำ *speedup สูงสุดถึง 6.5×* (เมื่อเทียบกับ decoding ปกติ, และดีกว่า EAGLE-2 ราว 1.4×). มี library (SafeAILab/EAGLE) และรองรับใน llama.cpp (`--spec-type draft-eagle3`). ควรทดสอบกับ Qwen3.8 รุ่นหนัก ๆ เพื่อตรวจว่า VRAM พอ.  
+- **DFlash (Diffusion Flash)**: ใช้โมเดล diffusion ขนาดเล็กสร้าง draft เป็น block พร้อมกัน (“block diffusion”) แทน AR. DFlash สร้างบล็อกหลายโทเคนในครั้งเดียวแล้ว target model ตรวจทีหลัง วิธีนี้ให้อัตราการยอมรับสูงกว่า AR-draft มาก (ทดลองได้ *>6×* speedup แบบ “lossless” ในงาน ICML 2026). พร้อมอ้างว่าเร็วกว่า EAGLE-3 ถึง 2.5×. ปัจจุบัน llama.cpp รองรับ `draft-dflash`. จุดสำคัญคือต้องมี **drafter เฉพาะ target** และ model ต้องรองรับ. DeepSeek เปิดโค้ดฝึก DFlash ของหลาย target (Qwen3.6, GPT-OSS ฯลฯ) แต่ยังไม่มี checkpoint สาธารณะของ Qwen3.8 → ถ้ามี Ornith-1.5 หรือ Qwen3.8 DFlash จะกลายเป็น Priority Zero.  
+- **DSpark (DeepSeek’s Spark)**: พัฒนา DFlash ต่อด้วยการเพิ่ม semi-autoregressive (Markov) และ **confidence head** เพื่อ adaptive verification. DeepSeek รายงานว่าเมื่อทดสอบจริงบนระบบ production, DSpark เร็วกว่าฐาน MTP-1 ถึง **60–85%** (with identical throughput). หมายความว่า DSpark เหมาะมากในระบบล็อตสูงๆ ลด waste จากยืนยันโทเคนที่ถูกคาดมาน้อย. ในทางทฤษฎี DSpark ชนะ DFlash/MTP (ด้วยโมเดลขนาดเท่ากัน) เพราะมี dependency modeling และปรับความยาวตรวจสอบแบบดิจิตัล. ทั้ง DFlash/DSpark ต้องทดสอบกับโมเดลเป้าหมายโดยตรง (greedy output ต้องเหมือนเดิม, เรื่อง accuracy lossless) – ถ้าล้มเหลวก็ต้องตัดออก.  
+- **อื่นๆ**: ปัจจุบัน llama.cpp มี `draft-simple`, `ngram-cache` ฯลฯ (n-gram ต้องมีแคช token sequence) แม้ในเครื่องเราทดสอบของเก่า (ngram-simple) ไม่คุ้มที่ 16K, แต่เวอร์ชันใหม่ (map-based, modded) น่าทดสอบคร่าวๆ (low cost) เพื่อดูว่าช่วยเล็กๆ ได้ไหม.  
+
+ทุกรูปแบบ speculative decode ต้องทดสอบ gate หลักก่อน: มี drafter พร้อมและรองรับ runtime? (ls/llama-server --help), พอ GPU space ไหม? (เช่น ถ้ drafter ดันทำให้ต้องย้ายเลเยอร์หลายชั้นไป CPU หรือ VRAM เต็มก็ต้องถอดใจ), แล้วต้อง verify greedy-equivalence ก่อนใช้จริง.
+
+# ตัวเลือกโมเดลและ quant อื่นๆ ที่น่าสนใจ  
+นอกจาก Qwen3.8, ควรสำรวจโมเดลอื่นที่เปิดโอเพนเวท (open-weight) ในกลุ่มใกล้เคียง / รองรับตลาด:  
+
+- **โมเดลขนาดเล็กถึงกลาง (7B–14B)**: เช่น Gemma 4-12B (แชนเนลขนาดเล็กแต่ multimodal, ~5.1B effective), Gemma 4-8B, Mistral หรือ Llama 13B, Qwen3.5/3.6 รุ่นเล็ก (Qwen3.6 ไม่มี 12B โดยตรง, แต่ Qwen2.5-32B เป็น 32B ที่ลด param). โมเดลเหล่านี้ แม้ parameter น้อยกว่า 27B แต่ quant ลง Q6/Q8 หรือ GF16 ก็ได้ VRAM เทียบเคียง (~8–12 GB) และสามารถถอดรหัสเร็วกว่าหลายเท่า (ตัวอย่างเช่น Bonsai-8B 2-bit สปีด ~56 tok/s บน M3 Ultra). นอกจากนี้ Qwen3.6-26B-A4B (Mixture experts 26B, 4 active) ก็อยู่ในข่าย และ AWQ/GPTQ บนโมเดลเหล่านี้มักให้คุณภาพดี. ผลงานของ Zheng et al. พบว่า Qwen3 สามารถย่อได้ดีในระดับ 4-6 bit แต่จะเสื่อมมากใน 1-2 bit – แสดงว่าวิธี quant แบบ offline (GPTQ, AWQ) สะดวกกว่า uniform 1-bit ธรรมดาสำหรับเลเยอร์ใหญ่.  
+
+- **โมเดล Mixture-of-Experts (MoE)**: Ornith-1.5-35B-A3B (เปิดโอเพ่น) น่าสนใจมากเพราะผลทดสอบแสดง performance สูง. Gemma 4-26B-A4B (MoE 26B, 4 active) ก็ open-weight และ 31B (dense) ก็มี, รองรับ context 256K. ทั้ง Gemma 4 และ Ornith 1.5 รุ่นใหญ่ก้าวสู่ระดับงาน reasoning/agentic ตัวท็อป. ควรสอบดู Artifact quant ของเหล่านี้ (ไม่ว่าจะ Q4/Q6 ฯลฯ) และความต้องการ VRAM.  
+
+- **Ternary Bonsai 27B (Prism ML)**: โมเดล Qwen3.6-27B ที่ quant เป็น ternary (-1,0,1) โดย Prism ML ผลคือไฟล์ ~7.17 GB. บน RTX 4070 รายงานได้ ~63 tok/s (pre-fill 228 tok/s) ซึ่งเร็วกว่าสองเท่าของ Qwen3.8 IQ2 บน VRAM เท่ากัน. อย่างไรก็ตาม benchmark coding 100 sample ยังได้ *55/100* ผ่าน✅ (ความแม่นยำก้ำกึ่ง). เป็นตัวอย่างว่า quant ขั้นสูง (1.71 bit **จริงๆ**) ลดรุ่นใหญ่ให้กลายเป็นโมเดลขนาดเล็กที่ deploy บนมือถือได้. ควรทดสอบ Ternary-Bonsai ในระบบเราเป็นตัวอย่างหลายโมเดล.  
+
+- **โมเดลอื่นๆ น่าสนใจ**: บริษัทอื่นๆ เช่น Llama 2 (ไม่มี 27B), Mistral 7B/8B/3B, Phi-3 (7B, 13B), Qwen 2.5/3.0 ขนาด 32B, InternScience Agents-A1-4B, etc. ถ้ามีเวลา, ควรดูว่าโมเดลเล็กฯกับ high-bit หรือ quant ระดับกลาง (Q8/Q6) อาจให้ performance/gpu สูงกว่า Qwen3.8 IQ2. ตัวอย่าง: Gemma4-12B 8-bit (5 GB, ~63 tok/s) และ APQ/SGPT quant ของมันใน Community มี report ว่ายังคงคุณภาพดี.  
+
+# เกณฑ์วัดผล (Verified Tasks/Hour + Quality)  
+เราจะตัดสิน *final winner* ตาม throughput จริงในการทำงาน (Verified Accepted Tasks per hour) เทียบคุณภาพสุดท้าย, ไม่ใช่แค่ tok/s ธรรมดา. ดังนั้นสำหรับแต่ละ configuration ต้องวัด: 
+- **Throughput จริง**: งานสำเร็จ (accepted) ต่อชั่วโมง เมื่อใช้งานจริง (รวม retry, nested toolcalls, reviewer feedback ฯลฯ).  
+- **คุณภาพสุดท้าย**: ความสำเร็จของงาน (merge quality) เทียบเท่า baseline (BF16 Qwen3.8 หรือ Qwen3.6 ที่เราผ่าน).  
+- **Residency & Scalability**: ตรวจดูว่าสามารถทำ GPU resident ได้เพียงไร (เช่น 65/65, หรือ “ตกชั้น” เป็น 61/4) และ throughput ลดลงเท่าไรต่อ layer ที่ตก CPU.  
+
+ลำดับทดลองทีจะให้ Claude และทีมทำต่อไป:
+1. เปรียบเทียบ **ตัวเลือก Quant ใหม่** ที่ระบุ (เช่น Ornith-1.5 9B/35B, Gemma4 12B/26B-A4B, Bonsai-27B, ผสาน AWQ/GPTQ เทียบกับ UD-IQ2_XXS baseline).  
+2. ทดสอบ **Speculative Decoding** บน **Qwen3.8 UD-IQ2_XXS** และตัวเลือกอื่นที่สนใจ (Ornith, Gemma) – เรียงตาม gate ที่ว่ามา (มี drafter, runtime, VRAM). โดยเฉพาะ MTP/DFlash/DSpark/EAGLE-3 ทั้งใน build ปัจจุบันและ master (หากมี).  
+3. วัด **Verified Accepted Tasks/hour** สำหรับทุก configuration ที่ผ่าน gating (กำหนดเทียบเท่า TF 5m/merge quality).  
+4. จัดอันดับตาม tasks/h และคุณภาพ.  
+
+การเพิ่ม Ornith-1.5 และ speculative decoding ทำให้ scope การวิจัยกว้างขึ้น: ไม่ใช่แค่เปลี่ยน quant กับโมเดลเฉพาะ Qwen3.8 อีกต่อไป แต่เป็นการหา “ชุดสเปคเต็ม” (โมเดล × quant × decoder) ที่คุ้มสุดบนฮาร์ดแวร์ 4070S ของเรา โดยมี **Verified Tasks/Hour** เป็นตัวชี้วัดหลัก. 
+
+**Sources:** ผล Benchmarks จาก Ornith-1.5 (blog), ข้อมูล Unsloth Qwen3.8 Dynamic V3, งานวิจัย Speculative Decoding (DFlash, DSpark, EAGLE-3), งานศึกษาการ quant บน Qwen3 (GPTQ/AWQ) และรายงานชุมชน (Ternary Bonsai).

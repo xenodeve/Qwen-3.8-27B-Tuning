@@ -1,0 +1,539 @@
+"""Measurement primitives for the tuning sweeps.
+
+Every function here replaces one that failed silently earlier in this project.
+Silence is the shared failure mode: a wrong median labelled "median", a dropped
+row that left a table looking complete, a layer count that did not add up. So
+these raise rather than guess.
+"""
+
+
+def median(samples):
+    """True median. Raises on empty input rather than inventing a number."""
+    if not samples:
+        raise ValueError("median of no samples")
+    s = sorted(samples)
+    mid = len(s) // 2
+    if len(s) % 2:
+        return s[mid]
+    return (s[mid - 1] + s[mid]) / 2
+
+
+def load_jsonl(path):
+    """Read a results file. utf-8-sig strips the BOM PowerShell writes.
+
+    A malformed line raises with its line number instead of being skipped:
+    the earlier `except JSONDecodeError: pass` is what let the BOM quietly
+    delete the baseline row from every table.
+    """
+    import json
+    from pathlib import Path
+
+    rows = []
+    with Path(path).open(encoding="utf-8-sig") as fh:
+        for lineno, line in enumerate(fh, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                raise ValueError(f"{path} line {lineno} is not valid JSON: {e}") from e
+    return rows
+
+
+_LAYER_RE = None
+
+
+def parse_layer_split(log_text, total=None):
+    r"""Count GPU vs CPU layer placement from a verbose llama.cpp load report.
+
+    Counts the FINAL assignment pass, found from the layer indices themselves.
+    llama.cpp emits several reserve passes -- 451 lines for a 40-layer MoE --
+    and each pass restarts at layer 0, so a pass boundary is simply the point
+    where the index stops increasing.
+
+    This replaces a hardcoded `total=65`, which was Qwen3.8-27B's 64 blocks plus
+    its MTP head and silently wrong for every other architecture. On the
+    35B-A3B MoE it reported "65 + 0" for a 41-layer model by slicing the last 65
+    lines across two passes. Those arms happened to be fully resident so the
+    conclusion held, but it held by luck: the same slice would have reported
+    65+0 with layers on the CPU. `block_count` is not a usable substitute
+    either -- Qwen3.8 logs 65 for 65 layers, the MoE logs 40 for 41.
+
+    `total` is kept only as a fallback for logs whose indices cannot be read.
+
+    (\w+) rather than (\S+) because the device token carries a trailing comma
+    ("CUDA0,"), which made an exact == "CPU" comparison match nothing.
+    """
+    global _LAYER_RE
+    if _LAYER_RE is None:
+        import re
+        _LAYER_RE = re.compile(
+            r"load_tensors: layer\s+(\d+) assigned to device (\w+)")
+
+    pairs = _LAYER_RE.findall(log_text)
+    if not pairs:
+        raise ValueError("no layer-assignment lines found; was -lv 5 passed?")
+
+    devices = [d for _, d in pairs]
+    idx = [int(i) for i, _ in pairs]
+
+    start = 0
+    for i in range(len(idx) - 1, 0, -1):
+        if idx[i] <= idx[i - 1]:      # a pass boundary
+            start = i
+            break
+    last = devices[start:] if total is None else devices[-total:]
+    gpu = sum(1 for d in last if d.startswith("CUDA"))
+    cpu = sum(1 for d in last if d == "CPU")
+    if gpu + cpu != len(last):
+        raise ValueError(
+            f"layer split {gpu}+{cpu} does not account for {len(last)} lines; "
+            f"unexpected devices: {sorted(set(last) - {'CPU'} - {d for d in last if d.startswith('CUDA')})}"
+        )
+    return gpu, cpu
+
+
+def project_prefill_seconds(pp_tok_s, ctx_tokens):
+    """Straight-line cold-prefill estimate. Ignores depth degradation by design."""
+    if pp_tok_s <= 0:
+        raise ValueError(f"prompt-processing rate must be positive, got {pp_tok_s}")
+    return ctx_tokens / pp_tok_s
+
+
+# The harness fills ~80 % of the window before timing anything; see
+# depth_sweep.run(). The budget has to cover that prefill, not the window.
+PREFILL_FILL_FRACTION = 0.8
+
+# Slowest cold prefill ever measured on a RESIDENT arm at 131,072 is 240.6
+# tok/s (AD-IQ1_M at 65+1). The slowest PATHOLOGICAL one is 8.56 tok/s
+# (`ot-ffn-1`, 644 MiB of FFN weights forced to CPU). 60 sits four times below
+# the legitimate worst case and seven times above the pathological one, so the
+# budget cannot truncate a real measurement and cannot sit an hour on a dead
+# arm. It is a floor, not an expectation.
+PREFILL_FLOOR_TOK_S = 60.0
+
+# Load, health poll, the five 160-token generations and the greedy probe.
+TIMEOUT_MARGIN_S = 300
+
+
+def completion_timeout_s(ctx, floor_tok_s=PREFILL_FLOOR_TOK_S,
+                         margin_s=TIMEOUT_MARGIN_S):
+    """Per-request HTTP budget for a sweep at this context depth.
+
+    Replaces a flat `timeout=3600`, which on 2026-08-21 spent a full hour --
+    01:34:36 to 02:34:36, to the second -- waiting on an arm whose prefill had
+    already collapsed to 8.56 tok/s and could never have finished. A budget
+    that does not know the depth is not a budget, it is a coincidence.
+    """
+    if ctx <= 0:
+        raise ValueError(f"context must be positive, got {ctx}")
+    prefill_tokens = ctx * PREFILL_FILL_FRACTION
+    return prefill_tokens / floor_tok_s + margin_s
+
+
+# A desktop compositor moves tens of MiB between polls. A 12 GB model unloading
+# moves thousands. 64 separates them with two orders of magnitude to spare.
+VRAM_SETTLE_TOL_MIB = 64
+
+
+# The smallest artifact this project loads is 7.80 GiB. Any real teardown frees
+# thousands of MiB, so demanding a tenth of that as proof of arrival is generous
+# and still cannot be met by a release that has not started.
+VRAM_MIN_RISE_MIB = 1024
+
+
+def vram_settled(free_readings, tol_mib=VRAM_SETTLE_TOL_MIB, need=2,
+                 floor_mib=None):
+    """True once free VRAM has stopped moving AND cleared `floor_mib`.
+
+    `kill()` used to sleep a flat 5 s. WDDM releases a 12 GB allocation in
+    stages, so the next arm started into VRAM the driver still held, passed
+    /health, and died on its first request with ConnectionResetError -- taking
+    out a queue step that had nothing to do with the arm that was slow.
+
+    One reading is never settled: that is the 5 s sleep restated.
+
+    `floor_mib` exists because "stopped moving" alone is ambiguous between
+    *release finished* and *release has not begun*: two polls taken before the
+    driver does anything agree perfectly. The caller knows how much was free
+    before the kill, so it can demand that the reading beat it -- which a
+    release that never started cannot do. The check is against the LATEST
+    reading, not the best one, so a transient spike mid-release is not arrival.
+    """
+    if len(free_readings) < max(2, need):
+        return False
+    window = free_readings[-need:]
+    if max(window) - min(window) > tol_mib:
+        return False
+    return floor_mib is None or free_readings[-1] >= floor_mib
+
+
+# The output contract every corpus arm is graded against. `check_output_contract`
+# grades exactly this: one fenced python block, nothing else. It has been the
+# whole developer message since the corpus was written.
+CONTRACT = ("You are a precise Python engineer. Reply with one fenced ```python "
+            "block containing only the requested code. No explanation, no usage "
+            "examples, no tests.")
+
+
+def compose_developer(skills):
+    """Build the developer message from injected skill text plus the contract.
+
+    Raised 2026-08-21: the real worker runs with `karpathy-guidelines` and `tdd`
+    in its prompt and the corpus sends CONTRACT alone, so every quality number
+    the project holds describes a configuration nobody ships.
+
+    Two rules, both load-bearing.
+
+    **The contract survives.** Replacing it would change two things at once --
+    skills added AND the format instruction removed -- and an arm that changes
+    two things cannot say which one moved the result. That is the fault that
+    made the grammar/`-rea off` pair unreadable.
+
+    **The contract goes last.** The injected skills contradict it directly: tdd
+    says write the failing test first, the contract says no tests; karpathy says
+    stop and ask when unclear, and a question is not a fenced block. Recency is
+    the only lever available for deciding which instruction wins, so the graded
+    requirement gets it.
+
+    Skill text is passed through verbatim. A paraphrase would measure the
+    paraphrase.
+    """
+    for s in skills:
+        if not isinstance(s, str):
+            raise TypeError(f"skill text must be str, got {type(s).__name__}")
+    sep = chr(10) * 2
+    return sep.join(list(skills) + [CONTRACT])
+
+
+def filler_repetition_pct(text):
+    """Percentage of non-blank lines that are exact duplicates of an earlier line.
+
+    Instrument fault 8, 2026-08-21. `depth_sweep.filler()` repeats one class
+    definition with only a four-digit index changing -- 962 blocks at 147,456,
+    adjacent blocks 99.5 % identical. An n-gram decoder drafts from what is
+    already in the context, so that text is the most favourable input that could
+    be constructed for it, and every n-gram figure this project holds was
+    measured on it. Acceptance at 99-100 % across every depth is the tell.
+
+    This makes the property checkable. A filler intended to stand in for real
+    code should score low; the current one scores high, and the difference is
+    the size of the correction owed to the headline numbers.
+
+    Blank lines are excluded: they repeat in any text and would inflate every
+    score toward 100 % regardless of content.
+    """
+    lines = [l for l in text.splitlines() if l.strip()]
+    if not lines:
+        raise ValueError("cannot measure repetition of empty text")
+    seen = set()
+    repeats = 0
+    for l in lines:
+        if l in seen:
+            repeats += 1
+        seen.add(l)
+    return round(100.0 * repeats / len(lines), 2)
+
+
+def draft_acceptance(timings):
+    """Percentage of drafted tokens accepted, over EVERY timed generation.
+
+    Instrument fault 9, 2026-08-21. `depth_sweep.run()` reports `tg_med` as the
+    median of five generations and computed `acceptance` from the first one
+    alone, so the two columns described different requests. An arm could show
+    "acceptance: null" -- meaning the cold request drafted nothing -- while its
+    four warm requests drafted and were accepted, and its decode rate said so.
+
+    Weighted by drafts, not averaged over requests: a generation that drafted
+    nothing has no opinion about the acceptance rate and must not pull it toward
+    zero. Returns None when nothing was drafted anywhere, which is a different
+    fact from 0 % and has to stay distinguishable.
+    """
+    drafted = accepted = 0
+    for t in timings:
+        d = int(t.get("draft_n") or 0)
+        a = int(t.get("draft_n_accepted") or 0)
+        if a > d:
+            raise ValueError(f"accepted {a} > drafted {d}: not a measurement")
+        drafted += d
+        accepted += a
+    if not drafted:
+        return None
+    return round(100.0 * accepted / drafted, 1)
+
+
+NOISE_FLOOR_PCT = 13.6   # measured restart-to-restart peak-to-peak; report 04 s0
+
+
+def paired_deltas(baseline_rounds, candidate_rounds, floor_pct=NOISE_FLOOR_PCT):
+    """Per-round paired differences between two arms measured in alternating boots.
+
+    Two different models cannot share a boot, so the arms are alternated
+    (A/B/A/B) and paired by round. Pairing is what keeps the 13.6 % restart
+    drift inside each round instead of letting it land on whichever arm ran
+    later -- the exact failure that manufactured a "+11.6 %" speculative result
+    which reversed to -0.8 % against a fresh control.
+
+    Returns per-round percentages AND a range, never a single point, and marks
+    an effect `resolved` only when it is both larger than the drift floor and
+    consistent in sign across rounds. A mean of +40/-10 is not an effect.
+    """
+    if not baseline_rounds or not candidate_rounds:
+        raise ValueError("paired_deltas needs at least one round in each arm")
+    if len(baseline_rounds) != len(candidate_rounds):
+        raise ValueError(
+            f"arms are not paired: {len(baseline_rounds)} baseline rounds vs "
+            f"{len(candidate_rounds)} candidate rounds"
+        )
+
+    per_round = []
+    for i, (b, c) in enumerate(zip(baseline_rounds, candidate_rounds), 1):
+        if b <= 0:
+            raise ValueError(f"round {i} baseline must be positive, got {b}")
+        per_round.append(round(100.0 * (c - b) / b, 2))
+
+    mean_pct = round(sum(per_round) / len(per_round), 2)
+    same_sign = all(d > 0 for d in per_round) or all(d < 0 for d in per_round)
+    resolved = bool(
+        len(per_round) >= 2 and same_sign and abs(mean_pct) >= floor_pct
+    )
+    return {
+        "rounds": len(per_round),
+        "per_round_pct": per_round,
+        "mean_pct": mean_pct,
+        "min_pct": min(per_round),
+        "max_pct": max(per_round),
+        "consistent_sign": same_sign,
+        "resolved": resolved,
+        "floor_pct": floor_pct,
+    }
+
+
+def check_tool_call(tool_calls, spec):
+    """Score one assistant turn against an expected tool-call contract.
+
+    Returns every fault, not the first: the research asks for a required-field
+    OMISSION RATE and a MALFORMED-CALL RATE, and a boolean cannot distinguish
+    one dropped field from a model that answered in prose. Prose instead of a
+    call is the degradation this exists to catch -- the code corpus alone would
+    have scored it identically to a perfect call.
+    """
+    import json
+
+    errors = []
+    if not tool_calls:
+        return {"ok": False, "errors": ["no tool call emitted"], "args": None}
+
+    fn = (tool_calls[0] or {}).get("function") or {}
+    name = fn.get("name")
+    if name != spec["name"]:
+        errors.append("wrong function name %r, expected %r" % (name, spec["name"]))
+
+    raw = fn.get("arguments")
+    args = None
+    if isinstance(raw, dict):
+        args = raw
+    else:
+        try:
+            args = json.loads(raw or "")
+        except (json.JSONDecodeError, TypeError) as e:
+            errors.append("arguments are not valid JSON: %s" % e)
+
+    if isinstance(args, dict):
+        for field in spec.get("required", []):
+            if field not in args:
+                errors.append("required field %r missing" % field)
+    elif args is not None:
+        errors.append("arguments decoded to %s, expected an object" % type(args).__name__)
+
+    if len(tool_calls) > spec.get("max_calls", 1):
+        errors.append("%d calls emitted, expected at most %d"
+                      % (len(tool_calls), spec.get("max_calls", 1)))
+
+    return {"ok": not errors, "errors": errors, "args": args}
+
+
+def retry_economics(records, escalation_s, overhead_s):
+    """Turn per-task retry records into the units the decision is actually made in.
+
+    Each record is {"attempts": int, "accepted": bool, "wall_s": float}, where
+    `accepted` means the LOCAL worker eventually produced a passing patch. A task
+    the worker never got right is not lost -- it escalates to Q4 -- so every task
+    is merged, and escalation is charged as time rather than as a failure.
+
+    p2 is None, never 0, when nothing needed a retry: a rate over an empty
+    denominator reads as "retries never work" instead of "no retry happened".
+    """
+    if not records:
+        raise ValueError("retry_economics needs at least one task record")
+
+    n = len(records)
+    first_pass = retried = retried_ok = accepted = attempts_total = 0
+    censored = 0
+    wall = 0.0
+    for i, r in enumerate(records, 1):
+        a = int(r["attempts"])
+        ok = bool(r["accepted"])
+        if a < 1:
+            raise ValueError("record %d has %d attempts; a task cannot be "
+                             "accepted or rejected without being attempted" % (i, a))
+        attempts_total += a
+        wall += float(r["wall_s"])
+        # A task whose attempt ended at the token limit is CENSORED, not failed:
+        # the model was still writing. Counting it as a failure penalises the
+        # artifacts that reason longest, which is the same bias an undersized
+        # budget produces, one notch quieter -- at max_tokens 8192 the arms
+        # still truncate 1 to 7 times out of 60.
+        if r.get("censored"):
+            censored += 1
+            continue
+        if ok:
+            accepted += 1
+            if a == 1:
+                first_pass += 1
+        if a >= 2:
+            retried += 1
+            if ok:
+                retried_ok += 1
+
+    request_failed = sum(1 for r in records if r.get("request_failed"))
+    # A run whose requests mostly never reached the model is not a slow run.
+    # The earlier guard only fired when NO task recorded worker time, so a run
+    # that completed four tasks and then lost its server to a colliding queue
+    # still produced an ordinary-looking summary. 10 % is generous; anything
+    # above it means the machine, not the model, decided the outcome.
+    if n and request_failed / n > 0.10:
+        raise ValueError(
+            "%d of %d tasks failed before reaching the model (%.0f %%). The "
+            "server was unavailable for most of this run, so nothing here "
+            "describes the artifact." % (request_failed, n, 100.0 * request_failed / n))
+
+    decided = n - censored
+    if decided <= 0:
+        raise ValueError(
+            "all %d tasks were censored by the token budget; raise it and re-run "
+            "rather than reading a pass rate off nothing" % n)
+
+    if wall <= 0:
+        raise ValueError(
+            "no worker time recorded across %d tasks -- every request failed "
+            "before the model ran. Escalation and overhead are constants, so a "
+            "summary built from this would still print a plausible "
+            "merged_tasks_per_hour." % n)
+
+    escalations = decided - accepted
+    total_s = wall + escalation_s * escalations + overhead_s * n
+
+    # CAPABILITY and THROUGHPUT are reported apart, because summing them into
+    # one number is how four arms that all scored 27/30 came to look like a
+    # ranking. They differed only in wall clock -- 2,004 s to 4,572 s -- which
+    # is verbosity, not skill. `accepted_of_decided` is the capability axis;
+    # `wall_per_accepted_s` is the throughput axis; `merged_tasks_per_hour`
+    # remains for continuity and is the two of them multiplied together.
+    return {
+        "tasks": n,
+        "decided": decided,
+        "request_failures": request_failed,
+        "censored": censored,
+        # A verdict that one censored task could flip is not a verdict. Compare
+        # the best and worst case the censored tasks could produce.
+        "censoring_could_change_verdict": bool(
+            censored and accepted != accepted + censored),
+        "p1": round(100.0 * first_pass / decided, 1),
+        "p2": round(100.0 * retried_ok / retried, 1) if retried else None,
+        "accepted_of_decided": "%d/%d" % (accepted, decided),
+        "local_accept_pct": round(100.0 * accepted / decided, 1),
+        "attempts_per_accepted": round(attempts_total / accepted, 2) if accepted else None,
+        "escalations_per_100": round(100.0 * escalations / decided, 1),
+        "worker_wall_s": round(wall, 1),
+        "wall_per_accepted_s": round(wall / accepted, 1) if accepted else None,
+        "escalation_s": escalation_s,
+        "overhead_s": overhead_s,
+        "merged_tasks_per_hour": round(3600.0 * n / total_s, 1) if total_s else None,
+        "verified_tasks_per_hour": round(3600.0 * accepted / wall, 1) if wall else None,
+    }
+
+
+def marginal_rate(xs, ys, project_to=None):
+    """Least-squares slope of y against x, reported as a RATE (x units per y unit).
+
+    Written for the prefix-invalidation curve: y is the wall time of a turn
+    whose cache was thrown away, x is the tokens it had to re-evaluate. Wall
+    time also contains a decode of n_predict tokens, but that component is the
+    same at every point, so it lands in the intercept and leaves the slope
+    clean. Dividing a single point instead -- which is what this project did
+    first -- charges the whole decode to the prefill and understates the rate.
+
+    Three points minimum: two always fit a line exactly and report a perfect
+    residual, which reads as certainty rather than as having no evidence.
+    """
+    if len(xs) != len(ys):
+        raise ValueError("marginal_rate needs paired xs and ys, got %d and %d"
+                         % (len(xs), len(ys)))
+    n = len(xs)
+    if n < 3:
+        raise ValueError("marginal_rate needs at least 3 points, got %d" % n)
+
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    if sxx == 0:
+        raise ValueError("all x values are identical; no slope is defined")
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    slope = sxy / sxx
+    if slope <= 0:
+        raise ValueError("slope is %.6g; y must increase with x for a rate" % slope)
+    offset = my - slope * mx
+
+    syy = sum((y - my) ** 2 for y in ys)
+    r2 = 1.0 if syy == 0 else 1.0 - sum(
+        (y - (slope * x + offset)) ** 2 for x, y in zip(xs, ys)) / syy
+
+    out = {
+        "points": n,
+        "rate": round(1.0 / slope, 1),     # x units per unit of y
+        "offset_s": round(offset, 2),
+        "r2": round(r2, 4),
+    }
+    if project_to is not None:
+        out["project_to"] = project_to
+        out["projected_s"] = round(project_to * slope + offset, 1)
+    return out
+
+
+def check_output_contract(text):
+    """Did the reply obey the corpus's stated output format, before extraction?
+
+    The corpus prompt asks for one fenced ```python block containing only the
+    requested code, with no explanation, usage example or tests. The extractor
+    then takes the LARGEST fenced block, or the whole reply when there is no
+    fence -- which quietly repairs every violation and lets a disobedient reply
+    score exactly like an obedient one.
+
+    A review panel identified this as the capability aggressive quantization is
+    said to lose FIRST, ahead of closed algorithmic coding, and the corpus was
+    structurally unable to see it. This measures it as a separate rate. It is
+    deliberately NOT wired into pass/fail: redefining a passing task mid-project
+    would make every number collected before today incomparable.
+    """
+    import re
+
+    violations = []
+    blocks = re.findall(r"```[ \t]*(?:python|py)?[ \t]*\n(.*?)```", text or "", re.S)
+    if not blocks:
+        violations.append("no fenced python block")
+        return {"ok": False, "violations": violations, "blocks": 0}
+    if len(blocks) > 1:
+        violations.append("%d fenced blocks, expected 1" % len(blocks))
+
+    outside = re.sub(r"```[ \t]*(?:python|py)?[ \t]*\n.*?```", "", text, flags=re.S)
+    if outside.strip():
+        violations.append("prose outside the fence: %r"
+                          % outside.strip()[:60])
+
+    body = "\n".join(blocks)
+    if re.search(r"^\s*if\s+__name__\s*==", body, re.M):
+        violations.append("usage example inside the block (__main__ guard)")
+
+    return {"ok": not violations, "violations": violations, "blocks": len(blocks)}

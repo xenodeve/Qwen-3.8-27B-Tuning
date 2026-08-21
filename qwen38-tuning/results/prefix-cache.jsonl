@@ -1,0 +1,9 @@
+{"label": "turn-1", "prompt_n": 3878, "cache_n": 0, "prompt_ms": 11216.0, "pp_tok_s": 345.8, "wall_s": 12.6, "note": ""}
+{"label": "turn-2", "prompt_n": 43, "cache_n": 3874, "prompt_ms": 1406.5, "pp_tok_s": 30.6, "wall_s": 2.8, "note": ""}
+{"label": "turn-3", "prompt_n": 35, "cache_n": 3913, "prompt_ms": 2834.0, "pp_tok_s": 12.4, "wall_s": 3.9, "note": ""}
+{"label": "turn-4", "prompt_n": 37, "cache_n": 3944, "prompt_ms": 1329.2, "pp_tok_s": 27.8, "wall_s": 1.3, "note": ""}
+{"label": "reorder-tool-schemas", "prompt_n": 3990, "cache_n": 1, "prompt_ms": 9910.7, "pp_tok_s": 402.6, "wall_s": 11.1, "note": "OpenCode may reserialize tools between turns"}
+{"label": "edit-system-prompt", "prompt_n": 3992, "cache_n": 1, "prompt_ms": 9878.8, "pp_tok_s": 404.1, "wall_s": 11.5, "note": "one sentence changed near the very front"}
+{"label": "prepend-skill-block", "prompt_n": 4006, "cache_n": 1, "prompt_ms": 10990.1, "pp_tok_s": 364.5, "wall_s": 12.1, "note": "Xeno injects skills ahead of everything"}
+{"label": "append-only-control", "prompt_n": 28, "cache_n": 3981, "prompt_ms": 2091.9, "pp_tok_s": 13.4, "wall_s": 2.4, "note": "control: pure append, should stay cached"}
+{"label": "cache_prompt=false", "prompt_n": 3991, "cache_n": 0, "prompt_ms": 9214.8, "pp_tok_s": 433.1, "wall_s": 9.9, "note": "full re-prefill by request"}

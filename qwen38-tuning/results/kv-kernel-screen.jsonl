@@ -1,0 +1,8 @@
+{"kv": "f16", "loaded": true, "prompt_n": 2554, "pp_tok_s": 1183.2, "tg_tok_s": 39.91, "wall_s": 2.5, "has_kernel": true}
+{"kv": "q8_0", "loaded": true, "prompt_n": 2554, "pp_tok_s": 1174.1, "tg_tok_s": 39.63, "wall_s": 2.6, "has_kernel": true}
+{"kv": "q5_1", "loaded": true, "prompt_n": 2554, "pp_tok_s": 156.7, "tg_tok_s": 21.8, "wall_s": 17.0, "has_kernel": true}
+{"kv": "q5_0", "loaded": true, "prompt_n": 2554, "pp_tok_s": 160.5, "tg_tok_s": 22.44, "wall_s": 16.6, "has_kernel": true}
+{"kv": "q4_1", "loaded": true, "prompt_n": 2554, "pp_tok_s": 169.7, "tg_tok_s": 22.7, "wall_s": 15.7, "has_kernel": true}
+{"kv": "q4_0", "loaded": true, "prompt_n": 2554, "pp_tok_s": 1176.0, "tg_tok_s": 39.14, "wall_s": 2.6, "has_kernel": true}
+{"kv": "iq4_nl", "loaded": true, "prompt_n": 2554, "pp_tok_s": 143.5, "tg_tok_s": 20.79, "wall_s": 18.5, "has_kernel": false}
+{"kv": "bf16", "loaded": true, "prompt_n": 2554, "pp_tok_s": 1181.7, "tg_tok_s": 39.15, "wall_s": 2.5, "has_kernel": true}

@@ -1,0 +1,1 @@
+{"round": 1, "arm": "q4-tuned", "quant": "UD-Q4_K_XL", "mtp": true, "vram_free_before": 10037, "vram_used": 11762, "vram_free": 236, "gpu_layers": 33, "cpu_layers": 32, "code_tok_s": [12.6, 12.67], "code_median": 12.63, "pp_median": 142.5, "draft_n": 196, "draft_accepted": 192, "accept_pct": 98.0, "greedy_hash": "227749403A7404D4"}

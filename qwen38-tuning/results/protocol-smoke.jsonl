@@ -1,0 +1,4 @@
+{"label": "q4-smoke", "trial": 1, "call_ok": true, "errors": [], "nested_ok": true, "nested_error": null, "roundtrip_ok": true}
+{"label": "q4-smoke", "trial": 2, "call_ok": true, "errors": [], "nested_ok": true, "nested_error": null, "roundtrip_ok": true}
+{"label": "q4-smoke", "trial": 3, "call_ok": true, "errors": [], "nested_ok": true, "nested_error": null, "roundtrip_ok": true}
+{"label": "q4-smoke", "kind": "SUMMARY", "trials": 3, "call_compliance_pct": 100.0, "nested_schema_pct": 100.0, "roundtrip_pct": 100.0, "required_field_omissions": 0, "wall_s": 105.7}

@@ -1,0 +1,12 @@
+{
+  "ctx": 65536,
+  "prompt_n": 46557,
+  "identical": false,
+  "f16_hash": "1A4F7C9924198E8A",
+  "q8_hash": "05C38B387571F755",
+  "common_prefix_chars": 1,
+  "f16_len": 871,
+  "q8_len": 778,
+  "f16_tok_s": 3.46,
+  "q8_tok_s": 3.84
+}

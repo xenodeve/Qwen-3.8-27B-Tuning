@@ -1,0 +1,17 @@
+# Exactly one fenced Python block and nothing outside it.
+#
+# Why this shape: the measured failure on every V3 arm is not bad code, it is
+# no code -- 41.5 % of attempts on UD-IQ1_M and 58.3 % on UD-IQ2_XXS emitted no
+# fenced block at all, having looped inside the reasoning block until the token
+# cap. A grammar makes the fence a property of the sampler rather than a hope
+# about the prompt: the model cannot emit a token the grammar forbids.
+#
+# Pair with --reasoning-budget 0 (or -rea off). This grammar admits no prose
+# before the fence, so a model that still wants to think has nowhere to put it.
+root  ::= "```python\n" code "```"
+
+# Any run of characters that never contains three consecutive backticks, so the
+# closing fence is the first one the sampler can reach. Single and double
+# backticks stay legal because docstrings and comments use them.
+code  ::= ( nonbt | "`" nonbt | "``" nonbt )*
+nonbt ::= [^`]

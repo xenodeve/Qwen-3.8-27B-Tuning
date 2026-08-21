@@ -1,0 +1,25 @@
+# Runtime scratch, not project content
+ocworker/
+logs/
+*.log
+
+# Model artifacts and caches are gigabytes and live in the HF cache
+*.gguf
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# The bench harness writes verification scratch here
+qwen38-tuning/bench/_work/
+
+# Vendored llama.cpp build: half a gigabyte of CUDA DLLs, installed not authored
+llama.cpp-cuda/
+llama.cpp/
+*.zip
+*.dll
+*.exe
+*.lib
+*.exp
+
+# Runtime lock: names a live PID, meaningless in a checkout
+qwen38-tuning/.port8080.lock

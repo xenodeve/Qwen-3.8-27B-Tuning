@@ -1,0 +1,7 @@
+﻿{"spec_type":"off","n_max":0,"tg_median":8.27,"tg_min":7.71,"tg_max":8.27,"vram_used_mib":11660,"vram_free_mib":338,"draft_n":0,"draft_accepted":0,"acceptance_pct":null,"greedy_hash":"A2F070D5480ADEE4"}
+{"spec_type":"draft-mtp","n_max":2,"tg_median":10.75,"tg_min":9.88,"tg_max":10.75,"vram_used_mib":11226,"vram_free_mib":772,"draft_n":298,"draft_accepted":231,"acceptance_pct":77.5,"greedy_hash":"A2F070D5480ADEE4"}
+{"spec_type":"draft-mtp","n_max":3,"tg_median":11.23,"tg_min":9.41,"tg_max":11.23,"vram_used_mib":11056,"vram_free_mib":942,"draft_n":373,"draft_accepted":256,"acceptance_pct":68.6,"greedy_hash":"A2F070D5480ADEE4"}
+{"spec_type":"draft-mtp","n_max":4,"tg_median":11.08,"tg_min":9.37,"tg_max":11.08,"vram_used_mib":10843,"vram_free_mib":1155,"draft_n":420,"draft_accepted":274,"acceptance_pct":65.2,"greedy_hash":"A2F070D5480ADEE4"}
+{"spec_type":"draft-mtp","n_max":5,"tg_median":9.38,"tg_min":8.59,"tg_max":9.38,"vram_used_mib":10909,"vram_free_mib":1089,"draft_n":495,"draft_accepted":279,"acceptance_pct":56.4,"greedy_hash":"A2F070D5480ADEE4"}
+{"spec_type":"draft-mtp","n_max":6,"tg_median":10.45,"tg_min":7.18,"tg_max":10.45,"vram_used_mib":10723,"vram_free_mib":1275,"draft_n":548,"draft_accepted":287,"acceptance_pct":52.4,"greedy_hash":"A2F070D5480ADEE4"}
+{"spec_type":"ngram-mod","n_max":4,"tg_median":8.34,"tg_min":8.03,"tg_max":8.34,"vram_used_mib":11633,"vram_free_mib":365,"draft_n":192,"draft_accepted":40,"acceptance_pct":20.8,"greedy_hash":"A2F070D5480ADEE4"}

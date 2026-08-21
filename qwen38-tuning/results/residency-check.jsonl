@@ -1,0 +1,20 @@
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 0.0, "label": "iq2xxs-prev3"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 3.0, "label": "iq2xxs-prev3"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 6.0, "label": "iq2xxs-prev3"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 9.0, "label": "iq2xxs-prev3"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 12.0, "label": "iq2xxs-prev3"}
+{"label": "iq2xxs-prev3", "kind": "SUMMARY", "samples": 5, "peak_shared_mib": 98, "peak_dedicated_mib": 9417.3, "truly_resident": false, "under_load": true}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 0.0, "label": "iq2xxs-prev3-recheck"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 2.0, "label": "iq2xxs-prev3-recheck"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 4.0, "label": "iq2xxs-prev3-recheck"}
+{"label": "iq2xxs-prev3-recheck", "kind": "SUMMARY", "samples": 3, "peak_shared_mib": 98, "peak_dedicated_mib": 9417.3, "truly_resident": false, "under_load": true}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 0.0, "label": "iq2xxs-prev3"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 3.0, "label": "iq2xxs-prev3"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 6.0, "label": "iq2xxs-prev3"}
+{"pid": 47460, "dedicated_mib": 9417.3, "shared_mib": 98, "t": 9.0, "label": "iq2xxs-prev3"}
+{"label": "iq2xxs-prev3", "kind": "SUMMARY", "samples": 4, "peak_shared_mib": 98, "peak_dedicated_mib": 9417.3, "shared_pct_of_dedicated": 1.04, "free_vram_mib": 654, "under_load": true}
+{"pid": 33944, "dedicated_mib": 6939.3, "shared_mib": 98, "t": 0.0, "label": "v3-iq1s"}
+{"pid": 33944, "dedicated_mib": 6939.3, "shared_mib": 98, "t": 3.0, "label": "v3-iq1s"}
+{"pid": 33944, "dedicated_mib": 6939.3, "shared_mib": 98, "t": 6.0, "label": "v3-iq1s"}
+{"pid": 33944, "dedicated_mib": 6939.3, "shared_mib": 98, "t": 9.0, "label": "v3-iq1s"}
+{"label": "v3-iq1s", "kind": "SUMMARY", "samples": 4, "peak_shared_mib": 98, "peak_dedicated_mib": 6939.3, "shared_pct_of_dedicated": 1.41, "free_vram_mib": 3290, "under_load": true}

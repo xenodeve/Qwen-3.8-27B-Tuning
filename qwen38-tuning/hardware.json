@@ -1,0 +1,31 @@
+{
+  "os": "Windows 11",
+  "cpu": "Intel Core i5-13500",
+  "gpu": "GALAX GeForce RTX 4070 SUPER",
+  "gpu_driver": "610.88",
+  "gpu_compute_cap": "8.9",
+  "vram_total_mib": 12282,
+  "vram_free_observed": {
+    "note": "NOT constant. --fit on splits layers from whatever is free at boot, so every run must record its own value via scripts/collect-env.ps1.",
+    "llama_list_devices_2026-08-18T00:57": 11069,
+    "nvidia_smi_2026-08-18T01:20": 9361
+  },
+  "ram": "48 GB DDR5",
+  "ram_read_bandwidth_class_gbs": 108,
+  "ssd": "WD Black SN850X 1TB",
+  "igpu_policy": "Intel UHD 770 excluded from model splitting",
+  "runtime": {
+    "path": "C:\\AI\\llama.cpp-cuda",
+    "build": "0.1.1-dev (build 10472, commit 60eeeb608)",
+    "backend": "CUDA 12.4",
+    "compiler": "Clang 20.1.8",
+    "artifacts": [
+      "llama-b10472-bin-win-cuda-12.4-x64.zip",
+      "cudart-llama-bin-win-cuda-12.4-x64.zip"
+    ]
+  },
+  "other_runtimes_present": {
+    "ollama": "listening on 127.0.0.1:11434 -- holds VRAM, stop before controlled runs",
+    "winget_vulkan_b10453": "still installed, not the tuning backend"
+  }
+}

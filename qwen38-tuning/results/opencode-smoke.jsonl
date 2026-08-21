@@ -1,0 +1,8 @@
+{"task": "lru_cache", "difficulty": "easy", "wall_s": 43.2, "rc": 0, "files": [], "note": "", "wrote_target": false, "extra_files": [], "accepted": false, "error": "target file not written", "label": "lean-iq2xxs-smoke"}
+{"kind": "SUMMARY", "label": "lean-iq2xxs-smoke", "model": "local/qwen38", "tasks": 1, "accepted": 0, "wrote_target": 0, "single_file": 0, "wall_s": 43.2, "tasks_per_hour": 0.0}
+{"task": "lru_cache", "difficulty": "easy", "wall_s": 37.1, "rc": 0, "files": [], "note": "", "wrote_target": false, "extra_files": [], "accepted": false, "error": "target file not written | said: lru_cache.py", "label": "smoke3"}
+{"kind": "SUMMARY", "label": "smoke3", "model": "local/qwen38", "tasks": 1, "accepted": 0, "wrote_target": 0, "single_file": 0, "wall_s": 37.1, "tasks_per_hour": 0.0}
+{"task": "lru_cache", "difficulty": "easy", "wall_s": 100.0, "rc": null, "files": [], "note": "timeout after 100s", "wrote_target": false, "extra_files": [], "accepted": false, "error": "target file not written | no output at all", "label": "smoke4"}
+{"kind": "SUMMARY", "label": "smoke4", "model": "local/qwen38", "tasks": 1, "accepted": 0, "wrote_target": 0, "single_file": 0, "wall_s": 100.0, "tasks_per_hour": 0.0}
+{"task": "lru_cache", "difficulty": "easy", "wall_s": 150.0, "rc": null, "files": [], "note": "timeout after 150s", "wrote_target": false, "extra_files": [], "accepted": false, "error": "target file not written | no output at all", "label": "smoke5"}
+{"kind": "SUMMARY", "label": "smoke5", "model": "local/qwen38", "tasks": 1, "accepted": 0, "wrote_target": 0, "single_file": 0, "wall_s": 150.0, "tasks_per_hour": 0.0}

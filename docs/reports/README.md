@@ -1,0 +1,76 @@
+# Qwen3.8-27B Local Coding Worker — Documentation Index
+
+> ### → **[START-HERE.md](START-HERE.md)** ←
+>
+> **New to this project? Read that one document.** It covers what was tried,
+> what it cost, what was learned and what is still open, from the beginning,
+> in one place. Everything below is the detail behind it.
+
+One document per topic. Read in this order; each builds on the one before.
+
+| # | document | question it answers | status |
+|---|---|---|---|
+| 00 | [Q3 vs Q4 benchmark](00-Q3-VS-Q4-BENCHMARK-REPORT.md) | Which quant, at 16K? | complete |
+| 01 | [Runtime tuning](01-RUNTIME-TUNING-REPORT.md) | Which server flags, and how much do they actually buy? | complete |
+| 02 | [Context depth](02-CONTEXT-DEPTH-REPORT.md) | How deep can this machine go, and does the quant verdict survive? | complete to 128K, Q4 only |
+| 03 | [Deep-context quality](03-DEEP-CONTEXT-QUALITY-REPORT.md) | Does Q8_0 KV damage retrieval at the depth where it helps? | complete |
+| 04 | [Measurement methodology](04-MEASUREMENT-METHODOLOGY.md) | How to measure on this machine without fooling yourself | complete |
+| 05 | [Operating guide](05-OPERATING-GUIDE.md) | What to actually run, and the rules that matter more than flags | complete |
+| 06 | [Open questions](06-OPEN-QUESTIONS.md) | What is unmeasured, and what to do next | **rewritten after Experiment A** |
+| 07 | [Skill routing](07-SKILL-ROUTING.md) | Which discipline governed which decision, and which rules did not hold | complete |
+| 08 | [Candidate landscape](08-CANDIDATE-LANDSCAPE.md) | Which models in the new research actually exist, fit, and run on our binary | complete |
+| 09 | [Agent-loop and system gates](09-AGENT-LOOP-AND-SYSTEM-GATES.md) | Tool-call, 100-turn stability and prefix-cost control values for Q4 | Q4 control complete |
+| 10 | [Experiment A — Q2 vs Q4](10-EXPERIMENT-A-Q2-VS-Q4.md) | Does crossing the VRAM residency threshold beat Q4? | complete |
+| 11 | [Depth on IQ2_XXS](11-DEPTH-ON-IQ2XXS.md) | 64K / 128K / 256K on the new default — and what 256K costs | throughput complete, quality open |
+| 12 | [Dynamic V3 first results](12-DYNAMIC-V3-FIRST-RESULTS.md) | Unsloth republished the repo mid-session — what the V3 1-bit and 2-bit rungs actually do | stages 0–2 complete |
+| 13 | [Cross-model results](13-CROSS-MODEL-RESULTS.md) | **Every other model and quant measured** — Ornith 9B/35B, Ternary Bonsai, 35B-A3B MoE, gpt-oss-20b, AtomicChat | complete |
+| 14 | [Panel review](14-PANEL-REVIEW.md) | Three independent agents critiqued the test plan — what they found, what was fixed, what is still open | complete |
+| 15 | [Test inventory](15-TEST-INVENTORY.md) | **Every model × quant × probe actually run** — one row per artifact, one column per probe, so a gap shows as a blank cell | complete |
+| 16 | [Optimization surface](16-OPTIMIZATION-SURFACE.md) | **Complete catalogue of everything tunable** — 16 layers, all 248 runtime options accounted for including the ones judged inert, with predictions | complete |
+| 17 | [External research review](17-EXTERNAL-RESEARCH-REVIEW.md) | What the reply to the research brief got right, wrong, and did not answer — recorded so it is not re-derived | complete |
+| 18 | [Research round 2 review](18-RESEARCH-ROUND2-REVIEW.md) | The 10-workstream reply, verified flag-by-flag on this machine — six usable answers, every percentage discarded, the model table refuted | complete |
+| 19 | [The 128K plateau](19-THE-128K-PLATEAU.md) | **At 128K every resident arm ties at ~27 tok/s** — weight size decides residency, not speed. Pick the largest that fits, not the smallest | complete |
+| 20 | [16-layer results](20-SIXTEEN-LAYER-RESULTS.md) | **21 levers measured in one session** — n-gram decoding doubles throughput for free; eleven levers do nothing; four are harmful | complete |
+| 21 | [Context ceiling](21-CONTEXT-CEILING.md) | How far past 128K each artifact stays fully resident — the residency half of the >128K goal | complete |
+| 22 | [Session record 2026-08-20](22-SESSION-RECORD-2026-08-20.md) | **The arc of one nine-hour session** — 21 levers measured, four claims retracted, five instrument faults found, and n-gram at 128K going 26.5 → 81.5 tok/s | complete |
+| 23 | [Session record 2026-08-21](23-SESSION-RECORD-2026-08-21.md) | **Latest.** n-gram re-measured on a fixed-text instrument and the winner **changes with depth** (`ngram-map-k` +135.89 % at 16K, `ngram-mod` +200.22 % at 128K); `ngram-cache` disqualified; `AD-IQ1_M` ruled out at 128K; four placement levers inert; two flat-constant harness faults fixed | complete |
+| 24 | [Beyond 128K](24-BEYOND-128K.md) | **In progress.** Throughput past 131,072, which report 21 never measured. At 163,840 the fastest arm is NOT the fully-resident one: `-ot ssm` restores `65+0` and collapses speculative acceptance from 100 % to 4 % | running |
+| ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Ten published claims this project later contradicted with its own data, each with where the correction lives | current |
+| ★ | [**Master report** (self-contained, for external review)](MASTER-REPORT-2026-08-19.md) | Everything above in one document that assumes no access to this machine | 2026-08-19 |
+| — | [Session state](SESSION-STATE.md) | restart notes — the interrupted run it describes is now complete | superseded |
+
+**Everything in reports 00–11 is the PRE-V3 generation.** Unsloth replaced every
+file in `unsloth/Qwen3.8-27B-GGUF` in place on 2026-08-19T16:39:23Z, mid-session:
+same filenames, new contents, new byte counts. Those reports remain internally
+consistent and comparable to each other; they are not comparable to the current
+repo. See 12.
+
+**The one-line answer (revised 2026-08-19):** at 16K run **`UD-IQ2_XXS` with
+speculation OFF** — fully GPU-resident, 3.2x Q4's decode, and the same 27/30 task
+acceptance as Q4. Keep `UD-Q4_K_XL` with `--spec-type draft-mtp
+--spec-draft-n-max 2` as the escalation lane, and — until 11 §4 is closed — for
+any deep task whose success depends on **retrieval** rather than throughput.
+At depth IQ2_XXS is 2-3x faster (11), but only Q4's deep *quality* is verified.
+See 10 for the evidence and its limits.
+
+**The residency cliff:** 33 GPU layers gives 12.6 tok/s, 61 gives 21.6, and 65
+gives 42.4. The last four CPU layers cost about half the throughput. "Nearly
+resident" is a different regime from "resident".
+
+**The finding that outranks every flag:** the prefix cache is exact. Editing one
+sentence above the append point costs a full re-prefill — 2.4 s becomes 11.5 s at
+4K, and a measured 63 s at 16K / 248 s at 64K (10-point fit, r2 0.968).
+See 05 for the rule and 09 for the curve.
+
+**Depth guidance (revised):** 16K with F16 KV · 64K and 128K with `q8_0` KV ·
+**256K now runs without host paging** on IQ2_XXS, at 1.71 tok/s behind an
+11-minute cold prefill — a budget for one deep question, not an agent loop.
+Retrieval quality at depth is verified on **Q4 only**; see 11 §4 before trusting
+a low-bit artifact with a needle-in-100K-tokens task.
+
+**Plans** live in `..\plans\` — `00-OPTIMIZATION-PLAN.md` (the original flag-tuning
+programme, complete) and `01-V3-Q1-Q2-TEST-PLAN.md` (the current one: Qwen3.8-27B
+Dynamic V3, 1-bit and 2-bit rungs).
+
+Raw data and harnesses live in `C:\AI\qwen38-tuning\` —
+`EXPERIMENTS.md` (E0–E13), `results\*.jsonl`, `bench\` (58 tests), `scripts\`, `logs\`.

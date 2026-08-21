@@ -1,0 +1,9 @@
+# The docs are written on Windows and read by agents on any platform.
+# Normalise in the repo, leave the working copy alone.
+* text=auto
+*.sh  text eol=lf
+*.py  text eol=lf
+*.ps1 text eol=crlf
+*.gguf binary
+*.jpg  binary
+*.png  binary
