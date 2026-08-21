@@ -42,7 +42,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from harness import median, parse_layer_split, draft_acceptance, paired_deltas
+from harness import (median, parse_layer_split, draft_acceptance,
+                     paired_deltas, vram_settled, VRAM_MIN_RISE_MIB)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 EXE = r"C:\AI\llama.cpp-dflash2\llama-server.exe"
@@ -81,23 +82,78 @@ def vram():
     return [int(x) for x in o.split(",")]
 
 
+def port_owner():
+    """PID listening on the arena port, or None. Reads only, never stops it."""
+    r = subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         "$c = Get-NetTCPConnection -LocalPort 8080 -State Listen "
+         "-ErrorAction SilentlyContinue; if ($c) { $c.OwningProcess }"],
+        capture_output=True, text=True)
+    out = (r.stdout or "").strip().splitlines()
+    return int(out[0]) if out and out[0].strip().isdigit() else None
+
+
+def require_exclusive_port():
+    """Refuse to run while another orchestrator holds the port.
+
+    CLAUDE.md: "Two orchestrators cannot share port 8080. An armed queue once
+    killed a running corpus and the summary still printed a plausible number."
+    On 2026-08-22 this arena reproduced that -- a second run was launched while
+    the first was finishing, and the older teardown killed the younger server.
+    The younger log ends mid-load with no error, because it did not fail.
+
+    It failed loudly only because the kill landed during a load. Landing
+    between generations it would have produced a short arm with a believable
+    rate, which is the failure this project exists to refuse.
+    """
+    pid = port_owner()
+    if pid is not None:
+        raise RuntimeError(
+            "port 8080 is already held by pid %d. Another orchestrator is "
+            "running; stop it before starting a measurement, or this run and "
+            "that one will kill each other's servers." % pid)
+
+
 def kill():
-    subprocess.run(["taskkill", "/F", "/IM", "llama-server.exe"],
-                   capture_output=True)
+    """Stop any llama-server. Returns True if one was actually running.
+
+    The caller needs to know: a floor for the settle check is only meaningful
+    when something WAS resident. Applying it when nothing was running demands a
+    rise that cannot happen, and the wait times out every time -- which is what
+    the first version of this file did.
+    """
+    # Exit code, not the message: taskkill returns 0 when it killed something
+    # and 128 when the image was not found, and that holds whatever language
+    # the machine reports errors in. Matching on "SUCCESS" would return False
+    # on a localised Windows and silently skip every settle wait -- the same
+    # fault, quieter.
+    r = subprocess.run(["taskkill", "/F", "/IM", "llama-server.exe"],
+                       capture_output=True, text=True)
+    return r.returncode == 0
 
 
-def wait_for_vram_release(limit_s=90, poll_s=3):
+def wait_for_vram_release(floor_mib=None, limit_s=90, poll_s=3):
     """WDDM frees a 12 GB allocation in stages.
 
     Starting the next arm too early passes /health against memory the driver
     still holds, then dies on the first /completion -- instrument fault 7.
+
+    Delegates to harness.vram_settled rather than comparing readings here. The
+    first version of this function did compare them, and lost `floor_mib` in
+    the process: "stopped moving" alone cannot tell *release finished* from
+    *release has not begun*, because two polls taken before the driver does
+    anything agree perfectly. The floor is the free reading taken WHILE the
+    model was still resident, plus the minimum rise a real teardown must
+    produce -- which a release that never started cannot reach.
     """
     readings = []
     for _ in range(int(limit_s / poll_s)):
         time.sleep(poll_s)
         readings.append(vram()[1])
-        if len(readings) >= 3 and max(readings[-3:]) - min(readings[-3:]) < 64:
+        if vram_settled(readings, floor_mib=floor_mib):
             return readings
+    print("    VRAM still moving after %ds: %s" % (limit_s, readings[-4:]),
+          flush=True)
     return readings
 
 
@@ -116,12 +172,49 @@ _BLOCK = ("// section {i}\n"
           "}}\n\n")
 
 
-def filler(n_tokens):
-    """Roughly n_tokens of plausible C, identical for every arm.
+# Real source from this repo. A coding worker reads real files, and real files
+# barely repeat: measured with harness.line_repetition_pct, harness.py is 4.8 %
+# duplicate lines and opencode_corpus.py is 0.6 %, against 66.2 % for the
+# synthetic blocks above.
+REAL_SOURCES = ["harness.py", "depth_sweep.py", "model_arena.py",
+                "opencode_corpus.py", "kv_sweep.py"]
+
+
+def filler(n_tokens, regime="synthetic"):
+    """Roughly n_tokens of prompt, identical for every arm.
 
     A drafter's acceptance depends on how predictable the text is, so varying
     the prompt between arms would measure the text instead of the decoder.
+
+    TWO REGIMES, BECAUSE THE ARMS DO DIFFERENT JOBS. `ngram-mod` drafts by
+    matching text it has already seen in the context; it is cheap and strong
+    exactly where the answer is already on screen, and has nothing to offer
+    where the model is writing something new. DFlash2 is a trained drafter and
+    does not need to have seen the text before. Measuring only one regime
+    measures one of them at its best and the other away from it.
+
+      synthetic  66.2 % duplicate lines -- ngram-mod's best case, and the trap
+                 depth_sweep.py already names in its own header: "the sweep
+                 prompt is 84.5 % duplicate lines, so treat the smaller number
+                 as the real one".
+      real-code  ~4 % duplicate lines -- this repo's own source, which is what
+                 the worker actually reads.
+
+    A verdict from one regime does not carry to the other, the same way a
+    verdict at one depth does not carry to another depth.
     """
+    if regime == "real-code":
+        parts, budget = [], n_tokens * 3
+        for name in REAL_SOURCES:
+            path = Path(__file__).parent / name
+            if path.is_file():
+                parts.append(path.read_text(encoding="utf-8", errors="replace"))
+            if sum(len(x) for x in parts) >= budget:
+                break
+        text = "".join(parts)[:budget]
+        return text + ("\n# Explain what vram_settled guards against, "
+                       "then write a test for it.\n")
+
     out, i = [], 0
     while sum(len(s) for s in out) < n_tokens * 3:
         out.append(_BLOCK.format(i=i))
@@ -129,9 +222,25 @@ def filler(n_tokens):
     return "".join(out) + "\n// Explain what helper_3 computes, then rewrite it.\n"
 
 
+def stop_server():
+    """Kill the server AND wait for the driver to hand the memory back.
+
+    One function, because separating them is how the wait died: run_arm's
+    `finally` called kill(), so start()'s kill() then found nothing to kill,
+    returned False, and skipped the wait for every arm in the run. The guard
+    was present, called, and inert.
+
+    Reading free VRAM before the kill is what makes the floor mean anything --
+    it is how much has to come back.
+    """
+    resident_free = vram()[1]
+    if not kill():
+        return                      # nothing was running; nothing to wait for
+    wait_for_vram_release(floor_mib=resident_free + VRAM_MIN_RISE_MIB)
+
+
 def start(ctx, extra, tag, boot_s=240):
-    kill()
-    wait_for_vram_release()
+    stop_server()
     free_before = vram()[1]
     log = ROOT / "logs" / ("dflash2-" + tag + ".log")
     args = [EXE, "-m", TARGET, "--alias", "qwen38", "-c", str(ctx),
@@ -164,10 +273,12 @@ def rate(t):
     return r if t.get("predicted_n") and r and r > 0 else None
 
 
-def run_arm(ctx, label, extra, rnd):
-    tag = label.replace("+", "-") + "-c" + str(ctx) + "-r" + str(rnd)
+def run_arm(ctx, label, extra, rnd, regime="synthetic"):
+    tag = (label.replace("+", "-") + "-" + regime
+           + "-c" + str(ctx) + "-r" + str(rnd))
     p, fh, log, free_before = start(ctx, extra, tag)
-    row = dict(ctx=ctx, arm=label, round=rnd, args=" ".join(extra),
+    row = dict(ctx=ctx, arm=label, round=rnd, regime=regime,
+               args=" ".join(extra),
                n_predict=N_PREDICT, free_before=free_before,
                loaded=p is not None)
     if p is None:
@@ -176,12 +287,21 @@ def run_arm(ctx, label, extra, rnd):
         return row
 
     try:
-        prompt = filler(int(ctx * 0.5))
+        prompt = filler(int(ctx * 0.5), regime)
         samp = {"temperature": 0.0, "top_k": 1, "seed": 42}
         # Warm turn: pays the cold prefill once so the timed generations measure
         # decode rather than prefill. Its timings are discarded deliberately.
+        #
+        # FULL LENGTH, not a token or two. A 16-token warm turn paid the prefill
+        # but left the n-gram table nearly empty, and the first TIMED generation
+        # of every ngram arm then came in 35-40 % low -- 69.8 against 113.4 and
+        # 114.2 in the same boot, while dflash2 and none showed no such step
+        # because neither builds a table from the text it just emitted. Median
+        # of three mostly absorbed it, which is precisely why it could have gone
+        # unnoticed: a systematic bias hidden inside a summary statistic.
         post("/completion",
-             dict({"prompt": prompt, "n_predict": 16, "cache_prompt": True}, **samp),
+             dict({"prompt": prompt, "n_predict": N_PREDICT, "cache_prompt": True},
+                  **samp),
              timeout=900)
         timings, rates = [], []
         for _ in range(N_GEN):
@@ -206,7 +326,7 @@ def run_arm(ctx, label, extra, rnd):
         row["note"] = "%s: %s" % (type(exc).__name__, exc)
         print("    %-15s ERROR %s" % (label, exc), flush=True)
     finally:
-        kill()
+        stop_server()
         fh.close()
     return row
 
@@ -247,25 +367,31 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ctx", type=int, nargs="+", default=[16384])
     ap.add_argument("--rounds", type=int, default=3)
+    ap.add_argument("--regime", choices=["synthetic", "real-code"],
+                    nargs="+", default=["synthetic"])
     ap.add_argument("--out",
                     default=str(ROOT / "results" / "dflash2-arena.jsonl"))
     a = ap.parse_args()
+
+    require_exclusive_port()
 
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     with out.open("a", encoding="utf-8") as fh:
         for ctx in a.ctx:
+          for regime in a.regime:
             for rnd in range(1, a.rounds + 1):
                 # Rotate so no arm always runs first: within a boot the earlier
                 # arm sees a cleaner GPU, and a fixed order hands that advantage
                 # to the same arm every round.
                 k = (rnd - 1) % len(ARMS)
                 order = ARMS[k:] + ARMS[:k]
-                print("  ctx=%d round %d: %s"
-                      % (ctx, rnd, " -> ".join(l for l, _ in order)), flush=True)
+                print("  ctx=%d %s round %d: %s"
+                      % (ctx, regime, rnd,
+                         " -> ".join(l for l, _ in order)), flush=True)
                 for label, extra in order:
-                    row = run_arm(ctx, label, extra, rnd)
+                    row = run_arm(ctx, label, extra, rnd, regime)
                     rows.append(row)
                     fh.write(json.dumps(row) + "\n")
                     fh.flush()
