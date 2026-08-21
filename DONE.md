@@ -9,6 +9,53 @@ hundred lines.
 
 ---
 
+## 2026-08-21 — PR #3 merges: the cold start turns out to belong to the harness
+
+**Shipped:** merge commit `9e6e7ad`, 21 commits from 14 issues, +2,483 lines.
+Issues #1, #2, #4–#14 closed with evidence; #15 left open on purpose.
+
+**Serving.** `templates/qwen38-late-system.jinja` — the model's own chat template
+with one line changed, so a trailing `system` message no longer 500s. Without it
+Claude Code cannot talk to this server at all: its `SessionStart` hook output
+arrives as a 25–33 KB trailing system block. 50 consecutive failures before, 0
+after. Two more worker profiles joined the original pair, each with a header that
+says which harness actually fits it.
+
+**The finding.** The cold start is not the model, the quantization, CUDA, the KV
+type, the micro-batch, the context window or the tool schemas — every one of those
+was measured and is flat. It is a **352-skill catalogue injected as a user message
+and paid three times per invocation**: 153,621 tokens against 14,064 under
+`--safe-mode`, 171 s of prefill against 16 s, for the word `hi`. `qwen --safe-mode`
+or `disable-model-invocation: true` both remove it; the second keeps every other
+feature but also puts the skill out of the model's reach, which is measured.
+
+**Control group.** The same catalogue costs nothing on a gateway because it
+prefills at roughly 11,000 tok/s against our 900 — not because the harness sends
+less. Captured through a recording proxy: 54,478 and 57,700 tokens against our
+54,485 and 56,277, five calls either side.
+
+**Decoders, re-measured.** `draft-mtp` loses with 467–773 MiB free and loses again
+at `N_PREDICT = 1024`, so neither the VRAM cliff nor the 160-token rule explains
+its −71 %. DFlash 2 does not load on build 10472 at all — llama.cpp support needs
+PR #27342 — so the "screened, not competitive" register row described a screen
+that could not have run. `ngram-mod` costs **0 MiB**, measured.
+
+**Validated:** 136 tests (up from 111), 143 links 0 broken, every module parses.
+`/code-review` and `/scrutinize` both ran before merge and found four things;
+three are fixed on the branch, the fourth is the shape of the PR itself.
+
+**Corrections §14–§18**, each with an audit rule. Four of the five are this
+session contradicting itself within hours — the free-VRAM threshold, Qwen Code's
+request size twice, and a profile sized from a benchmark prompt that was a floor.
+
+**The gate that is now weaker, on purpose.** CI cannot run on this account, so
+`required_status_checks` was removed on a developer-initiated waiver and
+`.claude/t4.json` `verify` was widened from `pytest` alone to all three commands
+the workflow runs. The web UI and other clones are unguarded until it is reverted:
+**#15**, with a checklist.
+
+---
+
 ## 2026-08-21 — the workspace comes under version control, and gets its gates
 
 **Shipped:** `git init`, first commit of 432 files / 3.8 MB, public repo
