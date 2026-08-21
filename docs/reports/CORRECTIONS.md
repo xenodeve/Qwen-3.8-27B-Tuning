@@ -304,6 +304,46 @@ instrument fault 9.
 
 ---
 
+## 16. "The cold start was a second subagent, not the server" — the second half was wrong
+
+Report 26 and issue #8 concluded that the cold start belonged to the harness and
+shipped a cure that switched off `memory.enableManagedAutoMemory`, costing Qwen
+Code the ability to update its own memories.
+
+**The developer refuted the framing in one sentence:** the same unmodified Qwen
+Code runs fine against Qwen3.8-27B FP8 on a gateway. So the subagent evicts the
+cache there too, and nobody notices, because a datacenter endpoint re-prefills
+41,000 tokens in about a second. **Our prefill rate is what turns an eviction
+into 41.4 s.** Both halves are necessary; only one was named.
+
+That reframing made a server-side cure legitimate, and one had never been tried:
+
+```text
+  -c 98304  -np 1                    ~41,300 tok prefilled, 41.4 s   wall 58-71 s
+  -c 110592 -np 2 -sps 0.95           0 tok, FULL CACHE HIT          wall 5.9-17.1 s
+```
+
+with **every Qwen Code memory feature left on**. `--slot-prompt-similarity`
+defaults to 0.10, low enough that two prompts sharing a tool catalogue land on
+the same slot — which is why an earlier `-np 2` measurement at the same depth,
+with the default, changed nothing and was written off.
+
+**A third instrument fault nearly buried it.** `bench-cold-start.py` reported
+"no prompt eval line" as a failure. llama-server prints no timing line when there
+is nothing to prefill, so a **total cache hit — the best outcome available —**
+was recorded identically to a request that never arrived. Six such rows were read
+as six failures. It now separates them by return code and wall clock.
+
+**What survives from report 26.** Every negative result: the server's cache works
+(53.9 s then 0.4 s on replay), `--cache-ram -1` and `--cache-reuse 256` are
+regressions, `-ub` does nothing, the memory *files* are irrelevant, and the
+prompt does not vary between runs. And the mechanism is still the subagent
+evicting the slot — it is the *conclusion drawn from it* that was too narrow.
+
+`scripts/worker-iq2s-2slot.ps1` is the profile. Report 26, issue #9.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

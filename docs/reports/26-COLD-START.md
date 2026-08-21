@@ -4,16 +4,38 @@
 `qwen38-tuning/scripts/bench-cold-start.py`. Raw:
 `qwen38-tuning/results/cold-start.jsonl`.
 
-## Result first
+## Result
 
-| | prefill | wall |
-|---|---|---|
-| before, first run on a fresh server | 54,025 tok, 53.4 s | 129 s |
-| before, every run after | ~41,300 tok, 41.4 s | 56–68 s |
-| **after, every run including the first** | **4 tok, 0.1 s** | **4.4–6.7 s** |
+**Two cures, measured. Prefer the second — it costs nothing.**
 
-The one remaining 55-second prefill is paid by `scripts/warm-cache.ps1` while
-nobody is waiting.
+| | prefill per invocation | wall | Qwen Code memory |
+|---|---|---|---|
+| before, `-np 1` | ~41,300 tok, 41.4 s | 58–71 s | on |
+| turn off `memory.enableManagedAutoMemory` | 4 tok, 0.1 s | 4.4–6.7 s | **off — a feature lost** |
+| **`-c 110592 -np 2 -sps 0.95`** | **0 tok, full cache hit** | **5.9–17.1 s** | **on** |
+
+`scripts/warm-cache.ps1` pays the one cold prefill while nobody is waiting.
+`scripts/worker-iq2s-2slot.ps1` is the profile.
+
+**This section was rewritten after the developer refuted its first version.** It
+had said the cold start was the harness and not the server, on the strength of
+the setting cure. The refutation was one sentence: the same unmodified Qwen Code
+is fine against a gateway FP8 endpoint, so the subagent evicts the cache there
+too and nobody notices — a datacenter card re-prefills 41,000 tokens in about a
+second. The cold start is the product of the eviction **and** our prefill rate.
+`CORRECTIONS.md` §16.
+
+## Why two slots, and why `-sps`
+
+`--slot-prompt-similarity` defaults to **0.10**. Two prompts that share a tool
+catalogue look alike to it and are routed to the **same** slot, so they evict
+each other exactly as they did with one. An earlier `-np 2` measurement at this
+same depth, with the default, changed nothing and was written off as a dead end.
+Raising it to 0.95 forces them apart and the eviction stops.
+
+The price is real: 110,592 of KV against 98,304, and 55,296 of window per
+conversation rather than 98,304. That clears the 54,499-token request measured
+for Qwen Code, but not by much.
 
 ## What it was
 

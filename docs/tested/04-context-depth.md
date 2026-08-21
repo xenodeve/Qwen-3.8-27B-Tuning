@@ -134,7 +134,8 @@ Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
 
 | question | answer | evidence |
 |---|---|---|
-| Is the cold start gone? | **Yes.** 4 tokens, 0.1 s prefill, 4.4 s wall on the developer's first turn after `warm-cache.ps1` | report 26 |
+| Is the cold start gone? | **Yes, two ways.** `-np 2 -sps 0.95` gives a full cache hit with every Qwen Code feature ON; turning `memory.enableManagedAutoMemory` off also works but costs the feature | report 26, `CORRECTIONS.md` 16 |
+| Why did `-np 2` fail the first time? | `--slot-prompt-similarity` defaults to 0.10, so both prompts landed on the same slot | `CORRECTIONS.md` 16 |
 | What caused it? | `memory.enableManagedAutoMemory` — a second subagent whose 195,929-char prompt evicted the main prefix from the slot | report 26 |
 | Is the server's cache at fault? | **No.** One request replayed three times: 53.9 s, 0.4 s, 0.4 s | report 26 |
 | Where must the warm-up run? | In the working directory. Qwen Code's prompt embeds it | report 26 |

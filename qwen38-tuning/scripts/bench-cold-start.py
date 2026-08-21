@@ -81,8 +81,21 @@ def run_once(harness, prompt, timeout_s):
             overhead_s=round(wall - total_ms / 1000, 2),
             evals=[[round(ms, 1), t] for ms, t in evals])
     else:
-        row.update(note="no prompt eval line -- the request never reached the "
-                        "model, or the server log moved", stderr_tail=err)
+        # INSTRUMENT FAULT, FIXED 2026-08-21: this called an empty result a
+        # failure. llama-server prints no timing line when there is NOTHING to
+        # prefill, so a total cache hit -- the best outcome there is -- looked
+        # identical to a request that never arrived. It buried the -np 2 result
+        # for an hour. The two are separated by the return code and the wall
+        # clock: a run that answered in seconds with rc 0 hit the cache.
+        if rc == 0 and wall < 60:
+            row.update(prefill_tokens=0, prefill_ms=0.0, prefill_tok_s=None,
+                       all_prefill_ms=0.0, all_prefill_tokens=0,
+                       overhead_s=wall, evals=[],
+                       note="full cache hit -- nothing to prefill")
+        else:
+            row.update(note="no prompt eval line and the run did not look "
+                            "healthy -- rc {} after {} s".format(rc, wall),
+                       stderr_tail=err)
     return row
 
 
@@ -101,7 +114,11 @@ def main():
         row.update(run=i, label=a.label)
         with OUT.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + chr(10))
-        if "prefill_ms" in row:
+        if row.get("prefill_tokens") == 0:
+            print("  run {}: rc={} | FULL CACHE HIT, 0 tokens prefilled"
+                  "  |  wall {} s".format(i, row["returncode"], row["wall_s"]),
+                  flush=True)
+        elif "prefill_ms" in row:
             print("  run {}: rc={} | biggest prefill {} tok in {:.1f} s = {} tok/s"
                   " | {} calls, {} tok total | wall {} s, overhead {} s".format(
                       i, row["returncode"], row["prefill_tokens"],
