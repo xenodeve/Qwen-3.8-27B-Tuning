@@ -559,3 +559,73 @@ def check_output_contract(text):
         violations.append("usage example inside the block (__main__ guard)")
 
     return {"ok": not violations, "violations": violations, "blocks": len(blocks)}
+
+
+_SPEC_IMPL_RE = None
+
+
+def parse_spec_impl_stats(log_text):
+    """Per-implementation speculation counters, keyed by implementation name.
+
+    With a chained `--spec-type draft-dflash,ngram-mod` the summary line pools
+    both speculators:
+
+        draft acceptance = 0.46013 (352 accepted / 765 generated), mean len = 3.26
+
+    and the pooled number hides the finding. From the run behind report 29:
+
+        ngram-mod    : #calls(b,g,a) = 4, 542,  31, mean acc len = 18.00
+        draft-dflash : #calls(b,g,a) = 4, 511, 511, mean acc len =  2.91
+
+    `ngram-mod` was asked 542 times and produced a draft 31 times -- it declines
+    94.3 % of the time -- and `draft-dflash` was called exactly the 511 times
+    ngram declined. When ngram does fire it is worth six times more per draft.
+
+    The declines are `common/speculative.cpp:1993`: when the n-gram table misses
+    before `n_min` successors the whole draft is discarded, not truncated. So
+    `--spec-ngram-mod-n-min` is a fire-rate knob and `decline_pct` is how its
+    effect is read.
+
+    THE COUNTERS ARE CUMULATIVE and the server reprints them after every
+    completion, so the LAST block is the run and the first block is the first
+    task. Returns {} for a log that has no such lines at all -- absent is a
+    different fact from zero, and a log written below LOG_TRC has none.
+    """
+    global _SPEC_IMPL_RE
+    if _SPEC_IMPL_RE is None:
+        import re
+        _SPEC_IMPL_RE = re.compile(
+            r"statistics\s+(?P<name>[\w.-]+):\s*"
+            r"#calls\(b,g,a\)\s*=\s*(?P<cb>\d+)\s+(?P<cg>\d+)\s+(?P<ca>\d+),\s*"
+            r"#gen drafts\s*=\s*(?P<gd>\d+),\s*"
+            r"#acc drafts\s*=\s*(?P<ad>\d+),\s*"
+            r"#gen tokens\s*=\s*(?P<gt>\d+),\s*"
+            r"#acc tokens\s*=\s*(?P<at>\d+)"
+            r"(?:,\s*#mean acc len\s*=\s*(?P<mal>[\d.]+))?"
+            r"(?:.*?dur\(b,g,a\)\s*=\s*(?P<tb>[\d.]+),\s*(?P<td>[\d.]+),\s*(?P<ta>[\d.]+)\s*ms)?"
+        )
+
+    out = {}
+    for m in _SPEC_IMPL_RE.finditer(log_text):
+        g = m.groupdict()
+        n_call_draft = int(g["cg"])
+        n_gen_drafts = int(g["gd"])
+        # None, not 0.0: an implementation that was never asked has no decline
+        # rate, and reporting 0 % would read as "it always fired".
+        decline = (round(100.0 * (n_call_draft - n_gen_drafts) / n_call_draft, 1)
+                   if n_call_draft else None)
+        out[g["name"]] = {
+            "n_call_begin":  int(g["cb"]),
+            "n_call_draft":  n_call_draft,
+            "n_call_accept": int(g["ca"]),
+            "n_gen_drafts":  n_gen_drafts,
+            "n_acc_drafts":  int(g["ad"]),
+            "n_gen_tokens":  int(g["gt"]),
+            "n_acc_tokens":  int(g["at"]),
+            "mean_acc_len":  float(g["mal"]) if g["mal"] else None,
+            "t_begin_ms":    float(g["tb"]) if g["tb"] else None,
+            "t_draft_ms":    float(g["td"]) if g["td"] else None,
+            "t_accept_ms":   float(g["ta"]) if g["ta"] else None,
+            "decline_pct":   decline,
+        }
+    return out

@@ -38,6 +38,39 @@ spread the floor came from. **A quiet night is not a smaller floor.**
 *Raw: `results/sweep-threads*.jsonl`, `results/sweep-batch*.jsonl`,
 `results/kv-layers-16k.jsonl`, `results/kv-depth-levers.jsonl`.*
 
+## Speculation flags — swept 2026-08-22, on the frozen corpus
+
+Arena: `bench/dflash2_arena.py --regime real-code`, ctx 16,384,
+`draft-dflash,ngram-mod`, three rounds, arms rotated, paired by round.
+Raw: `results/sweep-*.jsonl`.
+
+### `--spec-ngram-mod-n-min` — **no effect. Do not re-run it.**
+
+| `n-min` | rounds (tok/s) | vs base |
+|---:|---|---|
+| 16 (ours) | 79.7, 79.6, 79.8 | baseline |
+| 8 | 79.7, 79.5, 79.8 | −0.1 % |
+| 4 | 79.7, 79.6, 79.8 | −0.0 % |
+| 2 | 79.8, 79.8, 79.7 | +0.1 % |
+
+Spread across all twelve runs: **0.3 %**. At that repeatability a 1 % effect
+would be visible; there is none.
+
+**The hypothesis and why it was wrong.** `ngram-mod` declines **93.7 %** of the
+calls it receives on real code, and when it does fire it is worth **16.7
+tokens** against `draft-dflash`'s 2.9 — so letting shorter drafts through looked
+like a large free win.
+
+It was a misreading of `common/speculative.cpp:1993`. In `draft_one`, `i` counts
+**draft tokens already produced**, not matched context. `n_min` is therefore a
+minimum draft *length*, and the declines happen at `i = 0` — the n-gram table
+misses on the very first successor — where no value of `n_min` can help.
+
+**What that leaves open.** The decline rate is real and large. The knob that
+governs it is `--spec-ngram-mod-n-match` (default 24, ours 12): the width of the
+context window the table is keyed on. That is a different flag and it has not
+been swept.
+
 ## Grammar (GBNF) — what it costs, and the one thing nobody has measured
 
 | question | answer | evidence |

@@ -88,6 +88,14 @@ RULES = [
      "have run; llama.cpp support needs PR #27342",
      "CORRECTIONS.md 18"),
 
+    ("real-code-absolute-rate",
+     r"(?:78\.9|105\.4|100\.5)[^\n]{0,40}tok/s|"
+     r"real.code[^\n]{0,60}(?:78\.9|105\.4)",
+     "an absolute real-code tok/s figure is not comparable across runs before "
+     "the corpus was frozen -- the prompt was built from bench/ source that "
+     "was edited between runs; only paired within-round deltas survive",
+     "CORRECTIONS.md 20"),
+
     ("iq2s-never-loaded",
      r"IQ2_S[^\n]{0,80}(?:never (?:been )?loaded|untested rung)|"
      r"(?:never (?:been )?loaded|untested)[^\n]{0,60}IQ2_S",

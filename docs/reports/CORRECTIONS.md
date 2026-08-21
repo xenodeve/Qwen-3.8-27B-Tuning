@@ -465,6 +465,52 @@ number**, which is what `docs/plans/06-REAL-TASK-BENCHMARK.md` §3.5 is for.
 
 ---
 
+## 20. The real-code benchmark prompt was built from the benchmark's own source
+
+**The claim.** Report 29's real-code figures — `ngram-mod` 53.0/52.5/49.3,
+`draft-dflash` 69.5/69.1/69.8, the pair 78.9/78.8/72.2 tok/s — read as
+properties of those decoders at ctx 16,384.
+
+**What contradicts it.** Re-running the pair with **byte-identical arguments**
+on 2026-08-22 produced **100.5 / 105.4 / 105.9 tok/s**. A 33 % gap on a project
+whose stated noise floor is 13.6 %.
+
+Not thermal: 49 °C, `SW Power Cap: Not Active`, `HW Thermal Slowdown: Not
+Active`, every throttle counter 0 µs. Not the arguments: the two runs' `args`
+fields are string-identical. Not the split: `65+0` in both.
+
+**The cause.** `dflash2_arena.filler(n, "real-code")` built its prompt by
+reading *this benchmark's own source* — `harness.py`, `depth_sweep.py`,
+`model_arena.py`, `opencode_corpus.py`, `kv_sweep.py` — and slicing the first
+`n * 3` characters.
+
+Between the two runs **3,045 bytes were appended to `harness.py`**
+(24,306 → 27,351) to add a stats parser. The prompt budget is 24,576
+characters, so the workload moved from *`harness.py` plus the first 270
+characters of `depth_sweep.py`* to *the first 24,576 characters of `harness.py`
+alone*. Different text, different n-gram hit rate, different acceptance.
+
+**I built a benchmark whose workload is generated from files I edit while
+running it.** Every real-code number was silently tied to the state of `bench/`
+at that instant.
+
+**What survives.** The **paired, within-round** verdicts of both runs, because
+one run sees one prompt: report 29's `draft-dflash` **+34.7 %** and the pair
+**+48.5 %** over `ngram-mod` still stand. What does not survive is any absolute
+rate quoted across runs, and any comparison between a pre- and post-edit run.
+
+**The fix.** `bench/corpora/real-code.txt` is the corpus frozen as a committed
+file, reconstructed from the tree at commit `674ea4b` — the state report 29 was
+measured on, so its numbers stay interpretable. Every row now carries
+`corpus`, a hash of that file. Verified: on the frozen corpus the pair measures
+**79.7 tok/s** against report 29's **78.9**, and the decline rate returns to
+**93.7 %** against **94.3 %**.
+
+**Guarded by** `bench/tests/test_corpus_frozen.py` (6 tests), which pins that
+the prompt is a pure function of the frozen file and that the hash is reported.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

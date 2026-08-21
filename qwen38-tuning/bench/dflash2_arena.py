@@ -43,7 +43,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from harness import (median, parse_layer_split, draft_acceptance,
-                     paired_deltas, vram_settled, VRAM_MIN_RISE_MIB)
+                     paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
+                     parse_spec_impl_stats)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 EXE = r"C:\AI\llama.cpp-dflash2\llama-server.exe"
@@ -73,6 +74,70 @@ ARMS = [
     # comma-separated list -- not by trusting a forum post.
     ("dflash2+ngram", ["--spec-type", "draft-dflash,ngram-mod"] + DFLASH + NGRAM),
 ]
+
+
+def _ngram(n_min, n_match=12, n_max=32):
+    return ["--spec-ngram-mod-n-match", str(n_match),
+            "--spec-ngram-mod-n-min", str(n_min),
+            "--spec-ngram-mod-n-max", str(n_max)]
+
+
+def _pair(extra_ngram=None, n_draft=4, extra=()):
+    return (["--spec-type", "draft-dflash,ngram-mod",
+             "-md", DRAFTER, "--spec-draft-n-max", str(n_draft), "-ngld", "99"]
+            + (extra_ngram if extra_ngram is not None else NGRAM) + list(extra))
+
+
+# Named arm sets. The default set answers "which decoder"; the others answer
+# "which setting of the decoder we already chose", which is where the measured
+# levers are.
+ARM_SETS = {
+    "decoders": ARMS,
+
+    # `--spec-ngram-mod-n-min` -- MEASURED, NO EFFECT. Kept so nobody re-runs it.
+    #
+    # The hypothesis was that it gates how often ngram-mod fires: at n_min 16 on
+    # real code it declines 93.7 % of the calls it receives, and when it does
+    # fire it is worth 16.7 tokens against draft-dflash's 2.9, so letting short
+    # drafts through looked like a large free win.
+    #
+    # It is not, and the reason is a misreading of common/speculative.cpp:1993.
+    # In draft_one, `i` counts DRAFT TOKENS ALREADY PRODUCED, not matched
+    # context. So n_min is a minimum draft LENGTH, and the declines happen at
+    # i = 0 -- the table misses on the very first successor -- where no value of
+    # n_min can help.
+    #
+    # 16 / 8 / 4 / 2 measured 79.7 / 79.7 / 79.7 / 79.8 tok/s over three rounds,
+    # a spread of 0.15 %, on the frozen corpus.
+    "ngram-nmin": [
+        ("nmin-16-base", _pair(_ngram(16))),
+        ("nmin-8",       _pair(_ngram(8))),
+        ("nmin-4",       _pair(_ngram(4))),
+        ("nmin-2",       _pair(_ngram(2))),
+    ],
+
+    # `--spec-draft-n-max` is a VRAM knob, priced at 149.62 MiB per unit:
+    # need_n_rs_seq() returns draft.n_max (common/common.h:390) and the
+    # recurrent state is allocated once per draft position. Default is 3
+    # (common.h:325); the DFlash clamp is block_size-1 = 7
+    # (speculative.cpp:989). Every arm here records free_after, because the
+    # throughput number is meaningless if the deeper arm spilled a layer.
+    "draft-n": [
+        ("n-3-default", _pair(n_draft=3)),
+        ("n-4-base",    _pair(n_draft=4)),
+        ("n-7-clamp",   _pair(n_draft=7)),
+    ],
+
+    # `--spec-draft-p-min` defaults to 0.00 (common.h:329), i.e. the DFlash2
+    # confidence early-stop is off. Trimming low-confidence tail positions
+    # narrows the verify batch, which also moves the flash-attention kernel
+    # choice. No VRAM cost.
+    "p-min": [
+        ("pmin-0-base", _pair()),
+        ("pmin-0.1",    _pair(extra=["--spec-draft-p-min", "0.1"])),
+        ("pmin-0.3",    _pair(extra=["--spec-draft-p-min", "0.3"])),
+    ],
+}
 
 
 def vram():
@@ -172,48 +237,62 @@ _BLOCK = ("// section {i}\n"
           "}}\n\n")
 
 
-# Real source from this repo. A coding worker reads real files, and real files
-# barely repeat: measured with harness.line_repetition_pct, harness.py is 4.8 %
-# duplicate lines and opencode_corpus.py is 0.6 %, against 66.2 % for the
-# synthetic blocks above.
-REAL_SOURCES = ["harness.py", "depth_sweep.py", "model_arena.py",
-                "opencode_corpus.py", "kv_sweep.py"]
+# The real-code prompt comes from a FROZEN FILE, not from live source.
+#
+# INSTRUMENT FAULT, 2026-08-22. This used to read this directory's own
+# harness.py, depth_sweep.py, model_arena.py, opencode_corpus.py and
+# kv_sweep.py and slice the first n*3 characters. Appending 3,045 bytes to
+# harness.py between two runs (24,306 -> 27,351) moved the 24,576-character
+# window from "harness.py plus 270 characters of depth_sweep.py" to
+# "harness.py alone", and the same arm with byte-identical arguments then
+# measured 78.9 tok/s in one run and 105.4 in the other. Nothing was
+# throttling: 49 C, no power cap, zero throttle counters. The workload had
+# changed underneath the measurement, and the operator was the one changing it.
+#
+# corpora/real-code.txt is that source concatenated at commit 674ea4b, the
+# tree report 29 was measured on, so those numbers stay interpretable.
+CORPUS_DIR = Path(__file__).parent / "corpora"
+
+
+def corpus_hash(regime):
+    """Short hash of the frozen corpus, or None for a generated regime.
+
+    Recorded on every row. A corpus that changes then changes a visible number
+    instead of changing nothing anybody can see.
+    """
+    if regime != "real-code":
+        return None
+    import hashlib
+    return hashlib.sha256((CORPUS_DIR / "real-code.txt").read_bytes()).hexdigest()[:16]
 
 
 def filler(n_tokens, regime="synthetic"):
-    """Roughly n_tokens of prompt, identical for every arm.
+    """Roughly n_tokens of prompt, identical for every arm AND every run.
 
     A drafter's acceptance depends on how predictable the text is, so varying
-    the prompt between arms would measure the text instead of the decoder.
+    the prompt between arms would measure the text instead of the decoder --
+    and varying it between RUNS makes two runs incomparable, which is the
+    fault described above.
 
     TWO REGIMES, BECAUSE THE ARMS DO DIFFERENT JOBS. `ngram-mod` drafts by
-    matching text it has already seen in the context; it is cheap and strong
-    exactly where the answer is already on screen, and has nothing to offer
-    where the model is writing something new. DFlash2 is a trained drafter and
-    does not need to have seen the text before. Measuring only one regime
-    measures one of them at its best and the other away from it.
+    matching text it has already seen in the context; it is strong exactly
+    where the answer is already on screen and has nothing to offer where the
+    model is writing something new. DFlash2 is a trained drafter and does not
+    need to have seen the text before.
 
       synthetic  66.2 % duplicate lines -- ngram-mod's best case, and the trap
-                 depth_sweep.py already names in its own header: "the sweep
-                 prompt is 84.5 % duplicate lines, so treat the smaller number
-                 as the real one".
-      real-code  ~4 % duplicate lines -- this repo's own source, which is what
+                 depth_sweep.py names in its own header.
+      real-code  4.7 % duplicate lines -- frozen real source, which is what
                  the worker actually reads.
 
     A verdict from one regime does not carry to the other, the same way a
     verdict at one depth does not carry to another depth.
     """
     if regime == "real-code":
-        parts, budget = [], n_tokens * 3
-        for name in REAL_SOURCES:
-            path = Path(__file__).parent / name
-            if path.is_file():
-                parts.append(path.read_text(encoding="utf-8", errors="replace"))
-            if sum(len(x) for x in parts) >= budget:
-                break
-        text = "".join(parts)[:budget]
-        return text + ("\n# Explain what vram_settled guards against, "
-                       "then write a test for it.\n")
+        text = (CORPUS_DIR / "real-code.txt").read_text(encoding="utf-8",
+                                                        errors="replace")
+        return text[:n_tokens * 3] + ("\n# Explain what vram_settled guards against, "
+                                      "then write a test for it.\n")
 
     out, i = [], 0
     while sum(len(s) for s in out) < n_tokens * 3:
@@ -280,6 +359,7 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic"):
     row = dict(ctx=ctx, arm=label, round=rnd, regime=regime,
                args=" ".join(extra),
                n_predict=N_PREDICT, free_before=free_before,
+               corpus=corpus_hash(regime),
                loaded=p is not None)
     if p is None:
         row["note"] = "server failed to start"
@@ -318,9 +398,18 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic"):
         fh.flush()
         text = log.read_text(encoding="utf-8", errors="replace")
         row["split"] = "%d+%d" % parse_layer_split(text, expect_layers=TARGET_LAYERS)
+        # Per-implementation counters. The pooled acceptance line cannot say
+        # which speculator served which fraction, and with a chained
+        # --spec-type that is the whole question.
+        row["impl"] = parse_spec_impl_stats(text)
         row["free_after"] = vram()[1]
-        print("    %-15s %6.2f tok/s   split %-6s acc %s"
-              % (label, row["tg_med"] or 0.0, row["split"], row["acceptance"]),
+        impl = row.get("impl") or {}
+        decl = "  ".join("%s decline %s%% len %s" %
+                         (k, d["decline_pct"], d["mean_acc_len"])
+                         for k, d in sorted(impl.items()))
+        print("    %-15s %6.2f tok/s  split %-6s acc %-6s free %5s  %s"
+              % (label, row["tg_med"] or 0.0, row["split"],
+                 row["acceptance"], row.get("free_after"), decl),
               flush=True)
     except Exception as exc:               # a failed arm is a row, not a crash
         row["note"] = "%s: %s" % (type(exc).__name__, exc)
@@ -342,19 +431,28 @@ def report(rows):
         groups.setdefault((r["ctx"], r.get("regime", "synthetic")), []).append(r)
     for (ctx, regime), rs in sorted(groups.items()):
         print("\nctx=%d  regime=%s" % (ctx, regime))
+        # Arms come from the rows, not from a module constant: a named arm set
+        # has different arm names, and reading ARMS here reported an empty
+        # series for every sweep that was not the decoder comparison.
         series = {}
-        for label, _ in ARMS:
-            vals = [r["tg_med"] for r in rs
-                    if r["arm"] == label and r.get("tg_med")]
-            if vals:
-                series[label] = vals
-        if "ngram-mod" not in series:
-            print("  no ngram-mod rounds -- nothing to pair against")
+        for r in rs:
+            if r.get("tg_med"):
+                series.setdefault(r["arm"], []).append(r["tg_med"])
+
+        # The baseline is the arm the sweep varies FROM. Name it "*-base" or
+        # call it ngram-mod; otherwise the first arm seen is used, and an
+        # unlabelled baseline is a silent choice, so the header prints it.
+        base_name = (next((k for k in series if k.endswith("-base")), None)
+                     or ("ngram-mod" if "ngram-mod" in series else None)
+                     or (sorted(series)[0] if series else None))
+        if base_name is None:
+            print("  no rows with a rate -- nothing to pair against")
             continue
-        base = series["ngram-mod"]
+        base = series[base_name]
+        print("  baseline: %s" % base_name)
         for label, vals in series.items():
             shown = [round(v, 1) for v in vals]
-            if label == "ngram-mod":
+            if label == base_name:
                 print("  %-15s %s  (baseline)" % (label, shown))
                 continue
             if len(vals) != len(base):
@@ -374,6 +472,7 @@ def main():
     ap.add_argument("--rounds", type=int, default=3)
     ap.add_argument("--regime", choices=["synthetic", "real-code"],
                     nargs="+", default=["synthetic"])
+    ap.add_argument("--arms", choices=sorted(ARM_SETS), default="decoders")
     ap.add_argument("--out",
                     default=str(ROOT / "results" / "dflash2-arena.jsonl"))
     a = ap.parse_args()
@@ -390,8 +489,9 @@ def main():
                 # Rotate so no arm always runs first: within a boot the earlier
                 # arm sees a cleaner GPU, and a fixed order hands that advantage
                 # to the same arm every round.
-                k = (rnd - 1) % len(ARMS)
-                order = ARMS[k:] + ARMS[:k]
+                arms = ARM_SETS[a.arms]
+                k = (rnd - 1) % len(arms)
+                order = arms[k:] + arms[:k]
                 print("  ctx=%d %s round %d: %s"
                       % (ctx, regime, rnd,
                          " -> ".join(l for l, _ in order)), flush=True)

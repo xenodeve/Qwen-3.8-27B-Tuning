@@ -101,6 +101,17 @@ cleanup step into the deletion of real work.
    clone. Nothing outside it is ever deleted.
 4. **No push, no PR, no issue comment, no label change** from a benchmark run.
    The tracker is an input. It is not a destination.
+5. **NEVER close an issue a benchmark worked on.** Developer instruction,
+   2026-08-22. The output of a benchmark run is a *measurement of the worker*,
+   not a contribution to the project — nobody reviewed it, nobody is going to
+   merge it, and the diff is deleted minutes later. Closing the issue would
+   claim work that was thrown away, and the next person would find a closed
+   issue with no commit behind it. **A benchmark PASS means the worker did the
+   task, not that the task is done.**
+6. **Never work in `D:\Github\*` — clone separately, every time.** Also a
+   developer instruction, and it is the same rule as rule 2 stated from the
+   other side: the reason is not tidiness, it is that MangaDock has 333
+   uncommitted files and T4-Fastwork 440.
 5. **A run that cannot clean up says so and stops.** It does not widen the
    deletion pattern to make cleanup succeed.
 6. **`--dangerously-skip-permissions` is not used.** If a run needs it, the run
@@ -344,7 +355,7 @@ Three outcomes only. There is no partial credit, because the metric is
 
 | outcome | definition |
 |---|---|
-| **PASS** | the repo's verify command exits 0 **and** the diff addresses the issue's stated defect |
+| **PASS** | the repo's verify command exits 0 **and** the diff addresses the issue's stated defect. **This does not close the issue** — see safety rule 5 |
 | **FAIL** | verify is non-zero, or the diff does not address the defect, or no diff |
 | **VOID** | the harness broke — server died, clone failed, env missing. **Not a worker failure and never counted as one** |
 
