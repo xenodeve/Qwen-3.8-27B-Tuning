@@ -332,11 +332,16 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic"):
 
 
 def report(rows):
-    by_ctx = {}
+    # Grouped by regime as well as depth. Pooling them averages a decoder's best
+    # case with its worst and reports the result as its performance: on
+    # 2026-08-22 this printed ngram-mod as [119.7, 119.4, 119.3, 53.0, 52.5,
+    # 49.3] -- one baseline spanning both prompts -- and every delta computed
+    # against it was meaningless. It did not crash and it did not look wrong.
+    groups = {}
     for r in rows:
-        by_ctx.setdefault(r["ctx"], []).append(r)
-    for ctx, rs in sorted(by_ctx.items()):
-        print("\nctx=%d" % ctx)
+        groups.setdefault((r["ctx"], r.get("regime", "synthetic")), []).append(r)
+    for (ctx, regime), rs in sorted(groups.items()):
+        print("\nctx=%d  regime=%s" % (ctx, regime))
         series = {}
         for label, _ in ARMS:
             vals = [r["tg_med"] for r in rs

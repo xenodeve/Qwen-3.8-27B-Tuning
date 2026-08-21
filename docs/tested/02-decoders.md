@@ -43,13 +43,25 @@ was typed by hand rather than read from the JSONL.
 | `draft-mtp` on CPU (`--spec-draft-device none`) | **−59 %** | external research predicted +70–85 % |
 | `draft-mtp` with `-otd .*=CPU` | worse than GPU | |
 | `draft-eagle3` | no usable head for this model | never produced a run |
-| `draft-dflash` / DFlash 2 | **cannot load on build 10472** — `wrong number of tensors; expected 81, got 58`. **Loads on build 10499**, compiled from PR #27342 into `C:\AI\llama.cpp-dflash2`. Still **unmeasured**: loading is not a speed result | 10499 = commit `1deefcca3`, PR head. `scripts/build-dflash2.ps1` rebuilds it, `scripts/probe-dflash2-load.ps1` re-checks the load. Issue #17 |
+| `draft-dflash` / DFlash 2 | cannot load on 10472. On **build 10499**: **+34.7 % [+31.1, +41.6] over `ngram-mod` on real code, RESOLVED** — and **−9.2 % on a repetitive prompt**. The verdict reverses with the prompt. Costs **1,936 MiB resident** (1.06 GB on disk) and `--fit` cannot measure it | [report 29](../reports/29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md), `results/dflash2-arena-warm.jsonl`. Issues #17, #18 |
+| `draft-dflash,ngram-mod` **together** | **the best arm measured at 16,384: +48.5 % [+46.6, +50.1] over `ngram-mod` on real code, RESOLVED.** Inside the noise floor on a repetitive prompt | `--spec-type` takes a comma list — `common/arg.cpp:4155`. [report 29](../reports/29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) |
 | `draft-dspark` | tried with Ternary Bonsai | not competitive |
 | `draft-simple` | needs a second full model | no room |
 
-**The pattern:** on a 12 GB card any drafter that holds weights competes with the
-layers, and the residency cliff is steeper than the speculation gain. The n-gram
-family wins here because it holds nothing.
+**The pattern, as it stood before 2026-08-22:** on a 12 GB card any drafter that
+holds weights competes with the layers, and the residency cliff is steeper than
+the speculation gain. The n-gram family wins here because it holds nothing.
+
+**What changed.** That pattern was established on prompts built from repeated
+blocks. `ngram-mod` drafts by matching text already in the context, so a
+repetitive prompt is its best case — and every arm it beat was measured there.
+On this repo's own source (4.7 % duplicate lines against the sweep prompt's
+66.2 %) `ngram-mod` is worth only about **17 %** over no speculation at all,
+where on the synthetic prompt it was worth **2.7×**. A drafter that holds weights
+now has something to beat. [Report 29](../reports/29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md).
+
+**Every `ngram-*` verdict in this file was set on a repetitive prompt** and is
+owed a re-measurement, starting with report 20's "+200 % at 131,072".
 
 *Raw: `results/mtp-sweep.jsonl`, `results/kv-decoders.jsonl`,
 `results/spec-matrix-q*.jsonl`. Reports 20 §2, 22.*
