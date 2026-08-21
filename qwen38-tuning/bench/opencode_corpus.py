@@ -50,7 +50,7 @@ LEAN_ENV = {
 
 
 def kill_server():
-    """OpenCode keeps a per-project server alive between invocations.
+    r"""OpenCode keeps a per-project server alive between invocations.
 
     `run` attaches to whatever is already listening, and that server carries the
     project root it was first started with -- so a second task launched from a

@@ -19,6 +19,14 @@ inside a report is a result nobody can find.
 
 ---
 
+## Shipping — the gates
+
+| status | item | why it is open | where |
+|---|---|---|---|
+| 🟡 **TRACKED** | **CI cannot run on this account** — every job fails in 2 s on a billing lock, so `lint`/`typecheck`/`test` can never go green | The `required_status_checks` rule was removed from `main-protection` and `requireGreenCI` set to `false`, both on a developer-initiated waiver dated 2026-08-21. In exchange `.claude/t4.json` `verify` now runs **all three** checks locally instead of `pytest` alone. **The web UI and other clones are unguarded until this is reverted.** | issue #15, `.claude/t4.json` `ciWaiver` |
+
+---
+
 ## Measurement — the machine
 
 | status | item | why it is open | where |

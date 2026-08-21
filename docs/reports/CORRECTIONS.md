@@ -187,6 +187,237 @@ Fixed in `bench/protocol_gate.py` — the trace is kept and
 
 ---
 
+## 13. Results measured below ~300 MiB of free VRAM are the machine falling off a cliff
+
+Across **all 235 sweep rows this project has recorded**, the six with free VRAM
+under 300 MiB are the only ones whose prefill fell under 700 tok/s, and the two
+under 250 MiB are the only ones under 120:
+
+```text
+  free 199 MiB   pp 106.3 tok/s   prefill 875.6 s    <- q4_0, IQ2_S @131,072
+  free 226 MiB   pp 112.8         prefill 825.5 s    <- fit-192-ngram, round 1
+  free 307 MiB   pp 841.1         prefill 110.7 s    <- SAME ARM, round 2
+  free >= 300    n=229            pp median 837
+```
+
+**Same flags, same artifact, same depth, seven times apart on both axes.** The
+81 MiB between rounds is the Windows desktop moving, not a setting. The
+signature fits WDDM paging compute buffers out to system RAM rather than
+failing the allocation.
+
+**What this puts in doubt.** Any conclusion drawn from an arm whose row shows
+`vram_free` under ~300 — including *"`-ot ffn` drops prefill from 240.6 to 8.56
+tok/s"* (`CORRECTIONS.md` §4), which ran at 382 MiB: above the line, but not by
+much, and the line is not sharp.
+
+**What it explains.** `--fit-target`'s default of 768 MiB, which this project
+spent a night calling an untested reserve, is the buffer that keeps the machine
+off this cliff. Lowering it to 192 does free VRAM and does buy residency — and
+it removes the margin that makes a result reproducible.
+
+**Consequence for every future measurement:** `vram_free` is not a diagnostic
+column, it is a **validity condition**. A row below the line is not a slow
+result, it is a void one.
+
+---
+
+---
+
+## 14. Free VRAM at settle is a risk indicator, not a validity condition
+
+Section 13 above ends: *"A row below the line is not a slow result, it is a void
+one."* Seven rows measured on 2026-08-21 falsify that in both directions.
+
+```text
+  UD-IQ2_S @131,072, --fit-target 192            free 233 MiB   pp 817.1 tok/s
+  UD-IQ2_S @131,072, --fit-target 192 -ub 128    free 285 MiB   pp 721.8
+  UD-IQ2_S @131,072, --fit-target 192 -ub 128    free 291 MiB   pp 188.1
+  UD-IQ2_S @131,072, --fit-target 192            free 424 MiB   pp 836.1
+```
+
+**Two of the three rows under 300 MiB are among the fastest in the set, and the
+slowest row under 300 MiB has more free VRAM than either of them.** 233 MiB ran
+4.3x faster than 291 MiB, on the same artifact at the same depth in the same
+pair of rounds.
+
+So `free` at settle does not order the outcomes. The correlation reported in
+section 13 was real in the 235-row corpus; the causal reading laid on top of it
+-- a threshold that voids a row -- does not survive new data. Whatever drives
+the collapse is not captured by a single reading taken once the server has
+loaded. The desktop moves *during* a run, and nothing here samples that.
+
+**What survives.** A row under 300 MiB is still the only place a collapse has
+ever been seen, so it remains a reason to repeat a measurement rather than
+publish it. That is a weaker claim than section 13 made, and it is the one the
+data supports.
+
+**What this puts in doubt.** Any decision made by discarding a row for sitting
+under the line, and the reading of `--fit-target 768` as "the buffer that keeps
+the machine off the cliff" -- `192` produced the two fastest 131,072 rows this
+project has recorded.
+
+Raw: `qwen38-tuning/results/iq2s-131072-residency.jsonl`. Report 25.
+
+---
+
+## 15. Qwen Code's request is 54,499 tokens, not 16,796 — and 32,768 breaks it
+
+Report 25 read this server-log line as the size of Qwen Code's first turn:
+
+```text
+  prompt eval time = 21630.42 ms / 16796 tokens (776.50 tok/s)
+```
+
+**16,796 is what was left to prefill after cache reuse, not the size of the
+request.** The request is **54,499 tokens**, and the correction arrived as a
+failure rather than a slow number only because the window had already been
+lowered on the strength of the wrong reading:
+
+```text
+  API Error: 400 request (54499 tokens) exceeds the available context size
+  (32768 tokens), try increasing it
+```
+
+**What was published and is withdrawn.** That `-c 32768` is the profile for Qwen
+Code, and the advice to set `contextWindowSize` in `~/.qwen/settings.json` to
+match. Following it makes Qwen Code fail on every turn. The window sizes
+measured since:
+
+| harness | one request | fits 32,768 |
+|---|---|---|
+| lean OpenCode, longest of 10 real tasks | 13,741 | yes |
+| Qwen Code | 54,499 | no |
+| Claude Code with MCP loaded | 54,685 | no |
+| OpenCode default profile, prefix alone | 99,073 | no |
+
+**What survives.** The measurement the profile was built on is unaffected --
+32,768 really does give 1,134-1,168 tok/s prefill and 45.3-50.3 tok/s decode
+against 776-836 and 23.2-23.9 at 131,072. Only the claim about which harness
+fits in it was wrong.
+
+**The instrument shares the blame and has been fixed.**
+`scripts/bench-cold-start.py` took the FIRST prompt-eval line of a run as "the"
+prefill. A harness makes several calls per turn and Qwen Code's first is 603
+tokens, so the real 54,499-token call was reported as harness overhead. It now
+reports the largest call and the sum, and the same shape is already on file as
+instrument fault 9.
+
+---
+
+## 16. "The cold start was a second subagent, not the server" — the second half was wrong
+
+Report 26 and issue #8 concluded that the cold start belonged to the harness and
+shipped a cure that switched off `memory.enableManagedAutoMemory`, costing Qwen
+Code the ability to update its own memories.
+
+**The developer refuted the framing in one sentence:** the same unmodified Qwen
+Code runs fine against Qwen3.8-27B FP8 on a gateway. So the subagent evicts the
+cache there too, and nobody notices, because a datacenter endpoint re-prefills
+41,000 tokens in about a second. **Our prefill rate is what turns an eviction
+into 41.4 s.** Both halves are necessary; only one was named.
+
+That reframing made a server-side cure legitimate, and one had never been tried:
+
+```text
+  -c 98304  -np 1                    ~41,300 tok prefilled, 41.4 s   wall 58-71 s
+  -c 110592 -np 2 -sps 0.95           0 tok, FULL CACHE HIT          wall 5.9-17.1 s
+```
+
+with **every Qwen Code memory feature left on**. `--slot-prompt-similarity`
+defaults to 0.10, low enough that two prompts sharing a tool catalogue land on
+the same slot — which is why an earlier `-np 2` measurement at the same depth,
+with the default, changed nothing and was written off.
+
+**A third instrument fault nearly buried it.** `bench-cold-start.py` reported
+"no prompt eval line" as a failure. llama-server prints no timing line when there
+is nothing to prefill, so a **total cache hit — the best outcome available —**
+was recorded identically to a request that never arrived. Six such rows were read
+as six failures. It now separates them by return code and wall clock.
+
+**What survives from report 26.** Every negative result: the server's cache works
+(53.9 s then 0.4 s on replay), `--cache-ram -1` and `--cache-reuse 256` are
+regressions, `-ub` does nothing, the memory *files* are irrelevant, and the
+prompt does not vary between runs. And the mechanism is still the subagent
+evicting the slot — it is the *conclusion drawn from it* that was too narrow.
+
+`scripts/worker-iq2s-2slot.ps1` is the profile. Report 26, issue #9.
+
+---
+
+## 17. The two-slot profile does not fit a real session, and the benchmark is why
+
+`worker-iq2s-2slot.ps1` shipped in §16 with `-c 110592 -np 2`, giving 55,296 per
+slot, sized against a Qwen Code request measured at **54,499 tokens**. The
+developer's actual interactive session is **71,910**:
+
+```text
+  API Error: 400 request (71910 tokens) exceeds the available context size
+  (55296 tokens), try increasing it
+```
+
+**Two slots cannot serve that conversation on this card.** Each would need
+71,910, so 143,820 of context; the deepest this GPU holds fully resident is
+131,072, and only with `--fit-target 192`, which settles at 233-424 MiB free.
+The profile is correct only for a session small enough to fit half the window,
+and a session grows.
+
+**This is the third time a measured prompt size was smaller than reality**, and
+each time the number came from `bench-cold-start.py` driving Qwen Code with
+`-p "reply with exactly the word: ok"` from a directory with no project history:
+
+| claimed | actual | how it surfaced |
+|---|---|---|
+| 16,796 | 54,499 | a 400 at `-c 32768` (§15) |
+| 54,499 | 71,910 | a 400 at `-np 2`, 55,296 per slot (here) |
+
+**A one-line synthetic prompt is not a session.** The harness's request size is
+dominated by conversation history and project context, neither of which the
+benchmark creates. Every window sized from it is sized from a floor.
+
+**What survives.** The mechanism and the cure in §16 are unaffected: two slots at
+`-sps 0.95` really do stop the eviction, measured at 0 tokens prefilled. It is
+the *capacity* that was picked from the wrong number. For a 71,910-token session
+the choices are a single slot and the cold start, or
+`memory.enableManagedAutoMemory` off, which removes the eviction at any size.
+
+---
+
+## 18. §8 is answered for `draft-mtp`, and the DFlash 2 screen never happened
+
+§8 held every decoder verdict open on the grounds that they were measured on
+160-token generations. Re-run on 2026-08-21 at `N_PREDICT = 1024`, on
+`UD-IQ2_XXS` so headroom could not be the confound:
+
+```text
+  ngram-mod    64.83 / 64.91 tok/s   (160-token figure: 65.06 / 60.33)
+  draft-mtp    54.18 / 54.08         (160-token figure: 51.14 / 52.47)
+```
+
+**The long run gives MTP 4 %, not the +47 % the external report described**, and
+it still finishes 17 % behind. §8's doubt is resolved against `draft-mtp` rather
+than for it.
+
+The cliff doubt is refuted too: at 131,072 MTP decodes 6.21 and 6.09 tok/s
+against `ngram-mod`'s 45.87 and 48.11, with **467–773 MiB free on every row** —
+comfortably above the line. The original −71 % was generous.
+
+**What is withdrawn instead is the DFlash 2 row.**
+`docs/tested/02-decoders.md` records *"drafter 1.06 GiB, screened, not
+competitive on 12 GB"*. The artifact does not load at all on build 10472:
+
+```text
+  E llama_model_load: done_getting_tensors: wrong number of tensors;
+    expected 81, got 58
+```
+
+The vendor's announcement gives the reason — llama.cpp support for DFlash 2
+arrives with **PR #27342**, which this build does not carry; the `draft-dflash`
+flag here implements the first DFlash. **A screen that could not run is not a
+screen.** The honest state is *cannot load, needs a newer llama.cpp*, and the
+claimed 2.7–3.4× makes it worth revisiting when the build moves.
+
+Report 28.
+
 ---
 
 ## What has NOT been contradicted

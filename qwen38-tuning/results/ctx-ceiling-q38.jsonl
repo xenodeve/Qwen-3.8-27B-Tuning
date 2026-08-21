@@ -20,3 +20,8 @@
 {"quant": "v3-iq2xxs", "kv": "q4_0", "extra": "--ctx-checkpoints 8", "tag": "ckpt8", "kind": "SUMMARY", "deepest_resident_ctx": 131072, "ladder": [131072, 163840, 196608]}
 {"quant": "iq1m", "kv": "q4_0", "extra": "-ctk q8_0 -ctv q4_0 --ctx-checkpoints 8", "tag": "k8v4ckpt8", "ctx": 131072, "loaded": true, "gpu_layers": 62, "cpu_layers": 4, "resident": false, "free_before": 10110, "vram_used": 11646, "vram_free": 352, "kv_mib": null}
 {"quant": "iq1m", "kv": "q4_0", "extra": "-ctk q8_0 -ctv q4_0 --ctx-checkpoints 8", "tag": "k8v4ckpt8", "kind": "SUMMARY", "deepest_resident_ctx": null, "ladder": [131072, 163840]}
+{"quant": "v3-iq2s", "kv": "q4_0", "extra": "", "tag": "iq2s", "ctx": 65536, "loaded": true, "gpu_layers": 65, "cpu_layers": 0, "resident": true, "free_before": 10309, "vram_used": 11066, "vram_free": 932, "kv_mib": null}
+{"quant": "v3-iq2s", "kv": "q4_0", "extra": "", "tag": "iq2s", "ctx": 81920, "loaded": true, "gpu_layers": 65, "cpu_layers": 0, "resident": true, "free_before": 10369, "vram_used": 11405, "vram_free": 593, "kv_mib": null}
+{"quant": "v3-iq2s", "kv": "q4_0", "extra": "", "tag": "iq2s", "ctx": 98304, "loaded": true, "gpu_layers": 65, "cpu_layers": 0, "resident": true, "free_before": 10293, "vram_used": 11563, "vram_free": 435, "kv_mib": null}
+{"quant": "v3-iq2s", "kv": "q4_0", "extra": "", "tag": "iq2s", "ctx": 114688, "loaded": true, "gpu_layers": 63, "cpu_layers": 2, "resident": false, "free_before": 10588, "vram_used": 11642, "vram_free": 356, "kv_mib": null}
+{"quant": "v3-iq2s", "kv": "q4_0", "extra": "", "tag": "iq2s", "kind": "SUMMARY", "deepest_resident_ctx": 98304, "ladder": [65536, 81920, 98304, 114688, 131072]}

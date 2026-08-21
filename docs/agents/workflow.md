@@ -52,7 +52,7 @@ The fast gate, and what CI runs:
 |---|---|---|
 | `test` | `cd qwen38-tuning/bench ; python -m pytest tests/ -q` | the instrument returning a number instead of a failure |
 | `lint` | `python scripts/check-doc-links.py` | a dead link in a documentation set that IS the deliverable |
-| `typecheck` | `python -m compileall -q qwen38-tuning/bench scripts` | a heredoc patch that produced an unterminated string — this has happened twice |
+| `typecheck` | `python -m compileall -q -x "_work" qwen38-tuning/bench scripts` | a heredoc patch that produced an unterminated string — this has happened twice |
 
 **There is no `build`.** Nothing here builds, and a job that runs `true` is a
 green light that means nothing.

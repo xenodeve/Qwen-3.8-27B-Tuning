@@ -76,6 +76,33 @@ RULES = [
      "on `stop`; the failure is in the agent loop",
      "CORRECTIONS.md 12"),
 
+    ("below-vram-cliff",
+     r"8\.56 tok/s|prefill 875|11\.64 tok/s|825\.5",
+     "measured with free VRAM under ~300 MiB, the only place a collapse has "
+     "been seen -- repeat it before quoting it",
+     "CORRECTIONS.md 13, weakened by 14"),
+
+    ("dflash-screened",
+     r"[Dd][Ff]lash[^\n]{0,60}(?:screened|not competitive)",
+     "DFlash 2 does not load on build 10472 at all -- that screen could not "
+     "have run; llama.cpp support needs PR #27342",
+     "CORRECTIONS.md 18"),
+
+    ("qwen-code-16796",
+     r"16,?796|32,?768[^\n]{0,40}[Qq]wen [Cc]ode|[Qq]wen [Cc]ode[^\n]{0,40}32,?768",
+     "Qwen Code's request is 54,499 tokens; 16,796 was what remained to prefill "
+     "after cache reuse, and 32,768 makes Qwen Code fail with a 400",
+     "CORRECTIONS.md 15"),
+
+    ("vram-free-voids-a-row",
+     r"(?:void|invalid)[^\n]{0,40}(?:row|result|measurement)|"
+     r"`?vram_free`?[^\n]{0,30}validity condition|"
+     r"below the line[^\n]{0,30}void",
+     "free VRAM at settle does not order the outcomes -- 233 MiB ran 4.3x "
+     "faster than 291 MiB on the same arm; it is a risk indicator, not a "
+     "threshold that voids a row",
+     "CORRECTIONS.md 14"),
+
     ("acceptance-one-generation",
      r"acceptance\s*(?:of|:)?\s*\d|acceptance\s+(?:from|collapse|100\s*%|4\s*%)",
      "rows before 2026-08-21 06:12 measured acceptance on the FIRST of five "
