@@ -39,11 +39,11 @@ was typed by hand rather than read from the JSONL.
 
 | arm | result | why |
 |---|---|---|
-| `draft-mtp` | **+81 % @16K, −71 % @131,072** | the head is `blk.64`, 1.28 GiB. At `61+4` it displaces layers; at `65+0` the cost is prefill |
+| `draft-mtp` | **+81 % @16K, −71 % @131,072** — re-measured 2026-08-21 and **confirmed**: 6.1–6.2 vs 45.9–48.1 tok/s at 131,072 with 467–773 MiB free, and a 1024-token run buys it only 4 % | the head is `blk.64`, 1.28 GiB on disk, **564 MiB on the GPU** (report 27). Not a VRAM artefact — report 28 |
 | `draft-mtp` on CPU (`--spec-draft-device none`) | **−59 %** | external research predicted +70–85 % |
 | `draft-mtp` with `-otd .*=CPU` | worse than GPU | |
 | `draft-eagle3` | no usable head for this model | never produced a run |
-| `draft-dflash` / DFlash 2 | drafter 1.06 GiB | screened, not competitive on 12 GB |
+| `draft-dflash` / DFlash 2 | **cannot load on build 10472** — `wrong number of tensors; expected 81, got 58`. The earlier "screened, not competitive" describes a screen that could not have run | llama.cpp support needs **PR #27342**; this build's flag is DFlash 1. Vendor claims 2.7–3.4x. Revisit on a newer build — `CORRECTIONS.md` 18 |
 | `draft-dspark` | tried with Ternary Bonsai | not competitive |
 | `draft-simple` | needs a second full model | no room |
 

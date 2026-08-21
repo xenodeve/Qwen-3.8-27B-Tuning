@@ -382,6 +382,44 @@ the choices are a single slot and the cold start, or
 
 ---
 
+## 18. §8 is answered for `draft-mtp`, and the DFlash 2 screen never happened
+
+§8 held every decoder verdict open on the grounds that they were measured on
+160-token generations. Re-run on 2026-08-21 at `N_PREDICT = 1024`, on
+`UD-IQ2_XXS` so headroom could not be the confound:
+
+```text
+  ngram-mod    64.83 / 64.91 tok/s   (160-token figure: 65.06 / 60.33)
+  draft-mtp    54.18 / 54.08         (160-token figure: 51.14 / 52.47)
+```
+
+**The long run gives MTP 4 %, not the +47 % the external report described**, and
+it still finishes 17 % behind. §8's doubt is resolved against `draft-mtp` rather
+than for it.
+
+The cliff doubt is refuted too: at 131,072 MTP decodes 6.21 and 6.09 tok/s
+against `ngram-mod`'s 45.87 and 48.11, with **467–773 MiB free on every row** —
+comfortably above the line. The original −71 % was generous.
+
+**What is withdrawn instead is the DFlash 2 row.**
+`docs/tested/02-decoders.md` records *"drafter 1.06 GiB, screened, not
+competitive on 12 GB"*. The artifact does not load at all on build 10472:
+
+```text
+  E llama_model_load: done_getting_tensors: wrong number of tensors;
+    expected 81, got 58
+```
+
+The vendor's announcement gives the reason — llama.cpp support for DFlash 2
+arrives with **PR #27342**, which this build does not carry; the `draft-dflash`
+flag here implements the first DFlash. **A screen that could not run is not a
+screen.** The honest state is *cannot load, needs a newer llama.cpp*, and the
+claimed 2.7–3.4× makes it worth revisiting when the build moves.
+
+Report 28.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

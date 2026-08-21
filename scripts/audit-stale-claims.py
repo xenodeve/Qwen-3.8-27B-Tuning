@@ -82,6 +82,12 @@ RULES = [
      "been seen -- repeat it before quoting it",
      "CORRECTIONS.md 13, weakened by 14"),
 
+    ("dflash-screened",
+     r"[Dd][Ff]lash[^\n]{0,60}(?:screened|not competitive)",
+     "DFlash 2 does not load on build 10472 at all -- that screen could not "
+     "have run; llama.cpp support needs PR #27342",
+     "CORRECTIONS.md 18"),
+
     ("qwen-code-16796",
      r"16,?796|32,?768[^\n]{0,40}[Qq]wen [Cc]ode|[Qq]wen [Cc]ode[^\n]{0,40}32,?768",
      "Qwen Code's request is 54,499 tokens; 16,796 was what remained to prefill "
