@@ -117,6 +117,9 @@ $env:OPENCODE_DISABLE_EXTERNAL_SKILLS = "1"
 $env:OPENCODE_DISABLE_DEFAULT_PLUGINS = "1"
 $env:OPENCODE_CONFIG_DIR              = $cfgDir
 
+# The header explains this at length; a parameter that does not do what its name
+# says has to say so where the operator is looking, not only where they might read.
+Write-Warning "-Work sets the launch directory. It does NOT decide where OpenCode writes -- five measured runs are tabulated in this script's header. Put the absolute destination in the prompt and check afterwards."
 Write-Host "model $Model  ctx $nctx  cwd $Work" -ForegroundColor DarkGray
 Push-Location $Work
 try { & $oc run -m $Model $Prompt } finally { Pop-Location }
