@@ -82,3 +82,39 @@ top-1 between the two are quoted from a curve taken at 4,096 context; this
 project's only real-work figure is profile A's 6 of 10 accepted tasks on
 `UD-IQ2_XXS`, with no matching run on `UD-IQ2_S`. Choosing between them on
 quality is a decision without evidence.
+
+## What speculation costs in VRAM
+
+**Measured 2026-08-21** at ctx 32,768 with the default reserve, reading settled
+VRAM rather than estimating from file size.
+
+| arm | VRAM used | free | cost |
+|---|---|---|---|
+| no speculation | 10,763 MiB | 1,235 | — |
+| `--spec-type ngram-mod` (shipping) | 10,763 MiB | 1,235 | **0 MiB** |
+| `--spec-type draft-mtp` + `-md` | 11,306 MiB | 692 | **564 MiB** |
+
+**`ngram-mod` is free**, byte for byte identical to no speculation — it carries no
+weights and never did. That is now measured rather than assumed.
+
+**MTP costs 564 MiB**, and residency survives it: `offloaded 66/66 layers to GPU`
+in the same run, so nothing was pushed to the CPU to make room and the figure is
+the true additional cost, not a number hiding a spill.
+
+**`draft-mtp` cannot run on the shipping artifact by itself.**
+
+```text
+  W llama_init_from_model: context type MTP requested but model doesn't contain MTP layers
+  E common_speculative_init_result: failed to create MTP context
+  E srv    load_model: failed to create MTP context
+```
+
+`UD-IQ2_S` has no MTP layers. The weights live in a separate 1.3 GB file,
+`MTP/mtp-Qwen3.8-27B-Q4_0.gguf`, which must be passed with `-md`. On the GPU it
+resolves to 564 MiB, not 1.3 GB.
+
+**Whether it is worth 564 MiB is a different question, and this project already
+answered it badly.** `draft-mtp` measured **+81 % at 16K and −71 % at 131,072**
+on the same artifact. At the shipping 98,304 profile the machine settles with
+about 400 MiB free — 564 MiB does not fit there at all without dropping layers,
+and the depth where it does fit is the depth where it is a loss.

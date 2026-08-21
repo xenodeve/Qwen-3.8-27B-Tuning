@@ -78,3 +78,14 @@ scores 0 of 12 on the corpus. A 30-second reading that may stand in for a
 
 **Confounded with depth** — `v3-iq1s` was measured at 196,608 and the others
 lower. Step V2 separates them. Not yet a usable signal.
+
+## What speculation costs in VRAM — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| What does `ngram-mod` cost? | **0 MiB.** 10,763 MiB used with it and without it | report 27 |
+| What does MTP cost? | **564 MiB**, with residency intact — `offloaded 66/66 layers to GPU` | report 27 |
+| Can `draft-mtp` run on `UD-IQ2_S` alone? | **No.** *"model doesn't contain MTP layers"* — the weights are a separate 1.3 GB file passed with `-md` | report 27 |
+| Is it worth the 564 MiB? | **Not at depth.** `draft-mtp` is +81 % at 16K and -71 % at 131,072, and the shipping 98,304 profile settles with ~400 MiB free | report 27, `CLAUDE.md` |
+
+Raw: `qwen38-tuning/logs/mtp.err`.
