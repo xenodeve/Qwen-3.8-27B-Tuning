@@ -111,3 +111,16 @@ the argument for chasing the depth even when the tok/s falls.
 | Does the display move to the iGPU help? | **Not tested.** Named by every reviewer as the largest lever | — |
 
 Raw: `qwen38-tuning/results/iq2s-131072-residency.jsonl`.
+
+## Cold start and the micro-batch — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| What is a harness's cold start? | Prefill, entirely. Qwen Code first turn: 21.6 s for 16,796 tokens at 776 tok/s | server log, task 18754 |
+| Does the prefix cache hold between turns? | **Yes.** The next turn cost 2.1 s for 1,229 new tokens | server log, task 18755 |
+| Does a larger `-ub` speed prefill? | **No.** 1,134-1,168 tok/s across `-ub` 256/512/1024, a 2.9 % span | report 25 |
+| What does the context window cost? | 131,072 vs 32,768 on the same artifact: prefill 776-836 vs 1,134-1,168, decode 23.2-23.9 vs 45.3-50.3 | report 25 |
+| Can Qwen Code's prefix be trimmed? | **No.** No MCP, no extension, no `QWEN.md` — it is the CLI's own system prompt and tool schemas | `~/.qwen/settings.json` |
+| Does `reasoning_effort` affect cold start? | **No.** The template swaps one instruction sentence; it changes how long the model thinks, not prefill | the model's chat template, line 88 onward |
+
+Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`.
