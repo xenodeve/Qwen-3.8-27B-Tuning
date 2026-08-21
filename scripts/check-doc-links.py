@@ -21,6 +21,7 @@ real directory and a renderer resolves it, so the checker must too.
 """
 import os
 import re
+import subprocess
 import sys
 import urllib.parse
 
@@ -48,21 +49,45 @@ def links_in(text):
             yield target
 
 
+def markdown_files():
+    """Every .md this repo is responsible for, and nothing it merely contains.
+
+    Ask git rather than keeping a list of directories to skip. Cloning llama.cpp
+    into the tree made a walk report 39 broken links, every one of them
+    upstream's -- which does not just fail the gate, it buries a real broken
+    link under noise and teaches the reader that a red gate means nothing.
+
+    A second hand-maintained skip list beside .gitignore would drift from it;
+    git already knows the answer. --cached picks up tracked files, --others with
+    --exclude-standard picks up new ones not yet added, so a doc written this
+    session is still checked before it is committed.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", ROOT, "ls-files", "--cached", "--others",
+             "--exclude-standard", "-z", "*.md"],
+            capture_output=True, check=True,
+        ).stdout.decode("utf-8", "replace")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        # Falling back to a walk would silently re-introduce the 39 upstream
+        # rows, so refuse instead of reporting a number nobody can trust.
+        sys.exit(f"cannot list markdown files via git: {exc}")
+    for rel in out.split(chr(0)):
+        if rel:
+            yield os.path.join(ROOT, rel.replace("/", os.sep))
+
+
 def main():
     broken, checked, files = [], 0, 0
-    for base, dirs, names in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
-        for name in names:
-            if not name.endswith(".md"):
-                continue
-            path = os.path.join(base, name)
-            files += 1
-            with open(path, encoding="utf-8", errors="replace") as fh:
-                text = fh.read()
-            for target in links_in(text):
-                checked += 1
-                if not os.path.exists(os.path.normpath(os.path.join(base, target))):
-                    broken.append((os.path.relpath(path, ROOT), target))
+    for path in markdown_files():
+        base = os.path.dirname(path)
+        files += 1
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+        for target in links_in(text):
+            checked += 1
+            if not os.path.exists(os.path.normpath(os.path.join(base, target))):
+                broken.append((os.path.relpath(path, ROOT), target))
 
     print(f"{files} markdown files, {checked} relative links, {len(broken)} broken")
     for path, target in broken:

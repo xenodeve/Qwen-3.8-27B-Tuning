@@ -1,6 +1,12 @@
 # Runtime scratch, not project content
 ocworker/
-logs/
+# Log CONTENTS, not the log folder. Excluding the directory itself stops git
+# descending into it, so a negation for a file inside can never re-include
+# that file -- which is how qwen38-tuning/logs/README.md stayed out of the
+# repo entirely, a README no clone has ever seen, in a project whose
+# convention is that every folder has one.
+**/logs/*
+!**/logs/README.md
 *.log
 
 # Model artifacts and caches are gigabytes and live in the HF cache
@@ -15,6 +21,8 @@ qwen38-tuning/bench/_work/
 # Vendored llama.cpp build: half a gigabyte of CUDA DLLs, installed not authored
 llama.cpp-cuda/
 llama.cpp/
+# PR #27342 build, staged beside 10472 so neither replaces the other (issue #17)
+llama.cpp-dflash2/
 *.zip
 *.dll
 *.exe

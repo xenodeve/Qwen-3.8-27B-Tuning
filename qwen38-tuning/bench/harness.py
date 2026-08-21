@@ -44,7 +44,7 @@ def load_jsonl(path):
 _LAYER_RE = None
 
 
-def parse_layer_split(log_text, total=None):
+def parse_layer_split(log_text, total=None, expect_layers=None):
     r"""Count GPU vs CPU layer placement from a verbose llama.cpp load report.
 
     Counts the FINAL assignment pass, found from the layer indices themselves.
@@ -62,6 +62,15 @@ def parse_layer_split(log_text, total=None):
 
     `total` is kept only as a fallback for logs whose indices cannot be read.
 
+    `expect_layers` names WHICH model you mean, and is required once a draft
+    model is loaded. Such a log carries several models' passes -- with the
+    DFlash2 drafter the order is drafter(6), target(65), target reserve(65),
+    drafter(6) -- so "the last pass" is the drafter, and this returned (6, 0)
+    for a 65-layer target on 2026-08-22 (issue #17). That is a healthy-looking
+    split describing the wrong model, in which a spill of the target could never
+    appear. Pass the target's layer count and the last pass of that size is
+    used; a size no pass has raises rather than falling back to another pass.
+
     (\w+) rather than (\S+) because the device token carries a trailing comma
     ("CUDA0,"), which made an exact == "CPU" comparison match nothing.
     """
@@ -78,12 +87,20 @@ def parse_layer_split(log_text, total=None):
     devices = [d for _, d in pairs]
     idx = [int(i) for i, _ in pairs]
 
-    start = 0
-    for i in range(len(idx) - 1, 0, -1):
-        if idx[i] <= idx[i - 1]:      # a pass boundary
-            start = i
-            break
-    last = devices[start:] if total is None else devices[-total:]
+    # Split into passes first: a pass boundary is where the index stops rising.
+    bounds = [0] + [i for i in range(1, len(idx)) if idx[i] <= idx[i - 1]] + [len(idx)]
+    passes = [devices[a:b] for a, b in zip(bounds, bounds[1:])]
+
+    if expect_layers is not None:
+        matching = [p for p in passes if len(p) == expect_layers]
+        if not matching:
+            raise ValueError(
+                f"no assignment pass has {expect_layers} layers; "
+                f"passes seen: {[len(p) for p in passes]}"
+            )
+        last = matching[-1]
+    else:
+        last = passes[-1] if total is None else devices[-total:]
     gpu = sum(1 for d in last if d.startswith("CUDA"))
     cpu = sum(1 for d in last if d == "CPU")
     if gpu + cpu != len(last):

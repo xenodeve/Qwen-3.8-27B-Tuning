@@ -31,6 +31,7 @@ inside a report is a result nobody can find.
 
 | status | item | why it is open | where |
 |---|---|---|---|
+| 🟡 **TRACKED** | **DFlash 2 is loadable but unmeasured** | Build 10499 (PR #27342, commit `1deefcca3`) is staged at `C:\AI\llama.cpp-dflash2` and the drafter loads — `scripts/probe-dflash2-load.ps1` exits 0. **No speed number exists on this card.** Two hazards found while building the instrument: `--fit` cannot measure the drafter's VRAM at all, and `--spec-draft-n-max` caps at 7, not 8. Build 10472 is untouched so the two can be paired in one round | issue #17, [tested 02](tested/02-decoders.md) |
 | 🔴 | **`UD-IQ2_S`, the untested rung** | 8.37 GB, in the local cache since 2026-08-20 01:36, never loaded once. Sits between the artifact that fails on format (2.16 bpw) and the one that works (2.64). Registered as `v3-iq2s` | [plan 04 P2](plans/04-REVISED-PLAN-2026-08-21.md) |
 | 🔴 | **Does the 160-token probe understate speculation?** | every decoder verdict — `draft-mtp`, `draft-dflash`, eagle3, dspark — was decided on 160-token generations. `scripts/afk-q38-warmup.sh` exists and was interrupted | [CORRECTIONS §8](reports/CORRECTIONS.md) |
 | 🔴 | **Re-derive the 13.6 % noise floor under `--fixed-text`** | paired rounds now repeat to within 0.05 points across boots, two orders of magnitude tighter than the floor. May be hiding small true effects | [report 23 §4](reports/23-SESSION-RECORD-2026-08-21.md) |

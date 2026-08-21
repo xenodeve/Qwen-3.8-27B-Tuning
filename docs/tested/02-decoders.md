@@ -43,7 +43,7 @@ was typed by hand rather than read from the JSONL.
 | `draft-mtp` on CPU (`--spec-draft-device none`) | **−59 %** | external research predicted +70–85 % |
 | `draft-mtp` with `-otd .*=CPU` | worse than GPU | |
 | `draft-eagle3` | no usable head for this model | never produced a run |
-| `draft-dflash` / DFlash 2 | **cannot load on build 10472** — `wrong number of tensors; expected 81, got 58`. The earlier "screened, not competitive" describes a screen that could not have run | llama.cpp support needs **PR #27342**; this build's flag is DFlash 1. Vendor claims 2.7–3.4x. Revisit on a newer build — `CORRECTIONS.md` 18 |
+| `draft-dflash` / DFlash 2 | **cannot load on build 10472** — `wrong number of tensors; expected 81, got 58`. **Loads on build 10499**, compiled from PR #27342 into `C:\AI\llama.cpp-dflash2`. Still **unmeasured**: loading is not a speed result | 10499 = commit `1deefcca3`, PR head. `scripts/build-dflash2.ps1` rebuilds it, `scripts/probe-dflash2-load.ps1` re-checks the load. Issue #17 |
 | `draft-dspark` | tried with Ternary Bonsai | not competitive |
 | `draft-simple` | needs a second full model | no room |
 
@@ -101,7 +101,10 @@ rescued a decoder.
 | Does a long generation rescue it? (`CORRECTIONS.md` §8) | **No.** At `N_PREDICT = 1024`: `ngram-mod` 64.83 / 64.91, `draft-mtp` 54.18 / 54.08. The long run buys MTP **+4 %**, not the +47 % an external report described, and it finishes 17 % behind | report 28 |
 | Is `ngram-mod` affected by generation length? | **No.** 64.83 / 64.91 at 1024 tokens against 65.06 / 60.33 at 160 | report 28 |
 | Does DFlash 2 load on build 10472? | **No.** `wrong number of tensors; expected 81, got 58`, twice. llama.cpp support needs **PR #27342**; this build's `draft-dflash` is DFlash 1 | report 28, `CORRECTIONS.md` 18 |
-| Is DFlash 2 worth revisiting? | **On a newer build, yes.** The vendor claims 2.7–3.4x on Qwen3.8-27B and the drafter is 1.1 GB against IQ2_XXS's 1,056 MiB of returned headroom. **Vendor numbers, unstated hardware, untested here** | inco.ai announcement |
+| Does DFlash 2 load on build 10499? | **Yes.** Server reached its listening line and registered `draft-dflash` with `block_size=8`. The drafter really is DFlash **2**, not 1: `dflash.selector_top_k=16` in its GGUF, and `common/speculative.cpp:978` sets `is_dflash2 = selector_top_k > 0`. Tensor count is 81 — the number 10472 said it expected | `scripts/probe-dflash2-load.ps1` exit 0, issue #17 |
+| Can `--fit` size a run that carries the DFlash2 drafter? | **No.** The fitter logs `[spec] failed to measure draft model memory: failed to create llama_context from model`, preceded by `dflash requires ctx_other to be set`. So `--fit` chooses layers **without accounting for the drafter's footprint**. On a 12 GB card whose margin at depth is ~600 MiB, that is a residency hazard, not a cosmetic warning | probe log, issue #17 |
+| What is the largest usable `--spec-draft-n-max` for this drafter? | **7**, not 8. `common/speculative.cpp:989` computes `n_draft_max = block_size - 1` for dflash and clamps a larger request with a warning. Public posts quoting a block of 8 are describing the block size, not the draft cap | read from PR source |
+| Is DFlash 2 worth revisiting? | **The build now exists, so the question is finally askable — and still unanswered.** Every public figure is from a bigger card: atomic.chat's 47.4→140.6 tok/s at 56 % acceptance is an RTX 6000; other results are 3090 24 GB, 5090, and a 2× 3090 tier table. The one 16 GB report reduced `n-max` to 5 and a 20 GB report to 3. The widely-quoted 381 tok/s is lookup-augmented drafting; the same post says ~133 for normal chat. This card is 12 GB and the drafter is 1.1 GB against IQ2_XXS's 1,056 MiB of returned headroom | inco.ai announcement, community posts — **none measured here** |
 | Is `CORRECTIONS.md` §8 closed? | **For `draft-mtp` and `draft-dflash` only.** `draft-eagle3` never produced a run and `draft-dspark` was tried on a different model; both remain unmeasured under the long-generation rule | report 28 |
 
 Raw: `qwen38-tuning/results/mtp-recheck.jsonl`,
