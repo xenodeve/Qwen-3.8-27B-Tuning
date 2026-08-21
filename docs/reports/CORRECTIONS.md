@@ -223,6 +223,43 @@ result, it is a void one.
 
 ---
 
+## 14. Free VRAM at settle is a risk indicator, not a validity condition
+
+Section 13 above ends: *"A row below the line is not a slow result, it is a void
+one."* Seven rows measured on 2026-08-21 falsify that in both directions.
+
+```text
+  UD-IQ2_S @131,072, --fit-target 192            free 233 MiB   pp 817.1 tok/s
+  UD-IQ2_S @131,072, --fit-target 192 -ub 128    free 285 MiB   pp 721.8
+  UD-IQ2_S @131,072, --fit-target 192 -ub 128    free 291 MiB   pp 188.1
+  UD-IQ2_S @131,072, --fit-target 192            free 424 MiB   pp 836.1
+```
+
+**Two of the three rows under 300 MiB are among the fastest in the set, and the
+slowest row under 300 MiB has more free VRAM than either of them.** 233 MiB ran
+4.3x faster than 291 MiB, on the same artifact at the same depth in the same
+pair of rounds.
+
+So `free` at settle does not order the outcomes. The correlation reported in
+section 13 was real in the 235-row corpus; the causal reading laid on top of it
+-- a threshold that voids a row -- does not survive new data. Whatever drives
+the collapse is not captured by a single reading taken once the server has
+loaded. The desktop moves *during* a run, and nothing here samples that.
+
+**What survives.** A row under 300 MiB is still the only place a collapse has
+ever been seen, so it remains a reason to repeat a measurement rather than
+publish it. That is a weaker claim than section 13 made, and it is the one the
+data supports.
+
+**What this puts in doubt.** Any decision made by discarding a row for sitting
+under the line, and the reading of `--fit-target 768` as "the buffer that keeps
+the machine off the cliff" -- `192` produced the two fastest 131,072 rows this
+project has recorded.
+
+Raw: `qwen38-tuning/results/iq2s-131072-residency.jsonl`. Report 25.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

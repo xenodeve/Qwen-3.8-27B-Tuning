@@ -78,9 +78,18 @@ RULES = [
 
     ("below-vram-cliff",
      r"8\.56 tok/s|prefill 875|11\.64 tok/s|825\.5",
-     "measured with free VRAM under ~300 MiB, where WDDM pages compute buffers "
-     "to system RAM -- a void row, not a slow one",
-     "CORRECTIONS.md 13"),
+     "measured with free VRAM under ~300 MiB, the only place a collapse has "
+     "been seen -- repeat it before quoting it",
+     "CORRECTIONS.md 13, weakened by 14"),
+
+    ("vram-free-voids-a-row",
+     r"(?:void|invalid)[^\n]{0,40}(?:row|result|measurement)|"
+     r"`?vram_free`?[^\n]{0,30}validity condition|"
+     r"below the line[^\n]{0,30}void",
+     "free VRAM at settle does not order the outcomes -- 233 MiB ran 4.3x "
+     "faster than 291 MiB on the same arm; it is a risk indicator, not a "
+     "threshold that voids a row",
+     "CORRECTIONS.md 14"),
 
     ("acceptance-one-generation",
      r"acceptance\s*(?:of|:)?\s*\d|acceptance\s+(?:from|collapse|100\s*%|4\s*%)",

@@ -97,3 +97,17 @@ the argument for chasing the depth even when the tok/s falls.
 - **`UD-IQ2_S` at any depth.** The rung between the deep candidate and the
   quality default.
 - **Anything past 147,456 with the desktop's VRAM freed.**
+
+## UD-IQ2_S at 131,072 — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| Does `UD-IQ2_S` hold `65+0` at 131,072? | **Yes, with `--fit-target 192`.** 23.21 and 23.92 tok/s over two reversed rounds | report 25 |
+| What does the default reserve cost? | `60+5`, 8.16-10.79 tok/s — 2.5-3x slower | report 25 |
+| Do smaller compute buffers buy layers? | **No.** `-ub 128`, with `-b` at 1024 or 2048, still loads `60+5`; four rows agree to 0.7 % | report 25, phase 2 |
+| What does the extra depth cost against 98,304? | ~11 % of decode (26.61 -> 23.2-23.9), inside the 13.6 % drift floor | report 25 |
+| Against profile A at the same depth? | About half: 45 tok/s on `UD-IQ2_XXS` vs 23.2-23.9 here | report 25 |
+| Does free VRAM at settle predict the collapse? | **No.** 233 MiB ran 4.3x faster than 291 MiB | `CORRECTIONS.md` 14 |
+| Does the display move to the iGPU help? | **Not tested.** Named by every reviewer as the largest lever | — |
+
+Raw: `qwen38-tuning/results/iq2s-131072-residency.jsonl`.
