@@ -56,8 +56,13 @@ jobs:
         with:
           python-version: '3.11'
       - name: Every Python module parses
+        # -x _work: bench/_work holds model output from corpus runs, which is
+        # frequently invalid Python on purpose -- that is the failure being
+        # graded. It is gitignored so CI never sees it, but without the
+        # exclusion the same command fails locally, and a check you cannot
+        # reproduce locally is a check you cannot debug.
         run: |
-          python -m compileall -q qwen38-tuning/bench scripts
+          python -m compileall -q -x "_work" qwen38-tuning/bench scripts
       - name: Every shell queue script parses
         run: |
           for f in qwen38-tuning/scripts/*.sh; do bash -n "$f" || exit 1; done
