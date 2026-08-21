@@ -8,6 +8,17 @@ documentation, model cards, screenshots.
 > [`../reports/18`](../reports/18-RESEARCH-ROUND2-REVIEW.md) for the record of
 > what survived contact and what did not.
 
+## The one scan that replaced a repository
+
+[`syv-rtx3090/`](syv-rtx3090/README.md) — `syv-ai/qwen38-27b-rtx3090`, a patched
+vLLM 0.27.1 stack serving Qwen3.8-27B on one RTX 3090, read line by line so that
+nobody has to open it again. **434 techniques**, each matched against a
+**175-capability map of our own llama.cpp** at build 10499.
+
+Start at its **48 flags we already have and have never set**. The scan's first
+concrete result was not a technique of theirs at all — it was a false claim in
+one of our own worker profiles, caught by mapping our tool exhaustively.
+
 ## The chart this project keeps coming back to
 
 ![Unsloth Dynamic v3.0 for Qwen3.8-27B — top-1 % accuracy against BF16 by quant size](unsloth%20v3.jpg)
