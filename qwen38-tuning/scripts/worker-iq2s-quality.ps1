@@ -54,6 +54,14 @@ not on the context number.
 
 Everything else is identical to profile A, so the pair is a controlled
 comparison: same KV type, same decoder, same reserve, same batch.
+
+WHY --chat-template-file. Qwen3.8's stock template raises
+'System message must be at the beginning.' the moment a system message appears
+anywhere but the front, and Claude Code appends exactly that. Without the flag
+every request 500s at sampler init: 50 consecutive failures on 2026-08-21, 0
+after. The one-line change, the evidence and how to regenerate it are in
+templates/README.md -- kept there rather than repeated in both profiles.
+
 #>
 param([int]$Ctx = 98304, [int]$Port = 8080)
 $ErrorActionPreference = 'Continue'
@@ -65,4 +73,5 @@ $ErrorActionPreference = 'Continue'
     -ctk q4_0 -ctv q4_0 `
     --spec-type ngram-mod `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
+    --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `
     --host 127.0.0.1 --port $Port
