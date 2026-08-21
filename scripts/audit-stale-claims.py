@@ -82,6 +82,12 @@ RULES = [
      "been seen -- repeat it before quoting it",
      "CORRECTIONS.md 13, weakened by 14"),
 
+    ("qwen-code-16796",
+     r"16,?796|32,?768[^\n]{0,40}[Qq]wen [Cc]ode|[Qq]wen [Cc]ode[^\n]{0,40}32,?768",
+     "Qwen Code's request is 54,499 tokens; 16,796 was what remained to prefill "
+     "after cache reuse, and 32,768 makes Qwen Code fail with a 400",
+     "CORRECTIONS.md 15"),
+
     ("vram-free-voids-a-row",
      r"(?:void|invalid)[^\n]{0,40}(?:row|result|measurement)|"
      r"`?vram_free`?[^\n]{0,30}validity condition|"

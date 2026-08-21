@@ -260,6 +260,50 @@ Raw: `qwen38-tuning/results/iq2s-131072-residency.jsonl`. Report 25.
 
 ---
 
+## 15. Qwen Code's request is 54,499 tokens, not 16,796 — and 32,768 breaks it
+
+Report 25 read this server-log line as the size of Qwen Code's first turn:
+
+```text
+  prompt eval time = 21630.42 ms / 16796 tokens (776.50 tok/s)
+```
+
+**16,796 is what was left to prefill after cache reuse, not the size of the
+request.** The request is **54,499 tokens**, and the correction arrived as a
+failure rather than a slow number only because the window had already been
+lowered on the strength of the wrong reading:
+
+```text
+  API Error: 400 request (54499 tokens) exceeds the available context size
+  (32768 tokens), try increasing it
+```
+
+**What was published and is withdrawn.** That `-c 32768` is the profile for Qwen
+Code, and the advice to set `contextWindowSize` in `~/.qwen/settings.json` to
+match. Following it makes Qwen Code fail on every turn. The window sizes
+measured since:
+
+| harness | one request | fits 32,768 |
+|---|---|---|
+| lean OpenCode, longest of 10 real tasks | 13,741 | yes |
+| Qwen Code | 54,499 | no |
+| Claude Code with MCP loaded | 54,685 | no |
+| OpenCode default profile, prefix alone | 99,073 | no |
+
+**What survives.** The measurement the profile was built on is unaffected --
+32,768 really does give 1,134-1,168 tok/s prefill and 45.3-50.3 tok/s decode
+against 776-836 and 23.2-23.9 at 131,072. Only the claim about which harness
+fits in it was wrong.
+
+**The instrument shares the blame and has been fixed.**
+`scripts/bench-cold-start.py` took the FIRST prompt-eval line of a run as "the"
+prefill. A harness makes several calls per turn and Qwen Code's first is 603
+tokens, so the real 54,499-token call was reported as harness overhead. It now
+reports the largest call and the sum, and the same shape is already on file as
+instrument fault 9.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

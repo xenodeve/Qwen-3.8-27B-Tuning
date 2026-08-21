@@ -1,46 +1,37 @@
 <#
-WORKER PROFILE C -- cold start. Unsloth Dynamic V3 UD-IQ2_S at 32,768.
+WORKER PROFILE C -- small window, fast turns. UD-IQ2_S at 32,768.
 
-For a harness whose prompt is small and fixed, where the wait before the first
-token is the thing you feel. Qwen Code is the case this was measured for: its
-first turn is 16,796 tokens of built-in system prompt and tool schemas, with no
-MCP server, no extension and no QWEN.md, so that number does not grow and cannot
-be trimmed from its config.
+CORRECTED 2026-08-21, SAME DAY IT WAS WRITTEN. This file first said it was the
+profile for Qwen Code, on the reading that Qwen Code's first turn was 16,796
+tokens. That number was wrong: 16,796 is what the server had left to PREFILL
+after cache reuse, not the size of the request. The request is 54,499 tokens, and
+pointing Qwen Code at this profile does not make it slow, it makes it fail:
 
-WHAT THE WINDOW COSTS, measured 2026-08-21 on the same artifact and decoder,
-both fully resident at 65+0:
+    API Error: 400 request (54499 tokens) exceeds the available context size
+    (32768 tokens), try increasing it
+
+WHAT ACTUALLY FITS HERE. Only the lean OpenCode profile, whose longest measured
+task reached 13,741 tokens of total conversation against a 5,377-token prefix.
+Everything else measured on this machine is larger than the window:
+
+    lean OpenCode, longest of 10 real tasks     13,741   fits
+    Qwen Code, one turn                         54,499   does not fit
+    Claude Code with MCP loaded, one turn       54,685   does not fit
+    OpenCode default profile, prefix alone      99,073   does not fit
+
+WHAT THE SMALL WINDOW BUYS, for the one harness that fits. Measured on the same
+artifact and decoder, both resident at 65+0:
 
                         prefill tok/s      decode tok/s     KV      free MiB
   -c 131072 --fit 192      776 - 836         23.2 - 23.9   2,304    233 - 424
   -c 32768  --fit 768    1,134 - 1,168       45.3 - 50.3     576   2,028 - 2,267
 
-Prefill is 47 % faster and decode is roughly double. On Qwen Code's 16,796-token
-first turn that is about 14.7 s of cold start instead of 21.6 s, and every token
-after it arrives at twice the rate.
+Prefill 47 % faster, decode roughly double, and 2 GB of headroom that puts the
+paging collapse out of reach entirely. Report 25.
 
-The window is not free, and at 131,072 you are paying for it twice: a 2,304 MiB
-KV cache, and a machine left with 233-424 MiB of headroom. On 2026-08-21 a sweep
-at that setting had to be abandoned when the desktop grew and free VRAM reached
-92 MiB -- prefill was reading 130 tok/s, a sixth of its rate. This profile leaves
-2 GB and that failure mode is simply out of reach.
-
-WHEN NOT TO USE IT. 32,768 is about twice the longest first turn measured, which
-is enough for Qwen Code and not obviously enough for a harness with a bigger or
-a growing prefix. OpenCode's default profile sends 99,073 tokens before the task
-starts and Claude Code measured 54,685; neither fits here. Use profile A or B for
-those, and read qwen38-tuning/templates/README.md first -- Claude Code needs the
-chat template patch as well.
-
-```
-  .\scripts\worker-iq2s-fast.ps1        # this file, 32,768
-  .\scripts\worker-iq2xxs-deep.ps1      # profile A, 131,072, faster artifact
-  .\scripts\worker-iq2s-quality.ps1     # profile B, 98,304, this artifact
-```
-
-WHY --fit-target STAYS AT ITS DEFAULT. At this depth the reserve costs nothing:
-the model is resident either way and 2 GB is left over. Lowering it buys layers
-only when the window is deep enough to squeeze them out, which is the whole
-subject of report 25 and is not this profile's problem.
+BEFORE POINTING A HARNESS HERE, MEASURE ITS REQUEST. scripts/bench-cold-start.py
+reports the largest prefill the server actually saw, per run. A window chosen
+from any other number is a guess, and this header is what one looks like.
 #>
 param([int]$Ctx = 32768, [int]$Port = 8080)
 $ErrorActionPreference = 'Continue'

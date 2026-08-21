@@ -112,15 +112,20 @@ the argument for chasing the depth even when the tok/s falls.
 
 Raw: `qwen38-tuning/results/iq2s-131072-residency.jsonl`.
 
-## Cold start and the micro-batch — tested 2026-08-21
+## Cold start — tested 2026-08-21, through Qwen Code itself
 
 | question | answer | evidence |
 |---|---|---|
-| What is a harness's cold start? | Prefill, entirely. Qwen Code first turn: 21.6 s for 16,796 tokens at 776 tok/s | server log, task 18754 |
-| Does the prefix cache hold between turns? | **Yes.** The next turn cost 2.1 s for 1,229 new tokens | server log, task 18755 |
+| How big is Qwen Code's request? | **54,499 tokens.** An earlier entry said 16,796; that was what remained to prefill after cache reuse | `CORRECTIONS.md` 15 |
+| What is the cold start? | Prefill. 53.4 s on the first run of a fresh server, 41.4 s on every run after | report 25 |
+| Does the prefix repeat between runs? | **Yes, exactly.** Two runs captured through a proxy are identical for all 207,243 characters | report 25 |
+| Does the cache hit across invocations? | **Barely.** About 12,700 of 54,499 tokens are reused; the rest is re-prefilled every time | report 25 |
+| Does `--cache-ram -1` help? | **No, it is a regression.** Reuse drops to zero, measured twice | report 25 |
+| Does `--cache-reuse 256` help? | **No.** Full 54,499 prefilled every run | report 25 |
+| Does `-np 2` fix the slot clobbering? | **Untestable here.** At 131,072 it collapsed to 113.9 tok/s at 296 MiB free | report 25 |
 | Does a larger `-ub` speed prefill? | **No.** 1,134-1,168 tok/s across `-ub` 256/512/1024, a 2.9 % span | report 25 |
-| What does the context window cost? | 131,072 vs 32,768 on the same artifact: prefill 776-836 vs 1,134-1,168, decode 23.2-23.9 vs 45.3-50.3 | report 25 |
-| Can Qwen Code's prefix be trimmed? | **No.** No MCP, no extension, no `QWEN.md` — it is the CLI's own system prompt and tool schemas | `~/.qwen/settings.json` |
-| Does `reasoning_effort` affect cold start? | **No.** The template swaps one instruction sentence; it changes how long the model thinks, not prefill | the model's chat template, line 88 onward |
+| Does `reasoning_effort` affect cold start? | **No.** The template swaps one instruction sentence | the model's chat template |
+| What is left? | The display on the Intel UHD 770. It returns the 1.4-2.0 GB that `-np 2` needs. **Untested** | — |
 
-Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`.
+Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
+`qwen38-tuning/results/cold-start.jsonl`.
