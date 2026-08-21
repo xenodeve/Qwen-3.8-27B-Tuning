@@ -99,3 +99,55 @@ cache flags, and the context window itself. **None of it was the cold start.** T
 one measurement that pointed the right way was the cheapest available — replaying
 a captured request against the server with no harness in the path — and it should
 have been the first, not the twelfth.
+
+## The prompt itself, measured — `--safe-mode` cuts 74 %
+
+**Measured 2026-08-21, same directory, same `-p "hi"`, only the harness's own
+customization layer differing.** Prompt size is read from the server's
+`slot release ... n_tokens` line, which reports the whole slot whether the cache
+hit or not:
+
+| | prompt | calls | prefill at ~900 tok/s |
+|---|---|---|---|
+| baseline | 54,711 | 3 | ~60 s |
+| `qwen --safe-mode` | **14,399** | 1 | **~16 s** |
+| `skills.disabledLevels` all | 57,526 | 4 | — |
+| skills off + managed memory off | 51,423 | 1 | — |
+
+**The customization layer is 40,312 tokens — 74 % of the prompt**, and
+`--safe-mode` also collapses three model calls per invocation into one.
+
+**Two of the four rows are negative results worth keeping.** Disabling skills
+made the prompt *larger*, not smaller, so the skill catalogue is not where the
+tokens are. Turning managed memory off recovered only 6,103. Whatever holds the
+remaining ~34,000 is something else `--safe-mode` disables — tool schemas are the
+obvious candidate and are **not yet isolated**.
+
+## The instrument was wrong twice more, and both are the same mistake
+
+The first run of this waterfall reported a 3,147-token baseline, which would have
+been a spectacular result and was nonsense: **it was measuring tokens prefilled,
+not prompt size**, and the cache was warm from the previous arm. A cache hit
+makes a large prompt look small.
+
+That is the same shape as the two faults already on file — taking the first
+prompt-eval line of three, and reading a full cache hit as a failure. All three
+come from one habit: **treating a number llama-server prints about its own work
+as though it described the request.** It does not. `n_tokens` on the release line
+describes the request; `prompt eval` describes what was left to do.
+
+## What the directory is not
+
+A brief circulating for this problem attributed a 17,414-token gap to
+project-specific context — `QWEN.md`, project memory, repo metadata — and
+proposed diffing two directories. Measured across three:
+
+```text
+  C:/Users/xenod    54,095 tok
+  C:/AI             54,483 tok
+  C:/ocworker/run   54,073 tok
+```
+
+**A 410-token spread.** The working directory is not the variable. The 71,913
+seen in a real session against 54,x in these runs is the interactive TUI against
+`-p`, and that axis has not been measured.

@@ -141,3 +141,15 @@ Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
 | Where must the warm-up run? | In the working directory. Qwen Code's prompt embeds it | report 26 |
 | What is the cost? | Qwen Code no longer updates its own memories. Three settings were turned off together and are not isolated | report 26 |
 
+
+## Qwen Code prompt size — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| How big is the prompt, and what is in it? | 54,711 tokens; `--safe-mode` leaves **14,399**, so the customization layer is 40,312 — 74 % | report 26 |
+| Does the working directory matter? | **No.** 54,095 / 54,483 / 54,073 across three directories, a 410-token spread | report 26 |
+| Is it the skill catalogue? | **No.** Disabling every skill level made the prompt *larger*, 57,526 | report 26 |
+| Is it managed memory? | **Partly.** 6,103 tokens, and it collapses three calls into one | report 26 |
+| What holds the other ~34,000? | **Not isolated.** Tool schemas are the candidate | — |
+| How should prompt size be measured? | From `slot release ... n_tokens`. `prompt eval` reports what was left after cache reuse and understates the prompt | report 26 |
+
