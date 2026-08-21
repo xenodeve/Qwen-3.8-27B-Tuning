@@ -7,3 +7,6 @@
 {"task": "rotated_search", "difficulty": "medium", "wall_s": 188.1, "rc": 0, "files": [], "note": "", "wrote_target": false, "extra_files": [], "accepted": false, "error": "target file not written | no output at all", "label": "lean-iq2xxs"}
 {"task": "lfu_cache", "difficulty": "hard", "wall_s": 79.4, "rc": 0, "files": ["lfu_cache.py"], "note": "", "wrote_target": true, "extra_files": [], "accepted": true, "code_chars": 939, "error": null, "label": "lean-iq2xxs"}
 {"task": "damerau", "difficulty": "hard", "wall_s": 247.6, "rc": 0, "files": [], "note": "", "wrote_target": false, "extra_files": [], "accepted": false, "error": "target file not written | no output at all", "label": "lean-iq2xxs"}
+{"task": "tree_codec", "difficulty": "hard", "wall_s": 190.6, "rc": 0, "files": [], "note": "", "wrote_target": false, "extra_files": [], "accepted": false, "error": "target file not written | no output at all", "label": "lean-iq2xxs"}
+{"task": "text_wrap", "difficulty": "medium", "wall_s": 142.0, "rc": 0, "files": ["text_wrap.py"], "note": "", "wrote_target": true, "extra_files": [], "accepted": true, "code_chars": 448, "error": null, "label": "lean-iq2xxs"}
+{"kind": "SUMMARY", "label": "lean-iq2xxs", "model": "local/qwen38", "tasks": 10, "accepted": 6, "wrote_target": 7, "single_file": 7, "wall_s": 1310.1, "tasks_per_hour": 16.5}

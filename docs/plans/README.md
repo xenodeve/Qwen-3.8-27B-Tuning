@@ -22,3 +22,4 @@ outside it, start from that.
 Its §4.3 lists the four ways the *previous* research went wrong, and §10 lists
 the acceptance criteria every claim has to pass. Both exist because a reply that
 looks thorough and invents its numbers costs more time than no reply at all.
+| 05 | [Research brief 2026-08-21](05-RESEARCH-BRIEF-2026-08-21.md) | **For an external researcher.** Five open problems with the evidence for each, what was already ruled out, and the six external claims this project measured wrong |
