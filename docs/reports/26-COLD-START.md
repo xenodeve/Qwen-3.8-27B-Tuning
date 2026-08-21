@@ -151,3 +151,76 @@ proposed diffing two directories. Measured across three:
 **A 410-token spread.** The working directory is not the variable. The 71,913
 seen in a real session against 54,x in these runs is the interactive TUI against
 `-p`, and that axis has not been measured.
+
+## The 40,312 tokens, attributed exactly
+
+**Measured 2026-08-21** by capturing every request of one `qwen -p "hi"`
+invocation through a recording proxy, then rendering each through the server's
+own `/apply-template` and counting with its own `/tokenize`. No byte estimates,
+no subtraction between independent-looking knobs.
+
+| run | call | total | without tools | tool schemas | n tools | system | messages |
+|---|---|---|---|---|---|---|---|
+| baseline | 1 | 633 | 360 | 273 | 1 | 284 | 2 |
+| baseline | 2 | **54,485** | 49,069 | 5,416 | 8 | 8,766 | 2 |
+| baseline | 3 | 42,226 | 41,964 | 262 | 1 | 1,576 | 5 |
+| baseline | 4 | **56,277** | 50,861 | 5,416 | 8 | 8,766 | 5 |
+| `--safe-mode` | 1 | **14,064** | 8,648 | 5,416 | 8 | 5,372 | 2 |
+
+**Tool schemas are not the cause.** 5,416 tokens, *identical* in baseline and in
+safe mode, from the same 8 tools — ToolSearch is doing its job. The system prompt
+differs by only 3,394.
+
+Block by block inside the messages:
+
+| block | baseline | safe mode |
+|---|---|---|
+| **skill catalogue** | **38,064** | **1,037** |
+| `tool_search` index | 1,897 | 1,897 |
+| session/date reminders | 332 | 332 |
+| the user's actual message | 1 | 1 |
+
+**The skill catalogue is 70 % of the prompt, and it is injected as a *user*
+message block** — which is why `skills.disabledLevels` did not remove it and made
+the prompt larger instead.
+
+```text
+  <system-reminder>
+  The following skills are available for use with the Skill tool. ...
+  <available_skills><skill><name>agents-sdk</name><description>...
+```
+
+**352 skills advertised, 344 of them user-scope**, at roughly 110 tokens of name
+and description each. Safe mode advertises 9 bundled ones.
+
+## Inflation and amplification are two problems, and `--safe-mode` hides both
+
+| | baseline | safe mode | ratio |
+|---|---|---|---|
+| largest single prompt | 56,277 | 14,064 | 4.0x |
+| calls per invocation | 4 | 1 | 4x |
+| **tokens the GPU must read** | **153,621** | **14,064** | **10.9x** |
+
+At ~900 tok/s that is 171 s of prefill against 16 s, for the same one-word
+prompt. The catalogue is paid **three times**, once per large call.
+
+## First divergence
+
+Baseline and safe-mode prompts share **70 tokens** before diverging. Whatever is
+cached from one is worth almost nothing to the other, so the two modes cannot
+warm each other — which is exactly why warming with `-p` did nothing for a real
+session.
+
+## What to do about it
+
+Ranked by what the measurement supports:
+
+1. **`qwen --safe-mode`** — available now, no configuration, 4x on the prompt and
+   4x on the calls. Costs every customization.
+2. **Prune what Qwen Code advertises.** 344 user-scope skills is the whole cost;
+   `~/.qwen/skills` alone holds 69 and 5.2 MB. A skill that is never invoked by
+   the model still charges its description on every call.
+3. **`disable-model-invocation: true`** in a skill's frontmatter keeps it callable
+   while removing it from the advertisement. **Not tested here.**
+
+Nothing on this list touches the server, the quantization, or CUDA.

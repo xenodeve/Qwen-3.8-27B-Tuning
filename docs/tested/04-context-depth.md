@@ -153,3 +153,16 @@ Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
 | What holds the other ~34,000? | **Not isolated.** Tool schemas are the candidate | — |
 | How should prompt size be measured? | From `slot release ... n_tokens`. `prompt eval` reports what was left after cache reuse and understates the prompt | report 26 |
 
+
+## Where Qwen Code's 54,711 tokens go — tested 2026-08-21
+
+| question | answer | evidence |
+|---|---|---|
+| Is it the tool schemas? | **No.** 5,416 tokens, identical in baseline and safe mode, 8 tools either way | report 26 |
+| Is it the system prompt? | **No.** 8,766 vs 5,372, a 3,394 difference | report 26 |
+| What is it then? | **The skill catalogue: 38,064 tokens, 70 % of the prompt**, injected as a *user* message block | report 26 |
+| How many skills? | **352 advertised, 344 user-scope**, ~110 tokens each. Safe mode advertises 9 | report 26 |
+| How many calls per invocation? | 4 baseline against 1 in safe mode, so the catalogue is paid three times: **153,621 tokens against 14,064** | report 26 |
+| Do the two modes share a cache prefix? | **70 tokens.** They cannot warm each other | report 26 |
+| How was it measured? | Requests captured through a proxy, rendered by the server's `/apply-template`, counted by its `/tokenize` | report 26 |
+
