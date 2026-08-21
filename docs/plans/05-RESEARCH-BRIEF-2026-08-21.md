@@ -36,73 +36,93 @@ or deeper, with everything resident in VRAM.
 
 ---
 
-## 2. Problem 1 — the model reasons until the budget is gone and emits nothing
+## 2. Problem 1 — the model thinks for a very long time, and the agent loop gives up
 
-**This is the blocker.** Everything else is optimisation.
+> **Corrected 2026-08-21 08:20, before this brief was sent.** An earlier draft
+> of this section called the failure *"loops until the budget is gone"*. **That
+> was an inference, not a measurement, and it is wrong.** Nobody had read the
+> reasoning text — the probe that produced the 16,341-character figure saved only
+> the first 400 characters. When we finally captured a full trace it was neither
+> looping nor truncated. What follows is what the evidence actually supports.
 
-Measured two ways, and they agree:
+### What we measured when we finally looked
 
-| harness | shape of failure | rate |
-|---|---|---|
-| single completion, "reply with one fenced block" | **no fenced block at all** — reasoned to the token cap | 41.7 % of attempts |
-| OpenCode, tool loop, "write a file" | **no output at all** — 190–248 s each, then nothing | 3 of 10 tasks |
-
-The task shape changed completely and the failure survived it. On the tool-call
-probes the same pattern shows as an unfinished round trip:
+One of the three corpus tasks that failed under OpenCode (`damerau`), sent
+straight to the server instead:
 
 ```text
-artifact       calls tool OK   completes the round trip   reasoning chars
-iq2xxs (2 bit)     14/16              10/16                  55-14,496
-iq1m               15/16               7/16                  35-11,020
-q2kxl              13/16               9/16                  29-16,341
-ornith9b (9B)      15/16              14/16                 129-450
-bonsai-g64         14/16              13/16                 287-616
+  reasoning       6,899 characters
+  self-repetition 0.00 %   (no line recurs, measured with harness.filler_repetition_pct)
+  finish_reason   stop     (not "length" -- it ended on its own)
+  content         643 characters, and the code PASSES our hidden tests
+  wall            62.6 s
 ```
 
-**The two artifacts that finish are the two whose reasoning never exceeds ~600
-characters.** The ones that fail are the ones that sometimes write 11,000–16,000.
+The trace is good work. It catches an ambiguity in the prompt unprompted —
+*"Normally in Damerau-Levenshtein a transposition costs 2 … but here it says
+costs 1"* — tests the reading against a worked example (`a[i-1]==b[j-2]?
+'b'=='b' ✓`), concludes the task means OSA distance, and only then writes code.
 
-### What we have tried, and what it did
+**The same task through OpenCode took 247.6 s and produced nothing.** Direct: 62.6
+seconds and a correct answer.
 
-| treatment | contract pass | accepted | note |
-|---|---|---|---|
-| nothing (control) | 58.3 % | 19/27 | |
-| `-rea off` (disable reasoning) | 58.0 % | 15/30 | **no help** — the model relocates its reasoning into prose outside the fence |
-| `--grammar-file` + `-rea off` | **84.3 %** | 16/27 | format fixed, accepted fell |
-| `--grammar-file` alone | never run | — | queued |
-| `--reasoning-budget 0` | — | — | **does not end the block**: 24,709 chars alone; 0 content chars when paired with a grammar |
-| `max_tokens` 3,072 → 8,192 | — | 15/31 → **27/31** | an undersized budget looks exactly like lost capability |
+**So the failure is in the agent loop, not in the model's reasoning.**
 
-**A grammar constrains the output and cannot stop the model spending 8,192
-tokens deciding.** That is consistent with contract rising while accepted fell.
+### What we still do not understand
 
-### The hypothesis we cannot test here
+1. **Why does the same task succeed in 62 s direct and fail in 248 s through
+   OpenCode?** Candidates we cannot separate: the tool-call round trip
+   multiplying the thinking (each turn re-reasons), a harness-side timeout, or
+   the model spending its turn deciding *which tool to call* rather than solving.
+2. **Long reasoning is this model's normal mode**, per a public review: xHigh ≈
+   15 minutes of thinking, medium ≈ 3 minutes for *"90 % of the result"*, low ≈
+   3 seconds. Our corpus runs `medium`. So the question is not "why is it slow"
+   but **how does a long thinker survive a multi-turn agent loop** where every
+   turn pays the thinking again.
+3. **Does thinking time compound per turn?** If a 5-turn task pays 60 s of
+   reasoning per turn, that is 5 minutes regardless of how good each turn is.
+   We have no measurement of reasoning length *per turn* inside an agent loop.
 
-A commenter on a public review of this exact model, running bf16 on far larger
-hardware, reported that **q8 made it "doubt itself at every step, like a
-paranoia" compared with bf16.** If quantization damage presents as *self-doubt*
-rather than as wrong answers, our failure is the same effect four times further
-down the bit ladder — and it is not a format problem at all.
+### The correlation that is still unexplained
 
-**Questions we would like answered:**
+From the tool-call probes, across artifacts:
 
-1. Is there published or anecdotal evidence that **low-bit quantization
-   lengthens reasoning traces** on reasoning-tuned models, as distinct from
-   degrading answer quality? Qwen3.8 specifically, or the family.
-2. Is there a **sampler-level** intervention that shortens reasoning without
+```text
+artifact       completes the round trip   reasoning chars
+iq2xxs (2 bit)         10/16                55-14,496
+iq1m                    7/16                35-11,020
+q2kxl                   9/16                29-16,341
+ornith9b (9B dense)    14/16               129-450
+bonsai-g64             13/16               287-616
+```
+
+**The two that finish are the two whose reasoning never exceeds ~600
+characters.** That is a real correlation and we do not know the direction: does
+long thinking break the round trip, or do the models that think long share some
+other property? **We no longer claim the mechanism.**
+
+### Questions
+
+1. **How do long-reasoning models behave in multi-turn agent harnesses** in
+   general? Is there prior art on reasoning cost compounding across turns, and
+   on harnesses that carry reasoning forward rather than re-deriving it?
+2. Is there a way to make the model **think once and act several times** —
+   preserve the reasoning across tool calls rather than re-entering it?
+   OpenCode has a "preserve thinking" style option; is there an equivalent
+   server-side, and does it help or just fill the window?
+3. Does **`reasoning_effort: low`** trade acceptably here? The public review says
+   low is 3 seconds and roughly Qwen3.6-level quality. We have swept it on Q4
+   with a tool probe (all six runs succeeded) but **never on the 2-bit artifact
+   and never through the corpus.**
+4. Is there a **sampler or prompt** intervention that shortens reasoning without
    disabling it? We have swept temperature, top-k, top-p, min-p, DRY, mirostat,
-   n-sigma, repeat penalties — **nothing moved above our 13.6 % noise floor.**
-3. Does a **system-prompt instruction about how to think** work on this model?
-   The same public thread claims *"don't hedge, make conclusions, work forward,
-   don't reconsider"* fixes it. We have never tried instructing the *process*,
-   only the output format. Any evidence either way.
-4. Is there a way to **cap reasoning that actually works** in `llama.cpp` b10472?
-   `--reasoning-budget 0` does not, and `-rea off` relocates rather than stops.
-5. The same thread describes **injecting budget reminders into the reasoning
-   stream** ("you have 12K tokens of thinking budget", updated at 50 % and
-   75 %). Is that implementable server-side, or only in a harness?
-
----
+   n-sigma and repeat penalties: **nothing moved above our 13.6 % noise floor.**
+   We have never tried instructing the *process* — the same public thread claims
+   *"don't hedge, make conclusions, work forward, don't reconsider"* works.
+5. `--reasoning-budget 0` **does not end the block** (24,709 characters alone; 0
+   content characters when paired with a grammar) and `-rea off` relocates the
+   reasoning into prose outside the fence rather than stopping it. Is there a
+   working cap in `llama.cpp` b10472?
 
 ## 3. Problem 2 — is the artifact the variable, not the flags?
 
@@ -127,8 +147,11 @@ V3 `UD-IQ2_XXS` contains **zero** `q8_0` tensors.
 
 **Questions:**
 
-1. Is there a known **threshold** below which reasoning-tuned models start
-   looping, distinct from the threshold where answers get worse?
+1. Is there a known **threshold** below which reasoning-tuned models get
+   *longer-winded*, distinct from the threshold where answers get worse? Note we
+   have **withdrawn** the claim that they loop (see section 2) -- what we can
+   support is that the low-bit artifacts here both think longer and finish fewer
+   agent round trips, and we do not know which causes which.
 2. **Which tensors matter most** for this failure? If the fix is "keep the
    attention or the output head at higher precision", a custom mix at ~2.4 bpw
    that fits 12 GB at 128K would be the whole answer. Is there tooling to build
@@ -145,11 +168,24 @@ V3 `UD-IQ2_XXS` contains **zero** `q8_0` tensors.
 `--spec-type ngram-*` is the largest free win we have: no VRAM, no drafter file,
 byte-identical output. But:
 
-**(a) The advantage depends heavily on how repetitive the text is.** Our own
-benchmark prompt turned out to be **84.5 % duplicate lines**, which is close to
-the best case an n-gram drafter can get. On that prompt it reported +200 % at
-131,072. **On real code through OpenCode the same configuration gives ~1.8×,
-not 3×.**
+**(a) The advantage depends heavily on how repetitive the text is, and we now
+have the number.** Our own benchmark prompt turned out to be **84.5 % duplicate
+lines** -- close to the best case an n-gram drafter can get -- and on it
+acceptance sat at **99-100 %** at every depth while the arm reported +200 % at
+131,072.
+
+**On a real coding task, measured directly on the server:**
+
+```text
+  draft_n           1,121
+  draft_n_accepted    188      ->  acceptance 16.8 %
+  decode           43.8 tok/s
+```
+
+So the synthetic prompt overstates acceptance by a factor of six, and the
+end-to-end gain on real code is about **1.8x, not 3x**. The mechanism is intact
+-- byte-identical output, no VRAM, no drafter file -- but every percentage this
+project published for the n-gram family is an upper bound on a best case.
 
 **(b) Acceptance collapses in some configurations and not others**, with the
 same flag, same speculative settings:
