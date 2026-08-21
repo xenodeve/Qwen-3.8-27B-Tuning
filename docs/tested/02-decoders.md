@@ -89,3 +89,20 @@ lower. Step V2 separates them. Not yet a usable signal.
 | Is it worth the 564 MiB? | **Not at depth.** `draft-mtp` is +81 % at 16K and -71 % at 131,072, and the shipping 98,304 profile settles with ~400 MiB free | report 27, `CLAUDE.md` |
 
 Raw: `qwen38-tuning/logs/mtp.err`.
+
+## The decoder verdicts re-measured — tested 2026-08-21
+
+Two doubts stood against the eliminations. Both are now closed, and neither
+rescued a decoder.
+
+| question | answer | evidence |
+|---|---|---|
+| Was `draft-mtp`'s −71 % at 131,072 a VRAM collapse? | **No.** Re-run on `UD-IQ2_XXS` with **467–773 MiB free on every row** it still decodes 6.21 / 6.09 against `ngram-mod`'s 45.87 / 48.11 — 7.7x slower, reproducible to 2 % | report 28 |
+| Does a long generation rescue it? (`CORRECTIONS.md` §8) | **No.** At `N_PREDICT = 1024`: `ngram-mod` 64.83 / 64.91, `draft-mtp` 54.18 / 54.08. The long run buys MTP **+4 %**, not the +47 % an external report described, and it finishes 17 % behind | report 28 |
+| Is `ngram-mod` affected by generation length? | **No.** 64.83 / 64.91 at 1024 tokens against 65.06 / 60.33 at 160 | report 28 |
+| Does DFlash 2 load on build 10472? | **No.** `wrong number of tensors; expected 81, got 58`, twice. llama.cpp support needs **PR #27342**; this build's `draft-dflash` is DFlash 1 | report 28, `CORRECTIONS.md` 18 |
+| Is DFlash 2 worth revisiting? | **On a newer build, yes.** The vendor claims 2.7–3.4x on Qwen3.8-27B and the drafter is 1.1 GB against IQ2_XXS's 1,056 MiB of returned headroom. **Vendor numbers, unstated hardware, untested here** | inco.ai announcement |
+| Is `CORRECTIONS.md` §8 closed? | **For `draft-mtp` and `draft-dflash` only.** `draft-eagle3` never produced a run and `draft-dspark` was tried on a different model; both remain unmeasured under the long-generation rule | report 28 |
+
+Raw: `qwen38-tuning/results/mtp-recheck.jsonl`,
+`qwen38-tuning/results/step-w-long-generation.jsonl`.
