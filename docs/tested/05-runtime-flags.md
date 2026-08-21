@@ -38,6 +38,25 @@ spread the floor came from. **A quiet night is not a smaller floor.**
 *Raw: `results/sweep-threads*.jsonl`, `results/sweep-batch*.jsonl`,
 `results/kv-layers-16k.jsonl`, `results/kv-depth-levers.jsonl`.*
 
+## Grammar (GBNF) — what it costs, and the one thing nobody has measured
+
+| question | answer | evidence |
+|---|---|---|
+| Does `--grammar-file` allocate VRAM? | **No — read from source, NOT measured.** `src/llama-grammar.cpp` contains no reference to `ggml_backend`, `cuda`, `ggml_new_tensor` or `device`. Its whole state is `std::vector` on the host: a pushdown stack and a rule table. It runs in the sampler chain after logits are copied back | source read on build 10499, `src/llama-grammar.cpp`, `src/llama-grammar.h` |
+| Then what does it cost? | **CPU time per token**, which surfaces as tok/s and not as MiB. Unquantified here | — |
+| Does it change anything else? | **Yes: it disables backend sampling.** `common/sampling.cpp:421` — `"backend sampling is not compatible with grammar, disabling"`. `--reasoning-budget` does the same at line 427, and `grammars/README.md` tells you to use both | `common/sampling.cpp:421,427` |
+| Does that cost us anything? | **No.** `common.h:295` defaults `backend_sampling` to `false`, no worker profile enables it, and the flag was measured at **+2.27 % — inert** (table above) | `common.h:295`, `results/sweep-runtime*.jsonl` |
+| 🔴 **Does a grammar work alongside a drafter?** | **Unmeasured, and the config we intend to serve needs both.** `common.h:331` is a *different* field — `backend_sampling = true` for the **draft** sampler, on by default — and the disable at `sampling.cpp:421` touches only the main one. So grammar + drafter runs in a state nothing has exercised | source read; **no run** |
+
+**Why the last row matters.** The production profile has to carry a grammar —
+without one, 41.5 % (`UD-IQ1_M`) to 58.3 % (`UD-IQ2_XXS`) of corpus attempts emit
+no fenced code block at all — and it has to carry a drafter, because that is
+where the speed is. Every measurement so far has one or the other.
+
+**The check is cheap:** two boots, grammar on and off, read `nvidia-smi`. Then
+the same pair with `--spec-type draft-dflash,ngram-mod` added. It has not been
+run because the GPU was busy; that is a schedule, not a result.
+
 ## Sampling — two passes, nothing resolved
 
 Arms tried across `answer-screen-sampling.jsonl` and `-sampling2.jsonl`:

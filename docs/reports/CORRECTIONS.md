@@ -420,6 +420,51 @@ Report 28.
 
 ---
 
+## 19. "`UD-IQ2_S` has never been loaded once" — it has, dozens of times
+
+**Where it was written.** `docs/OPEN-WORK-LEDGER.md`, as a 🔴 UNTRACKED row:
+*"8.37 GB, in the local cache since 2026-08-20 01:36, never loaded once."* From
+there it was copied into `docs/plans/06-REAL-TASK-BENCHMARK.md` twice on
+2026-08-22, including as the justification for which rung to benchmark first.
+
+**What contradicts it.** The repository's own results, which were already
+present when the row was written or shortly after:
+
+| evidence | count |
+|---|---|
+| result files carrying `v3-iq2s` rows | 6 (`iq2s-131072-residency`, `iq2s-prefill-microbatch`, `kv-iq2s-128k`, `prefill-kv-type`, `ctx-ceiling-q38`, `arena-v3`) |
+| measured rows, all `loaded: true` | 38+ |
+| server logs naming it | dozens — `arena-r1..r3-v3-iq2s`, `ceil-v3-iq2s-*`, `depth-iq2s-*` |
+| worker profiles serving it | 4 (`worker-iq2s-quality.ps1`, `-fast`, `-2slot`, `serve-v3-iq2s.ps1`) |
+
+Sample rows: 26.61 tok/s at ctx 98,304 with 400 MiB free; 49.84 tok/s at 32,768
+with 2,267 MiB free. `arena-v3.jsonl` records the artifact by full path,
+`Qwen3.8-27B-UD-IQ2_S.gguf`.
+
+**Two errors, and the second is the instructive one.**
+
+The row was **stale** — plausibly true on 2026-08-20 and falsified by work done
+after, with nobody returning to update it. That is the ordinary failure the
+ledger exists to catch and did not.
+
+The second error is mine and worse: **the claim was carried forward into a plan
+without being checked.** `CLAUDE.md` says to read this file before quoting any
+number, and the claim's register never improves by being repeated. A guess in a
+ledger row became the stated reason a benchmark would start with one artifact.
+It was caught by the developer, who remembered the actual history, not by any
+check in the repo.
+
+**What is actually open.** Not "has IQ2_S been tested" — it has, on throughput.
+The open question is the **trade**: `UD-IQ2_S` (7.80 GB) was given up for
+`UD-IQ2_XXS` (6.77 GB) **deliberately, to free VRAM for a drafter**, and the
+drafter — DFlash2 — only became loadable on 2026-08-22 (§18, issue #17). Both
+sides of that trade now exist and both fit. **Neither has a task-success
+number**, which is what `docs/plans/06-REAL-TASK-BENCHMARK.md` §3.5 is for.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `iq2s-never-loaded`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

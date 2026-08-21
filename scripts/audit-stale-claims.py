@@ -88,6 +88,14 @@ RULES = [
      "have run; llama.cpp support needs PR #27342",
      "CORRECTIONS.md 18"),
 
+    ("iq2s-never-loaded",
+     r"IQ2_S[^\n]{0,80}(?:never (?:been )?loaded|untested rung)|"
+     r"(?:never (?:been )?loaded|untested)[^\n]{0,60}IQ2_S",
+     "UD-IQ2_S has 38+ measured rows across six result files, dozens of logs "
+     "and four worker profiles; it was given up for IQ2_XXS on purpose, to "
+     "free VRAM for a drafter",
+     "CORRECTIONS.md 19"),
+
     ("qwen-code-16796",
      r"16,?796|32,?768[^\n]{0,40}[Qq]wen [Cc]ode|[Qq]wen [Cc]ode[^\n]{0,40}32,?768",
      "Qwen Code's request is 54,499 tokens; 16,796 was what remained to prefill "

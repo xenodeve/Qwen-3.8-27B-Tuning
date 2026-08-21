@@ -254,7 +254,7 @@ DFlash2.
 | `UD-Q2_K_XL` | 9.15 GB | weights only, essentially no room for KV or a drafter |
 | `UD-IQ2_XXS` (pre-V3) | 8.39 GB | yes, thin |
 | `AD-IQ2_XXS` (AtomicChat) | 8.36 GB | yes, thin |
-| **`UD-IQ2_S`** | **7.80 GB** | yes — **and it has never been loaded once.** Ledger row, open since 2026-08-20 |
+| **`UD-IQ2_S`** | **7.80 GB** | yes — and it is **well measured already**: 38+ rows across six result files, 32,768 to 98,304, and the profile `worker-iq2s-quality.ps1` serves it. It was given up **on purpose** to free VRAM for a drafter |
 | `AD-IQ1_M` | 7.91 GB | yes |
 | `UD-IQ2_XXS` (Dynamic V3) | 6.77 GB | yes, with room to spare — the current default |
 | `UD-IQ1_M` | 6.27 GB | yes |
@@ -294,11 +294,25 @@ The output is not a winner. It is a **frontier**: the highest rung that still
 fits the window real work needs, with its task score beside it. The developer
 picks the point; the benchmark supplies the axes.
 
-**`UD-IQ2_S` is the first rung to run.** It sits between the artifact that fails
-on format (2.16 bpw) and the one that works (2.64), it has been in the cache
-since 2026-08-20 01:36 without ever being loaded, and choosing between artifacts
-on quality is currently a decision with no evidence at all — report 27 says so
-in those words.
+**The first rung to run is `UD-IQ2_S`, and the reason is not that it is
+untested.** It is well measured on throughput — 26.61 tok/s at 98,304 with 400
+MiB free, 49.84 at 32,768 with 2,267 MiB free — and `worker-iq2s-quality.ps1`
+exists to serve it.
+
+It runs first because of **the trade that was made deliberately**: IQ2_S was
+given up for IQ2_XXS specifically to free VRAM for a drafter, and the drafter
+only became loadable on 2026-08-22. So the question is not "does IQ2_S work" —
+it does — but:
+
+> Is `IQ2_XXS` + DFlash2 worth more than `IQ2_S` alone?
+
+Both sides now exist, both fit, and **neither side has a task-success number**.
+Choosing between artifacts on quality is a decision with no evidence at all —
+report 27 says so in those words, and that is still true.
+
+An earlier version of this section said IQ2_S "has never been loaded once",
+copied from a ledger row without checking. It was wrong; see
+[CORRECTIONS §19](../reports/CORRECTIONS.md).
 
 ### Do not assume the ladder is monotonic
 
@@ -509,11 +523,52 @@ For every rung that fits the window Q2 justifies — boot it, record resident VR
 and the layer split, add a drafter if it still fits, run the Phase 2 subset,
 and plot PASS rate against rung.
 
-**Start with `UD-IQ2_S`**: 7.80 GB, in the cache since 2026-08-20 01:36, never
-loaded once, and sitting exactly between the artifact that fails on format and
-the one that works.
+**Start with `UD-IQ2_S` vs `UD-IQ2_XXS` + DFlash2** — the two sides of a trade
+that was made on purpose before the drafter could be loaded, and has therefore
+never been checked. Neither side has a task-success number.
 
 The output is a frontier, not a winner. The developer picks the point.
+
+### Phase 6 — grammar, and the combination nobody has run
+
+**Cheap, and it gates the other phases' realism.** The configuration this
+project intends to serve carries **both** a grammar and a drafter, and no
+measurement has ever had both.
+
+Why a grammar is not optional: without one, **41.5 % (`UD-IQ1_M`) to 58.3 %
+(`UD-IQ2_XXS`) of corpus attempts emit no fenced code block at all**, having
+looped inside the reasoning block until the token cap. On this benchmark's
+rubric that is a FAIL every time, for a reason that has nothing to do with
+whether the model knew the answer. **A task benchmark run without a grammar
+measures formatting, not capability.**
+
+What is already known, **from reading the source, not from a run**:
+
+- `src/llama-grammar.cpp` allocates nothing on device — no `ggml_backend`, no
+  `cuda`, no `ggml_new_tensor`. Its state is `std::vector` on the host. Expect
+  ~0 MiB.
+- `common/sampling.cpp:421` disables backend sampling when a grammar is
+  present, and line 427 does the same for `--reasoning-budget`. Free for us:
+  `common.h:295` defaults it off, no worker profile enables it, and it measured
+  **+2.27 %, inert**.
+- **`common.h:331` is a different field** — `backend_sampling = true` for the
+  *draft* sampler, on by default — and the disable above does not reach it.
+
+**Four boots, in one round, paired:**
+
+| arm | grammar | drafter |
+|---|---|---|
+| 1 | off | off |
+| 2 | **on** | off |
+| 3 | off | **`draft-dflash,ngram-mod`** |
+| 4 | **on** | **`draft-dflash,ngram-mod`** |
+
+Record resident VRAM and tok/s for each. Arm 4 is the one that matters and the
+one that has never existed.
+
+**Run this before Phase 2**, and if a grammar costs materially more than the
+predicted ~0, every window number from Phase 1 needs revisiting — the grammar
+is not removable, so its cost is part of the budget, not an option in it.
 
 ---
 
@@ -586,6 +641,7 @@ Wall-clock is the constraint; the GPU serves one arm at a time.
 | 5 | **Phase 3** — standard vs clink, subset × 2 | 12–16 | clink back-ends are slow in wall-clock, cheap in money |
 | 6 | **Phase 4** — skills on/off, subset × 2 (× 2 models) | 12–32 | run on the reference too if budget allows |
 | 7 | **Phase 5** — the budget frontier, rungs that fit × subset | 18–40 | the phase that produces the decision. Needs Q2's window first |
+| — | **Phase 6** — grammar × drafter, 4 boots | 4 | **do this early, before Phase 2.** Cheap, and it decides whether every other phase is measuring capability or formatting |
 
 **Stop after any phase and the work still has value** — that ordering is
 deliberate. Phase 0 alone answers Q4's headline. Phase 0 + 1 answers Q4 and Q2,
