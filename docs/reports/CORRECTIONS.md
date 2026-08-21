@@ -187,6 +187,40 @@ Fixed in `bench/protocol_gate.py` — the trace is kept and
 
 ---
 
+## 13. Results measured below ~300 MiB of free VRAM are the machine falling off a cliff
+
+Across **all 235 sweep rows this project has recorded**, the six with free VRAM
+under 300 MiB are the only ones whose prefill fell under 700 tok/s, and the two
+under 250 MiB are the only ones under 120:
+
+```text
+  free 199 MiB   pp 106.3 tok/s   prefill 875.6 s    <- q4_0, IQ2_S @131,072
+  free 226 MiB   pp 112.8         prefill 825.5 s    <- fit-192-ngram, round 1
+  free 307 MiB   pp 841.1         prefill 110.7 s    <- SAME ARM, round 2
+  free >= 300    n=229            pp median 837
+```
+
+**Same flags, same artifact, same depth, seven times apart on both axes.** The
+81 MiB between rounds is the Windows desktop moving, not a setting. The
+signature fits WDDM paging compute buffers out to system RAM rather than
+failing the allocation.
+
+**What this puts in doubt.** Any conclusion drawn from an arm whose row shows
+`vram_free` under ~300 — including *"`-ot ffn` drops prefill from 240.6 to 8.56
+tok/s"* (`CORRECTIONS.md` §4), which ran at 382 MiB: above the line, but not by
+much, and the line is not sharp.
+
+**What it explains.** `--fit-target`'s default of 768 MiB, which this project
+spent a night calling an untested reserve, is the buffer that keeps the machine
+off this cliff. Lowering it to 192 does free VRAM and does buy residency — and
+it removes the margin that makes a result reproducible.
+
+**Consequence for every future measurement:** `vram_free` is not a diagnostic
+column, it is a **validity condition**. A row below the line is not a slow
+result, it is a void one.
+
+---
+
 ---
 
 ## What has NOT been contradicted

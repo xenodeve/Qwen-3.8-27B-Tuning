@@ -1,0 +1,107 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "local llama-server",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080/v1",
+        "apiKey": "none"
+      },
+      "models": {
+        "qwen38": {
+          "name": "qwen38",
+          "limit": {
+            "context": 131072,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "mcp": {
+    "cloudflare-api": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "cloudflare-docs": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "cloudflare-bindings": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "cloudflare-builds": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "cloudflare-observability": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "MCP_DOCKER": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "pal": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "redis": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "serena": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "vercel": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    },
+    "meshy-mcp-server": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "noop"
+      ]
+    }
+  },
+  "tools": {
+    "webfetch": false,
+    "task": false,
+    "todowrite": false,
+    "skill": false
+  }
+}

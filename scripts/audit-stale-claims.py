@@ -76,6 +76,12 @@ RULES = [
      "on `stop`; the failure is in the agent loop",
      "CORRECTIONS.md 12"),
 
+    ("below-vram-cliff",
+     r"8\.56 tok/s|prefill 875|11\.64 tok/s|825\.5",
+     "measured with free VRAM under ~300 MiB, where WDDM pages compute buffers "
+     "to system RAM -- a void row, not a slow one",
+     "CORRECTIONS.md 13"),
+
     ("acceptance-one-generation",
      r"acceptance\s*(?:of|:)?\s*\d|acceptance\s+(?:from|collapse|100\s*%|4\s*%)",
      "rows before 2026-08-21 06:12 measured acceptance on the FIRST of five "

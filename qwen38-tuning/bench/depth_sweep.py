@@ -337,7 +337,7 @@ def run(ctx, extra, label, tag):
                 r = tim.get("predicted_per_second")
                 return r if tim.get("predicted_n") and r and r > 0 else None
 
-                warm = [rate(t)]
+            warm = [rate(t)]
             # Fault 9: acceptance used to come from `t` alone -- the FIRST of
             # five generations -- while tg_med is the median of all five. The
             # two columns described different requests.
