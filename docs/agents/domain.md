@@ -34,7 +34,8 @@ depth and an artifact; changing any of the three makes it a different arm.
 with the order reversed, because boot-to-boot drift lands on whichever arm ran
 later otherwise.
 
-**the drift floor** — **13.6 %**. Measured peak-to-peak across 25 boots of one
+**the drift floor** — **13.6 %, at ctx 16,384** (at 65,536 the same arm spans up
+to 48.9 %; `CORRECTIONS.md` §23). Measured peak-to-peak across 25 boots of one
 control config. An effect smaller than this, or with an inconsistent sign across
 rounds, is **unresolved** — not "small". *Alias to avoid: noise.*
 

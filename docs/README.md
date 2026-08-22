@@ -1,6 +1,9 @@
 # docs — what we know, what we plan, what we were told
 
-Four folders, and the difference between them matters.
+Six folders, and the difference between them matters. Beyond the four below,
+`agents/` holds the operating standard — including
+[`agents/traps.md`](agents/traps.md), item 3 of the session-start list — and
+`adr/` holds architecture decisions.
 
 | folder | what is in it | how much to trust it |
 |---|---|---|

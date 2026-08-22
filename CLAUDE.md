@@ -41,7 +41,7 @@ noticed. So:
 - **No verdict before evidence.** A measurement names the file its number came
   from, or it is a hypothesis and says so.
 - **Never compare raw decode across boots.** Free VRAM at boot moves
-  9,326–10,732 MiB and `--fit` follows it. **Effects below 13.6 % are noise.**
+  9,326–10,732 MiB and `--fit` follows it. **Effects below 13.6 % are noise** — **at ctx 16,384, where that floor was measured.** At 65,536 the same arm with byte-identical counters spans up to **48.9 %** across boots, so re-derive before using it at depth (`CORRECTIONS.md` §23).
   Pair within a round, alternate the order.
 - **A verdict at one depth does not transfer to another.** `draft-mtp` is +81 %
   at 16K and −71 % at 131,072 on the same artifact.
@@ -59,7 +59,8 @@ docs/reports/    findings, numbered — narrative, dated, argues from evidence
 docs/results/     the register — has X been tried, what happened
 docs/plans/      intent, not results
 docs/researchs/  external material, unverified until measured here
-docs/agents/     the operating standard: domain, tracker, labels, workflow
+docs/agents/     the operating standard: domain, tracker, labels, workflow,
+                 and traps.md — the ways of working that failed here
 scripts/         tools for the documentation map itself
 qwen38-tuning/   the apparatus — bench, scripts, results, grammars
 ```
@@ -183,7 +184,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 
 - **ไม่มีคำตัดสินก่อนมีหลักฐาน** การวัดต้องระบุไฟล์ที่ตัวเลขมาจาก ไม่งั้นคือสมมติฐานและต้องบอกว่าเป็นสมมติฐาน
 - **ห้ามเทียบ decode ดิบข้าม boot** VRAM ว่างตอน boot ขยับระหว่าง 9,326–10,732 MiB
-  และ `--fit` วิ่งตาม **ผลต่ำกว่า 13.6 % คือสัญญาณรบกวน** ให้จับคู่ในรอบเดียวกันและสลับลำดับ
+  และ `--fit` วิ่งตาม **ผลต่ำกว่า 13.6 % คือสัญญาณรบกวน — ที่ ctx 16,384 ซึ่งเป็นความลึกที่เพดานนี้ถูกวัด** ที่ 65,536 arm เดียวกันที่ counter เท่ากันทุกหลักแกว่งได้ถึง **48.9 %** ต้องหาเพดานใหม่ก่อนใช้ที่ความลึก (`CORRECTIONS.md` §23) ให้จับคู่ในรอบเดียวกันและสลับลำดับ
 - **คำตัดสินที่ความลึกหนึ่งไม่โอนไปอีกความลึก** `draft-mtp` ได้ +81 % ที่ 16K แต่ −71 % ที่ 131,072 บนไฟล์เดียวกัน
 - **การถอนคำเป็นส่วนหนึ่งของงาน** เมื่อผลวัดขัดกับสิ่งที่เขียนไปแล้ว การถอนยังไม่จบ
   จนกว่าจะมีบรรทัดใน `docs/reports/CORRECTIONS.md` **และ** กฎใน `scripts/audit-stale-claims.py`

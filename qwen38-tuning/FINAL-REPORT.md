@@ -1,5 +1,12 @@
 # Qwen3.8-27B Local Worker — Q3 vs Q4 Optimization Result
 
+> 🔴 **SUPERSEDED 2026-08-18. Do not act on this document.** Its
+> recommendation — `UD-Q4_K_XL` with MTP at `--spec-draft-n-max 2` — was
+> abandoned: the project serves `UD-IQ2_XXS`/`UD-IQ2_S`, and `draft-mtp`
+> measures **−71 % at 131,072**. Kept as the record of what was believed
+> on 2026-08-18. Current state:
+> [`docs/reports/32-BENCHMARK-STATUS-BRIEF.md`](../docs/reports/32-BENCHMARK-STATUS-BRIEF.md).
+
 **Machine:** RTX 4070 SUPER 12 GB · i5-13500 · 48 GB DDR5 · Windows 11
 **Runtime:** llama.cpp b10472 / commit `60eeeb608` · CUDA 12.4 · driver 610.88
 **Date:** 2026-08-18 · **Metric:** verified successful coding tasks per hour

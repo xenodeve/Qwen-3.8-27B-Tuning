@@ -24,6 +24,10 @@ code that returned something plausible instead of an error.
 | `protocol_gate.py` | nested tool call and `tool_call_id` round-trip | ~10 min |
 | `greedy_diff.py` | the actual greedy text, not just its hash | ~5 min |
 | `kv_kernel_screen.py` | which KV types have a fast kernel | ~10 min |
+| `dflash2_arena.py` | the decoder arena — every `--spec-type` and its settings, paired within a round | 1-3 min/boot |
+| `real_task_bench.py` | **real GitHub issues in throwaway clones** — the project's own metric | 25-40 min/task |
+| `gpu_trace.py` | VRAM, power, clocks and utilisation on an interval, attached to a run it did not launch | negligible |
+| `edit_canary.py` | can the worker EDIT an existing tracked file? Found `CORRECTIONS.md` §24 | ~30 s |
 
 ---
 
@@ -82,7 +86,11 @@ swap lock. Never run it beside another job.
 
 ---
 
-## The 13.6 % floor
+## The 13.6 % floor — and the depth it was measured at
+
+🔴 **It is a ctx 16,384 number.** At 65,536 the same arm, with per-implementation
+counters byte-identical across rounds, spans up to **48.9 %** between boots — so
+at depth this floor resolves pure drift as an effect. `CORRECTIONS.md` §23.
 
 `paired_deltas()` refuses to call an effect real below **13.6 %** or with an
 inconsistent sign across rounds. That number is measured: the same control

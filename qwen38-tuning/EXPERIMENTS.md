@@ -1,5 +1,9 @@
 # Qwen3.8-27B Local Worker — Experiment Log
 
+> 🔴 **HISTORICAL — the E0–E13 programme, superseded.** Correct as the
+> record of what was planned and run at the time. The live queue is
+> [`docs/OPEN-WORK-LEDGER.md`](../docs/OPEN-WORK-LEDGER.md).
+
 Every entry: **hypothesis → exact command → environment → result → interpretation → next**.
 One major variable per experiment. A result without its `env-snapshots.jsonl` line is not evidence.
 

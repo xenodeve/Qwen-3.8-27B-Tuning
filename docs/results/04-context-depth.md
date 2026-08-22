@@ -118,12 +118,21 @@ target is **`65+0` resident with 254 MiB free**. KV 1,728 MiB, recurrent state
 🔴 **The true requirement above 98,304 is unknown.** Three windows, three
 saturations; 98,304 was the first that held, and one task reached 88,668 of it.
 
-🔴 **Unexplained, and the most important open question here.** At 98,304, with
-room to spare, four of five tasks ran 1,427–2,400 s and **changed no files** —
-a green verify with an empty diff, which is a FAIL because it passes the tests
-that were already passing. Every baseline was green, so none of these is an
-environment failure. The worker's transcript is written beside the clone and is
-deleted with the scratch root; **capture it before the next run.**
+🔴 **RETRACTED — [`CORRECTIONS.md` §24](../reports/CORRECTIONS.md).** The zero
+diffs measured **where the harness looked, not what the worker did.** OpenCode
+attaches to a server carrying the project root it first started with, so with
+`cwd=` alone the worker edited **`C:\AI` itself** while `git diff` in the clone
+stayed empty. Reproduced 2026-08-23: `cwd=` alone → `EDIT_NO_DIFF`, 0 diff
+bytes, live tree modified; **with `--dir` → `EDITED`, 251 diff bytes, 32.8 s.**
+Fixed in both drivers, pinned by `bench/tests/test_worker_workdir.py`.
+
+**What survives:** the wall-clock times and the context high-water figures —
+those came from the process and the server, not from the diff.
+
+**A second cause is independent of it and still open:** decode at this window is
+**2.8–5.0 tok/s** (below), where a real task needs a median 259 added lines.
+**Fixing the directory does not make that finishable**, and the next real-task
+run must not change both at once.
 
 ## What depth is worth
 
