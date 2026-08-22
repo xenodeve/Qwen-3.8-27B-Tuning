@@ -158,7 +158,8 @@ and the declines happen at `i = 0` — the table misses on the very first
 successor — where no value of `n_min` can help.
 
 **What that leaves open:** the knob that governs the decline rate is
-`--spec-ngram-mod-n-match` (default 24, ours 12). Unswept.
+`--spec-ngram-mod-n-match` (default 24, ours 12). **Swept — §5b.** It turns out
+not to close the decline either: the winning arm drafts *less* often and better.
 
 ---
 
@@ -194,6 +195,56 @@ The clamp is `block_size − 1` = 7 for this drafter
 n=7 spills two layers at 65,536, n=3 and n=4 do not. Confirmed independently
 when the real-task server was started at 65,536 with n=7: `63+2`, and the RS
 buffer split with **49.88 MiB on the CPU**.
+
+---
+
+## 5b. `--spec-ngram-mod-n-match` — swept, and the default we overrode wins
+
+Raw: `results/sweep-ngram-nmatch.jsonl`, 12 rows. ctx 16,384, real-code on the
+frozen corpus `5672a9bcce74c0d0`, `draft-dflash,ngram-mod`, `--spec-draft-n-max 4`,
+`n-min 16` and `n-max 32` fixed. Three rounds, arms rotated each round, paired.
+
+| `n-match` | rounds (tok/s) | vs our 12 | acceptance | ngram drafts | mean acc len |
+|---:|---|---|---:|---:|---:|
+| **24 — the llama.cpp default** | 94.5, 96.3, 94.2 | **+34.6 % [+31.4, +40.8] RESOLVED** | 62.2 % | 29 | **23.45** |
+| 16 | 69.2, 69.7, 69.5 | −1.5 % [−4.9, +3.9], within the floor | 53.5 % | 25 | 19.20 |
+| 12 — every worker profile | 71.7, 73.3, 66.9 | baseline | 54.0 % | 31 | 18.00 |
+| 8 | 56.7, 62.7, 61.5 | **−14.5 % [−20.9, −8.0] RESOLVED** | 37.0 % | 43 | 8.95 |
+
+**The trap the arm set was designed around is the mechanism of the result.**
+`n_match` is the hash key width (`common/ngram-mod.cpp:15-25`), so shortening it
+is a strictly weaker match requirement and ngram fires more — 43 drafts at `8`
+against 29 at `24`. It loses anyway: a collapsed key returns the successor of
+whichever context last wrote the slot, so mean accepted length falls
+**23.45 → 8.95**, accepted-token yield falls **651/921 → 342/1306**, and the
+draft calls needed for the same 512 tokens rise **475 → 649**. Firing twice as
+often on a worse draft is a loss, which `speculative.cpp:2545` sitting six lines
+above `2551` already predicted.
+
+**This retracts report 30**, which read our `12` agreeing with the 3090 stack's
+`NMAX=12` as independent confirmation. The two flags share a number and nothing
+else — theirs caps a longest-match search, ours is a key width with no length
+dimension. `CORRECTIONS.md` §21.
+
+**Determinism note, and it matters for how the rounds are read.** Every arm's
+per-implementation counters are **byte-identical across all three rounds** —
+same calls, same drafts, same accepted length to two decimals — and only the
+timing fields move. Decode is deterministic at temperature 0, so extra rounds
+re-measure the clock, which is what the pairing is for, but they buy **no second
+sample of drafter behaviour**. A counter-level result here rests on one
+trajectory per arm.
+
+**`8` is RESOLVED by the rule and not comfortably.** Mean clears the floor, sign
+is consistent, but one round landed at −8.0 %, inside it. Direction solid,
+magnitude approximate.
+
+**Two limits, both of which keep it out of the served profiles for now.** It was
+measured at `--spec-draft-n-max 4`, so today's two winners have never run
+together; and at ctx 16,384, a quarter of the served window, where this project
+has already been burned once (`draft-mtp`, +81 % at 16K, −71 % at 131,072). The
+mechanism argues 24 should widen its lead at depth — a fuller table means more
+distinct contexts colliding on a short key — but **that is a hypothesis, and it
+is written here as one.**
 
 ---
 
@@ -286,6 +337,14 @@ old code ran. Every subsequent patch in this session asserts.
 |---|---|---|
 | [§19](CORRECTIONS.md) | "`UD-IQ2_S` has never been loaded once" | 38+ measured rows across six result files, dozens of logs, four worker profiles. A stale ledger row, copied into a plan without checking |
 | [§20](CORRECTIONS.md) | absolute real-code tok/s figures | the prompt was built from `bench/` source edited between runs; only paired within-round deltas survive |
+| [§21](CORRECTIONS.md) | "`n-match 12` — the same cap, chosen independently" (report 30) | not the same cap: theirs bounds a longest-match search, ours is a keyless hash key width. Swept the same day — the default `24` is **+34.6 % RESOLVED** over our `12` |
+
+**§21 is the one worth reading twice.** The source read that refutes it was
+written earlier the same day, in the same session, and says so plainly —
+*"n_match changes key SPECIFICITY only"*. Report 30's sentence was written
+anyway. **A source read does not correct a claim unless somebody goes back to
+the claim**, and nothing in this repo does that automatically except
+`audit-stale-claims.py`, which only knows the rules it has been given.
 
 Also corrected: `worker-iq2xxs-deep.ps1` claimed `--fit-target 768` was "the
 default". The default is **1024** (`common/common.h:473`). We had already spent
@@ -354,11 +413,16 @@ the developer, or `git status --short` read as a rename rather than as deletions
 The scoreboard lives in [`../results/08-rtx3090-transfer.md`](../results/08-rtx3090-transfer.md)
 and is the answer to "did any of that 434-technique scan actually get used".
 
-Short version: **two measured wins** (`--spec-draft-n-max` at +23.4 % RESOLVED,
-and the `draft-dflash,ngram-mod` pair at +48.5 %), **one measured null**
-(`--spec-ngram-mod-n-min`), **one running** (`--spec-ngram-mod-n-match`),
-**five read-and-closed** from source without spending a GPU round, **two we
-already had**, and **two architecturally impossible**.
+Short version: **three measured wins** (`--spec-draft-n-max` at +23.4 % RESOLVED,
+the `draft-dflash,ngram-mod` pair at +48.5 %, and `--spec-ngram-mod-n-match 24`
+at +34.6 %), **one measured null** (`--spec-ngram-mod-n-min`), **five
+read-and-closed** from source without spending a GPU round, **two we already
+had**, and **two architecturally impossible**.
+
+**One of the wins arrived by refuting the claim that produced it** (§5b): their
+"shorter match beats longer" reverses here, and the round that showed it also
+retracted a line in report 30 that had read the two projects' agreement as
+confirmation.
 
 Two of the read-and-closed verdicts are worth as much as a win, because each
 saves a round that would have measured nothing:
@@ -379,11 +443,16 @@ runs (`server-context.cpp:1074`), so our `768` reaches `fit.cpp` as roughly
 ## 10. Still open
 
 - **Why the worker changes nothing with room to spare** (§6). No mechanism.
-- **Six flags from the 3090 scan, untested**: `--spec-draft-p-min`,
-  `--spec-ngram-mod-n-match`, `-bs`, `GGML_CUDA_GRAPH_OPT=1`, `-fitt`,
-  `-ctkd`/`-ctvd`. Arms for `p-min` are defined in `dflash2_arena.ARM_SETS`.
-  A 6-agent workflow was reading their semantics from source when this was
-  written (run `wf_fb00df02-337`).
+- **Two flags from the 3090 scan still untested**: `--spec-draft-p-min` (arms
+  defined in `dflash2_arena.ARM_SETS`, unrun) and `-fitt`. Of the original six,
+  `--spec-ngram-mod-n-match` is now swept (§5b) and three were closed from
+  source — `-bs`, `GGML_CUDA_GRAPH_OPT=1`, `-ctkd`/`-ctvd`. The semantics read
+  is `researchs/llamacpp-flag-semantics-2026-08-22.md` (run `wf_fb00df02-337`).
+- **The two draft-side winners have never run together**, and neither has been
+  measured at the served depth. `--spec-draft-n-max 7` was measured at
+  `n-match 12`; `n-match 24` at `n-max 4`. Both are ctx 16,384 verdicts and the
+  profiles serve 65,536–98,304. `n-match` costs no VRAM, so it is the cheaper
+  of the two to take up in depth.
 - **The true context requirement above 98,304.** Three windows, three
   saturations; 98,304 was the first that held.
 - **Grammar × drafter has never been run together** — the served profile needs

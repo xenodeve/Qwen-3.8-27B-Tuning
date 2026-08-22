@@ -132,10 +132,19 @@ whole block is decoded at `speculative.cpp:1195` *before* any check), and
 `ngram-mod` outranks `draft-dflash`, so every step ngram serves is a step where
 `p_min` does nothing.
 
-### `--spec-ngram-mod-n-match` — the one worth a round, and it has a trap
+### `--spec-ngram-mod-n-match` — swept 2026-08-22. It was worth the round, and we had it backwards
 
 Default **24** (`common/common.h:352`); we run **12**. Costs no VRAM — the table
 is a fixed 16 MiB host allocation independent of `n_match`.
+
+> ✅ **Measured.** ctx 16,384, real-code, three paired rounds, arms rotated:
+> **`24` +34.6 % [+31.4, +40.8] RESOLVED**, `16` −1.5 % within the floor,
+> `12` baseline, **`8` −14.5 % [−20.9, −8.0] RESOLVED**. The trap below is
+> exactly what happened — at `8`, ngram fires 43 times against 29 at `24` and
+> still loses, because mean accepted length falls 23.45 → 8.95.
+> **The default beats the value in all four worker profiles.** Not yet a config
+> change: this is a 16,384 verdict and the profiles serve 65,536–98,304.
+> [`02-decoders.md`](02-decoders.md) · [`CORRECTIONS.md` §21](../reports/CORRECTIONS.md).
 
 **The trap that would make the sweep uninterpretable:** `ngram-mod` is
 registered *above* `draft-dflash` and the cascade stops at the first non-empty
@@ -209,8 +218,13 @@ misses on the very first successor — where no value of `n_min` can help.
 
 **What that leaves open.** The decline rate is real and large. The knob that
 governs it is `--spec-ngram-mod-n-match` (default 24, ours 12): the width of the
-context window the table is keyed on. That is a different flag and it has not
-been swept.
+context window the table is keyed on.
+
+**Swept since, and it does not close the decline.** `24` is **+34.6 % RESOLVED**
+over our `12`, but it gets there by drafting *less often and better* — 29 drafts
+against 31, at mean accepted length 23.45 against 18.00. The decline rate barely
+moves (93.9 % against 94.3 %). **Nothing swept so far makes `ngram-mod` fire
+usefully more often on real code**, which is the finding, not a gap in the sweep.
 
 ## Grammar (GBNF) — what it costs, and the one thing nobody has measured
 

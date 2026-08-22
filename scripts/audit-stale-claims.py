@@ -125,6 +125,18 @@ RULES = [
      "timed generations while tg_med is the median of all five",
      "CORRECTIONS.md 11"),
 
+    ("nmatch-12-independent",
+     r"n-match 12[^\n]{0,60}(?:same cap|chosen independently)|"
+     r"(?:same cap|chosen independently)[^\n]{0,50}n-match|"
+     r"tuned profile already uses[^\n]{0,60}n-match",
+     "measured 2026-08-22 (sweep-ngram-nmatch.jsonl, 12 rows, paired): the "
+     "llama.cpp default n_match=24 is +34.6 % RESOLVED over the 12 we ship and "
+     "8 is -14.5 %. their LOOKUP_NMAX caps a longest-match search with recency "
+     "tie-breaks; ours is the hash key width of a keyless table with no length "
+     "dimension -- the two flags share a number and nothing else, so agreement "
+     "between them validated nothing",
+     "CORRECTIONS.md 21"),
+
     ("greedy-hash-cross-depth",
      r"greedy[_ ]hash",
      "takes one of two values and switches on things that are not the arm "

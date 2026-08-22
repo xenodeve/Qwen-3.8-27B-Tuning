@@ -77,6 +77,14 @@ with ties broken by recency, **match length capped at 12**.
 llama.cpp's `ngram-mod` is the same algorithm, and our tuned profile already
 uses **`--spec-ngram-mod-n-match 12`** — the same cap, chosen independently.
 
+> 🔴 **RETRACTED the same day — [`CORRECTIONS.md` §21](CORRECTIONS.md).** It is
+> not the same cap and the agreement validated nothing. Their `NMAX` bounds a
+> longest-match search; `n_match` is the **hash key width** of a keyless table
+> (`common/ngram-mod.cpp:15-25`) with no length dimension and unconditional
+> recency. Swept at ctx 16,384: the llama.cpp default **`24` is +34.6 %
+> [+31.4, +40.8] RESOLVED** over our `12`, and `8` is **−14.5 %**. Shorter is
+> worse here, not better — see [`results/08` §2](../results/08-rtx3090-transfer.md).
+
 So the summary's "most important idea to import" is one **we ran and measured
 today**: `--spec-type draft-dflash,ngram-mod`, **+48.5 % [+46.6, +50.1] over
 `ngram-mod` alone on real code, RESOLVED** (report 29). They needed a 947-line

@@ -66,4 +66,4 @@ there is no hook, and the two incidents above are what it costs when the step is
 skipped. `python C:\AI\scripts\audit-stale-claims.py` catches superseded *claims*
 but cannot see a measurement nobody registered.
 
-| [08](08-rtx3090-transfer.md) | **what actually transferred from the RTX 3090 stack** — 434 techniques scanned, which were tried here and what happened. Two measured wins, one measured null, five read-and-closed, two impossible |
+| [08](08-rtx3090-transfer.md) | **what actually transferred from the RTX 3090 stack** — 434 techniques scanned, which were tried here and what happened. Three measured wins (one of them by refuting the claim that produced it), one measured null, five read-and-closed, two impossible |

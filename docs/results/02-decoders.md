@@ -129,6 +129,50 @@ with it: 15.53 → 18.00 → 21.90.
 > **The best decoder setting depends on the window, and the window is set by the
 > task.** There is no single value to ship.
 
+## `--spec-ngram-mod-n-match` — tested 2026-08-22. We overrode the default, and it cost 26 %
+
+ctx 16,384, real-code (frozen corpus `5672a9bcce74c0d0`), `draft-dflash,ngram-mod`,
+`--spec-draft-n-max 4`, with `n-min 16` and `n-max 32` held constant. Three rounds,
+arms rotated each round, paired. Raw `results/sweep-ngram-nmatch.jsonl`, 12 rows.
+
+| `n-match` | rounds (tok/s) | vs ours | acceptance | ngram drafts | ngram mean acc len |
+|---:|---|---|---:|---:|---:|
+| **24 — the default** | 94.5, 96.3, 94.2 | **+34.6 % [+31.4, +40.8] RESOLVED** | 62.2 % | 29 | **23.45** |
+| 16 | 69.2, 69.7, 69.5 | −1.5 % [−4.9, +3.9] within the floor | 53.5 % | 25 | 19.20 |
+| 12 — what we ship | 71.7, 73.3, 66.9 | baseline | 54.0 % | 31 | 18.00 |
+| 8 | 56.7, 62.7, 61.5 | **−14.5 % [−20.9, −8.0] RESOLVED** | 37.0 % | 43 | 8.95 |
+
+**Every worker profile sets `12`; the llama.cpp default is 24 and it is 34.6 %
+faster here.** The four `worker-*.ps1` scripts, `bench/kv_sweep.py` and
+`dflash2_arena.NGRAM` all carry the overridden value.
+
+**The trap held, and in both directions.** `n_match` is the hash key width
+(`common/ngram-mod.cpp:15-25`), so a shorter key is a strictly weaker
+requirement and ngram fires more often — 43 drafts at `8` against 29 at `24`.
+It decodes *slower* anyway, because a collapsed key hands back the successor of
+whichever context last wrote the slot: mean accepted length falls
+**23.45 → 8.95**, ngram's own accepted-token yield falls from **651/921 to
+342/1306**, and the draft calls needed to produce the same 512 tokens rise
+**475 → 649**. Firing twice as often on a worse draft is a loss.
+
+**`8` is RESOLVED by the repo's rule but not comfortably** — the mean clears the
+floor and the sign is consistent, yet one round landed at −8.0 %, inside it. The
+direction is solid; treat the magnitude as approximate.
+
+⚠️ **Two limits on this row.** It was measured at `--spec-draft-n-max 4`, so the
+two 2026-08-22 winners have **never run together**; and it was measured at
+**ctx 16,384**, a quarter of the served window. The mechanism argues 24 should
+widen its lead at depth — a fuller table means more distinct contexts colliding
+on a short key — but that is a **hypothesis, not a measurement**, and this
+project has been wrong about depth transfer before (`draft-mtp`, +81 % at 16K
+and −71 % at 131,072).
+
+> **Each arm's per-impl counters are byte-identical across all three rounds** —
+> same calls, same drafts, same accepted length to two decimals; only the timing
+> fields move. Decode is deterministic at temperature 0, so extra rounds
+> re-measure the clock and nothing else. That is exactly what the pairing is
+> for, but it means three rounds buy no second sample of drafter behaviour.
+
 ## Which speculator actually fires — tested 2026-08-22
 
 From `common_speculative_print_stats` (LOG_TRC; our arena already ran `-lv 5`),

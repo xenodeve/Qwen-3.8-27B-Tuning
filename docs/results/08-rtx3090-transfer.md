@@ -22,7 +22,7 @@ Flag semantics for the shortlist:
 |---|---|---|---|---|
 | 1 | "k=4 is the knee" / draft count reduced at long context | `--spec-draft-n-max` | **MEASURED** | **+23.4 % [+23.1, +23.5] RESOLVED at ctx 16,384.** Collapses at 65,536 |
 | 2 | "NSTRONG=NMIN: take any qualifying match" | `--spec-ngram-mod-n-min` | **MEASURED** | **No effect.** 16/8/4/2 → 79.7/79.7/79.7/79.8 |
-| 3 | "NMAX=12 chosen against 32 so recency beats length" | `--spec-ngram-mod-n-match` | **running** | pending — `results/sweep-ngram-nmatch.jsonl` |
+| 3 | "NMAX=12 chosen against 32 so recency beats length" | `--spec-ngram-mod-n-match` | **MEASURED** | **Refuted — shorter is worse.** The default `24` is **+34.6 % [+31.4, +40.8] RESOLVED** over the `12` we ship |
 | 4 | Lookup hit counter | `-lv 4` per-impl statistics | **USED** | the finding under every other finding — see below |
 | 5 | "A longer verify block costs KV pool per slot" | `n_rs_seq` | **USED** | gave the exact price: `149.625 MiB × (1 + n_max)` |
 | 6 | Applying top-k/top-p to the selector proposal | `--spec-draft-p-min` | **READ** | sweepable, but **≤ 0.0625 is identical to 0.00** |
@@ -36,8 +36,15 @@ Flag semantics for the shortlist:
 | 14 | KVarN 4-bit K / 2-bit V | — | **IMPOSSIBLE** | llama.cpp's KV types bottom out at 4 bits |
 | 15 | Hybrid recurrent-state prefix cache | `--cache-reuse` / `-sps` | **OPEN** | whether llama.cpp restores DeltaNet state or only KV is unknown |
 
-**Two measured wins, one measured null, one running, five read-and-closed, two
-we already had, two impossible, one open.**
+**Three measured wins — one of them by refuting the claim that produced it —
+one measured null, five read-and-closed, two we already had, two impossible,
+one open.**
+
+**The refutation is one of the wins.** Their claim was that a *shorter* match
+predicts better. Measured here the direction reverses, and acting on the claim
+would have made the served profile slower still. A transfer that tells you to
+undo something you already did is worth the same round as one that tells you to
+add something.
 
 ---
 
@@ -61,7 +68,43 @@ layers on the CPU — and the recurrent state splits with 49.88 MiB landing on t
 host. **There is no single value to ship: the best setting depends on the window,
 and the window is set by the task.**
 
-## 2. The lookup counter — the instrument that made everything else visible
+## 2. `--spec-ngram-mod-n-match` — their claim reversed, and it found our own error
+
+The scan read their patch as *"NMAX=12 chosen against 32 so recency beats
+length"*, and [report 30](../reports/30-SYV-RTX3090-REFERENCE-REVIEW.md) noted
+approvingly that our profile already ran `12` — **"the same cap, chosen
+independently"**. Convergence read as confirmation.
+
+Measured, the direction reverses:
+
+| `n-match` | ctx 16,384, real-code | vs ours | ngram drafts | ngram mean acc len |
+|---:|---|---|---:|---:|
+| **24 — the llama.cpp default** | 94.5, 96.3, 94.2 | **+34.6 % RESOLVED** | 29 | **23.45** |
+| 16 | 69.2, 69.7, 69.5 | −1.5 %, within the floor | 25 | 19.20 |
+| 12 — what we ship | 71.7, 73.3, 66.9 | baseline | 31 | 18.00 |
+| 8 | 56.7, 62.7, 61.5 | **−14.5 % RESOLVED** | 43 | 8.95 |
+
+**The trap the sweep was designed around is what produced the result.** A
+shorter key is a strictly weaker requirement, so ngram fires more often — 43
+drafts at `8` against 29 at `24` — and decodes slower anyway, because the
+collapsed key returns the successor of whichever context last wrote the slot.
+Mean accepted length falls **23.45 → 8.95** and the draft calls needed for the
+same 512 tokens rise **475 → 649**. **Firing twice as often on a worse draft is
+a loss**, which is exactly what `speculative.cpp:2545` sitting six lines above
+`2551` predicts.
+
+**Their number was not wrong, it was theirs.** Their cap is a bound on a
+longest-match search with recency tie-breaks; ours is a hash key width into a
+keyless table with no length dimension at all
+(`common/ngram-mod.cpp:15-25, 37-41`). The two flags share a number and nothing
+else — which the flag-semantics read had already said, and which the "chosen
+independently" line in report 30 walked past.
+
+Full data, the two limits on it, and the determinism note:
+[`02-decoders.md`](02-decoders.md). Retraction:
+[`CORRECTIONS.md` §21](../reports/CORRECTIONS.md).
+
+## 3. The lookup counter — the instrument that made everything else visible
 
 The scan called this *"strictly better than what vLLM built, and switched off"*.
 It was switched off in the sense that nobody read it: `-lv 5` was already in our
@@ -75,7 +118,7 @@ earlier measurement in this project read.
 
 **Nothing else on this page would have been findable without it.**
 
-## 3. The two "do not sweep" verdicts that saved GPU rounds
+## 4. The two "do not sweep" verdicts that saved GPU rounds
 
 Worth as much as a win, and each rests on a specific line:
 
@@ -91,7 +134,7 @@ Worth as much as a win, and each rests on a specific line:
   (`llama-sampler.cpp:3018`), and it self-disables on a grammar — which the
   served profile needs.
 
-## 4. `--spec-draft-p-min` — the arithmetic that redesigned the sweep
+## 5. `--spec-draft-p-min` — the arithmetic that redesigned the sweep
 
 The scan called it *"the single most actionable item in this slice"*. It may be,
 but not at the values anyone would try first.
@@ -111,7 +154,7 @@ It also saves **zero draft-side compute** — the whole block is decoded at
 `speculative.cpp:1195` before any check — and `ngram-mod` outranks
 `draft-dflash`, so every step ngram serves is a step where it does nothing.
 
-## 5. `-fitt` — the transfer that found an error in our own profiles
+## 6. `-fitt` — the transfer that found an error in our own profiles
 
 `tools/server/server-context.cpp:1074` **adds the draft model's bytes** to
 `fit_params_target` before `--fit` runs. With the 1,090 MiB sidecar, our
@@ -146,10 +189,14 @@ quantisation. [Report 30](../reports/30-SYV-RTX3090-REFERENCE-REVIEW.md).
 
 ## Still open from this pool
 
-- **#3 `--spec-ngram-mod-n-match`** — running. **The trap:** lowering it raises
-  ngram's fire rate *by suppressing `draft-dflash` calls*
-  (`speculative.cpp:2545` vs `2551`, cascade stops at `2725-2726`), so an arm can
-  fire twice as often and decode slower. Read the per-impl counters, not tok/s.
+- **The two winners have never run together.** `--spec-draft-n-max 7` was
+  measured at `n-match 12`, and `n-match 24` was measured at `n-max 4`. Neither
+  result licenses their sum, and both touch the same drafter.
+- **Neither winner has been measured at the served depth.** Both verdicts are
+  ctx 16,384; `worker-iq2s-quality.ps1` serves 98,304. `--spec-draft-n-max 7`
+  is already known **not** to transfer — it spills to `63+2` at 65,536 — so the
+  question is live for `n-match` too, and `n-match` costs no VRAM, which makes
+  it the cheaper of the two to answer.
 - **#6 `--spec-draft-p-min`** at 0.10 / 0.25, arms defined and unrun.
 - **#7 `-fitt`** — a step function with a dead zone whose step moves with boot
   VRAM. Read the fitted configuration from the log before measuring any rate.

@@ -1,6 +1,6 @@
 # Corrections register — every published claim this project later contradicted
 
-**Read this before trusting any number in reports 00–24.** These reports were
+**Read this before trusting any number in reports 00–31.** These reports were
 written as the work happened, and several of them state things the machine
 later disproved. Each report carries its own correction banner, but a banner
 only helps a reader who opened *that* report. This is the list in one place.
@@ -508,6 +508,61 @@ measured on, so its numbers stay interpretable. Every row now carries
 
 **Guarded by** `bench/tests/test_corpus_frozen.py` (6 tests), which pins that
 the prompt is a pure function of the frozen file and that the hash is reported.
+
+---
+
+## 21. "`--spec-ngram-mod-n-match 12` — the same cap, chosen independently"
+
+**The claim.** [Report 30](30-SYV-RTX3090-REFERENCE-REVIEW.md), 2026-08-22, on
+the RTX 3090 stack's lookup patch: *"llama.cpp's `ngram-mod` is the same
+algorithm, and our tuned profile already uses `--spec-ngram-mod-n-match 12` —
+the same cap, chosen independently."* Written as reassurance: two projects
+reaching the same number was read as evidence the number was right.
+
+**What contradicts it.** The sweep the same report asked for.
+`results/sweep-ngram-nmatch.jsonl`, 12 rows, ctx 16,384, frozen corpus, three
+rounds, arms rotated and paired:
+
+| `n-match` | rounds (tok/s) | vs our 12 |
+|---:|---|---|
+| **24 — the llama.cpp default** | 94.5, 96.3, 94.2 | **+34.6 % [+31.4, +40.8] RESOLVED** |
+| 16 | 69.2, 69.7, 69.5 | −1.5 %, within the floor |
+| 12 — what we ship | 71.7, 73.3, 66.9 | baseline |
+| 8 | 56.7, 62.7, 61.5 | **−14.5 % [−20.9, −8.0] RESOLVED** |
+
+**The cause — two flags that share a number and nothing else.** Their
+`LOOKUP_NMAX` caps a *longest-match search* with ties broken by recency, so a
+lower cap really does bias toward recent matches. Our `n_match` is the **hash
+key width** of a keyless 4M-entry table (`common/ngram-mod.cpp:15-25`, `37-41`):
+there is no length dimension to cap and recency is unconditional at every value,
+because `add()` overwrites the slot. Lowering it does not buy recency. It buys
+**key collapse** — more distinct contexts folding onto one slot, each stealing
+the others' successor.
+
+The counters say it directly. At `8` ngram fires *more*: 43 drafts against 29 at
+`24`. Each draft is worth far less — mean accepted length **23.45 → 8.95**,
+accepted-token yield **651/921 → 342/1306** — and the draft calls needed for the
+same 512 tokens rise **475 → 649**.
+
+**What this does not retract.** The `+48.5 %` for `draft-dflash,ngram-mod` over
+`ngram-mod` alone, which was measured at `n-match 12` on both sides of the pair.
+Nor report 30's reading of *their* patch, which is accurate about their code.
+What is retracted is the inference that agreement between the two numbers
+validated ours.
+
+**Where it was already written down and not acted on.** The flag-semantics read
+of the same day states it plainly — *"n_match changes key SPECIFICITY only… you
+are buying only the 'shorter' half, and paying for it with key collapse"* — in
+`researchs/llamacpp-flag-semantics-2026-08-22.md`, misreading (3). Report 30's
+sentence was written anyway. **A source read does not correct a claim unless
+somebody goes back to the claim.**
+
+**Not yet a config change.** The verdict is ctx 16,384 and the served profiles
+run 65,536–98,304; this project's own rule is that a verdict at one depth does
+not transfer. The four `worker-*.ps1` scripts still carry `12` and stay that way
+until measured at depth — recorded as open work, not as a pending edit.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nmatch-12-independent`.
 
 ---
 
