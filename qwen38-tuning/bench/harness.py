@@ -258,6 +258,50 @@ def line_repetition_pct(text):
 filler_repetition_pct = line_repetition_pct
 
 
+def window_repetition_pct(text, n=24):
+    """Percentage of n-word windows that have already appeared earlier in the text.
+
+    The repetition measure that matches what `ngram-mod` actually sees.
+    `line_repetition_pct` above answers "how much of this is duplicated lines",
+    which is the right question for the tiled filler that produced instrument
+    fault 8. It is the wrong question for choosing a corpus, because ngram-mod
+    keys a hash on a window of n_match TOKENS (common/ngram-mod.cpp:15-25) and
+    never looks at a line.
+
+    The two disagree in both directions, and each disagreement matters:
+
+      - 43 files of this repo's own source score 18.9 % on lines, almost
+        entirely from `import sys`, `try:` and docstring delimiters. Those are
+        not n-gram hits: the 24 tokens surrounding each occurrence differ. Real
+        multi-file code always looks like this, and rejecting a corpus for it
+        would be rejecting honest text.
+      - Text tiled with a changing index -- exactly what `filler()` did -- can
+        have every line differ while its windows repeat almost perfectly. That
+        is the case that manufactures a fake n-gram verdict, and the line
+        metric can miss it.
+
+    PROXY, DELIBERATELY. Windows are n whitespace-separated words, not n llama
+    tokens: the tokenizer is not available here and loading it to score a corpus
+    would tie the measure to an artifact. Use this to rank candidate corpora
+    against each other and against a known-bad filler. It does not predict an
+    absolute hit rate and must not be quoted as one.
+    """
+    if n <= 0:
+        raise ValueError("window width must be positive, got %r" % (n,))
+    words = text.split()
+    if len(words) < n:
+        return 0.0
+    seen = set()
+    repeats = 0
+    total = len(words) - n + 1
+    for i in range(total):
+        w = tuple(words[i:i + n])
+        if w in seen:
+            repeats += 1
+        seen.add(w)
+    return round(100.0 * repeats / total, 2)
+
+
 def draft_acceptance(timings):
     """Percentage of drafted tokens accepted, over EVERY timed generation.
 

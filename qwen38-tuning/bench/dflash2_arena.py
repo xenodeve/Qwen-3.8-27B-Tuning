@@ -328,16 +328,28 @@ _BLOCK = ("// section {i}\n"
 CORPUS_DIR = Path(__file__).parent / "corpora"
 
 
-def corpus_hash(regime):
-    """Short hash of the frozen corpus, or None for a generated regime.
+# Frozen corpora, by regime. Each is committed evidence: its hash is stamped
+# into every row measured against it, so a file that changes changes a visible
+# number instead of changing nothing anybody can see.
+#
+# real-code.txt is NEVER modified or replaced. Rows going back to report 29 name
+# its hash, and rewriting it would silently reinterpret all of them.
+# real-code-deep.txt was added because the shallow one tops out around ctx
+# 30,600 and the served window is 98,304 -- see build-deep-corpus.py for what
+# went into it and what was deliberately left out.
+CORPUS_FILES = {
+    "real-code": "real-code.txt",
+    "real-code-deep": "real-code-deep.txt",
+}
 
-    Recorded on every row. A corpus that changes then changes a visible number
-    instead of changing nothing anybody can see.
-    """
-    if regime != "real-code":
+
+def corpus_hash(regime):
+    """Short hash of the frozen corpus, or None for a generated regime."""
+    name = CORPUS_FILES.get(regime)
+    if name is None:
         return None
     import hashlib
-    return hashlib.sha256((CORPUS_DIR / "real-code.txt").read_bytes()).hexdigest()[:16]
+    return hashlib.sha256((CORPUS_DIR / name).read_bytes()).hexdigest()[:16]
 
 
 def filler(n_tokens, regime="synthetic"):
@@ -354,19 +366,41 @@ def filler(n_tokens, regime="synthetic"):
     model is writing something new. DFlash2 is a trained drafter and does not
     need to have seen the text before.
 
-      synthetic  66.2 % duplicate lines -- ngram-mod's best case, and the trap
-                 depth_sweep.py names in its own header.
-      real-code  4.7 % duplicate lines -- frozen real source, which is what
-                 the worker actually reads.
+      synthetic       66.2 % duplicate lines -- ngram-mod's best case, and the
+                      trap depth_sweep.py names in its own header.
+      real-code       frozen real source, which is what the worker actually
+                      reads. 91,868 chars: good to about ctx 30,600.
+      real-code-deep  the same idea at 406,146 chars, good to about ctx
+                      135,000, for the windows we actually serve.
 
     A verdict from one regime does not carry to the other, the same way a
-    verdict at one depth does not carry to another depth.
+    verdict at one depth does not carry to another depth. `real-code` and
+    `real-code-deep` are DIFFERENT REGIMES for this reason and not one corpus
+    that grew: they carry different hashes and rows are compared within a
+    corpus, never across.
+
+    A CORPUS TOO SMALL FOR THE WINDOW RAISES. This used to return
+    `text[:n_tokens * 3]`, so any request above what the file holds silently
+    produced a shorter prompt -- a run at ctx 65,536 that actually measured
+    ~30,600 and reported a perfectly plausible rate for a window it never
+    filled. Nothing in the row said so. Every verdict taken before this guard
+    existed was at ctx 16,384, which `real-code.txt` covers with room to spare,
+    so none of them is affected; the next one up would have been.
     """
-    if regime == "real-code":
-        text = (CORPUS_DIR / "real-code.txt").read_text(encoding="utf-8",
-                                                        errors="replace")
-        return text[:n_tokens * 3] + ("\n# Explain what vram_settled guards against, "
-                                      "then write a test for it.\n")
+    name = CORPUS_FILES.get(regime)
+    if name is not None:
+        text = (CORPUS_DIR / name).read_text(encoding="utf-8", errors="replace")
+        want = n_tokens * 3
+        if len(text) < want:
+            raise ValueError(
+                "%s holds %d chars but ctx %d needs %d. Truncating would "
+                "measure a shorter window than the one reported. Use "
+                "--regime real-code-deep, or extend the corpus with new source "
+                "(never by tiling this one -- see CORRECTIONS.md 20)."
+                % (name, len(text), n_tokens, want)
+            )
+        return text[:want] + ("\n# Explain what vram_settled guards against, "
+                              "then write a test for it.\n")
 
     out, i = [], 0
     while sum(len(s) for s in out) < n_tokens * 3:
@@ -558,7 +592,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ctx", type=int, nargs="+", default=[16384])
     ap.add_argument("--rounds", type=int, default=3)
-    ap.add_argument("--regime", choices=["synthetic", "real-code"],
+    ap.add_argument("--regime", choices=["synthetic", "real-code", "real-code-deep"],
                     nargs="+", default=["synthetic"])
     ap.add_argument("--arms", choices=sorted(ARM_SETS), default="decoders")
     ap.add_argument("--out",
