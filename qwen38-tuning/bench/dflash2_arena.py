@@ -152,6 +152,30 @@ ARM_SETS = {
         ("nmatch-8",          _pair(_ngram(16, n_match=8))),
     ],
 
+    # The two winners of 2026-08-22, crossed. --spec-draft-n-max 7 measured
+    # +23.4 % RESOLVED at n_match 12; --spec-ngram-mod-n-match 24 measured
+    # +34.6 % RESOLVED at n_max 4. NEITHER RESULT LICENSES THEIR SUM, and both
+    # act on the same drafter through the same cascade, so an interaction is
+    # the expected case rather than the surprising one: n_max sets how many
+    # tokens draft-dflash produces per call, n_match sets how often ngram-mod
+    # pre-empts it entirely (speculative.cpp:2545 above 2551).
+    #
+    # A 2x2 rather than one "both" arm, because "both" against a single
+    # baseline cannot tell a real interaction from a replication failure of
+    # either single effect -- and both singles were measured on a different day
+    # with a different boot-VRAM roll. Here all four ride the same rounds.
+    #
+    # WATCH free_after. n_max 7 costs 149.625 MiB per unit of recurrent state
+    # (common.h:390) and fitted 65+0 with 443 MiB free at this depth; n_match
+    # moves no allocation at all (ngram-mod.cpp:60-62). If the 7 arms spill a
+    # layer, the throughput column is measuring residency, not the flags.
+    "draft-n-x-nmatch": [
+        ("combo-base-n4-m12", _pair(_ngram(16, n_match=12), n_draft=4)),
+        ("combo-n7-m12",      _pair(_ngram(16, n_match=12), n_draft=7)),
+        ("combo-n4-m24",      _pair(_ngram(16, n_match=24), n_draft=4)),
+        ("combo-n7-m24-both", _pair(_ngram(16, n_match=24), n_draft=7)),
+    ],
+
     # `--spec-draft-p-min` defaults to 0.00 (common.h:329), i.e. the DFlash2
     # confidence early-stop is off. Trimming low-confidence tail positions
     # narrows the verify batch, which also moves the flash-attention kernel
