@@ -38,6 +38,147 @@ spread the floor came from. **A quiet night is not a smaller floor.**
 *Raw: `results/sweep-threads*.jsonl`, `results/sweep-batch*.jsonl`,
 `results/kv-layers-16k.jsonl`, `results/kv-depth-levers.jsonl`.*
 
+## Six flags read from source before spending GPU time — 2026-08-22
+
+**Read, not measured.** Six agents each traced one flag into the code that
+*consumes* it, after two sweeps that day were designed against a misreading and
+measured nothing. Three of the six turn out to be provably inert in our
+configuration, which saves three GPU rounds.
+
+### 🔴 `-ctkd` / `-ctvd` — DO NOT SWEEP. The saving is real; the cost is larger
+
+Default **`f16` for both** (`common/common.h:340-341`) — *not* "same as
+`--cache-type-k`". Quantising the draft KV drops its buffer from 45.00 MiB to
+~12.7 MiB at `q4_0`.
+
+**But the drafter does not do single-token steps.**
+`common/speculative.cpp:1183` computes `n_block_tokens = n_max + 1` = **5**, and
+line 1196 decodes all five in one `llama_decode`, so `Q->ne[1] == 5`. That does
+**not** take the quantised-KV vector kernel — it takes `MMA_F16` with a full
+dequantisation per layer per draft step. The ~32 MiB saving is paid for in
+compute on the hot path.
+
+Also: a quantised V silently promotes flash-attention AUTO → ENABLED for the
+*draft* context (`llama-context.cpp:3602-3605`), so you lose both the "Flash
+Attention enabled" confirmation and the "not supported" warning for the drafter.
+
+**If measured anyway**, the only defensible readout is the load-time VRAM pair
+from one log: the draft `KV buffer size` line must fall **and** the draft
+`compute buffer size` line must rise. If the compute line does not move, the
+reading above is wrong and the sweep should stop.
+
+### 🔴 `GGML_CUDA_GRAPH_OPT=1` — DO NOT SWEEP. It cannot fire here
+
+Undocumented environment variable; unset = disabled
+(`ggml/src/ggml-cuda/ggml-cuda.cu:4330-4334`). The scan called it "the cheapest
+untried experiment in the whole map". It is cheaper still: **in our
+configuration it provably executes zero optimisation work.**
+
+The misreading it invites: *"our logs show `CUDA Graph id 57 reused`, so CUDA
+graphs are on, so this should help."* The function body
+(`ggml-cuda.cu:4339-4551`) contains **no `cudaGraph*` call at all** — it builds
+`cudaEvent_t` fork/join pairs and a stream map. CUDA graphs working tells you
+nothing about whether this flag does anything.
+
+`GGML_CUDA_DISABLE_GRAPHS` cannot serve as the control arm: it turns off the
+gate the flag itself depends on (`common.cuh:1257-1260`).
+
+**The honest cheap experiment** is an activation check, not a benchmark: one
+boot with the variable set, and grep the debug output for the optimisation
+firing at all.
+
+### 🔴 `-bs` / `--backend-sampling` — DO NOT SWEEP as-is. A guaranteed non-result
+
+Default false (`common/common.h:295`), and a **different field** from the
+draft-side `backend_sampling = true` at `common.h:331`.
+
+It does not "move sampling to the GPU" — it offloads **the longest prefix** of
+the sampler chain. `llama-sampler.cpp:746-765` sets `is_backend=false` for every
+sampler after the first failure. With our default `--samplers`, the prefix ends
+at `dry`, **position 2 of 10**; `temperature` and `dist` — the samplers that
+pick the token — never reach the device.
+
+Worse, `penalties` refuses outright (`llama-sampler.cpp:3018`), so an `-bs` arm
+offloads nothing while paying ~20 MB of compute buffer and ~60 MB pinned host,
+plus two graph re-reserves per request. **Predicted effect: a small negative,
+under the noise floor — uninterpretable in either direction.**
+
+And it self-disables silently on a grammar or a reasoning budget
+(`sampling.cpp:421-427`). The served profile needs a grammar, so an `-bs` arm
+measured with one is void by construction.
+
+### `--spec-draft-p-min` — sweepable, but **anything ≤ 0.0625 is a no-op**
+
+Default **0.00** (`common/common.h:329`), i.e. the confidence early-stop is off,
+and the `if (params.p_min > 0.0f)` guard at `speculative.cpp:1262` makes that a
+genuine zero-cost path.
+
+**What it actually compares.** Our drafter is DFlash2
+(`dflash.selector_top_k = 16`), so `speculative.cpp:978` sets `is_dflash2` and
+control enters the lattice branch at 1219. The vocabulary-probability check at
+`speculative.cpp:1328` is **dead code for this artifact**. At temperature 0 the
+live line is 1268: `1.0f / sum < params.p_min`, where
+`sum = Σ_{k=0..15} exp(scores[k] − scores[argmax])` over the **16 selector
+candidates**, not the 151k vocabulary.
+
+> **Every term is ≤ 1 and the argmax term is exactly 1, so `1/sum ∈ [0.0625,
+> 1.0]`. Any `p_min ≤ 1/16` is mathematically identical to 0.00.**
+
+A "gentle first step" of 0.01 or 0.05 would repeat the `--spec-ngram-mod-n-min`
+error exactly: a ladder of arms that cannot differ.
+
+Two more things that shrink its value: it saves **zero draft-side compute** (the
+whole block is decoded at `speculative.cpp:1195` *before* any check), and
+`ngram-mod` outranks `draft-dflash`, so every step ngram serves is a step where
+`p_min` does nothing.
+
+### `--spec-ngram-mod-n-match` — the one worth a round, and it has a trap
+
+Default **24** (`common/common.h:352`); we run **12**. Costs no VRAM — the table
+is a fixed 16 MiB host allocation independent of `n_match`.
+
+**The trap that would make the sweep uninterpretable:** `ngram-mod` is
+registered *above* `draft-dflash` and the cascade stops at the first non-empty
+draft (`speculative.cpp:2545, 2551, 2725-2726`). **Lowering `n_match` raises
+ngram's fire rate by suppressing dflash calls.** An arm can show ngram firing
+twice as often and decode *slower*. Any sweep must read the per-implementation
+counters, not just tok/s.
+
+Arms worth measuring: **24 (the real default), 16, 12 (ours), 8.** Not below 6 —
+the key collapses, acceptance falls under the reset threshold, and the table
+wipe at `speculative.cpp:2044-2054` fires repeatedly, so the measurement becomes
+one of the reset loop. Not above 24 either: the `i = 0` hit rate is monotonically
+non-increasing in `n_match`, and the 93.7 % decline is already the binding
+constraint.
+
+### `--fit-target` — and the discovery that changes what it means here
+
+Default **1024 MiB per device** (`common/common.h:473`); we run 768.
+
+> **When `-md` is present, the server ADDS the draft model's bytes to the
+> target before `--fit` ever runs.** `tools/server/server-context.cpp:1074`:
+> `params_base.fit_params_target[i] += bytes`, where `bytes` is the drafter's
+> model + context + compute. The DFlash2 sidecar is 1,090 MiB on disk, so the
+> value reaching `fit.cpp:562` under `draft-dflash,ngram-mod` is roughly
+> **768 + 1,150–1,300 ≈ 1,900–2,100 MiB**, not 768.
+
+So the header comment on every worker profile describing 768 as "the margin the
+server leaves free" is wrong in exactly the configuration we now serve. It also
+explains why the drafter fitted at 98,304 when arithmetic from the raw buffer
+sizes said it should not.
+
+The direction is counter-intuitive: `-fitt` is **subtracted** from free at
+`fit.cpp:562`, so a *larger* value gives a *smaller* target and pushes **fewer**
+layers onto the GPU. And it is a **step function with a dead zone**
+(`fit.cpp:269-274`) whose step location moves with boot-time free VRAM — which
+this project already knows swings 9,326–10,732 MiB.
+
+**Measure the fitted configuration before measuring any tok/s.** Our harness
+already passes `-lv 5`; grep the existing arena logs for `no changes needed` —
+any arm that printed it had `--fit-target` applied as a no-op.
+
+---
+
 ## Speculation flags — swept 2026-08-22, on the frozen corpus
 
 Arena: `bench/dflash2_arena.py --regime real-code`, ctx 16,384,

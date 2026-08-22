@@ -72,5 +72,12 @@ a low-bit artifact with a needle-in-100K-tokens task.
 programme, complete) and `01-V3-Q1-Q2-TEST-PLAN.md` (the current one: Qwen3.8-27B
 Dynamic V3, 1-bit and 2-bit rungs).
 
+**Newest first:** [31](31-SESSION-RECORD-2026-08-22.md) is the session record for
+2026-08-22 — every measurement of that day with the condition it was taken under,
+including the runs that turned out invalid. [30](30-SYV-RTX3090-REFERENCE-REVIEW.md)
+reviews an external RTX 3090 stack against our own files;
+[29](29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) is the DFlash2 result and
+the prompt that hid it.
+
 Raw data and harnesses live in `C:\AI\qwen38-tuning\` —
 `EXPERIMENTS.md` (E0–E13), `results\*.jsonl`, `bench\` (58 tests), `scripts\`, `logs\`.

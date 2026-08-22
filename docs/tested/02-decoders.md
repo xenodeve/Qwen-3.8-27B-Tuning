@@ -102,6 +102,61 @@ lower. Step V2 separates them. Not yet a usable signal.
 
 Raw: `qwen38-tuning/logs/mtp.err`.
 
+## `--spec-draft-n-max` — tested 2026-08-22. The largest lever found, and window-dependent
+
+ctx 16,384, real-code (frozen corpus), `draft-dflash,ngram-mod`, three rounds,
+arms rotated, paired. Raw `results/sweep-draft-n.jsonl`, [report 31 §5](../reports/31-SESSION-RECORD-2026-08-22.md).
+
+| `n-max` | rounds (tok/s) | vs ours | free after | acceptance |
+|---:|---|---|---:|---:|
+| 3 — **the default** | 70.2, 70.5, 70.2 | **−11.5 %** | 913 MiB | 53.1 % |
+| 4 — what we ship | 79.3, 79.7, 79.5 | baseline | 667 MiB | 54.0 % |
+| **7 — the clamp** | 97.7, 98.4, 98.2 | **+23.4 % [+23.1, +23.5] RESOLVED** | 443 MiB | 47.5 % |
+
+**The default sits 28 % below the best point** and the help text does not say so.
+The clamp is `block_size − 1` = 7 for this drafter (`common/speculative.cpp:989`);
+a larger request is silently lowered.
+
+**Acceptance falls as `n` rises while throughput climbs** — more tokens per
+verify step outweighs a lower hit rate. `ngram-mod`'s mean accepted length rises
+with it: 15.53 → 18.00 → 21.90.
+
+**It is also a VRAM knob**, priced at **149.625 MiB per unit** — see
+[`03-memory-and-kv.md`](03-memory-and-kv.md). **At ctx 65,536 `n=7` spills to
+`63+2`** and the recurrent state splits, 49.88 MiB of it landing on the CPU.
+`n=3` and `n=4` stay `65+0` there.
+
+> **The best decoder setting depends on the window, and the window is set by the
+> task.** There is no single value to ship.
+
+## Which speculator actually fires — tested 2026-08-22
+
+From `common_speculative_print_stats` (LOG_TRC; our arena already ran `-lv 5`),
+parsed by `harness.parse_spec_impl_stats`. Aggregated over 26 logs.
+
+| regime | impl | calls | drafts | **decline** | mean acc len | cumulative draft ms |
+|---|---|---:|---:|---:|---:|---:|
+| real-code | `ngram-mod` | 4,488 | 129 | **97.1 %** | 13.65 | 6 |
+| real-code | `draft-dflash` | 2,145 | 2,145 | 0.0 % | 2.85 | 12,863 |
+| synthetic | `ngram-mod` | 734 | 184 | 74.9 % | 19.23 | 2 |
+| synthetic | `draft-dflash` | 1,320 | 1,320 | 0.0 % | 4.65 | 8,094 |
+
+**`ngram-mod` is not weak — it rarely fires.** On real code it declines 94–97 %
+of calls, `draft-dflash` is called exactly the number of times it declines, and
+when ngram *does* fire it is worth **six times more per draft**. `draft-dflash`
+is also the expensive one by three orders of magnitude of draft time.
+
+**The pooled `draft acceptance` line cannot show any of this.** With a chained
+`--spec-type` it averages both speculators, and that average is what every
+earlier measurement in this project read.
+
+🔴 **The order is hardcoded and cannot be changed by a flag.**
+`common/speculative.cpp:2540–2552` ranks every `ngram-*` above every model-based
+type and rebuilds the list from a bitmask, discarding command-line order. So the
+measured `draft-dflash,ngram-mod` **+48.5 %** ran *ngram-mod first, dflash as
+fallback*. Since dflash alone beat ngram alone by **+34.7 %**, "dflash first" is
+an obvious unmeasured configuration reachable only by reordering ten lines.
+
 ## The decoder verdicts re-measured — tested 2026-08-21
 
 Two doubts stood against the eliminations. Both are now closed, and neither

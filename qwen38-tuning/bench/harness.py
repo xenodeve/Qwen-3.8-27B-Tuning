@@ -671,3 +671,97 @@ def generation_is_measurable(timings, n_predict, fraction=MEASURABLE_FRACTION):
         if n < floor or r <= 0:
             return False
     return True
+
+
+# Live project checkouts. The real-task benchmark reads issues from these and
+# must never write to or delete anything under them: on 2026-08-22 MangaDock
+# had 333 uncommitted files on a feature branch and T4 Fastwork 440 plus four
+# stashes -- days of work existing nowhere else. The benchmark ends by deleting
+# what it made, so an unguarded path turns cleanup into destruction.
+PROTECTED_ROOTS = (
+    r"D:\Github",
+)
+
+
+def is_protected(path):
+    """True if `path` is a protected root or lives under one.
+
+    Case-insensitive, because Windows is, and a guard that `D:\\github\\x`
+    slips past is not a guard.
+    """
+    import os
+    p = os.path.normcase(os.path.abspath(str(path)))
+    for root in PROTECTED_ROOTS:
+        r = os.path.normcase(os.path.abspath(root))
+        if p == r or p.startswith(r + os.sep):
+            return True
+    return False
+
+
+def assert_deletable(path, scratch_root):
+    """Raise unless `path` is inside `scratch_root` and nothing is protected.
+
+    Checked BEFORE any delete, not after. Three ways to fail, each a real one:
+
+    - the path is a live checkout, or inside one;
+    - the path is outside the run's declared scratch root, so deleting it was
+      not something this run planned;
+    - the scratch root is itself protected, which would let every other check
+      pass while guarding nothing.
+
+    A relative path is refused rather than resolved, because what it names
+    depends on the working directory and that is not something a benchmark
+    controls.
+    """
+    import os
+    if not os.path.isabs(str(path)) or not os.path.isabs(str(scratch_root)):
+        raise ValueError("refusing a relative path: %r (root %r)" % (str(path), str(scratch_root)))
+    if is_protected(scratch_root):
+        raise ValueError("scratch root is protected: %r" % str(scratch_root))
+    if is_protected(path):
+        raise ValueError("refusing to delete a protected path: %r" % str(path))
+    p = os.path.normcase(os.path.abspath(str(path)))
+    r = os.path.normcase(os.path.abspath(str(scratch_root)))
+    if not (p == r or p.startswith(r + os.sep)):
+        raise ValueError("refusing to delete outside the scratch root: %r not under %r"
+                         % (str(path), str(scratch_root)))
+    return True
+
+
+# Within 2 % of the window counts as saturated. Proportional rather than a
+# fixed token count, because a 4,096-token window is full long before 32,767.
+WINDOW_SATURATION = 0.98
+
+
+def classify_outcome(verify_exit, changed_files, ctx_high_water, n_ctx,
+                     saturation=WINDOW_SATURATION):
+    """PASS / FAIL / WINDOW_BOUND for one real-task attempt.
+
+    WINDOW_BOUND exists because of a run on 2026-08-22 that reported
+
+        5 tasks: 0 PASS, 5 FAIL, 0 VOID
+        context high-water: min 32767  median 32767  max 41377
+
+    against a 32,768-token window, with every baseline green. It reads as a
+    verdict on the worker -- nought for five -- and it is not one. 32,767 is
+    `n_ctx - 1`, and the server log carried `exceeds the available context size
+    (32768 tokens)` six times. The tasks filled the window; the model was never
+    given room to finish.
+
+    Counting that as FAIL blames the model for a number the operator chose.
+
+    WINDOW_BOUND is not a worker failure and must never be totalled as one. It
+    is still a RESULT: it says this class of task does not fit that window,
+    which is the whole of the context-sizing question.
+
+    A PASS that also saturated stays a PASS -- it got there, and running close
+    to the edge is not a disqualification. An unknown high-water stays FAIL:
+    missing data is not evidence of a missing window, and excusing a failure on
+    absent evidence is how a benchmark stops reporting failures at all.
+    """
+    passed = (verify_exit == 0 and changed_files > 0)
+    if passed:
+        return "PASS"
+    if ctx_high_water is not None and n_ctx and ctx_high_water >= n_ctx * saturation:
+        return "WINDOW_BOUND"
+    return "FAIL"

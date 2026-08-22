@@ -72,6 +72,59 @@ that scores 0 of 12 on the corpus.
 Roughly linear at 750–860 tok/s while resident. It collapses to **8.56 tok/s**
 with `-ot ffn`, and to **240 tok/s** at `65+1`.
 
+## What a REAL task consumes — tested 2026-08-22, and it overturns "what depth is worth"
+
+**The first measurement of this in the project.** `bench/real_task_bench.py`,
+real open GitHub issues, throwaway clones, scored by each repo's own verify
+command. Raw `results/real-task-bench.jsonl`,
+[report 31 §6](../reports/31-SESSION-RECORD-2026-08-22.md).
+
+Context high-water read from **`n_tokens` on the `slot release` line**, maximum
+over the task — not `prompt eval`, which reports only what survived cache reuse
+and mis-sized three worker profiles (`CORRECTIONS.md` §15, §17).
+
+| window served | high-water range | saturated? |
+|---:|---|---|
+| 32,768 | 32,767 – 41,377 | **yes, all five** |
+| 65,536 | 54,324 – 72,056 | **four of five** |
+| 98,304 | 56,861 – 88,668 | no |
+
+**Every time the window grew, the tasks used it.** At 32,768 the server log
+carried `exceeds the available context size (32768 tokens)` six times and
+`truncated = 1` four times. The numbers at the two smaller windows are ceilings
+the operator set, not requirements of the work.
+
+### What this overturns
+
+The section above asks what depth is worth and answers from the OpenCode
+corpus's longest conversation, **13,741 tokens**. That is a *lean* harness
+measurement and it is an order of magnitude below what a real agent task on a
+real repository consumes.
+
+`docs/plans/06` was written on the hypothesis that tasks peak near 40,000 and
+that serving 98,304 reserves 1.5–2 GB for nothing. **The 40,000 figure came from
+the run that saturated at 32,768.** It measured the ceiling, not the task.
+
+> **`worker-iq2s-quality.ps1` at 98,304 is the minimum sensible window, not
+> headroom.** Any plan to shrink the window to buy a higher quantisation rung
+> has to be rewritten.
+
+### And the drafter still fits there
+
+At ctx 98,304 with `--spec-draft-n-max 4` and the DFlash2 drafter loaded, the
+target is **`65+0` resident with 254 MiB free**. KV 1,728 MiB, recurrent state
+748.12 MiB, drafter KV 45.00 MiB. This was predicted not to fit and it does.
+
+🔴 **The true requirement above 98,304 is unknown.** Three windows, three
+saturations; 98,304 was the first that held, and one task reached 88,668 of it.
+
+🔴 **Unexplained, and the most important open question here.** At 98,304, with
+room to spare, four of five tasks ran 1,427–2,400 s and **changed no files** —
+a green verify with an empty diff, which is a FAIL because it passes the tests
+that were already passing. Every baseline was green, so none of these is an
+environment failure. The worker's transcript is written beside the clone and is
+deleted with the scratch root; **capture it before the next run.**
+
 ## What depth is worth
 
 A worker carries a fixed prefix — measured at **39,762–40,648 tokens** for a
