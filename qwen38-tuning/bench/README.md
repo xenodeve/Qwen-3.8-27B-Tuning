@@ -1,13 +1,13 @@
 # bench — the harness
 
-**212 tests. Run them before trusting any number:**
+**253 tests. Run them before trusting any number:**
 
 ```powershell
 python -m pytest tests\ -q
 ```
 
 Every primitive here raises rather than guessing. That is deliberate: this
-project has published four numbers it later had to withdraw, and each came from
+project has published twenty-four numbers it later had to withdraw, and each came from
 code that returned something plausible instead of an error.
 
 | file | what it measures | typical cost |
@@ -39,7 +39,7 @@ evidence, so it is written down here.
 |---|---|---|
 | **Model output — always deleted** | worker clones under the scratch root; `bench/_work/`, `bench/_deepwork/` | deleted and **verified gone**; `bench/_*/` is gitignored |
 | **The instrument — never deleted** | `dflash2_arena.py`, `kv_sweep.py`, `harness.py`, `ARM_SETS`, `tests/` | it is the apparatus. Deleting it means no future run is comparable |
-| **The evidence — never deleted** | `qwen38-tuning/results/*.jsonl`, `bench/corpora/*.txt` | **80 result files, cited by 20 documents.** `CLAUDE.md`: *"A measurement names the file its number came from, or it is a hypothesis"* |
+| **The evidence — never deleted** | `qwen38-tuning/results/*.jsonl`, `bench/corpora/*.txt` | **85 result files, cited by 20 documents.** `CLAUDE.md`: *"A measurement names the file its number came from, or it is a hypothesis"* |
 
 **Why the third row is not negotiable.** Deleting the JSONL rows does not tidy
 the repo, it demotes **every published number in it to a guess** — including

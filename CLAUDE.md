@@ -69,7 +69,7 @@ Every folder has a `README.md` that says what is in it and what to read first.
 ## Commands
 
 ```powershell
-cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 108 tests — the gate
+cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 253 tests — the gate
 python scripts\check-doc-links.py                      # every link resolves
 python scripts\audit-stale-claims.py                   # superseded claims
 ```
@@ -191,7 +191,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 ## คำสั่ง
 
 ```powershell
-cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 108 test — ด่านหลัก
+cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 253 test — ด่านหลัก
 python scripts\check-doc-links.py                      # ลิงก์ทุกเส้นต้องไปถึง
 python scripts\audit-stale-claims.py                   # ข้ออ้างที่ถูกแทนที่แล้ว
 ```

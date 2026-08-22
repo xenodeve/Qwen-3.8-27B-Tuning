@@ -12,8 +12,8 @@ Four folders, and the difference between them matters.
 ---
 
 **Before quoting any number from `reports/`, read**
-[`reports/CORRECTIONS.md`](reports/CORRECTIONS.md) — ten claims this project
-published and later contradicted. `python scriptsudit-stale-claims.py` finds
+[`reports/CORRECTIONS.md`](reports/CORRECTIONS.md) — twenty-four claims this project
+published and later contradicted. `python scripts\audit-stale-claims.py` finds
 every line in the tree that still matches one.
 
 ---
@@ -24,7 +24,7 @@ It covers the whole project in one document: the machine, the one mechanism that
 explains most results, what was done in what order, where things stand, every
 lever measured, and what is still open.
 
-Then [`reports/README.md`](reports/README.md) is the index of all 24 numbered
+Then [`reports/README.md`](reports/README.md) is the index of all 33 numbered
 reports.
 
 ---

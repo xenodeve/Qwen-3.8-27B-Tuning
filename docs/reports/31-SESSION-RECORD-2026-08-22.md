@@ -444,6 +444,19 @@ assuming transfer.
 
 ## 6. Real-task benchmark — the first measurement of the project's own metric
 
+> 🔴 **RETRACTED 2026-08-23 — [`CORRECTIONS.md` §24](CORRECTIONS.md).** The
+> worker was editing **`C:\AI`, the live repository**, not the clone, so
+> `git diff` in the clone was empty and this section measured **where the
+> harness looked, not what the worker did**. Reproduced and fixed: with the
+> directory pinned on the argv the same task returns `EDITED`, 251 diff bytes,
+> in 32.8 s. **Every conclusion below about the model, the quantisation or the
+> workflow is withdrawn.** The wall-clock and context high-water figures
+> survive — they came from the process and the server, not from the diff.
+>
+> A second, independent cause is also live: decode at ctx 98,304 is
+> **2.8–5.0 tok/s**, where a real task would take hours. Fixing the directory
+> does not fix that.
+
 `bench/real_task_bench.py`, throwaway clones from the GitHub remote, scored by
 each repo's own verify command. Raw: `results/real-task-bench.jsonl`.
 
@@ -548,6 +561,10 @@ most of that GiB and the header said the opposite.
 
 ## 9. Source facts established by reading, not measuring
 
+**Every source citation below is relative to `C:\AI\llama.cpp`.**
+`C:\AI\llama.cpp-dflash2` holds the built binaries only — there is no
+`common/` directory in it.
+
 Each cited so a later session does not re-derive them.
 
 | fact | where |
@@ -618,7 +635,7 @@ they had done the rename themselves.
 
 Cost: the benchmark had already finished, so no measurement was lost, but the
 kill interrupted its cleanup and left one clone behind. Removed by hand;
-`D:ench-scratch` verified empty.
+`D:\bench-scratch` verified empty.
 
 **The lesson is the one this file keeps repeating in a different costume:** eight
 files vanishing from `git status` is an observation, and "the worker did it" was

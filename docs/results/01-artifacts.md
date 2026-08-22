@@ -10,7 +10,7 @@ the loader's tensor histogram, **not** the filename.
 | V3 `UD-IQ1_S` | 5.77 | **1.84** | **196,608** | 22.3–23.2 @192K | **0 of 12** — no fenced block, 12/12 | fastest, unusable |
 | V3 `UD-IQ1_M` | — | ~2.0 | **163,840** | 24.4 base / 47.3 n-gram @160K | 10/21 · 41.5 % contract | depth yes, quality no |
 | V3 `UD-IQ2_XXS` | 6.77 | **2.16** | **147,456** | 25.6 base / 109.2 n-gram @147K | 19/27 · 58.3 % contract | the deep candidate |
-| V3 `UD-IQ2_S` | 7.80 | not read | **never loaded** | — | — | **the untested rung** |
+| V3 `UD-IQ2_S` | 7.80 | not read | **131,072** (with `--fit-target 192`) | 23.21 / 23.92 @131K | — | throughput measured; **no task-success number** |
 | `AD-IQ1_M` (AtomicChat) | 7.91 | **2.49** | ≤131,072 (`65+1` there) | 6.08 @128K · 18.75 @16K | **27/30** | 16K only |
 | pre-V3 `UD-IQ2_XXS` | 8.39 | **2.64** | `58+7` @131,072 | — | **27/30 (90 %)** · 48.5 verified/hr | the quality default, 16K |
 | V3 `UD-Q2_K_XL` | 9.83 | — | `54+12` @131,072 | — | not measured | too big for depth |
@@ -57,7 +57,9 @@ at 7.80 GiB sits in the gap, already on disk, never opened. Registered in
 
 ## Not tested
 
-- **`UD-IQ2_S`** — on disk, never loaded. Highest-value gap.
+- **`UD-IQ2_S` task success.** Its throughput is measured (38+ rows, report 25,
+  `04-context-depth.md`); what is untested is whether it beats `UD-IQ2_XXS`
+  **plus a drafter** on accepted tasks per hour. `CORRECTIONS.md` §19.
 - **Any Qwen3.8-27B above `Q4_K_XL`** — does not fit 12 GB with useful context.
 - **`fp8` served locally** — only reachable through the 9arm gateway, where it
   answered two hard corpus tasks correctly first try, both with and without

@@ -41,6 +41,7 @@ know *why*, follow the link; if you only need to know *whether*, stop here.
 | [`05-runtime-flags.md`](05-runtime-flags.md) | threads, placement, priority, polling, sampling |
 | [`06-prompt-and-quality.md`](06-prompt-and-quality.md) | corpus arms, grammar, reasoning effort, prompt cache |
 | [`07-telemetry-inventory.md`](07-telemetry-inventory.md) | **every value a run can yield**, which source it comes from, and what a restart would add |
+| [`08-rtx3090-transfer.md`](08-rtx3090-transfer.md) | **what transferred from the RTX 3090 scan** — 434 techniques, which were tried here and what happened |
 
 ---
 
@@ -66,4 +67,3 @@ there is no hook, and the two incidents above are what it costs when the step is
 skipped. `python C:\AI\scripts\audit-stale-claims.py` catches superseded *claims*
 but cannot see a measurement nobody registered.
 
-| [08](08-rtx3090-transfer.md) | **what actually transferred from the RTX 3090 stack** — 434 techniques scanned, which were tried here and what happened. Three measured wins (one of them by refuting the claim that produced it), one measured null, five read-and-closed, two impossible |

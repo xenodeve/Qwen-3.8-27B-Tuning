@@ -106,8 +106,11 @@ and 4.2 tok/s** — against a median of **75.2** at ctx 16,384 and **52.1** at
 65,536, from 42 and 12 usable rows. Every arm was `65+0` with acceptance still
 59–77 %, so neither residency nor speculation explains it.
 
-**A real task needs a median 259 added lines. At 4 tok/s that is hours.** This,
-not the model, is why five real tasks produced nothing in 24–40 minutes.
+**A real task needs a median 259 added lines. At 4 tok/s that is hours.** That
+is **one of two independent reasons** the five real tasks produced nothing
+*where the harness looked* — the other is the directory fault in
+[`CORRECTIONS.md` §24](CORRECTIONS.md). **Fixing either does not fix the
+other**, and the next real-task run must not change both at once.
 
 ⚠️ **`prompt eval time` is time-to-first-token from slot launch, not pure
 prefill** — see §5.2. For a cold request the difference is negligible (5,821 ms
@@ -330,7 +333,7 @@ No absolute-time flag exists. Server log aligns to wall clock at **±21 ms** via
 | `bench/_deepwork/` was committed | 157 files of model-generated code in git; removed, and `bench/_*/` now gitignored |
 | Earlier: benchmark built its prompt from its own source | 78.9 vs 105.4 tok/s on byte-identical arguments — see `CORRECTIONS.md` §20 |
 
-Full register: `docs/reports/CORRECTIONS.md`, **23 entries**.
+Full register: `docs/reports/CORRECTIONS.md`, **24 entries**.
 
 ---
 
@@ -375,7 +378,7 @@ qwen38-tuning/results/*.jsonl      raw rows, one per measurement
 qwen38-tuning/logs/dflash2-*.log   server logs, -lv 5, 112 files
 qwen38-tuning/bench/harness.py     every summarising primitive
 qwen38-tuning/bench/corpora/       the two frozen corpora
-docs/reports/CORRECTIONS.md        23 retracted claims
+docs/reports/CORRECTIONS.md        24 retracted claims
 docs/results/                      the register: what was tried, what happened
 docs/OPEN-WORK-LEDGER.md           what is still open
 ```

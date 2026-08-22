@@ -41,8 +41,8 @@ Last clean run: **2026-08-21, 66 files, 84 links, 0 broken.**
 ## `audit-stale-claims.py`
 
 ```powershell
-python C:\AI\scriptsudit-stale-claims.py          # the worklist
-python C:\AI\scriptsudit-stale-claims.py --ids    # the rules only
+python C:\AI\scripts\audit-stale-claims.py          # the worklist
+python C:\AI\scripts\audit-stale-claims.py --ids    # the rules only
 ```
 
 Every rule is a claim this project **published and then contradicted with its
@@ -71,7 +71,7 @@ copies you missed.
 Both scripts, before trusting the documentation:
 
 ```powershell
-python C:\AI\scripts\check-doc-links.py ; python C:\AI\scriptsudit-stale-claims.py
+python C:\AI\scripts\check-doc-links.py ; python C:\AI\scripts\audit-stale-claims.py
 ```
 
 Last clean: **2026-08-21 — 71 files, 106 links, 0 broken.** The audit is not

@@ -66,9 +66,10 @@ RULES = [
      "plan 04 P0, step W"),
 
     ("test-count",
-     r"\b(?:81|89|92|98)\s+tests\b",
-     "the suite is 103 tests",
-     "bench/README.md"),
+     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246)\s+tests?\b",
+     "the suite is 253 tests -- but a DATED report quoting its own count is a "
+     "historical record and correct as written; only operational docs must be current",
+     "bench/README.md, CLAUDE.md"),
 
     ("reasoning-loops",
      r"loop(?:s|ing)?\s+(?:inside|in)\s+(?:the\s+)?reasoning|reasons?\s+until\s+the\s+budget",

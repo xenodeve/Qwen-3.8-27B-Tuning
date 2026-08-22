@@ -4,7 +4,7 @@ Everything that runs. Findings live in
 [`../docs/reports/`](../docs/reports/); this is the apparatus that produced them.
 
 ```text
-bench\      the harness — 103 tests. Run them before trusting anything
+bench\      the harness — 253 tests. Run them before trusting anything
 scripts\    launch profiles (production-*.ps1, serve-*.ps1) and unattended queues (afk-*.sh)
 results\    raw JSONL, one row per boot. The source of every number in the reports
 logs\       llama-server output per boot, plus afk-driver.log — the queue timeline
@@ -41,7 +41,7 @@ HTTP 503 in 0.0 s.
 **3. Run the test gate.**
 
 ```powershell
-cd bench ; python -m pytest tests\ -q     # 103 tests
+cd bench ; python -m pytest tests\ -q     # 253 tests
 ```
 
 A broken instrument returns a number instead of a failure.

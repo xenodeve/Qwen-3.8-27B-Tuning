@@ -35,7 +35,7 @@ One document per topic. Read in this order; each builds on the one before.
 | 22 | [Session record 2026-08-20](22-SESSION-RECORD-2026-08-20.md) | **The arc of one nine-hour session** — 21 levers measured, four claims retracted, five instrument faults found, and n-gram at 128K going 26.5 → 81.5 tok/s | complete |
 | 23 | [Session record 2026-08-21](23-SESSION-RECORD-2026-08-21.md) | **Latest.** n-gram re-measured on a fixed-text instrument and the winner **changes with depth** (`ngram-map-k` +135.89 % at 16K, `ngram-mod` +200.22 % at 128K); `ngram-cache` disqualified; `AD-IQ1_M` ruled out at 128K; four placement levers inert; two flat-constant harness faults fixed | complete |
 | 24 | [Beyond 128K](24-BEYOND-128K.md) | **In progress.** Throughput past 131,072, which report 21 never measured. At 163,840 the fastest arm is NOT the fully-resident one: `-ot ssm` restores `65+0` and collapses speculative acceptance from 100 % to 4 % | running |
-| ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Ten published claims this project later contradicted with its own data, each with where the correction lives | current |
+| ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Twenty-four published claims this project later contradicted with its own data, each with where the correction lives | current |
 | ★ | [**Master report** (self-contained, for external review)](MASTER-REPORT-2026-08-19.md) | Everything above in one document that assumes no access to this machine | 2026-08-19 |
 | — | [Session state](SESSION-STATE.md) | restart notes — the interrupted run it describes is now complete | superseded |
 
@@ -84,4 +84,4 @@ state of the benchmark with every number traced to its file, written to be read
 cold by someone with no context. Start there if you are not resuming a session.
 
 Raw data and harnesses live in `C:\AI\qwen38-tuning\` —
-`EXPERIMENTS.md` (E0–E13), `results\*.jsonl`, `bench\` (233 tests), `scripts\`, `logs\`.
+`EXPERIMENTS.md` (E0–E13), `results\*.jsonl`, `bench\` (253 tests), `scripts\`, `logs\`.
