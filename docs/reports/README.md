@@ -79,5 +79,9 @@ reviews an external RTX 3090 stack against our own files;
 [29](29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) is the DFlash2 result and
 the prompt that hid it.
 
+[32](32-BENCHMARK-STATUS-BRIEF.md) is the **standalone hand-off** — the whole
+state of the benchmark with every number traced to its file, written to be read
+cold by someone with no context. Start there if you are not resuming a session.
+
 Raw data and harnesses live in `C:\AI\qwen38-tuning\` —
-`EXPERIMENTS.md` (E0–E13), `results\*.jsonl`, `bench\` (58 tests), `scripts\`, `logs\`.
+`EXPERIMENTS.md` (E0–E13), `results\*.jsonl`, `bench\` (233 tests), `scripts\`, `logs\`.
