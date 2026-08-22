@@ -329,6 +329,12 @@ the other two:
 That is why Q2 is not merely an economy. **A context window that turns out to
 be over-provisioned is the currency that buys a higher rung.** If real tasks
 peak at 40,000 tokens and we serve 98,304, the returned VRAM is not "savings" --
+
+> 🔴 **Refuted — see §0.0.** Measured across three windows, real tasks
+> saturated 32,768 (all five) and 65,536 (four of five) and reached
+> 56,861–88,668 at 98,304. **98,304 is the minimum sensible window, not
+> headroom**, so this section has no currency to spend.
+
 it is the difference between IQ2_XXS and IQ2_S, or between no drafter and
 DFlash2.
 

@@ -107,7 +107,17 @@ And it self-disables silently on a grammar or a reasoning budget
 (`sampling.cpp:421-427`). The served profile needs a grammar, so an `-bs` arm
 measured with one is void by construction.
 
-### `--spec-draft-p-min` — sweepable, but **anything ≤ 0.0625 is a no-op**
+### `--spec-draft-p-min` — swept 2026-08-22. **Null, and the bound was still too generous**
+
+> ✅ **Measured.** `results/sweep-p-min.jsonl`, 9 rows, three paired rounds:
+> 0.10 → **+2.2 % [−0.3, +6.2]**, 0.25 → **+1.5 % [−1.6, +7.1]** — both
+> inside the floor with the sign flipping. **The counters are the result:**
+> at `0.10` every per-implementation counter is byte-identical to the
+> baseline, so the early-stop **never fired once**; at `0.25` it fired on
+> 2.2 % of calls. The algebraic bound below is correct **and was still too
+> generous** — on this workload the selector's confidence sits above 0.10
+> essentially always. Designing arms above a proven worst-case bound was
+> necessary and **not sufficient**.
 
 Default **0.00** (`common/common.h:329`), i.e. the confidence early-stop is off,
 and the `if (params.p_min > 0.0f)` guard at `speculative.cpp:1262` makes that a
@@ -144,6 +154,9 @@ is a fixed 16 MiB host allocation independent of `n_match`.
 > still loses, because mean accepted length falls 23.45 → 8.95.
 > **The default beats the value in all four worker profiles.** Not yet a config
 > change: this is a 16,384 verdict and the profiles serve 65,536–98,304.
+> 🔴 **And it does not survive the trip.** At ctx 65,536 the optimum moves to
+> **`16` (+67.5 % RESOLVED)** and `24` becomes a null; the shipped `12` loses
+> at both depths. [`CORRECTIONS.md` §22](../reports/CORRECTIONS.md).
 > [`02-decoders.md`](02-decoders.md) · [`CORRECTIONS.md` §21](../reports/CORRECTIONS.md).
 
 **The trap that would make the sweep uninterpretable:** `ngram-mod` is

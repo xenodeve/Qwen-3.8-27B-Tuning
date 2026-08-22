@@ -1,8 +1,8 @@
 # Qwen3.8-27B Local Coding Worker — Q3 vs Q4 Benchmark Report
 
 > **Status:** complete for 16K context · **Date:** 2026-08-18 UTC+7
-> **Answers:** `docs/plan/00-OPTIMIZATION-PLAN.md` Phases A, B, B2, C (partial C2)
-> **Supersedes on measured points:** `docs/research/Qwen3.8-27B_Optimization_Research_Docs/` 02, 03, 04
+> **Answers:** `docs/plans/00-OPTIMIZATION-PLAN.md` Phases A, B, B2, C (partial C2)
+> **Supersedes on measured points:** `docs/researchs/Qwen3.8-27B_Optimization_Research_Docs/` 02, 03, 04
 > **Raw artifacts:** `C:\AI\qwen38-tuning\` — `EXPERIMENTS.md` (E0–E6), `results\*.jsonl`, `results\summary.md`, `scripts\`, `bench\`, `logs\`
 
 ---

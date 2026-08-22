@@ -134,6 +134,46 @@ those came from the process and the server, not from the diff.
 **Fixing the directory does not make that finishable**, and the next real-task
 run must not change both at once.
 
+## The window we serve is the one that does not work — tested 2026-08-23
+
+`results/sweep-ngram-nmatch-98304.jsonl`, 16 rows, deep corpus, four rounds.
+
+| n_ctx | usable rows | decode tok/s | cold prefill tok/s |
+|---:|---|---:|---:|
+| 16,384 | 42 / 42 | median **75.2** | **1,129** (89 boots) |
+| 65,536 | 12 / 12 | median **52.1** | **924** (18 boots) |
+| **98,304** | **3 / 16** | median **4.2** (2.8-5.0) | **74.3** (62-87) |
+
+**Thirteen of sixteen measurements timed out** against a 26.8-minute budget, and
+the three that finished decoded at 2.8, 5.0 and 4.2 tok/s. Every arm was `65+0`
+with acceptance still 59-77 %, so **neither residency nor speculation explains
+it**. Cold prefill collapses with it, 15x, at the same window.
+
+A 43,162-token prefill therefore takes about **9.7 minutes**, and a real task —
+a median 259 added lines across 5 files — is hours at 4 tok/s.
+
+> 🔴 **This is the highest-value open question in the project.** `split: 65+0`
+> reads as healthy and is what every earlier row recorded. What showed the
+> problem was telemetry no column held: **32 MiB free at minimum, 258 median,
+> and 76 W on a ~220 W card at 100 % utilisation for 97 % of a 92-minute run**
+> (`results/gpu-trace-98304.jsonl`, 1,094 samples).
+>
+> High utilisation at low power is the memory-bound signature, and LLM decode is
+> memory-bound by nature — so that profile **alone** is not proof of pathology,
+> and there is no control trace at 16,384 yet. What is not explained by nature
+> is prefill: it is compute-bound and 74 tok/s is 15x below the shallow figure.
+>
+> **Untested next step:** disable the Windows sysmem fallback for
+> `llama-server.exe` and re-measure. If it becomes an OOM rather than a
+> slowdown, `65+0` does not mean every allocation sits in dedicated VRAM.
+
+⚠️ **A label caveat that applies to every depth row on this page.** The harness
+assumed 3 characters per token; measured, it is **7.0-7.4**. So a run labelled
+"ctx N" fed a prompt of roughly **40 % of N** - 6,621 tokens at "16,384", 28,122
+at "65,536", 43,162 at "98,304". `--ctx` still sets the allocation, so every
+residency and VRAM finding is unaffected; the **depth labels** are what shift.
+Directions hold, because context did grow 4.2x between the first two.
+
 ## What depth is worth
 
 A worker carries a fixed prefix — measured at **39,762–40,648 tokens** for a

@@ -35,6 +35,14 @@ One document per topic. Read in this order; each builds on the one before.
 | 22 | [Session record 2026-08-20](22-SESSION-RECORD-2026-08-20.md) | **The arc of one nine-hour session** — 21 levers measured, four claims retracted, five instrument faults found, and n-gram at 128K going 26.5 → 81.5 tok/s | complete |
 | 23 | [Session record 2026-08-21](23-SESSION-RECORD-2026-08-21.md) | **Latest.** n-gram re-measured on a fixed-text instrument and the winner **changes with depth** (`ngram-map-k` +135.89 % at 16K, `ngram-mod` +200.22 % at 128K); `ngram-cache` disqualified; `AD-IQ1_M` ruled out at 128K; four placement levers inert; two flat-constant harness faults fixed | complete |
 | 24 | [Beyond 128K](24-BEYOND-128K.md) | **In progress.** Throughput past 131,072, which report 21 never measured. At 163,840 the fastest arm is NOT the fully-resident one: `-ot ssm` restores `65+0` and collapses speculative acceptance from 100 % to 4 % | paused 2026-08-21 |
+| 25 | [IQ2_S at 131,072](25-IQ2S-AT-131072.md) | `--fit-target` against batch size at 131,072 — which one actually buys the layers | complete |
+| 26 | [The cold start](26-COLD-START.md) | Where the first-request delay really comes from — **title half-retracted, see §16 and §17** | complete, partly retracted |
+| 27 | [Prefill cannot be tuned](27-PREFILL-CANNOT-BE-TUNED.md) | Every prefill lever, and the IQ2_S/IQ2_XXS trade — **scoped to ctx ≤ 32,768; at 98,304 prefill collapses 15×** | superseded at depth |
+| 28 | [Decoder recheck](28-DECODER-RECHECK.md) | The re-measurement that closed CORRECTIONS §8 | complete |
+| 29 | [DFlash2 and the flattering prompt](29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) | DFlash2 wins on real code by +34.7 % and loses on the prompt we had been using | complete |
+| 30 | [RTX 3090 reference review](30-SYV-RTX3090-REFERENCE-REVIEW.md) | An external stack reviewed against our own files — **one claim retracted, §21** | complete |
+| 31 | [Session record 2026-08-22](31-SESSION-RECORD-2026-08-22.md) | **Every measurement of that day with its conditions**, including the runs that turned out invalid | complete |
+| 32 | [**Benchmark status brief**](32-BENCHMARK-STATUS-BRIEF.md) | **The standalone hand-off** — the whole state with every number traced to its file, written to be read cold | **current** |
 | ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Twenty-four published claims this project later contradicted with its own data, each with where the correction lives | current |
 | ★ | [**Master report** (self-contained, for external review)](MASTER-REPORT-2026-08-19.md) | Everything above in one document that assumes no access to this machine | 2026-08-19 |
 | — | [Session state](SESSION-STATE.md) | restart notes — the interrupted run it describes is now complete | superseded |
@@ -44,6 +52,12 @@ file in `unsloth/Qwen3.8-27B-GGUF` in place on 2026-08-19T16:39:23Z, mid-session
 same filenames, new contents, new byte counts. Those reports remain internally
 consistent and comparable to each other; they are not comparable to the current
 repo. See 12.
+
+> ⚠️ **The block below is the answer as of 2026-08-19 and is superseded.**
+> Nothing runs that configuration now: all four worker profiles serve
+> `UD-IQ2_XXS`/`UD-IQ2_S` **with** `--spec-type ngram-mod` and `q4_0` KV.
+> For the current state read [32](32-BENCHMARK-STATUS-BRIEF.md). Kept as
+> the historical answer.
 
 **The one-line answer (revised 2026-08-19):** at 16K run **`UD-IQ2_XXS` with
 speculation OFF** — fully GPU-resident, 3.2x Q4's decode, and the same 27/30 task

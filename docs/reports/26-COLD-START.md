@@ -1,5 +1,12 @@
 # 26 — The cold start was a second subagent, not the server
 
+> 🔴 **The title's second half is retracted — [`CORRECTIONS.md` §16](CORRECTIONS.md).** The correction is in the body below, but it belongs
+> here where the title is read.
+>
+> 🔴 **The two-slot capacity is also retracted — [`CORRECTIONS.md` §17](CORRECTIONS.md).** It was sized from a 54,499-token request; a real
+> developer session measures **71,910** against 55,296 per slot. **The
+> mechanism and the `-sps 0.95` cure survive; the capacity does not.**
+
 **Measured 2026-08-21 through Qwen Code itself.** Instrument:
 `qwen38-tuning/scripts/bench-cold-start.py`. Raw:
 `qwen38-tuning/results/cold-start.jsonl`.

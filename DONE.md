@@ -9,6 +9,70 @@ hundred lines.
 
 ---
 
+## 2026-08-23 — the benchmark was measuring the wrong tree, and the served window does not work
+
+**Two independent faults, each of which alone explains a result this project
+published.** Neither was visible in any column it records; both were found by
+instruments built the same day.
+
+**The worker was editing `C:\AI`, the live repository, not the clone.**
+OpenCode keeps a per-project server alive and `run` attaches to whichever is
+listening, carrying **the project root it was first started with** — so
+`cwd=<clone>` was ignored. `git diff` in the clone was empty and the harness
+recorded *"the worker changed nothing"* about work that may have been done
+correctly in the wrong place. **Five real GitHub issues, 24–40 minutes each,
+retracted** (`CORRECTIONS.md` §24). Reproduced deliberately: `cwd=` alone gives
+`EDIT_NO_DIFF`, 0 diff bytes and a modified live tree; **with `--dir`, `EDITED`,
+251 diff bytes, 32.8 s, live tree untouched.** Fixed in both drivers, pinned by
+`bench/tests/test_worker_workdir.py`, which deliberately does **not** assert on
+`cwd` — that is the thing that looked right and was not.
+
+**The hazard had been documented two days earlier**, in `opencode_corpus.py`,
+symptom and all. The driver that walked into it was a few hundred lines away and
+nothing made anyone re-read it.
+
+**Decode at the served ctx 98,304 is 2.8–5.0 tok/s**, against a median 75.2 at
+16,384, with **13 of 16 measurements timing out**. Cold prefill falls
+**1,129 → 924 → 74.3** over the same three depths, every layer resident. Found
+because `gpu_trace.py` happened to be running and showed 100 % utilisation at
+**76 W** with **32 MiB free**.
+
+**Shipped:** `bench/gpu_trace.py`, `bench/edit_canary.py`,
+`harness.window_repetition_pct`, `bench/corpora/real-code-deep.txt`, a
+truncation guard on `filler()` that raises instead of silently shortening a
+prompt, and `docs/agents/traps.md` — twelve ways of working that failed here,
+each with its guard or an admission that none exists. Suite 246 → **253**.
+
+**Also recorded:** `CORRECTIONS.md` §21–§24, report 32 as the standalone
+hand-off, and a documentation sync across all 115 markdown files that repaired
+**four control bytes living in the tree** — three BEL and one backspace, every
+one a backslash swallowed by a shell heredoc, invisible to both existing
+checkers.
+
+## 2026-08-22 — DFlash2 measured, and the optimum moves with the window
+
+**Built llama.cpp PR #27342 (build 10499) beside 10472** so neither replaces the
+other, and measured DFlash2 against the incumbent on one binary.
+
+**`draft-dflash` is +34.7 % over `ngram-mod` on real code and −9.2 % on the
+prompt this project had been using** — the same session, same binary, same
+window. The synthetic prompt was 66.2 % duplicate lines; the corpus is now
+frozen and hashed into every row (`CORRECTIONS.md` §20).
+
+**Six techniques from a 434-item scan of an external RTX 3090 stack were
+measured**: three wins (`--spec-draft-n-max` +23.4 %, the `draft-dflash,ngram-mod`
+pair +48.5 %, `--spec-ngram-mod-n-match 24` +34.6 %), two nulls, and one
+refutation of the claim that produced it. Five more were closed by reading the
+source without spending a GPU round.
+
+**The two winners cancel when combined** — −31.6 % and −33.8 % against each
+single arm, both RESOLVED, at 52.4 % of the independent expectation. And
+**`n-match`'s optimum moves with the window**: 24 wins at 16,384, **16** wins at
+65,536, and the value all four profiles ship (12) loses at both.
+
+**Nothing shipped.** Every worker profile is unchanged, deliberately — a verdict
+at one depth does not transfer, and the served window has no verdict at all.
+
 ## 2026-08-21 — PR #3 merges: the cold start turns out to belong to the harness
 
 **Shipped:** merge commit `9e6e7ad`, 21 commits from 14 issues, +2,483 lines.

@@ -75,6 +75,12 @@ Qwen3.8 is a hybrid: 48 Gated DeltaNet layers whose **recurrent state is a
 separate allocation from the KV cache**, reported on its own line as
 `llama_memory_recurrent: CUDA0 RS buffer size`.
 
+**And it is a residency lever at depth.** `--spec-draft-n-max` multiplies the
+RS buffer by `1 + n_max`, so at **ctx 65,536** the `n=7` arm loads **`63+2`** —
+two layers on the CPU — and the recurrent state itself splits, **49.88 MiB**
+landing on the host. `n=3` and `n=4` stay `65+0` there. The +23.4 % that `n=7`
+buys at 16,384 does not survive that. Raw: `results/sweep-draft-n-65536.jsonl`.
+
 ### It does not scale with context
 
 | ctx | KV buffer (q4_0) | **RS buffer** |

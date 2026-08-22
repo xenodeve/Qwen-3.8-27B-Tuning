@@ -14,6 +14,8 @@ several conclusions in this project had to be withdrawn.
 | **`/props`** | model metadata, default sampling, build info | anything per request |
 | **`--metrics`** (needs restart) | cumulative counters | attribution to a single request |
 | **`bench/tap.py`** | the request body, the response, and llama's own `timings`, joined and labelled per task | GPU-side numbers |
+| **per-impl speculation counters** (`-lv 4`+) | calls, drafts, decline %, mean accepted length and cumulative draft ms **per speculator**, reprinted at every request completion so adjacent blocks difference to one request | per-period attribution — the counters carry no timestamps |
+| **`bench/gpu_trace.py`** | free VRAM, utilisation, power, clocks and temperature on a fixed interval, attached to a run it did not launch | anything per request; the reading lags its stamp by up to 110 ms |
 | **the harness** | accepted / failed, wall time, files written, tool-call transcript | tokens |
 
 ---
