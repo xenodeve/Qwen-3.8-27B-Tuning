@@ -246,6 +246,10 @@ mechanism argues 24 should widen its lead at depth — a fuller table means more
 distinct contexts colliding on a short key — but **that is a hypothesis, and it
 is written here as one.**
 
+> 🔴 **Measured in §5f, and the hypothesis was backwards.** At ctx 65,536 the
+> optimum moves to **16** and `24` becomes a null. The binding constraint at
+> depth is fire rate, not collision. `CORRECTIONS.md` §22.
+
 ---
 
 ## 5c. The two winners crossed — they cancel, and that is the day's most useful result
@@ -374,6 +378,67 @@ the synthetic prompt was 66.2 % duplicate lines, and on it `draft-dflash` reads
 **So `n-match 24` at the served depth is blocked, not merely unrun**, and the
 prerequisite is a **second** frozen corpus of new real code — never a
 modification of this one, whose hash is stamped into every row already measured.
+
+---
+
+## 5f. The same sweep at ctx 65,536 — the optimum moves, and §5b's hypothesis was backwards
+
+The measurement §5e existed to unblock. Raw
+`results/sweep-ngram-nmatch-65536.jsonl`, 12 rows, deep corpus
+`1a3ae4b813dd8447`, `--spec-draft-n-max 4`, three paired rounds, arms rotated,
+**every arm `65+0`** — so nothing here is residency.
+
+| `n-match` | rounds (tok/s) | vs ours | ngram drafts | decline | mean acc len |
+|---:|---|---|---:|---:|---:|
+| 24 — won at 16,384 | 44.8, 53.0, 42.9 | −9.7 %, **null** | 18 | 97.0 % | 19.78 |
+| **16** | **91.9, 88.5, 83.4** | **+67.5 % RESOLVED** | **39** | **91.3 %** | **21.59** |
+| 12 — what we ship | 63.3, 45.3, 51.4 | baseline | 22 | 96.4 % | 11.68 |
+| 8 | 52.8, 47.3, 35.4 | −14.5 %, **null** | 43 | 92.7 % | 9.12 |
+
+**The ranking inverts against §5b.** 24 goes from +34.6 % RESOLVED to a null;
+16 goes from a null to the winner.
+
+**Why §5b's reasoning failed.** It assumed the binding constraint at depth is
+key collision, so a longer key should pay off more as the table fills. The
+constraint is **fire rate**. A longer key is a stricter requirement and a deeper
+window does not rescue it: `24` fires **18** times against `16`'s **39**, at
+97.0 % decline against 91.3 %, for almost identical accepted length (19.78
+against 21.59). `16` is the only value that fires often **and** long. `12`
+fires rarely *and* short (11.68); `8` fires often and uselessly (9.12).
+
+**A mechanism story is not a measurement, and one can be told in either
+direction.** That is why `CLAUDE.md` states the depth rule without exceptions,
+and §5b was an argument for why this case would be the exception.
+`CORRECTIONS.md` §22.
+
+### 🔴 And the floor itself does not survive the trip
+
+Decode is deterministic at temperature 0 and every arm's counters are identical
+across all three rounds, so this spread is entirely the clock:
+
+| `n-match` | within-arm spread @ 16,384 | @ 65,536 |
+|---:|---:|---:|
+| 24 | 2.2 % | **23.5 %** |
+| 16 | 0.8 % | 10.3 % |
+| 12 | 9.5 % | **39.5 %** |
+| 8 | 10.6 % | **48.9 %** |
+
+**The same arm, unchanged in every counter, spans up to 48.9 % between boots.**
+The 13.6 % floor was derived from 25 boots at 16,384 and is far too permissive
+here. `CORRECTIONS.md` §23. Not patched in code: three rounds cannot re-derive
+a floor, and inventing a depth-scaled constant from this sample would repeat the
+error one level up.
+
+**What survives it.** `nmatch-16`'s **worst** round (83.4) beats every other
+arm's **best** round (63.3, 53.0, 52.8) — **32 % of separation that needs no
+pairing and no floor**. The ranking is safe to act on; the `+67.5 %` is not, and
+must not be quoted.
+
+**Where that leaves the shipped value.** We serve `12`, which is the
+**second-worst arm at 65,536**. The value worth testing in production is `16` —
+not the `24` that won at 16,384. Still not shipped: `worker-iq2s-quality.ps1`
+serves **98,304**, a third window, and this report has now been wrong once about
+assuming transfer.
 
 ---
 

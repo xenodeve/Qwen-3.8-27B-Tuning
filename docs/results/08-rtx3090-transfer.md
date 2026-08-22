@@ -22,7 +22,7 @@ Flag semantics for the shortlist:
 |---|---|---|---|---|
 | 1 | "k=4 is the knee" / draft count reduced at long context | `--spec-draft-n-max` | **MEASURED** | **+23.4 % [+23.1, +23.5] RESOLVED at ctx 16,384.** Collapses at 65,536 |
 | 2 | "NSTRONG=NMIN: take any qualifying match" | `--spec-ngram-mod-n-min` | **MEASURED** | **No effect.** 16/8/4/2 → 79.7/79.7/79.7/79.8 |
-| 3 | "NMAX=12 chosen against 32 so recency beats length" | `--spec-ngram-mod-n-match` | **MEASURED** | **Refuted — shorter is worse.** The default `24` is **+34.6 % [+31.4, +40.8] RESOLVED** over the `12` we ship |
+| 3 | "NMAX=12 chosen against 32 so recency beats length" | `--spec-ngram-mod-n-match` | **MEASURED, twice** | **Depth-dependent.** At 16,384 the default `24` is **+34.6 % RESOLVED**; at 65,536 the optimum is **`16`** and 24 is a null. Our `12` loses at both |
 | 4 | Lookup hit counter | `-lv 4` per-impl statistics | **USED** | the finding under every other finding — see below |
 | 5 | "A longer verify block costs KV pool per slot" | `n_rs_seq` | **USED** | gave the exact price: `149.625 MiB × (1 + n_max)` |
 | 6 | Applying top-k/top-p to the selector proposal | `--spec-draft-p-min` | **MEASURED** | **Null.** At `0.10` the early-stop **never fires**; at `0.25` it fires on 2.2 % of calls and buys nothing |
@@ -232,15 +232,19 @@ quantisation. [Report 30](../reports/30-SYV-RTX3090-REFERENCE-REVIEW.md).
 
 ## Still open from this pool
 
-- 🔴 **`n-match 24` at the served depth — and it is BLOCKED, not merely unrun.**
-  Every verdict on this page is ctx 16,384; `worker-iq2s-quality.ps1` serves
-  98,304. **The frozen corpus cannot honestly reach there.**
-  `bench/corpora/real-code.txt` is 91,868 characters, which fills 16,384 with
-  room to spare and is **2.1× short of 65,536 and 3.2× short of 98,304**. The
-  only way to fill a deeper window from it is to repeat it — which is exactly
-  the flattery that made report 29's synthetic prompt 66.2 % duplicate lines
-  and reversed a decoder verdict. **A second frozen corpus is the prerequisite**,
-  and it must be new real code, not this one tiled.
+- ✅ **Unblocked and measured — and the answer inverted.** The prerequisite was
+  a second frozen corpus, since `real-code.txt` is 2.1× short of 65,536;
+  `real-code-deep.txt` (406,146 chars, 0.4 % window repetition at n=24) now
+  exists. Measured there: **the optimum moves from 24 to 16**, `24` becomes a
+  null, and **the value we ship (`12`) is the second-worst arm at that depth**.
+  `CORRECTIONS.md` §22.
+- 🔴 **98,304 is still a third window** and nothing licenses assuming 16 holds
+  there. This page assumed transfer once and was wrong.
+- 🔴 **The 13.6 % floor does not survive depth.** At 65,536 the same arm, with
+  byte-identical counters, spans up to **48.9 %** across boots against
+  0.8–10.6 % at 16,384. Every number on this page was resolved at 16,384 where
+  the floor was measured; nothing here may be re-used at depth without
+  re-deriving it. `CORRECTIONS.md` §23.
 - **`--spec-draft-p-min` above 0.25** — untested, and the measured trend gives
   no reason to expect a win. At 0.25 the early-stop fires on 2.2 % of calls;
   a value aggressive enough to bite often would start discarding tokens that

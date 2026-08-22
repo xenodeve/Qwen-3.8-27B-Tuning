@@ -159,13 +159,10 @@ whichever context last wrote the slot: mean accepted length falls
 floor and the sign is consistent, yet one round landed at −8.0 %, inside it. The
 direction is solid; treat the magnitude as approximate.
 
-⚠️ **Two limits on this row.** It was measured at `--spec-draft-n-max 4`, so the
-two 2026-08-22 winners have **never run together**; and it was measured at
-**ctx 16,384**, a quarter of the served window. The mechanism argues 24 should
-widen its lead at depth — a fuller table means more distinct contexts colliding
-on a short key — but that is a **hypothesis, not a measurement**, and this
-project has been wrong about depth transfer before (`draft-mtp`, +81 % at 16K
-and −71 % at 131,072).
+⚠️ **This is a ctx 16,384 verdict and it does NOT hold at 65,536.** Measured
+since, on the deep corpus: **the optimum moves from 24 to 16**, and `24` turns
+into a null. See the next section — and note that the reasoning which predicted
+the opposite is printed there too, refuted.
 
 > **Each arm's per-impl counters are byte-identical across all three rounds** —
 > same calls, same drafts, same accepted length to two decimals; only the timing
@@ -240,6 +237,70 @@ with a consistent sign across all three rounds — **0.02 points under the
 does not claim it. Nothing rests on that comparison: the verdict is carried by
 the two against-the-singles deltas, which clear the floor by more than 17
 points.
+
+## `--spec-ngram-mod-n-match` at ctx 65,536 — the optimum moves, and my prediction was backwards
+
+ctx **65,536** on the **deep** frozen corpus (`1a3ae4b813dd8447`, 406,146
+chars), `--spec-draft-n-max 4`, three paired rounds, arms rotated, **every arm
+`65+0`**. Raw `results/sweep-ngram-nmatch-65536.jsonl`, 12 rows.
+
+| `n-match` | rounds (tok/s) | vs ours | ngram drafts | ngram decline | ngram mean acc len |
+|---:|---|---|---:|---:|---:|
+| 24 — won at 16,384 | 44.8, 53.0, 42.9 | −9.7 % [−29.1, +16.8], **null** | 18 | 97.0 % | 19.78 |
+| **16** | **91.9, 88.5, 83.4** | **+67.5 % [+45.3, +95.1] RESOLVED** | **39** | **91.3 %** | **21.59** |
+| 12 — what we ship | 63.3, 45.3, 51.4 | baseline | 22 | 96.4 % | 11.68 |
+| 8 | 52.8, 47.3, 35.4 | −14.5 % [−31.1, +4.3], **null** | 43 | 92.7 % | 9.12 |
+
+**Side by side with the shallow run, the ranking inverts:**
+
+| `n-match` | ctx 16,384 | ctx 65,536 |
+|---:|---|---|
+| 24 | **+34.6 % RESOLVED** | −9.7 %, null |
+| 16 | −1.5 %, null | **+67.5 % RESOLVED** |
+| 8 | −14.5 % RESOLVED | −14.5 %, null |
+
+### The prediction this refutes — mine, from earlier the same day
+
+This page said, in the section above: *"the mechanism argues 24 should widen its
+lead at depth — a fuller table means more distinct contexts colliding on a short
+key."* It was labelled a hypothesis. **It is wrong, and backwards.**
+
+At depth the binding constraint is not collision, it is **fire rate**. A longer
+key is a stricter requirement, and a deeper window does not rescue it — at
+65,536 `n-match 24` fires **18** times against `16`'s **39**, at a decline of
+97.0 % against 91.3 %, while the two produce almost the same accepted length
+(19.78 against 21.59). The extra specificity of 24 costs more hits than the
+collisions it avoids. `16` wins because it is the only value that fires often
+**and** long; `12` fires rarely *and* short (11.68), and `8` fires often but
+useless (9.12).
+
+### 🔴 The 13.6 % floor is a ctx 16,384 number, and it does not hold here
+
+Decode is deterministic at temperature 0 — every arm's counters are identical
+across all three rounds — so **all of this spread is the clock**:
+
+| `n-match` | within-arm spread @ 16,384 | within-arm spread @ 65,536 |
+|---:|---:|---:|
+| 24 | 2.2 % | **23.5 %** |
+| 16 | 0.8 % | 10.3 % |
+| 12 | 9.5 % | **39.5 %** |
+| 8 | 10.6 % | **48.9 %** |
+
+**The same arm, same counters, varies up to 48.9 % between boots at 65,536.**
+The 13.6 % floor was derived at 16,384 and is far too permissive at depth.
+Every depth verdict in this project needs it re-derived; three rounds is not
+enough to do that.
+
+**What survives that, and why the direction is still safe to act on.**
+`nmatch-16`'s **worst** round (83.4) beats every other arm's **best** round
+(63.3, 53.0, 52.8) — a 32 % separation that needs no pairing and no floor at
+all. **The ranking is solid. The `+67.5 %` is not** — do not quote the
+magnitude.
+
+> **We ship `12`, and it is the second-worst arm at the depth we serve.** The
+> value to test in production is **16**, not the 24 that won at 16,384. Still
+> not shipped: `worker-iq2s-quality.ps1` serves 98,304, which is another window
+> again, and this page has now been wrong once about assuming transfer.
 
 ## `--spec-draft-p-min` — tested 2026-08-22. Null, and the counters say why
 

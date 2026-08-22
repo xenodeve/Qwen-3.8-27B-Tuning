@@ -566,6 +566,88 @@ until measured at depth — recorded as open work, not as a pending edit.
 
 ---
 
+## 22. "The mechanism argues `n-match 24` should widen its lead at depth"
+
+**The claim.** Written 2026-08-22 in `results/02`, `results/08` and report 31
+§5b, after `n-match 24` measured +34.6 % RESOLVED at ctx 16,384: *"the mechanism
+argues 24 should widen its lead at depth — a fuller table means more distinct
+contexts colliding on a short key."* Labelled a hypothesis in every copy, and
+the recommendation that followed — *"pick `n-match 24`"* — was scoped to 16,384.
+
+**What contradicts it.** The same sweep at **ctx 65,536** on the deep corpus,
+`results/sweep-ngram-nmatch-65536.jsonl`, three paired rounds, every arm `65+0`:
+
+| `n-match` | ctx 16,384 | ctx 65,536 |
+|---:|---|---|
+| 24 | **+34.6 % RESOLVED** | **−9.7 %, null** |
+| 16 | −1.5 %, null | **+67.5 % RESOLVED** |
+| 12 (ours) | baseline | baseline |
+| 8 | −14.5 % RESOLVED | −14.5 %, null |
+
+**The optimum moved from 24 to 16 and the prediction pointed the other way.**
+
+**Why it was backwards.** The reasoning assumed the binding constraint at depth
+is key collision. It is **fire rate**. A longer key is a stricter requirement
+and a deeper window does not rescue it: at 65,536 `24` fires **18** times
+against `16`'s **39** — 97.0 % decline against 91.3 % — for almost the same
+accepted length (19.78 against 21.59). The specificity costs more hits than the
+collisions it avoids.
+
+**What this does not retract.** The 16,384 numbers, which were paired,
+replicated in a later round set, and correctly scoped. Nor `CORRECTIONS` §21 —
+our shipped `12` is beaten at *both* depths, by 24 at one and by 16 at the
+other. It is the second-worst arm at the depth we actually serve.
+
+**The lesson is one this repo already had written down.** `CLAUDE.md`: *"A
+verdict at one depth does not transfer to another."* The hypothesis was an
+argument for why *this* case would be the exception. **A mechanism story is not
+a measurement, and being able to tell one in either direction is exactly why the
+rule is stated without exceptions.**
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nmatch-24-at-depth`.
+
+---
+
+## 23. The 13.6 % noise floor is a ctx 16,384 number
+
+**The claim.** Used project-wide as *the* drift floor —
+`harness.NOISE_FLOOR_PCT`, quoted in `CLAUDE.md`, the bench README and every
+report: *"Effects below 13.6 % are noise."* It was derived from 25 boots of one
+control config **at ctx 16,384**.
+
+**What contradicts it.** At ctx 65,536, decode is still deterministic at
+temperature 0 — every arm's per-implementation counters are byte-identical
+across all three rounds — so the entire spread below is the clock:
+
+| `n-match` | within-arm spread @ 16,384 | @ 65,536 |
+|---:|---:|---:|
+| 24 | 2.2 % | **23.5 %** |
+| 16 | 0.8 % | 10.3 % |
+| 12 | 9.5 % | **39.5 %** |
+| 8 | 10.6 % | **48.9 %** |
+
+**The same arm, unchanged in every counter, varies by up to 48.9 % between
+boots at 65,536.** A 13.6 % floor at that depth would resolve effects that are
+entirely drift.
+
+**What it does not invalidate.** Every verdict this project has resolved at
+16,384, where the floor was measured and where the observed within-arm spread
+is 0.8–10.6 %.
+
+**What it does invalidate.** Any future use of the 13.6 % figure at depth, and
+the magnitude of the one depth verdict taken so far — `n-match 16` at
+**+67.5 %** is directionally safe (its worst round beats every other arm's best
+by 32 %, which needs no floor) but **the number must not be quoted**.
+
+**Not fixed in code, deliberately.** Three rounds cannot re-derive a floor.
+`harness.paired_deltas` still defaults to 13.6 % and takes `floor_pct`
+explicitly; inventing a depth-scaled constant from this sample would be the
+same error one level up.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `noise-floor-at-depth`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

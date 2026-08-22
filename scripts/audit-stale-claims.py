@@ -137,6 +137,26 @@ RULES = [
      "between them validated nothing",
      "CORRECTIONS.md 21"),
 
+    ("nmatch-24-at-depth",
+     r"(?:24|n-match 24)[^\n]{0,60}widen[^\n]{0,20}lead|"
+     r"widen its lead at depth|"
+     r"fuller table[^\n]{0,60}colliding",
+     "measured 2026-08-22 at ctx 65,536 (sweep-ngram-nmatch-65536.jsonl): the "
+     "optimum MOVES FROM 24 TO 16 and 24 becomes a null. the binding "
+     "constraint at depth is fire rate, not collision -- 24 fires 18 times "
+     "against 16's 39 for the same accepted length",
+     "CORRECTIONS.md 22"),
+
+    ("noise-floor-at-depth",
+     r"13\.6\s*%[^\n]{0,60}(?:noise|floor|drift)|"
+     r"(?:below|under)\s*13\.6\s*%|"
+     r"Effects below 13\.6",
+     "the 13.6 % floor was derived at ctx 16,384. at 65,536 the SAME arm with "
+     "byte-identical counters spans up to 48.9 % across boots, so 13.6 % there "
+     "would resolve pure drift. valid at 16,384; re-derive before using at "
+     "depth",
+     "CORRECTIONS.md 23"),
+
     ("greedy-hash-cross-depth",
      r"greedy[_ ]hash",
      "takes one of two values and switches on things that are not the arm "
