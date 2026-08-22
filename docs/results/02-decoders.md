@@ -173,6 +173,74 @@ and −71 % at 131,072).
 > re-measure the clock and nothing else. That is exactly what the pairing is
 > for, but it means three rounds buy no second sample of drafter behaviour.
 
+## The two winners crossed — tested 2026-08-22. **Do not stack them**
+
+Same conditions as the two sweeps above, all four arms in the same rounds.
+Raw `results/sweep-draft-n-x-nmatch.jsonl`, 12 rows, every arm `65+0`.
+
+| arm | rounds (tok/s) | vs base | vs `n7-m12` | vs `n4-m24` |
+|---|---|---|---|---|
+| `n4 m12` — what we ship | 74.6, 75.2, 75.2 | baseline | — | — |
+| `n7 m12` | 94.4, 95.1, 94.9 | **+26.4 % RESOLVED** | — | — |
+| `n4 m24` | 98.4, 97.7, 97.4 | **+30.5 % RESOLVED** | — | — |
+| **`n7 m24` — both** | 65.5, 63.4, 65.5 | −13.6 % | **−31.6 % [−33.3, −30.6] RESOLVED** | **−33.8 % [−35.1, −32.7] RESOLVED** |
+
+**Both single effects replicated**, on a different day and different boot-VRAM
+rolls: `n-max 7` came back +26.4 % against its earlier +23.4 %, `n-match 24`
++30.5 % against +34.6 %. So the combination arm is not a replication failure of
+either half.
+
+**Stacked, they land at 52.4 % of what independence predicts** — 64.8 tok/s
+measured against 123.6 expected from 1.264 × 1.305. The combination is the
+**slowest arm in the set**, below the incumbent it was supposed to beat twice
+over.
+
+### Why — the two levers push opposite sides of the same cascade
+
+| arm | ngram drafts | ngram decline | **dflash accepted / generated** |
+|---|---:|---:|---:|
+| `n4 m12` | 31 | 94.3 % | 974 / 2,041 = **47.7 %** |
+| `n7 m12` | 41 | 90.0 % | 775 / 2,564 = **30.2 %** |
+| `n4 m24` | 29 | 93.9 % | 915 / 1,781 = **51.4 %** |
+| **`n7 m24`** | **12** | **97.7 %** | 1,262 / **3,612** = **34.9 %** |
+
+`n-match 24` makes `ngram-mod` **stricter** — it fires less often and much
+better. `n-max 7` makes `draft-dflash` **longer and more expensive per call**,
+8 tokens instead of 5.
+
+Each is survivable alone. At `n4 m24` a stricter ngram is affordable because
+dflash's short drafts are cheap to waste. At `n7 m12` expensive dflash drafts
+are affordable because ngram still fires 41 times and covers the costly steps.
+**Stacked, ngram nearly stops — 12 drafts, 97.7 % decline — and dflash pays the
+full 8-token draft cost on almost every step at a 34.9 % hit rate**, generating
+3,612 draft tokens to keep 1,262. That is the whole loss.
+
+⚠️ **Why ngram's decline rises to 97.7 % is not established.** The trajectories
+differ between arms, so the rates are not a clean comparison. A mechanism that
+fits: `draft_one` only flushes new n-grams when `sinfo.i_last + 32 < cur_len`
+and only up to `cur_len - n` (`speculative.cpp:1978-1979`), so a generation
+accepting more tokens per step advances the context faster between table
+updates and spends more of its time inside the blind window. **That is a
+hypothesis.** It is testable against the occupancy trace at
+`speculative.cpp:1950` and has not been tested.
+
+### What to take from it
+
+**Pick one.** `n-match 24` at `n-max 4` is the best point measured here and
+also the cheaper one: it moves **no allocation at all**, while `n-max 7` costs
+447 MiB of recurrent state (free after 1,272 → 825 MiB at the same `65+0`).
+
+> **A measured win plus a measured win is not a measured win.** Both halves
+> were RESOLVED against the same baseline on the same corpus, and their sum is
+> worse than the thing they each beat.
+
+**One bookkeeping note.** Against the baseline the combination reads −13.58 %
+with a consistent sign across all three rounds — **0.02 points under the
+13.6 % floor**, so `harness.paired_deltas` does not resolve it and this page
+does not claim it. Nothing rests on that comparison: the verdict is carried by
+the two against-the-singles deltas, which clear the floor by more than 17
+points.
+
 ## Which speculator actually fires — tested 2026-08-22
 
 From `common_speculative_print_stats` (LOG_TRC; our arena already ran `-lv 5`),

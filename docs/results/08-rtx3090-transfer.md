@@ -166,6 +166,36 @@ fitted at ctx 98,304 when arithmetic from the raw buffer sizes said it should no
 
 ---
 
+## The thing this page most nearly got wrong
+
+Two RESOLVED wins on the same baseline, the same corpus, the same binary. The
+obvious next act is to ship both. **Measured, they cancel:**
+
+| arm | ctx 16,384, real-code | vs the better single |
+|---|---|---|
+| `n-max 7`, `n-match 12` | 94.4, 95.1, 94.9 | — |
+| `n-match 24`, `n-max 4` | 98.4, 97.7, 97.4 | — |
+| **both** | 65.5, 63.4, 65.5 | **−33.8 % [−35.1, −32.7] RESOLVED** |
+
+Both singles **replicated** in these rounds (+26.4 % and +30.5 % against their
+earlier +23.4 % and +34.6 %), so this is an interaction and not a failure of
+either half. Stacked they reach **52.4 % of what independence predicts**, and
+the combination is the slowest arm in the set.
+
+The mechanism is the cascade both levers act on. `n-match 24` makes `ngram-mod`
+stricter; `n-max 7` makes `draft-dflash` longer and dearer per call. Alone each
+is survivable. Together **ngram nearly stops firing — 12 drafts, 97.7 %
+decline — and dflash pays a full 8-token draft on almost every step at a 34.9 %
+hit rate**, generating 3,612 draft tokens to keep 1,262.
+[`02-decoders.md`](02-decoders.md) carries the counters and the one unverified
+step in the explanation.
+
+> **A measured win plus a measured win is not a measured win.** Nothing on this
+> scoreboard licenses adding two rows together — every row is a paired
+> comparison against one baseline, and that is all it is.
+
+---
+
 ## What did NOT transfer, and why
 
 **The stack.** vLLM 0.27.1 with W4A16 safetensors. A 27B W4A16 checkpoint is
@@ -189,14 +219,12 @@ quantisation. [Report 30](../reports/30-SYV-RTX3090-REFERENCE-REVIEW.md).
 
 ## Still open from this pool
 
-- **The two winners have never run together.** `--spec-draft-n-max 7` was
-  measured at `n-match 12`, and `n-match 24` was measured at `n-max 4`. Neither
-  result licenses their sum, and both touch the same drafter.
 - **Neither winner has been measured at the served depth.** Both verdicts are
   ctx 16,384; `worker-iq2s-quality.ps1` serves 98,304. `--spec-draft-n-max 7`
   is already known **not** to transfer — it spills to `63+2` at 65,536 — so the
   question is live for `n-match` too, and `n-match` costs no VRAM, which makes
-  it the cheaper of the two to answer.
+  it the cheaper of the two to answer. **Answer `n-match 24` alone**, not the
+  pair — see below.
 - **#6 `--spec-draft-p-min`** at 0.10 / 0.25, arms defined and unrun.
 - **#7 `-fitt`** — a step function with a dead zone whose step moves with boot
   VRAM. Read the fitted configuration from the log before measuring any rate.

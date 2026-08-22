@@ -248,6 +248,70 @@ is written here as one.**
 
 ---
 
+## 5c. The two winners crossed — they cancel, and that is the day's most useful result
+
+Raw: `results/sweep-draft-n-x-nmatch.jsonl`, 12 rows. Same corpus, same depth,
+same binary as §5 and §5b, all four arms inside the same three rounds, arms
+rotated, every arm `65+0`.
+
+| arm | rounds (tok/s) | vs base | vs `n7 m12` | vs `n4 m24` |
+|---|---|---|---|---|
+| `n4 m12` — what we ship | 74.6, 75.2, 75.2 | baseline | — | — |
+| `n7 m12` | 94.4, 95.1, 94.9 | **+26.4 % RESOLVED** | — | — |
+| `n4 m24` | 98.4, 97.7, 97.4 | **+30.5 % RESOLVED** | — | — |
+| **`n7 m24` — both** | 65.5, 63.4, 65.5 | −13.6 % | **−31.6 % RESOLVED** | **−33.8 % RESOLVED** |
+
+**Both singles replicated** — +26.4 % against §5's +23.4 %, +30.5 % against
+§5b's +34.6 %, on different boots — so the combination arm is not a replication
+failure of either half. **Stacked they reach 52.4 % of the independent
+expectation** (64.8 measured against 123.6 from 1.264 × 1.305) and the pair is
+the **slowest arm in the set**, below the incumbent both halves beat.
+
+**The mechanism is the cascade they share.**
+
+| arm | ngram drafts | ngram decline | dflash accepted / generated |
+|---|---:|---:|---:|
+| `n4 m12` | 31 | 94.3 % | 974 / 2,041 = 47.7 % |
+| `n7 m12` | 41 | 90.0 % | 775 / 2,564 = 30.2 % |
+| `n4 m24` | 29 | 93.9 % | 915 / 1,781 = 51.4 % |
+| **`n7 m24`** | **12** | **97.7 %** | 1,262 / **3,612** = **34.9 %** |
+
+`n-match 24` makes `ngram-mod` stricter — fires less, much better. `n-max 7`
+makes `draft-dflash` longer and dearer, 8 tokens per call instead of 5. Each is
+affordable alone: at `n4 m24` a strict ngram is fine because dflash's short
+drafts are cheap to waste, and at `n7 m12` expensive dflash drafts are fine
+because ngram still fires 41 times and covers the costly steps. **Stacked,
+ngram nearly stops and dflash pays the full 8-token draft on almost every step
+at a 34.9 % hit rate.**
+
+⚠️ **One step of that explanation is not established.** Why ngram's decline
+rises to 97.7 % is unattributed — the arms take different trajectories, so the
+rates are not a clean comparison. A fitting mechanism: `draft_one` flushes new
+n-grams only when `sinfo.i_last + 32 < cur_len` and only up to `cur_len - n`
+(`speculative.cpp:1978-1979`), so a generation accepting more per step outruns
+its own table. **Hypothesis, testable against the occupancy trace at
+`speculative.cpp:1950`, untested.**
+
+**What it changes.** **Pick one, and pick `n-match 24`** — the best point
+measured, and it moves no allocation, where `n-max 7` costs 447 MiB of
+recurrent state (free after 1,272 → 825 MiB at the same `65+0`). Still a
+ctx 16,384 verdict; nothing shipped.
+
+**Bookkeeping, stated so nobody upgrades it later.** Against the baseline the
+pair reads **−13.58 %** with a consistent sign across all three rounds — **0.02
+points under the 13.6 % floor**, so `harness.paired_deltas` does not resolve it
+and neither does this report. Nothing rests on that comparison: the verdict
+comes from the two against-the-singles deltas, which clear the floor by more
+than 17 points.
+
+> **A measured win plus a measured win is not a measured win.** Both halves
+> were RESOLVED against the same baseline on the same corpus, and their sum is
+> worse than the thing they each beat. The design that caught it was a 2×2
+> rather than a single "both" arm — against one baseline, "both" could not have
+> been told apart from either single failing to replicate.
+
+---
+
 ## 6. Real-task benchmark — the first measurement of the project's own metric
 
 `bench/real_task_bench.py`, throwaway clones from the GitHub remote, scored by
