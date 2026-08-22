@@ -1,6 +1,6 @@
 # bench — the harness
 
-**103 tests. Run them before trusting any number:**
+**212 tests. Run them before trusting any number:**
 
 ```powershell
 python -m pytest tests\ -q
@@ -24,6 +24,38 @@ code that returned something plausible instead of an error.
 | `protocol_gate.py` | nested tool call and `tool_call_id` round-trip | ~10 min |
 | `greedy_diff.py` | the actual greedy text, not just its hash | ~5 min |
 | `kv_kernel_screen.py` | which KV types have a fast kernel | ~10 min |
+
+---
+
+## What gets deleted after a benchmark, and what never does
+
+The developer's standing rule is *"ลบ code ที่พ่นตอน benchmark ให้หมดด้วย"* —
+delete all the code the benchmark spat out. **It means the code a model wrote
+while being measured, not the thing doing the measuring.** The line has been
+misread three times, twice in the direction that would have destroyed the
+evidence, so it is written down here.
+
+| | examples | what happens to it |
+|---|---|---|
+| **Model output — always deleted** | worker clones under the scratch root; `bench/_work/`, `bench/_deepwork/` | deleted and **verified gone**; `bench/_*/` is gitignored |
+| **The instrument — never deleted** | `dflash2_arena.py`, `kv_sweep.py`, `harness.py`, `ARM_SETS`, `tests/` | it is the apparatus. Deleting it means no future run is comparable |
+| **The evidence — never deleted** | `qwen38-tuning/results/*.jsonl`, `bench/corpora/*.txt` | **80 result files, cited by 20 documents.** `CLAUDE.md`: *"A measurement names the file its number came from, or it is a hypothesis"* |
+
+**Why the third row is not negotiable.** Deleting the JSONL rows does not tidy
+the repo, it demotes **every published number in it to a guess** — including
+`+34.6 %`, `+48.5 %`, and the finding that the two winners cancel. A corpus
+file is evidence too: its hash is stamped into every row measured against it,
+which is what makes those rows interpretable a month later.
+
+**Enforcement.** `harness.assert_deletable` + `PROTECTED_ROOTS` bound what a
+cleanup may touch; `tests/test_scratch_safety.py` pins it;
+`tests/test_no_committed_worker_output.py` pins that no model output is ever
+committed; `tests/test_corpus_frozen.py` pins that the corpus cannot drift.
+
+**The reason it keeps being misread** is that both things live in this
+directory and both are "benchmark stuff". The test is not where a file sits —
+it is **who wrote it**. A model wrote it → it goes. A person wrote it, or a run
+recorded it → it stays.
 
 ---
 
