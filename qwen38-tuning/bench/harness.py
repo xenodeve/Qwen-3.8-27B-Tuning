@@ -629,3 +629,45 @@ def parse_spec_impl_stats(log_text):
             "decline_pct":   decline,
         }
     return out
+
+
+# A generation that produced almost nothing has not measured a decode rate. A
+# quarter of the requested budget is generous -- a model that answers in 300 of
+# 512 tokens has done real work; one that answers in 4 has not.
+MEASURABLE_FRACTION = 0.25
+
+
+def generation_is_measurable(timings, n_predict, fraction=MEASURABLE_FRACTION):
+    """True when every timed generation in a row actually generated.
+
+    INSTRUMENT FAULT, 2026-08-22. The draft-count sweep re-run at ctx 65,536
+    reported a tight, RESOLVED -56.5 % for the widest arm, with every arm
+    showing acceptance 0.0 and `mean len 1.0` -- which read as "speculation
+    stops working at depth". The server log said:
+
+        eval time = 112.32 ms /     4 tokens
+        eval time =  61.45 ms /     2 tokens
+
+    The generations produced two to four tokens against a 512-token budget: the
+    frozen corpus is ~28,000 tokens and the arena had asked for a 32,768-token
+    prompt, so the whole corpus was consumed and the model answered in a few
+    tokens. Three arms, six rows, a tight range and a resolved verdict, all
+    computed over noise.
+
+    The previous guard refused a rate of zero and let a rate over four tokens
+    through, so the failure arrived as a plausible number rather than as an
+    error. That is the one outcome this project treats as worse than a crash.
+
+    ALL samples must qualify, not the median: a row is one paired datapoint, and
+    a median over a good sample and a 3-token sample is not a measurement of
+    anything. That is how it got through the first time.
+    """
+    if not timings:
+        return False
+    floor = max(1, int(n_predict * fraction))
+    for t in timings:
+        n = t.get("predicted_n") or 0
+        r = t.get("predicted_per_second") or 0
+        if n < floor or r <= 0:
+            return False
+    return True

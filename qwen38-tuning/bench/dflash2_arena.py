@@ -44,7 +44,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from harness import (median, parse_layer_split, draft_acceptance,
                      paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
-                     parse_spec_impl_stats)
+                     parse_spec_impl_stats, generation_is_measurable)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 EXE = r"C:\AI\llama.cpp-dflash2\llama-server.exe"
@@ -391,10 +391,21 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic"):
                      timeout=900)
             timings.append(r["timings"])
             rates.append(rate(r["timings"]))
+        # A row whose generations produced almost nothing is not a measurement.
+        # At ctx 65,536 the corpus ran out, the model answered in 2-4 tokens
+        # against a 512-token budget, and the arena reported a tight RESOLVED
+        # -56.5 % computed over that. Refuse the row instead of ranking it.
+        measurable = generation_is_measurable(timings, N_PREDICT)
         good = [x for x in rates if x]
         row.update(tg_samples=rates,
-                   tg_med=median(good) if good else None,
+                   predicted_n=[t.get("predicted_n") for t in timings],
+                   measurable=measurable,
+                   tg_med=(median(good) if (good and measurable) else None),
                    acceptance=draft_acceptance(timings))
+        if not measurable:
+            row["note"] = ("generations too short to measure: predicted_n=%s "
+                           "against n_predict=%d" %
+                           ([t.get("predicted_n") for t in timings], N_PREDICT))
         fh.flush()
         text = log.read_text(encoding="utf-8", errors="replace")
         row["split"] = "%d+%d" % parse_layer_split(text, expect_layers=TARGET_LAYERS)
@@ -407,10 +418,13 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic"):
         decl = "  ".join("%s decline %s%% len %s" %
                          (k, d["decline_pct"], d["mean_acc_len"])
                          for k, d in sorted(impl.items()))
-        print("    %-15s %6.2f tok/s  split %-6s acc %-6s free %5s  %s"
-              % (label, row["tg_med"] or 0.0, row["split"],
-                 row["acceptance"], row.get("free_after"), decl),
-              flush=True)
+        if not measurable:
+            print("    %-15s NOT MEASURABLE  %s" % (label, row["note"]), flush=True)
+        else:
+            print("    %-15s %6.2f tok/s  split %-6s acc %-6s free %5s  %s"
+                  % (label, row["tg_med"], row["split"],
+                     row["acceptance"], row.get("free_after"), decl),
+                  flush=True)
     except Exception as exc:               # a failed arm is a row, not a crash
         row["note"] = "%s: %s" % (type(exc).__name__, exc)
         print("    %-15s ERROR %s" % (label, exc), flush=True)
