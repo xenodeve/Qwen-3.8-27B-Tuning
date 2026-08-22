@@ -25,7 +25,7 @@ Flag semantics for the shortlist:
 | 3 | "NMAX=12 chosen against 32 so recency beats length" | `--spec-ngram-mod-n-match` | **MEASURED** | **Refuted — shorter is worse.** The default `24` is **+34.6 % [+31.4, +40.8] RESOLVED** over the `12` we ship |
 | 4 | Lookup hit counter | `-lv 4` per-impl statistics | **USED** | the finding under every other finding — see below |
 | 5 | "A longer verify block costs KV pool per slot" | `n_rs_seq` | **USED** | gave the exact price: `149.625 MiB × (1 + n_max)` |
-| 6 | Applying top-k/top-p to the selector proposal | `--spec-draft-p-min` | **READ** | sweepable, but **≤ 0.0625 is identical to 0.00** |
+| 6 | Applying top-k/top-p to the selector proposal | `--spec-draft-p-min` | **MEASURED** | **Null.** At `0.10` the early-stop **never fires**; at `0.25` it fires on 2.2 % of calls and buys nothing |
 | 7 | Weight-aware pool budget | `-fitt` | **READ** | and it does not mean what our profiles say — below |
 | 8 | V2-runner fix: drafter's KV forced back to bf16 | `-ctkd` / `-ctvd` | **READ — do not sweep** | saving ~32 MiB, paid for on the hot path |
 | 9 | "Complete tunable surface: six environment variables" | `GGML_CUDA_GRAPH_OPT=1` | **READ — do not sweep** | cannot fire on our shape |
@@ -37,7 +37,7 @@ Flag semantics for the shortlist:
 | 15 | Hybrid recurrent-state prefix cache | `--cache-reuse` / `-sps` | **OPEN** | whether llama.cpp restores DeltaNet state or only KV is unknown |
 
 **Three measured wins — one of them by refuting the claim that produced it —
-one measured null, five read-and-closed, two we already had, two impossible,
+two measured nulls, four read-and-closed, two we already had, two impossible,
 one open.**
 
 **The refutation is one of the wins.** Their claim was that a *shorter* match
@@ -134,7 +134,7 @@ Worth as much as a win, and each rests on a specific line:
   (`llama-sampler.cpp:3018`), and it self-disables on a grammar — which the
   served profile needs.
 
-## 5. `--spec-draft-p-min` — the arithmetic that redesigned the sweep
+## 5. `--spec-draft-p-min` — the arithmetic redesigned the sweep, and was still too generous
 
 The scan called it *"the single most actionable item in this slice"*. It may be,
 but not at the values anyone would try first.
@@ -153,6 +153,19 @@ now starts at 0.10 for this reason.
 It also saves **zero draft-side compute** — the whole block is decoded at
 `speculative.cpp:1195` before any check — and `ngram-mod` outranks
 `draft-dflash`, so every step ngram serves is a step where it does nothing.
+*(That last clause turned out to be a small effect: `ngram-mod` serves only
+about 6 % of steps on real code, so `p_min` is live on the other 94 %. It still
+measured null.)*
+
+**Measured, and the bound was still too generous.** 0.00 / 0.10 / 0.25, three
+paired rounds: **+2.2 % and +1.5 %, both inside the floor with the sign
+flipping**. The counters are the real result — at `0.10` **every counter is
+byte-identical to the baseline**, so the early-stop *never fired*; at `0.25` it
+fired on **2.2 %** of calls. The algebraic floor of 1/16 was correct and the
+empirical distribution is far tighter than it: on this workload the selector's
+confidence sits above 0.10 essentially always. **Designing the arms above the
+algebraic bound was necessary and not sufficient.**
+[`02-decoders.md`](02-decoders.md).
 
 ## 6. `-fitt` — the transfer that found an error in our own profiles
 
@@ -219,13 +232,19 @@ quantisation. [Report 30](../reports/30-SYV-RTX3090-REFERENCE-REVIEW.md).
 
 ## Still open from this pool
 
-- **Neither winner has been measured at the served depth.** Both verdicts are
-  ctx 16,384; `worker-iq2s-quality.ps1` serves 98,304. `--spec-draft-n-max 7`
-  is already known **not** to transfer — it spills to `63+2` at 65,536 — so the
-  question is live for `n-match` too, and `n-match` costs no VRAM, which makes
-  it the cheaper of the two to answer. **Answer `n-match 24` alone**, not the
-  pair — see below.
-- **#6 `--spec-draft-p-min`** at 0.10 / 0.25, arms defined and unrun.
+- 🔴 **`n-match 24` at the served depth — and it is BLOCKED, not merely unrun.**
+  Every verdict on this page is ctx 16,384; `worker-iq2s-quality.ps1` serves
+  98,304. **The frozen corpus cannot honestly reach there.**
+  `bench/corpora/real-code.txt` is 91,868 characters, which fills 16,384 with
+  room to spare and is **2.1× short of 65,536 and 3.2× short of 98,304**. The
+  only way to fill a deeper window from it is to repeat it — which is exactly
+  the flattery that made report 29's synthetic prompt 66.2 % duplicate lines
+  and reversed a decoder verdict. **A second frozen corpus is the prerequisite**,
+  and it must be new real code, not this one tiled.
+- **`--spec-draft-p-min` above 0.25** — untested, and the measured trend gives
+  no reason to expect a win. At 0.25 the early-stop fires on 2.2 % of calls;
+  a value aggressive enough to bite often would start discarding tokens that
+  would have been accepted, since dflash already keeps only 2.91 of 5.
 - **#7 `-fitt`** — a step function with a dead zone whose step moves with boot
   VRAM. Read the fitted configuration from the log before measuring any rate.
 - **#15 recurrent-state prefix reuse** — their `PREFIX_CACHE=1` took turn 2 of a

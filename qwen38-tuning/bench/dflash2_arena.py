@@ -176,6 +176,26 @@ ARM_SETS = {
         ("combo-n7-m24-both", _pair(_ngram(16, n_match=24), n_draft=7)),
     ],
 
+    # `--spec-draft-p-min` -- MEASURED, NULL at these values. Kept so nobody
+    # re-runs it, and because the counters carry a lesson the rate does not.
+    #
+    # 0.00 / 0.10 / 0.25 measured 70.2,76.0,76.4 / 74.5,76.5,76.2 /
+    # 75.2,74.8,75.6 over three paired rounds: +2.2 % and +1.5 %, both inside
+    # the 13.6 % floor with the sign flipping.
+    #
+    # THE COUNTERS ARE THE RESULT. At 0.10 every per-impl counter is
+    # byte-identical to the baseline -- the early-stop NEVER FIRED. At 0.25 it
+    # fired on 2.2 % of draft calls and moved dflash efficiency 47.7 -> 49.8 %
+    # for no throughput. The algebraic bound below (1/sum >= 1/16) is correct
+    # and was still too generous: on real code the selector's confidence sits
+    # above 0.10 essentially always. Starting the arms above a proven worst-case
+    # bound was NECESSARY AND NOT SUFFICIENT -- the bound says nothing about
+    # where the distribution actually lives.
+    #
+    # Above 0.25 is untested. No measured reason to expect a win: dflash
+    # already keeps only 2.91 of 5 drafted tokens, so a value aggressive enough
+    # to bite often starts discarding tokens that would have been accepted.
+    #
     # `--spec-draft-p-min` defaults to 0.00 (common.h:329), i.e. the DFlash2
     # confidence early-stop is off. Trimming low-confidence tail positions
     # narrows the verify batch, which also moves the flash-attention kernel

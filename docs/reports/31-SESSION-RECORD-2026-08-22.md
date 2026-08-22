@@ -312,6 +312,71 @@ than 17 points.
 
 ---
 
+## 5d. `--spec-draft-p-min` — null, and the counters are the finding
+
+Raw: `results/sweep-p-min.jsonl`, 9 rows. Same conditions, three paired rounds,
+every arm `65+0`.
+
+| `p-min` | rounds (tok/s) | vs base | **dflash decline** | dflash accepted / generated |
+|---:|---|---|---:|---:|
+| 0.00 — default | 70.2, 76.0, 76.4 | baseline | 0.0 % | 974 / 2,041 = 47.7 % |
+| 0.10 | 74.5, 76.5, 76.2 | +2.2 % [−0.3, +6.2] | **0.0 %** | 974 / 2,041 = 47.7 % |
+| 0.25 | 75.2, 74.8, 75.6 | +1.5 % [−1.6, +7.1] | **2.2 %** | 1,008 / 2,026 = 49.8 % |
+
+Both inside the floor, sign flipping. **The rate column is the weaker evidence.**
+At `0.10` every per-implementation counter is **byte-identical to the
+baseline** — the early-stop *never fired once*. At `0.25` it fired on 2.2 % of
+draft calls, moved dflash's efficiency 47.7 % → 49.8 %, and bought nothing.
+
+**This sharpens §9's arithmetic rather than confirming it.** The source read
+established `1/sum ∈ [0.0625, 1.0]`, so the arms were deliberately started at
+`0.10` to clear the algebraic floor — the fix for the `n_min` mistake. **They
+did not clear the empirical one.** On this workload the selector's confidence
+sits above 0.10 essentially always and above 0.25 on 97.8 % of calls. Designing
+arms above a proven algebraic bound was necessary and **not sufficient**, and
+that is the transferable lesson: a bound derived from the worst case says
+nothing about where the distribution actually lives.
+
+**One clause of the prediction was wrong in our favour and it changed nothing.**
+The read said `ngram-mod` outranks `draft-dflash`, so "every step ngram serves
+is a step where `p_min` does nothing" — true, but ngram serves only ~6 % of
+steps on real code, so `p_min` was live on the other 94 %. It still measured null.
+
+**Read the baseline's own spread before reading any delta here.** `pmin-0-base`
+measured 70.2 / 76.0 / 76.4 — **8.8 % across three boots of the same arm**, the
+first on a boot with 613 MiB free against ~890 for the rest. That is the drift
+the 13.6 % floor absorbs, visible inside a single arm.
+
+---
+
+## 5e. The frozen corpus cannot reach the served depth — the blocker under every open question
+
+Every decoder verdict in §5, §5b, §5c and §5d is **ctx 16,384**, and the reason
+is not choice.
+
+`bench/corpora/real-code.txt` is **91,868 characters, 10.3 % duplicate lines**.
+At roughly 3 characters per token:
+
+| window | characters needed | frozen corpus |
+|---:|---:|---|
+| 16,384 | ~49,152 | **fits, with room to spare** |
+| 32,768 | ~98,304 | short by 6,436 — **1.1×** |
+| 65,536 | ~196,608 | short by 104,740 — **2.1×** |
+| 98,304 | ~294,912 | short by 203,044 — **3.2×** |
+
+The only way to fill a deeper window from this file is to **repeat it**, and a
+repeated corpus is precisely what report 29 showed reverses a decoder verdict:
+the synthetic prompt was 66.2 % duplicate lines, and on it `draft-dflash` reads
+−9.2 % where on real code it reads +34.7 %. Tiling the frozen corpus to reach
+65,536 would manufacture n-gram hits out of nothing and flatter every
+`ngram-mod` arm in exactly the direction the depth question is asking about.
+
+**So `n-match 24` at the served depth is blocked, not merely unrun**, and the
+prerequisite is a **second** frozen corpus of new real code — never a
+modification of this one, whose hash is stamped into every row already measured.
+
+---
+
 ## 6. Real-task benchmark — the first measurement of the project's own metric
 
 `bench/real_task_bench.py`, throwaway clones from the GitHub remote, scored by

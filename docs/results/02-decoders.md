@@ -241,6 +241,45 @@ does not claim it. Nothing rests on that comparison: the verdict is carried by
 the two against-the-singles deltas, which clear the floor by more than 17
 points.
 
+## `--spec-draft-p-min` — tested 2026-08-22. Null, and the counters say why
+
+Same conditions, three paired rounds. Raw `results/sweep-p-min.jsonl`, 9 rows,
+every arm `65+0`.
+
+| `p-min` | rounds (tok/s) | vs base | **dflash decline** | dflash accepted / generated |
+|---:|---|---|---:|---:|
+| 0.00 — the default | 70.2, 76.0, 76.4 | baseline | 0.0 % | 974 / 2,041 = 47.7 % |
+| 0.10 | 74.5, 76.5, 76.2 | +2.2 % [−0.3, +6.2] | **0.0 %** | 974 / 2,041 = 47.7 % |
+| 0.25 | 75.2, 74.8, 75.6 | +1.5 % [−1.6, +7.1] | **2.2 %** | 1,008 / 2,026 = 49.8 % |
+
+Both within the floor with the sign flipping. **Do not re-run it at these values.**
+
+**The rate column is the weaker evidence here.** At `0.10` every
+per-implementation counter is **byte-identical to the baseline** — same calls,
+same drafts, same accepted tokens. The early-stop **never fired once**. At
+`0.25` it fired on **2.2 %** of draft calls, nudged dflash's draft efficiency
+from 47.7 % to 49.8 %, and bought no throughput.
+
+**This sharpens the source bound rather than confirming it.** The read said
+`1/sum ∈ [0.0625, 1.0]` by construction, so any `p_min ≤ 1/16` is identical to
+`0.00`, and the arms were deliberately started at `0.10` to clear that. **They
+did not clear it in practice**: the selector's confidence sits above `0.10`
+essentially always on this workload, and above `0.25` on 97.8 % of calls. The
+arithmetic bound was correct and still too generous — the empirical
+distribution is much tighter than the algebraic one.
+
+**Where that leaves the flag.** Its only possible gain is a narrower verify
+batch — it saves *zero* draft-side compute, because the whole block is decoded
+at `speculative.cpp:1195` before any check. Untested above `0.25`; the measured
+trend gives no reason to expect a win, and dflash already accepts 2.91 of 5
+drafted tokens, so a value aggressive enough to bite often would start
+discarding tokens that would have been accepted.
+
+> **Read the baseline's own spread before reading any delta on this page.**
+> `pmin-0-base` measured 70.2 / 76.0 / 76.4 — **8.8 % across three boots of the
+> same arm**, the first one on a boot with 613 MiB free against ~890 for the
+> rest. That is the drift the 13.6 % floor exists to absorb, visible in one arm.
+
 ## Which speculator actually fires — tested 2026-08-22
 
 From `common_speculative_print_stats` (LOG_TRC; our arena already ran `-lv 5`),
