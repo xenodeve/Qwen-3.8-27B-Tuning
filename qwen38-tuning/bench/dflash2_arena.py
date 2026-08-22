@@ -128,14 +128,44 @@ ARM_SETS = {
         ("n-7-clamp",   _pair(n_draft=7)),
     ],
 
+    # `--spec-ngram-mod-n-match` -- the width of the context window the n-gram
+    # table is keyed on. Default 24 (common.h:352); we run 12. The external
+    # RTX 3090 stack measured a SHORTER, more recent match predicting better on
+    # quote-and-explain work: 3.21 against 2.69 tokens per step at 12 vs 32
+    # (docs/researchs/syv-rtx3090). This is the knob that governs the 94-97 %
+    # decline rate measured here -- `n_min` does not, and was swept to prove it.
+    #
+    # THE TRAP, from the source read in researchs/llamacpp-flag-semantics:
+    # ngram-mod is registered ABOVE draft-dflash (speculative.cpp:2545 vs 2551)
+    # and the cascade stops at the first non-empty draft (2725-2726). Lowering
+    # n_match raises ngram's fire rate BY SUPPRESSING dflash calls. An arm can
+    # fire twice as often and decode SLOWER. Read the per-impl counters in the
+    # `impl` column, not just tok/s.
+    #
+    # Not below 6: the key collapses, acceptance falls under the reset
+    # threshold, and the table wipe at speculative.cpp:2044-2054 fires
+    # repeatedly -- that measures the reset loop, not the flag.
+    "ngram-nmatch": [
+        ("nmatch-24-default", _pair(_ngram(16, n_match=24))),
+        ("nmatch-16",         _pair(_ngram(16, n_match=16))),
+        ("nmatch-12-base",    _pair(_ngram(16, n_match=12))),
+        ("nmatch-8",          _pair(_ngram(16, n_match=8))),
+    ],
+
     # `--spec-draft-p-min` defaults to 0.00 (common.h:329), i.e. the DFlash2
     # confidence early-stop is off. Trimming low-confidence tail positions
     # narrows the verify batch, which also moves the flash-attention kernel
     # choice. No VRAM cost.
+    # Every value here is ABOVE 1/16 = 0.0625 on purpose. The greedy check at
+    # speculative.cpp:1264-1268 compares 1/sum where sum = SUM exp(scores[k] -
+    # scores[argmax]) over the 16 selector candidates; the argmax term is
+    # exactly 1 and every other term is <= 1, so 1/sum is in [0.0625, 1.0].
+    # ANY p_min <= 0.0625 is mathematically identical to 0.00 -- a ladder
+    # starting at 0.05 would repeat the n_min error exactly.
     "p-min": [
         ("pmin-0-base", _pair()),
-        ("pmin-0.1",    _pair(extra=["--spec-draft-p-min", "0.1"])),
-        ("pmin-0.3",    _pair(extra=["--spec-draft-p-min", "0.3"])),
+        ("pmin-0.10",   _pair(extra=["--spec-draft-p-min", "0.10"])),
+        ("pmin-0.25",   _pair(extra=["--spec-draft-p-min", "0.25"])),
     ],
 }
 

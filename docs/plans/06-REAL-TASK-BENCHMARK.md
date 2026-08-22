@@ -52,6 +52,14 @@ still a *result* — it says this class of task does not fit that window.
 `--n-ctx` is a required argument to `real_task_bench.py` for the same reason: a
 harness that does not know the window cannot tell the two apart.
 
+### The RTX 3090 pool has a scoreboard now
+
+[`../results/08-rtx3090-transfer.md`](../results/08-rtx3090-transfer.md) records,
+per technique, whether it was measured here, read and closed, already had, or
+architecturally impossible. **Read it before adding a phase for anything from
+that pool** — five entries are already closed from source, and two of those
+closures each save a GPU round that would have measured nothing.
+
 ### Phases 4 and 6 are cheaper than written; three sweeps are now dead
 
 Six flags were read from source before spending GPU time on them —

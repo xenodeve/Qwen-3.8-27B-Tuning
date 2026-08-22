@@ -349,6 +349,33 @@ the developer, or `git status --short` read as a rename rather than as deletions
 
 ---
 
+## 9c. What transferred from the RTX 3090 scan
+
+The scoreboard lives in [`../results/08-rtx3090-transfer.md`](../results/08-rtx3090-transfer.md)
+and is the answer to "did any of that 434-technique scan actually get used".
+
+Short version: **two measured wins** (`--spec-draft-n-max` at +23.4 % RESOLVED,
+and the `draft-dflash,ngram-mod` pair at +48.5 %), **one measured null**
+(`--spec-ngram-mod-n-min`), **one running** (`--spec-ngram-mod-n-match`),
+**five read-and-closed** from source without spending a GPU round, **two we
+already had**, and **two architecturally impossible**.
+
+Two of the read-and-closed verdicts are worth as much as a win, because each
+saves a round that would have measured nothing:
+
+- `-ctkd`/`-ctvd` — the drafter decodes 5 tokens in one `llama_decode`, so a
+  quantised draft KV takes `MMA_F16` with a full dequant, not the vector kernel.
+- `--spec-draft-p-min` — `1/sum ∈ [0.0625, 1.0]` by construction, so any value
+  at or below 1/16 is identical to 0.00. A ladder starting at 0.05 would have
+  repeated the `n_min` error exactly.
+
+And one of them found an error in **our** profiles rather than a technique of
+theirs: `--fit-target` has the draft model's bytes added to it before `--fit`
+runs (`server-context.cpp:1074`), so our `768` reaches `fit.cpp` as roughly
+1,900–2,100 MiB.
+
+---
+
 ## 10. Still open
 
 - **Why the worker changes nothing with room to spare** (§6). No mechanism.

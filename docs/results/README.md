@@ -65,3 +65,5 @@ A sweep is not finished until its row lands here. That is the whole mechanism â€
 there is no hook, and the two incidents above are what it costs when the step is
 skipped. `python C:\AI\scripts\audit-stale-claims.py` catches superseded *claims*
 but cannot see a measurement nobody registered.
+
+| [08](08-rtx3090-transfer.md) | **what actually transferred from the RTX 3090 stack** â€” 434 techniques scanned, which were tried here and what happened. Two measured wins, one measured null, five read-and-closed, two impossible |
