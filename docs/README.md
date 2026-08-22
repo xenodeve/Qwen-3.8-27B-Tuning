@@ -5,7 +5,7 @@ Four folders, and the difference between them matters.
 | folder | what is in it | how much to trust it |
 |---|---|---|
 | [**`reports/`**](reports/) | **our own measurements** and what they mean | every number was measured on this machine and names the file it came from |
-| [**`tested/`**](tested/) | **a register: has X been tried, and what happened** | one row per thing tried, each pointing at the raw file |
+| [**`results/`**](results/) | **a register: has X been tried, and what happened** | one row per thing tried, each pointing at the raw file |
 | [`plans/`](plans/) | what we intend to run, and briefs sent to external researchers | intent, not results |
 | [`researchs/`](researchs/) | **external** material — deep-research replies, vendor docs, model cards | **unverified.** Four claims from it have already been measured wrong |
 

@@ -1416,7 +1416,7 @@ Files read: `bench/labd_accept.py` · `bench/demo_render.py` · `bench/labd_benc
 
 **llama.cpp — not applicable.** Nothing to judge on the llama.cpp side. This is a documentation habit the repo already encodes; the delta is placement, not existence.
 
-**Equivalent here:** none — this repo already has docs/tested/README.md and CORRECTIONS.md for it
+**Equivalent here:** none — this repo already has docs/results/README.md and CORRECTIONS.md for it
 
 **Effort:** n/a · **Transferable:** yes
 

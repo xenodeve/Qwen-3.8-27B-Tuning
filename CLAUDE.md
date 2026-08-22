@@ -18,7 +18,7 @@ session can recover state without re-deriving it.
    no issue tracks. The 🔴 UNTRACKED rows are the highest miss-risk.
 2. **`docs/reports/CORRECTIONS.md`** — eleven claims this project published and
    later contradicted with its own data. **Read it before quoting any number.**
-3. **`docs/tested/README.md`** — the register: has X been tried, what happened.
+3. **`docs/results/README.md`** — the register: has X been tried, what happened.
 4. **`docs/reports/START-HERE.md`** — the narrative, if you need the why.
 5. The specific GitHub issue you are picking up: `gh issue view <n> --comments`.
 
@@ -52,7 +52,7 @@ noticed. So:
 
 ```text
 docs/reports/    findings, numbered — narrative, dated, argues from evidence
-docs/tested/     the register — has X been tried, what happened
+docs/results/     the register — has X been tried, what happened
 docs/plans/      intent, not results
 docs/researchs/  external material, unverified until measured here
 docs/agents/     the operating standard: domain, tracker, labels, workflow
@@ -164,7 +164,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
    แถวที่ติด 🔴 UNTRACKED คือกลุ่มที่หลุดง่ายที่สุด
 2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 11 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
    ด้วยข้อมูลตัวเอง **อ่านก่อนยกตัวเลขไหนไปใช้**
-3. **`docs/tested/README.md`** — ทะเบียนว่าอะไรถูกทดสอบแล้ว ผลเป็นอะไร
+3. **`docs/results/README.md`** — ทะเบียนว่าอะไรถูกทดสอบแล้ว ผลเป็นอะไร
 4. **`docs/reports/START-HERE.md`** — เรื่องเล่าทั้งหมด ถ้าต้องการรู้ว่าทำไม
 5. issue ที่กำลังจะทำ: `gh issue view <n> --comments`
 

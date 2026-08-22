@@ -83,7 +83,7 @@ avoid: system prompt — the prefix is larger than that and includes tool schema
 
 **report** — narrative, dated, argues from evidence. Lives in `docs/reports/`.
 
-**the register** — `docs/tested/`. One row per thing tried: has X been tried,
+**the register** — `docs/results/`. One row per thing tried: has X been tried,
 what happened. A report says what a night meant; the register says whether
 something was done. **A fact stated once inside a narrative is a fact nobody can
 find**, which is why both exist.

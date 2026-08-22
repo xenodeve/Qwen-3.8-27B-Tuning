@@ -227,7 +227,11 @@ quantisation rung must be rewritten.
 | `xeno-skills:314` | FAIL | 88,668 | 1,427 s | 0 | 0 |
 | `openclink:144` | FAIL | 56,861 | 1,647 s | 0 | 0 |
 | `openclink:145` | FAIL | 84,889 | 1,759 s | 0 | 0 |
-| `openclink:149` | *still running when this was written* | | | | |
+| `openclink:149` | FAIL | 84,889 | 2,400 s (timeout) | 0 | 0 |
+
+**Final: 5 tasks — 0 PASS, 5 FAIL, 0 WINDOW_BOUND, 0 VOID.** Context
+high-water min 56,861, median 84,889, max 88,668. **Nothing saturated at this
+window**, so none of these five can be excused by the context size.
 
 **A green verify with no diff is a FAIL** — it passes the tests that were
 already passing. Every baseline was green (`base=0`), so none of these is an
@@ -316,6 +320,32 @@ Each cited so a later session does not re-derive them.
 +48.5 % ran **ngram-mod first with dflash as the fallback**, and no flag
 reverses it. Since dflash alone beat ngram alone by +34.7 %, "dflash first" is
 an obvious unmeasured configuration reachable only by reordering ten lines.
+
+---
+
+## 9b. Housekeeping that happened during this session
+
+**`docs/tested/` was renamed to `docs/results/`** by the developer. All eight
+files moved with their content intact (git records `R100` for seven of them),
+and 25 references across 11 files were rewritten — `CLAUDE.md`, `DONE.md`, the
+ledger, two `docs/agents/` files, three reports and two research files.
+
+**I misdiagnosed the rename as damage.** `git status` showed eight deletions
+under `docs/tested/`, and I connected them to the running OpenCode worker on the
+theory that its server had persisted `C:\AI` as its project root — a hazard
+`bench/opencode_corpus.py` genuinely documents. I stopped the benchmark and
+killed every `node`/`opencode` process on that theory before the developer said
+they had done the rename themselves.
+
+Cost: the benchmark had already finished, so no measurement was lost, but the
+kill interrupted its cleanup and left one clone behind. Removed by hand;
+`D:ench-scratch` verified empty.
+
+**The lesson is the one this file keeps repeating in a different costume:** eight
+files vanishing from `git status` is an observation, and "the worker did it" was
+a hypothesis I acted on before checking. The check available was one question to
+the developer, or `git status --short` read as a rename rather than as deletions
+— `git add -A` showed `R100` immediately afterwards.
 
 ---
 

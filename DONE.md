@@ -123,7 +123,7 @@ sixteen server boots with sixteen clean teardowns during the night's batches.
 
 ## 2026-08-21 — the documentation becomes navigable, and auditable
 
-**Shipped:** `docs/tested/` (the register: has X been tried, what happened),
+**Shipped:** `docs/results/` (the register: has X been tried, what happened),
 `docs/reports/CORRECTIONS.md` (twelve published claims later contradicted),
 `scripts/check-doc-links.py`, `scripts/audit-stale-claims.py`.
 

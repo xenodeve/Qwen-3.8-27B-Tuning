@@ -20,7 +20,7 @@ experiment ships a number, and the number is the deliverable.
                                                         results/*.jsonl
 4. Read the row, not the summary                      → verify: the number you
                                                         quote is in the file
-5. Register it in docs/tested/                        → verify: the row names
+5. Register it in docs/results/                        → verify: the row names
                                                         the raw file
 6. If it contradicts something published, correct it  → verify: CORRECTIONS.md
                                                         entry AND an audit rule

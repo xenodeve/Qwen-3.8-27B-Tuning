@@ -20,7 +20,7 @@ what a night meant — and a fact stated once inside a story is not findable.**
 | folder | question it answers | shape |
 |---|---|---|
 | [`../reports/`](../reports/) | *what did we learn, and how?* | narrative, dated, argues from evidence |
-| **`tested/`** | *has X been tried? what happened?* | **a register. one row per thing tried** |
+| **`results/`** | *has X been tried? what happened?* | **a register. one row per thing tried** |
 | [`../plans/`](../plans/) | *what do we intend to run?* | intent, not results |
 | [`../researchs/`](../researchs/) | *what did someone else claim?* | unverified until measured here |
 

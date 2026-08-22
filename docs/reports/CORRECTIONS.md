@@ -402,7 +402,7 @@ against `ngram-mod`'s 45.87 and 48.11, with **467–773 MiB free on every row** 
 comfortably above the line. The original −71 % was generous.
 
 **What is withdrawn instead is the DFlash 2 row.**
-`docs/tested/02-decoders.md` records *"drafter 1.06 GiB, screened, not
+`docs/results/02-decoders.md` records *"drafter 1.06 GiB, screened, not
 competitive on 12 GB"*. The artifact does not load at all on build 10472:
 
 ```text

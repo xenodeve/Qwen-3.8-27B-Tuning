@@ -56,7 +56,7 @@ The `none` row is the cleanest evidence:
 | real code, 4.7 % duplicate | −14.4 % | **~1.17×** |
 
 **On real code `ngram-mod` buys about 17 %.** Its reputation in this project —
-"+200 % at 131,072", "1.8× on real code" (report 20, `tested/02`) — was earned
+"+200 % at 131,072", "1.8× on real code" (report 20, `results/02`) — was earned
 on prompts built from repeated blocks.
 
 Acceptance moves the same way, and it is the drafter's own view of the same
@@ -130,7 +130,7 @@ wrong. Pooled, `draft-dflash` reads **+12.8 %, within noise**; split, it is
   run**.
 - **Anything with a grammar loaded.** The production profile needs one — without
   it 41.5–58.3 % of corpus attempts emit no fenced block at all — and no run
-  here had one. See `tested/05-runtime-flags.md`.
+  here had one. See `results/05-runtime-flags.md`.
 
 ---
 

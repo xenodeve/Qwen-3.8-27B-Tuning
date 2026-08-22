@@ -11,6 +11,74 @@ defect in this file — fix the file, then continue.
 
 ---
 
+## 0.0 STATUS, 2026-08-22 evening — what this plan got wrong
+
+**Phase 0 has not run. Phase 1 has, partially, and it refuted this plan's
+headline hypothesis.** Read this before the rest of the document; several
+sections below are now historical.
+
+### The context hypothesis was backwards
+
+This plan says, in §0 and again in §6:
+
+> "If real tasks peak at 40,000 tokens and we serve 98,304, roughly 1.5–2 GB is
+> being reserved for nothing."
+
+**Measured, three windows, each time saturating:**
+
+| window served | high-water range | saturated? |
+|---:|---|---|
+| 32,768 | 32,767 – 41,377 | **yes, all five** |
+| 65,536 | 54,324 – 72,056 | **four of five** |
+| 98,304 | 56,861 – 88,668 | no |
+
+The 40,000 figure came from the run that hit the wall at 32,768. **It measured
+the ceiling, not the task.** `worker-iq2s-quality.ps1` at 98,304 is the
+**minimum sensible window**, and §3.5's premise — that an over-provisioned
+window is currency for a higher quantisation rung — has no currency to spend.
+
+**And the drafter still fits there:** at 98,304 with `--spec-draft-n-max 4`,
+`65+0` resident, 254 MiB free. I predicted it would not.
+
+### A fourth outcome was needed
+
+The rubric in §4 has three outcomes. It needs a fourth, and the reason is a run
+that reported `0 PASS, 5 FAIL, 0 VOID` with every baseline green — which reads
+as a verdict on the worker and was not one. The tasks had filled the window.
+
+**`WINDOW_BOUND`** is now its own outcome (`harness.classify_outcome`,
+`tests/test_window_bound.py`): not a worker failure, never totalled as one, but
+still a *result* — it says this class of task does not fit that window.
+`--n-ctx` is a required argument to `real_task_bench.py` for the same reason: a
+harness that does not know the window cannot tell the two apart.
+
+### Phases 4 and 6 are cheaper than written; three sweeps are now dead
+
+Six flags were read from source before spending GPU time on them —
+[`../researchs/llamacpp-flag-semantics-2026-08-22.md`](../researchs/llamacpp-flag-semantics-2026-08-22.md).
+**Three are provably inert in our configuration** and should not be swept:
+`-ctkd`/`-ctvd`, `GGML_CUDA_GRAPH_OPT`, `-bs`. A fourth caveat matters for
+anyone reading §6: **`--spec-draft-p-min` ≤ 0.0625 is mathematically identical
+to 0.00**, so a value ladder starting at 0.05 cannot differ from the baseline.
+
+### One flag this plan relies on does not mean what it says
+
+`--fit-target` is described throughout `scripts/` as the margin the server
+leaves free. `tools/server/server-context.cpp:1074` **adds the draft model's
+bytes to it** before `--fit` runs, so with the 1,090 MiB sidecar our
+`--fit-target 768` reaches `fit.cpp` as roughly **1,900–2,100 MiB**. Any VRAM
+arithmetic in this document that uses 768 as a margin is wrong.
+
+### The finding this plan exists to explain, and cannot yet
+
+At 98,304 — with room to spare, a green baseline and a green verify — **four of
+five real issues ran 1,427–2,400 s and changed no files.** That is a genuine
+worker result and it has **no mechanism attached**. The OpenCode transcript is
+written beside the clone and deleted with the scratch root; §7 must capture it
+before the next run.
+
+---
+
 ## 0. The four questions
 
 **Q1. Which serving configuration produces the most verified accepted coding
@@ -357,6 +425,7 @@ Three outcomes only. There is no partial credit, because the metric is
 |---|---|
 | **PASS** | the repo's verify command exits 0 **and** the diff addresses the issue's stated defect. **This does not close the issue** — see safety rule 5 |
 | **FAIL** | verify is non-zero, or the diff does not address the defect, or no diff |
+| **WINDOW_BOUND** | the task filled the context window before it could finish. **Not a worker failure and never totalled as one** — but unlike VOID it IS a result: it says this class of task does not fit that window. `harness.classify_outcome`, saturation at 98 % of `n_ctx` |
 | **VOID** | the harness broke — server died, clone failed, env missing. **Not a worker failure and never counted as one** |
 
 **A green verify with an off-target diff is a FAIL.** That distinction is the
@@ -606,6 +675,10 @@ benchmark stops being one.
 8. **Verify** with §4's command. Capture exit code and output.
 9. **Judge the diff** against the issue's stated defect (§4 rubric). Record the
    diff verbatim.
+9b. **Copy the worker transcript out of the clone before deleting it.**
+   `<clone>.stdout.txt` sits beside the clone and goes with the scratch
+   root. Four tasks ran 24–40 minutes and changed nothing, and the only
+   record of what the worker did was deleted with the tree.
 10. **Record the row** to `results\`, including `ctx_high_water` from the log.
 11. **Stop the server**, wait for VRAM to settle
     (`harness.vram_settled` with a `floor_mib`), record `free_after`.

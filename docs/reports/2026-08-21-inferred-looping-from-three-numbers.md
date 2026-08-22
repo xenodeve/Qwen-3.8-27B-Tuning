@@ -16,7 +16,7 @@ It appeared in three places before anyone questioned it:
 | document | wording |
 |---|---|
 | `docs/plans/04-REVISED-PLAN-2026-08-21.md` §0 | *"the model loops inside the reasoning block until the token budget runs out and never emits a fence"* |
-| `docs/tested/06-prompt-and-quality.md` | *"the model loops inside the reasoning block until the token budget runs out"* |
+| `docs/results/06-prompt-and-quality.md` | *"the model loops inside the reasoning block until the token budget runs out"* |
 | `docs/plans/05-RESEARCH-BRIEF-2026-08-21.md` §2 | the whole section, headed *"the model reasons until the budget is gone and emits nothing"*, with five questions built on it |
 
 The brief was written to be sent to an external researcher.

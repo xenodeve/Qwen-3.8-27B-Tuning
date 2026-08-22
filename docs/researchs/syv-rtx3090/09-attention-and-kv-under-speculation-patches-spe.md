@@ -605,7 +605,7 @@ Files read: `patches/spec-decode-attn.patch` · `patches/spec-decode-int8-kv.pat
 
 **Effort:** n/a · **Transferable:** yes
 
-**Worth on a 4070 SUPER 12 GB:** No VRAM or tok/s. Prevents a specific future error: a later session assuming the dflash2 build is upstream llama.cpp, or assuming a fix present in master is present here. The natural home is docs/tested/ alongside the build, recording PR number, base commit, build number and what is known not to work.
+**Worth on a 4070 SUPER 12 GB:** No VRAM or tok/s. Prevents a specific future error: a later session assuming the dflash2 build is upstream llama.cpp, or assuming a fix present in master is present here. The natural home is docs/results/ alongside the build, recording PR number, base commit, build number and what is known not to work.
 
 ### Patches carry their own ordered apply protocol and version stamp
 **Where (theirs):** `patches/spec-decode-attn.patch:29-30` · `patches/spec-decode-int8-kv.patch:37-40` · `patches/hybrid-sw-block-promote.patch:41-44` · `patches/hybrid-kv-groups-v2-cudagraph.patch:30-33`
