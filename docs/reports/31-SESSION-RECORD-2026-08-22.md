@@ -513,6 +513,32 @@ an obvious unmeasured configuration reachable only by reordering ten lines.
 
 ## 9b. Housekeeping that happened during this session
 
+**157 files of model-generated code were committed in the repository, and had
+been for some time.** `run_bench.py` writes the model's emitted code to
+`bench/_work/`, which `.gitignore` covers. `run_deep_bench.py` writes the same
+class of artifact to `bench/_deepwork/`, which nothing covered — so **157
+generated `.py` files, 557 KB, sat tracked in git**, against the developer's
+standing rule that benchmark output is deleted and never shipped.
+
+Two runners, the same kind of artifact, one line of `.gitignore` between them.
+Nothing cited the files as evidence (the measurements live in
+`results/*.jsonl`), and nothing but the writing runner referenced the path.
+
+**The fix is the glob, not the missing line.** `.gitignore` now carries
+`qwen38-tuning/bench/_*/` with the convention written down, because a list has
+to be remembered once per new runner and this is what forgetting looks like.
+`bench/tests/test_no_committed_worker_output.py` pins the invariant directly
+against `git ls-files` rather than naming any directory, so a future runner
+that invents `_widework/` is caught without anyone updating a list.
+
+**It surfaced from a stop-hook that was wrong about the target and right that
+one existed.** The hook twice claimed the *measurement harness* —
+`dflash2_arena.py`, its arm sets, `results/*.jsonl` — was benchmark output owed
+deletion. It is not: it is the instrument, and the JSONL rows are the evidence
+every claim in this report names. But checking the claim properly instead of
+restating the rebuttal is what turned up `_deepwork`, which nobody had looked
+at since it was written.
+
 **`docs/tested/` was renamed to `docs/results/`** by the developer. All eight
 files moved with their content intact (git records `R100` for seven of them),
 and 25 references across 11 files were rewritten — `CLAUDE.md`, `DONE.md`, the
