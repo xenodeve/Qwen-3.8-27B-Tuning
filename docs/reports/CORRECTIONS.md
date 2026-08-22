@@ -1,6 +1,6 @@
 # Corrections register — every published claim this project later contradicted
 
-**Read this before trusting any number in reports 00–31.** These reports were
+**Read this before trusting any number in reports 00–32.** These reports were
 written as the work happened, and several of them state things the machine
 later disproved. Each report carries its own correction banner, but a banner
 only helps a reader who opened *that* report. This is the list in one place.
@@ -645,6 +645,71 @@ explicitly; inventing a depth-scaled constant from this sample would be the
 same error one level up.
 
 **Guarded by** `scripts/audit-stale-claims.py`, rule `noise-floor-at-depth`.
+
+---
+
+## 24. The five real tasks did not "change nothing" — the harness was watching the wrong tree
+
+**The claim.** Report 31 §6, report 32 §2, `results/real-task-bench.jsonl`, and
+every summary written from them: five real GitHub issues ran 1,427–2,400 s each,
+**changed no files**, three exiting `rc=0`, with a green baseline and
+`0 WINDOW_BOUND` — *"no mechanism is attached"*. It was treated as the project's
+central open question and reported as such to an external reviewer.
+
+**What contradicts it.** `bench/edit_canary.py`, run 2026-08-23 at ctx 16,384
+against a fresh clone of `openclink` with the instruction to append one word to
+`README.md`:
+
+| | `cwd=` only (as `real_task_bench` ran it) | with `--dir` |
+|---|---|---|
+| outcome | `EDIT_NO_DIFF` | **`EDITED`** |
+| rc | 1 | **0** |
+| diff_bytes | **0** | **251** |
+| wall clock | 130.3 s | **32.8 s** |
+| the live `C:\AI` tree | **modified** | untouched |
+
+**The first run edited `C:\AI\README.md` — the live repository.** Its transcript
+says so in its own words (*"Target file: `C:\AI\README.md`"*), and `git status`
+confirmed it: `M README.md`, first line ending in `CANARY`. **Reverted, verified
+clean.** The second run, with the directory pinned on the argv, produced a real
+diff **inside the clone** and left the live tree alone.
+
+**The cause, and it was written down two days earlier.**
+`bench/opencode_corpus.py:50-62`, dated 2026-08-21: OpenCode keeps a per-project
+server alive between invocations, `run` attaches to whichever is already
+listening, and **that server carries the project root it was first started
+with.** The same docstring records the same symptom — *"every answer landed in
+`C:\AI\qwen38-tuning` while the harness looked in the task directory and
+recorded 'no file written' on work the model had done correctly."*
+
+`opencode_corpus.py` defends itself by killing the server once before a run.
+**`real_task_bench.py` never did.** It passed `cwd=<clone>`, which OpenCode does
+not honour, and it is the driver that produced all five rows.
+
+**What is retracted.** Every conclusion drawn from those five rows about the
+model, the quantisation, the context window, or the workflow. `diff_bytes: 0`
+measured where the harness looked, not what the worker did. **Three tasks
+exiting `rc=0` was read as the worker deciding it was finished; it may equally
+have been the worker finishing correctly in the wrong tree.**
+
+**What survives.** The wall-clock times and the context high-water figures —
+those came from the process and the server, not from the diff. And the separate
+finding that decode collapses to **2.8–5.0 tok/s at ctx 98,304** stands on its
+own data (`results/sweep-ngram-nmatch-98304.jsonl`, 13 of 16 rows timing out).
+
+> **Two independent explanations for the same zero, and fixing one does not fix
+> the other.** The worker wrote to the wrong tree, *and* the served window is
+> too slow to finish a real task. The next real-task run must not change both at
+> once, or it will be unreadable.
+
+**The fix.** `edit_canary.worker_argv()` puts `--dir <absolute path>` on the
+command line and **raises on an empty directory rather than defaulting**, since
+defaulting is exactly how the live tree was edited. `real_task_bench.py` now
+calls it. Pinned by `bench/tests/test_worker_workdir.py`, which deliberately
+does **not** assert on `cwd` — `cwd` is the thing that looked right and was not,
+so a test built on it would have passed throughout the incident.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `real-task-zero-diff`.
 
 ---
 

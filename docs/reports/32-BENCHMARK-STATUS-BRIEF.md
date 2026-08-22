@@ -25,6 +25,24 @@ number in §3 is tok/s and is therefore a proxy, not the metric.
 
 ## 2. The question that drives everything
 
+> 🔴 **SUPERSEDED 2026-08-23, after this brief was circulated. There IS a
+> mechanism, and it is an instrument fault.** The worker was writing into
+> `C:\AI` — the live repository — instead of the clone, so `git diff` in the
+> clone was empty and the harness recorded "changed nothing" about work that may
+> have been done correctly in the wrong tree. Reproduced deliberately and fixed:
+> with the directory pinned on the argv the same task returns **`EDITED`, 251
+> diff bytes, in 32.8 s**. Cause, evidence and what is retracted:
+> [`CORRECTIONS.md` §24](CORRECTIONS.md). **Every conclusion below about the
+> model, the quantisation or the workflow is withdrawn; the wall-clock and
+> context high-water figures survive, because they came from the process and the
+> server rather than from the diff.**
+>
+> **A second explanation is still live and independent of this one:** decode
+> collapses to **2.8–5.0 tok/s at ctx 98,304** (§3, added below), where a real
+> task would take hours. **Fixing the directory does not fix that**, and the next
+> real-task run must not change both at once.
+
+
 Five real GitHub issues were handed to a local coding agent backed by this
 server. Raw: `qwen38-tuning/results/real-task-bench.jsonl`.
 
@@ -80,6 +98,16 @@ parsed from `qwen38-tuning/logs/dflash2-*.log`:
 **A 15× collapse at the window actually served**, with every layer resident
 (`offloaded 65/65 layers to GPU`). A 43,162-token prefill therefore takes about
 **9.7 minutes**. Real tasks reached 56,861–88,668 tokens of context.
+
+**Decode collapses with it, and that was not known when this brief was first
+written.** `results/sweep-ngram-nmatch-98304.jsonl`: **13 of 16 rows timed out**
+against a 26.8-minute budget, and the three that finished decoded at **2.8, 5.0
+and 4.2 tok/s** — against a median of **75.2** at ctx 16,384 and **52.1** at
+65,536, from 42 and 12 usable rows. Every arm was `65+0` with acceptance still
+59–77 %, so neither residency nor speculation explains it.
+
+**A real task needs a median 259 added lines. At 4 tok/s that is hours.** This,
+not the model, is why five real tasks produced nothing in 24–40 minutes.
 
 ⚠️ **`prompt eval time` is time-to-first-token from slot launch, not pure
 prefill** — see §5.2. For a cold request the difference is negligible (5,821 ms
@@ -323,8 +351,10 @@ Full register: `docs/reports/CORRECTIONS.md`, **23 entries**.
    The single highest-value question. Needs a control GPU trace at 16,384 to
    establish whether the power profile is anomalous or just what this workload
    looks like.
-2. **Why did five real tasks change nothing, three of them exiting cleanly?**
-   No mechanism. Needs the worker transcript, which is now to be preserved.
+2. ~~Why did five real tasks change nothing?~~ **Answered** — the worker
+   edited the live tree, not the clone (`CORRECTIONS.md` §24). The real
+   question underneath it is now (1): a task cannot finish at 4 tok/s
+   regardless of where it writes.
 3. **Does `--cache-reuse` restore DeltaNet recurrent state, or only KV?** If only
    KV, a hybrid model re-computes recurrent state every turn, and with prefill at
    74 tok/s that alone could account for the 24–40 minutes. **Untested; the

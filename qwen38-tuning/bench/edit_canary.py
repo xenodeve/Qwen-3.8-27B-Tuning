@@ -108,6 +108,32 @@ def assert_tracked(repo, rel, tracked):
             "already known to pass" % (rel, repo))
 
 
+def worker_argv(model, prompt, workdir):
+    r"""The command line, with the working directory pinned EXPLICITLY.
+
+    `cwd=` on the subprocess is not enough and was not enough here. OpenCode
+    keeps a per-project server alive between invocations; `run` attaches to
+    whichever is already listening, and that server carries **the project root
+    it was first started with** (`opencode_corpus.py:50-62`, written 2026-08-21).
+
+    Measured 2026-08-23: launched with `cwd=<clone>` and told to edit
+    `README.md`, the worker edited `C:\AI\README.md` -- the live repository --
+    while `git diff` in the clone stayed empty and the row scored
+    `diff_bytes=0`. That is indistinguishable from the worker choosing to do
+    nothing, and it is what five real tasks recorded.
+
+    So the directory goes on the argv. An empty one raises rather than
+    defaulting, because defaulting is precisely how the live tree got edited.
+    """
+    if not workdir:
+        raise ValueError(
+            "workdir is required: OpenCode resolves paths against the project "
+            "root of whatever server it attaches to, so an unset directory "
+            "silently targets the wrong tree")
+    return [OPENCODE, "run", "--dir", str(Path(workdir).resolve()),
+            "-m", model, prompt]
+
+
 def sh(args, cwd=None, timeout=600, env=None):
     return subprocess.run(args, cwd=cwd, capture_output=True, text=True,
                           timeout=timeout, encoding="utf-8", errors="replace",
@@ -135,7 +161,7 @@ def run(remote, rel, scratch, cfgdir, model, prompt, timeout_s):
     env["OPENCODE_CONFIG_DIR"] = str(cfgdir)
 
     t0 = time.time()
-    p = sh([OPENCODE, "run", "-m", model, prompt], cwd=str(clone),
+    p = sh(worker_argv(model, prompt, clone), cwd=str(clone),
            timeout=timeout_s, env=env)
     row["wall_s"] = round(time.time() - t0, 1)
     row["rc"] = p.returncode

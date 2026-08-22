@@ -44,6 +44,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from harness import assert_deletable, is_protected, classify_outcome
+import edit_canary          # worker_argv: pins the project root on the argv
 
 OPENCODE = r"C:\Users\xenod\.bun\bin\opencode.exe"
 GH = r"C:\Program Files\GitHub CLI\gh.exe"
@@ -188,7 +189,15 @@ def run_one(spec, scratch, cfgdir, model, log_path, offset, timeout_s, n_ctx):
     out_path = clone.parent / ("%s-%s.stdout.txt" % (repo_key, number))
     t0 = time.time()
     with out_path.open("w", encoding="utf-8", errors="replace") as of:
-        proc = subprocess.Popen([OPENCODE, "run", "-m", model, prompt],
+        # --dir, not cwd=. OpenCode keeps a per-project server alive between
+        # invocations and `run` attaches to whichever is already listening,
+        # carrying THE PROJECT ROOT IT WAS FIRST STARTED WITH
+        # (opencode_corpus.py:50-62). Measured 2026-08-23: with cwd= alone the
+        # worker edited C:\AI\README.md -- the live tree -- while git diff in
+        # the clone stayed empty and the row scored diff_bytes=0. That is
+        # indistinguishable from "the worker changed nothing", which is what
+        # every one of the five real tasks recorded.
+        proc = subprocess.Popen(edit_canary.worker_argv(model, prompt, clone),
                                 cwd=str(clone), env=env, stdout=of,
                                 stderr=subprocess.STDOUT, text=True,
                                 encoding="utf-8", errors="replace")

@@ -137,6 +137,17 @@ RULES = [
      "between them validated nothing",
      "CORRECTIONS.md 21"),
 
+    ("real-task-zero-diff",
+     r"changed no files|0 PASS, 5 FAIL|the worker changed nothing|"
+     r"no mechanism is attached|diff_bytes.{0,12}0,",
+     "the five real-task rows measured where the harness LOOKED, not what the "
+     "worker did: OpenCode attaches to a server carrying the project root it "
+     "first started with, so with cwd= alone the worker edited C:/AI itself "
+     "while git diff in the clone stayed empty. reproduced and fixed "
+     "2026-08-23 -- with --dir the same task returns EDITED, 251 diff bytes, "
+     "in 32.8 s",
+     "CORRECTIONS.md 24"),
+
     ("nmatch-24-at-depth",
      r"(?:24|n-match 24)[^\n]{0,60}widen[^\n]{0,20}lead|"
      r"widen its lead at depth|"
