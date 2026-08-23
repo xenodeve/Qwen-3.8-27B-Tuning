@@ -9,6 +9,84 @@ hundred lines.
 
 ---
 
+## 2026-08-24 — the card was never running its own kernels, and the model was never asked to think less
+
+**Shipped on `build/blackwell-sm120`, 22 commits, PR #42, none merged.** Argued in
+[report 34](docs/reports/34-BLACKWELL-BOUGHT-HEADROOM-NOT-SPEED.md) and
+[report 35](docs/reports/35-Q2KXL-MTP-AND-THE-EFFORT-NOBODY-SET.md).
+
+**The build was wrong and nothing said so.** Every binary this project had ever
+benchmarked was `CMAKE_CUDA_ARCHITECTURES=89` on an `sm_120` card. Rebuilt as
+`llama.cpp-blackwell` with a `CMakeCache` diff proving **345 entries identical and
+the architecture list the only differing value** — the first configure attempt did
+NOT have that property and defaulted three flags the Ada build never used, caught
+before a single object compiled. Prefill **146,155 → 66,582 ms** with draft
+acceptance byte-identical at 0.14870 in both.
+
+**Retracted the day-old headline.** *"4× slower than the 4070 SUPER"*
+([CORRECTIONS §28](docs/reports/CORRECTIONS.md)) divided a `hardware_baseline`
+figure at acceptance 14.87 by an arena figure at 60.2. What is actually
+measurable: **1.90× slower at prefill**, matching 4,608 CUDA cores against 7,168.
+**The card bought VRAM, not speed.**
+
+**What the VRAM bought is real.** `dflash2+ngram` went from a median of **5.66
+tok/s with two timeouts in six rounds to 87.72 with none** — the drafter did not
+change, it stopped being squeezed into the 45–376 MiB band.
+
+**Blackwell gives us nothing else.** Every Blackwell-gated path in this build is
+MXFP4/NVFP4; `mmq-config-blackwell.cuh` falls through to the Ampere table for
+every other type. **There is no flag to sweep for.** NVFP4 weights are the only
+lever and the smallest published file is 13.59 GiB against 15,172 MiB free —
+**closed by developer decision on the numbers, nothing downloaded.**
+
+**Six real-task runs, zero files changed, six times.** Two artifacts two bpw
+classes apart and four decoders. `UD-Q2_K_XL` carries `blk.64`, so `draft-mtp`
+runs with **no `-md`** and returns 743 MiB — a configuration this project had
+never run, because every earlier `draft-mtp` figure fed a 1.3 GB sidecar to an
+artifact that had none. `n_max 7` is **+25 % wall clock on DFlash2 and −56 % on
+MTP**, and `qwen35.nextn_predict_layers = 1` says why.
+
+**Every server this project ever launched ran at `reasoning_effort: xhigh` with an
+unlimited thinking budget** — never chosen, never set by any of five worker
+profiles or by the arena. `results/05` had predicted the consequence on
+2026-08-18 and the four real-task runs landed inside the predicted band.
+**`medium` is the served default now**, chosen on the agentic axis where it costs
+one point and `low` costs six.
+
+**Serving:** `scripts/worker-q2kxl-mtp.ps1`, `UD-Q2_K_XL` at ctx **147,456**,
+66/66 resident, boot-verified. **First production data, 33 turns of real use:**
+decode median **37.36 tok/s**, generation median **95 tokens**, **0 of 33 hit the
+8,192 cap**, acceptance 0.5165, high-water **75,841 of 147,456 with
+`truncated = 0`**.
+
+### Four invariants this session paid for
+
+**A VRAM projection is not a residency verdict.** ctx 163,840 was proposed from
+buffers measured at 98,304 and spills to 64/66 — and `--fit` **spills rather than
+refuses**, which reads as success in every field except the layer count. Three
+buffers that look fixed scale with context: target compute, MTP KV at **4.00
+KiB/token exactly**, MTP compute. ~290 MiB per 32,768 tokens.
+
+**Two numbers can both be right and their ratio still false.** `compare_cards.py`
+now withholds a ratio on mismatched acceptance, mismatched corpus, or a median
+taken over the survivors of a timed-out arm.
+
+**A row that does not name its conditions cannot be compared.** Four separate
+fixes — `exe`+`cuda_archs`, `env`, `target`+`target_mib`, `effort` — each added
+*after* a comparison had been made without it. The real-task harness reads the
+model and build out of the server's own boot line.
+
+**A harness that deletes its own evidence cannot be debugged.** `real_task_bench`
+destroyed the worker transcript with the scratch root on every run; the first
+FAIL that needed reading was undiagnosable. Transcripts now live outside the
+deleted tree.
+
+**Validation:** suite **253 → 390**, all red-first; 366 links, 0 broken; audit
+self-check mutation-proved after a patch script silently disarmed one of its
+rules. **No existing worker profile was modified** except to add the effort flag.
+
+---
+
 ## 2026-08-23 — eight techniques from the RTX 3090 pool, and the biggest one was already on
 
 **The pool had one row left open.** `08-rtx3090-transfer.md` called
