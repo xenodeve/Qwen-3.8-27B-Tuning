@@ -110,6 +110,82 @@ def issue_body(tracker, number):
     return d.get("title", ""), d.get("body", "")
 
 
+# A worker that ran at least this long against a live server must have caused
+# the server to write SOMETHING. Below it, silence is plausible -- a worker that
+# died in two seconds may legitimately have logged nothing, and flagging that
+# would turn a real fast failure into an instrument excuse.
+LOG_SILENCE_SUSPICIOUS_S = 30.0
+
+
+def transcript_path(base_scratch, run_root, repo_key, number):
+    r"""Where the worker's stdout goes so the run cannot delete its own evidence.
+
+    Under the BASE scratch directory, not the timestamped run root -- `main()`
+    ends with `shutil.rmtree(run_root)`, and the previous location
+    (`<run_root>/clones/<repo>-<n>.stdout.txt`) was a child of it. Its comment
+    said "beside the clone, never inside it, so per-task cleanup cannot take
+    it", which was true of `_cleanup` and false of the run-root removal that
+    follows. Ten minutes of worker output went with it on 2026-08-24, on the one
+    run where somebody wanted to read it.
+
+    The run stamp is in the filename because the same task is meant to be run
+    again -- against another arm, another build, another window -- and a fixed
+    name would have each run quietly overwrite the last one's evidence.
+
+    `edit_canary.py` reached the same layout first (`transcript_path` there);
+    this is that convention, adopted rather than reinvented.
+    """
+    return (Path(base_scratch) / "transcripts"
+            / ("%s-%s-%s.stdout.txt" % (repo_key, number, Path(run_root).name)))
+
+
+def log_fault(log_path, since_offset, new_offset, worker_ran_s):
+    """Was the server log we read the one the server was writing?
+
+    Returns a message, or None when there is nothing to complain about.
+
+    This is NOT the same question as "did we find a high-water number", and the
+    two must not share an outcome. `harness.classify_outcome` argues, correctly,
+    that an unknown high-water stays FAIL -- missing data is not evidence of a
+    missing window, and excusing failures on absent evidence is how a benchmark
+    stops reporting failures. A log that did not grow by a single byte while a
+    worker ran for ten minutes is a different and much stronger statement: the
+    instrument was pointed somewhere else.
+
+    That happened on 2026-08-24. `--log` defaults to `real-task-server.log`; the
+    run served from `dflash2-serve-dflash2-ngram.log` and the flag was not
+    passed, so the starting offset was the size of a 92.9 MB file from two days
+    earlier and every read landed past its end.
+    """
+    if worker_ran_s is None or worker_ran_s < LOG_SILENCE_SUSPICIOUS_S:
+        return None
+    if not os.path.exists(log_path):
+        return ("server log %s does not exist, so nothing about this run was "
+                "read from it -- pass --log pointing at the log the running "
+                "server is writing" % log_path)
+    if new_offset <= since_offset:
+        return ("server log %s did not grow during %.1fs of worker time, so it "
+                "is not the log this server is writing -- pass --log pointing "
+                "at the right one" % (log_path, worker_ran_s))
+    return None
+
+
+def apply_log_fault(row, fault):
+    """Downgrade a row the instrument could not measure, and say why.
+
+    A PASS is never voided: the worker edited files and the repo's own verify
+    went green, so the task demonstrably happened. A log-reading problem costs
+    us the high-water number, not the result.
+    """
+    if not fault:
+        return row
+    note = row.get("note")
+    row["note"] = (note + " | " + fault) if note else fault
+    if row.get("outcome") != "PASS":
+        row["outcome"] = "VOID"
+    return row
+
+
 def ctx_high_water(log_path, since_offset):
     """Peak context reached, from the server log.
 
@@ -186,7 +262,12 @@ def run_one(spec, scratch, cfgdir, model, log_path, offset, timeout_s, n_ctx):
 
     env = dict(os.environ)
     env["OPENCODE_CONFIG_DIR"] = str(cfgdir)
-    out_path = clone.parent / ("%s-%s.stdout.txt" % (repo_key, number))
+    # Under the BASE scratch, not this run's root -- main() removes the root
+    # wholesale, and the previous location was a child of it. See
+    # transcript_path(); the evidence outliving the run is the whole point.
+    out_path = transcript_path(Path(scratch).parent, scratch, repo_key, number)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    row["transcript"] = str(out_path)
     t0 = time.time()
     with out_path.open("w", encoding="utf-8", errors="replace") as of:
         # --dir, not cwd=. OpenCode keeps a per-project server alive between
@@ -221,7 +302,9 @@ def run_one(spec, scratch, cfgdir, model, log_path, offset, timeout_s, n_ctx):
     row["verify_exit"] = after.returncode
     row["verify_tail"] = (after.stdout or "")[-1500:]
 
+    prev_offset = offset
     row["ctx_high_water"], offset = ctx_high_water(log_path, offset)
+    fault = log_fault(log_path, prev_offset, offset, row.get("wall_clock_s"))
 
     # PASS is the repo's own command plus a diff. Whether the diff addresses
     # the stated defect is a judgement this script does not make and does not
@@ -237,6 +320,10 @@ def run_one(spec, scratch, cfgdir, model, log_path, offset, timeout_s, n_ctx):
                        % (row["ctx_high_water"], n_ctx))
     elif row["changed_files"] == 0:
         row.setdefault("note", "the worker changed nothing")
+
+    # Last, so it can override an outcome the other branches already set: a row
+    # the instrument could not measure is VOID, not a verdict on the worker.
+    apply_log_fault(row, fault)
 
     _cleanup(clone, scratch)
     return row, offset

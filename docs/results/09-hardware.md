@@ -290,6 +290,25 @@ NVFP4 can reach, the drafter's sign is not predictable from either measurement.
 **Nothing above has been run.** It is a survey of what is purchasable with a
 download, priced in VRAM.
 
+### 🔴 Decided 2026-08-24: NVFP4 is not being pursued
+
+**Developer decision, on the numbers above.** The NVFP4 backbone floor is
+~13.6 GiB against 15,172 MiB free, which leaves roughly **44,000 tokens** of
+context once the 472 MiB compute buffer is taken. This project's goal is a usable
+**128K or more**. Trading 98,304 measured — and 262,144 projected — for ~44K to
+gain FP4 tensor cores is the wrong side of the trade, and no NVFP4 build of this
+model gets below that floor because all seven compact tiers share the same
+448-tensor backbone.
+
+**Nothing was downloaded.** The 13.59 GiB file was never fetched; the decision
+rests on the Hub's own file sizes and this card's measured 18.00 KiB/token KV
+rate. **Reopen only if** the KV rate changes, a smaller NVFP4 backbone is
+published, or the context target drops.
+
+**So the native FP4 path in this build is unreachable for us, and that closes the
+question of Blackwell-specific optimisation for this artifact entirely** — every
+other Blackwell-gated path falls through to the Ampere table.
+
 ### The 16 GB upgrade does not unlock Q4 residency
 
 [`11-DEPTH-ON-IQ2XXS.md`](../reports/11-DEPTH-ON-IQ2XXS.md) §3 already recorded
