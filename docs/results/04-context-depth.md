@@ -134,45 +134,85 @@ those came from the process and the server, not from the diff.
 **Fixing the directory does not make that finishable**, and the next real-task
 run must not change both at once.
 
-## The window we serve is the one that does not work — tested 2026-08-23
+## ~~The window we serve is the one that does not work~~ — the DRAFTER does not work there
 
-`results/sweep-ngram-nmatch-98304.jsonl`, 16 rows, deep corpus, four rounds.
+> 🔴 **RETRACTED 2026-08-23 — [`CORRECTIONS.md` §26](../reports/CORRECTIONS.md).**
+> The section below is kept because its measurements are real; its **conclusion
+> is not**. Every one of the sixteen rows loaded the DFlash2 sidecar, so depth
+> and drafter were never separated. Re-measured over six paired rounds at the
+> same ctx and corpus with the arms alternated:
+>
+> | arm | ok | timed out | median tok/s | free MiB after load |
+> |---|---:|---:|---:|---|
+> | `none` | 6/6 | 0 | 33.69 | 800–1,935 |
+> | **`ngram-mod` — what all four profiles serve** | **6/6** | **0** | **96.92** | 769–2,117 |
+> | `dflash2` | 5/6 | 1 | 49.31 | **45–376** |
+> | `dflash2+ngram` | 4/6 | 2 | 5.66 | **153–240** |
+>
+> **`ngram-mod` at ctx 98,304 is faster than the 75.2 median recorded at
+> 16,384.** The window is not the problem. `results/decoders-98304.jsonl`.
+
+`results/sweep-ngram-nmatch-98304.jsonl`, 16 rows, deep corpus, four rounds —
+**all sixteen with `--spec-type draft-dflash,ngram-mod`.**
 
 | n_ctx | usable rows | decode tok/s | cold prefill tok/s |
 |---:|---|---:|---:|
 | 16,384 | 42 / 42 | median **75.2** | **1,129** (89 boots) |
 | 65,536 | 12 / 12 | median **52.1** | **924** (18 boots) |
-| **98,304** | **3 / 16** | median **4.2** (2.8-5.0) | **74.3** (62-87) |
+| **98,304, DFlash2 loaded** | **3 / 16** | median **4.2** (2.8-5.0) | **74.3** (62-87) |
+| **98,304, `ngram-mod` alone** | **6 / 6** | median **96.92** | — |
 
 **Thirteen of sixteen measurements timed out** against a 26.8-minute budget, and
 the three that finished decoded at 2.8, 5.0 and 4.2 tok/s. Every arm was `65+0`
-with acceptance still 59-77 %, so **neither residency nor speculation explains
-it**. Cold prefill collapses with it, 15x, at the same window.
+with acceptance still 59-77 %. The line that used to stand here — *"so neither
+residency nor speculation explains it"* — was wrong: **speculation explains it,
+and the sweep could not see that because it never varied.**
 
-A 43,162-token prefill therefore takes about **9.7 minutes**, and a real task —
-a median 259 added lines across 5 files — is hours at 4 tok/s.
+A 43,162-token prefill takes about **9.7 minutes with the drafter loaded** — and
+that figure, like the decode one, belongs to that configuration rather than to
+the window.
 
-> 🔴 **This is the highest-value open question in the project.** `split: 65+0`
-> reads as healthy and is what every earlier row recorded. What showed the
-> problem was telemetry no column held: **32 MiB free at minimum, 258 median,
-> and 76 W on a ~220 W card at 100 % utilisation for 97 % of a 92-minute run**
-> (`results/gpu-trace-98304.jsonl`, 1,094 samples).
+> **What the telemetry actually says, corrected 2026-08-23.** `split: 65+0`
+> reads as healthy on every row and is not the tell. The tell was in
+> `results/gpu-trace-98304.jsonl` (1,094 samples): **32 MiB free at minimum,
+> 246 median, 100 % GPU utilisation, and 76 W on a ~220 W card**.
 >
-> High utilisation at low power is the memory-bound signature, and LLM decode is
-> memory-bound by nature — so that profile **alone** is not proof of pathology,
-> and there is no control trace at 16,384 yet. What is not explained by nature
-> is prefill: it is compute-bound and 74 tok/s is 15x below the shallow figure.
+> This page used to call that *"the memory-bound signature"* and reason that LLM
+> decode is memory-bound by nature, so it might not be pathology. **That reading
+> is wrong, and the same trace refutes it:** `utilization_memory` has a median
+> of **4 %**, and 2,615 of 2,699 samples sit at ≥ 90 % GPU with the memory
+> controller idle. A memory-bound decode shows high *memory* utilisation. This
+> is a card spinning at full clock and one-third power — waiting, not working.
 >
-> **Untested next step:** disable the Windows sysmem fallback for
-> `llama-server.exe` and re-measure. If it becomes an OOM rather than a
-> slowdown, `65+0` does not mean every allocation sits in dedicated VRAM.
+> Sampled live on 2026-08-23 during a slow `dflash2+ngram` round:
+> `free 196 MiB · util_gpu 100 % · util_memory 3 % · 2820 MHz · 70.18 W · 57 °C`
+> — matching the old trace in every column, and now with the arm identified.
+>
+> **The mechanism, as far as it goes.** With a model-based drafter `n_rs_seq`
+> is 4, so the server writes `created speculative checkpoint … size =
+> 149.626 MiB` — one full recurrent-state plane — every few generated tokens.
+> With `ngram-mod` alone `n_rs_seq` is 0 and no such checkpoint exists. In slow
+> rounds the gap between checkpoints reaches **30.41 s** against a median 2.35 s
+> in fast ones: a stall, not uniform slowness.
+>
+> **Still unexplained:** why some drafter rounds escape — 93.29 tok/s at 240 MiB
+> free, while another managed 1.46 at 153 MiB. There is no clean threshold, only
+> a band where the outcome is unreliable. The sysmem-fallback experiment is
+> still worth running, but as a question about **that band**, not about depth.
 
-⚠️ **A label caveat that applies to every depth row on this page.** The harness
-assumed 3 characters per token; measured, it is **7.0-7.4**. So a run labelled
-"ctx N" fed a prompt of roughly **40 % of N** - 6,621 tokens at "16,384", 28,122
-at "65,536", 43,162 at "98,304". `--ctx` still sets the allocation, so every
-residency and VRAM finding is unaffected; the **depth labels** are what shift.
-Directions hold, because context did grow 4.2x between the first two.
+⚠️ **A label caveat that applies to every depth row on this page.** A run
+labelled "ctx N" fed a prompt of roughly **40 % of N** - 6,621 tokens at
+"16,384", 28,122 at "65,536", 43,162 at "98,304". `--ctx` still sets the
+allocation, so every residency and VRAM finding is unaffected; the **depth
+labels** are what shift. Directions hold, because context did grow 4.2x between
+the first two.
+
+**The reason is `dflash2_arena.py:478`** - `filler(int(ctx * 0.5), regime)`,
+which asks for half the window by design so the generation has room. It is
+**not** that chars/token was mis-estimated: measured against the server's own
+counts it is **~3.4**, against the 3 the harness assumes. The "7.0-7.4" this
+page carried until 2026-08-23 dropped that 0.5 and is retracted in
+[`CORRECTIONS.md` §25](../reports/CORRECTIONS.md).
 
 ## What depth is worth
 

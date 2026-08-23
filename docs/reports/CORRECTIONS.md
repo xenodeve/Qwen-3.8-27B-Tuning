@@ -713,6 +713,150 @@ so a test built on it would have passed throughout the incident.
 
 ---
 
+## 25. "Chars per token is ~7.0–7.4, not 3" — it is ~3.4, and the harness was never wrong
+
+**Where it was published.** [Report 32 §4](32-BENCHMARK-STATUS-BRIEF.md), under
+*Corpus and instrument limits discovered*:
+
+> **Chars per token is ~7.0–7.4, not 3.** `dflash2_arena.filler()` assumed 3, so
+> every run labelled "ctx N" fed a prompt of about **40 % of N**
+
+Repeated in [`04-context-depth.md`](../results/04-context-depth.md) §"What depth
+is worth" and in the 2026-08-23 hand-off.
+
+**What is actually true, measured 2026-08-23.** `dflash2_arena.py:478` reads:
+
+```python
+prompt = filler(int(ctx * 0.5), regime)
+```
+
+The arena asks for **half** the context by design, leaving room for the
+generation. So at ctx 98,304 the request is `filler(49,152)`, which at the
+assumed 3 chars/token produces **147,456 characters** — not 294,912. Against the
+43,162 tokens the log reports, that is **3.42 chars/token**.
+
+The published 6.83 comes from dividing by `98,304 × 3`: **the 0.5 was dropped.**
+All three depths land in the same place once it is put back:
+
+| labelled ctx | chars actually sent | tokens (from log) | chars/token |
+|---:|---:|---:|---:|
+| 16,384 | 24,576 | 6,621 | 3.71 |
+| 65,536 | 98,304 | 28,122 | 3.50 |
+| 98,304 | 147,456 | 43,162 | 3.42 |
+
+**Measured directly, independent of the arena.** `bench/prefix_cache_depth.py`
+sends a character budget and reads the token count back from the server:
+**28,000 chars → 8,147 tokens (3.44)** and **150,000 chars → 44,255 tokens
+(3.39)**, same corpus, same boot. `results/prefix-cache-depth.jsonl`.
+
+**What survives, and what does not.**
+
+- ✅ **The token counts are right.** 6,621 / 28,122 / 43,162 were read from
+  server logs, not derived, and nothing here touches them.
+- ✅ **"A run labelled ctx N fed about 40 % of N" is right** — 43,162 / 98,304 =
+  43.9 %. Every depth-label caveat resting on it still stands.
+- ❌ **The reason given for it is wrong.** It happens because the harness
+  *deliberately* asks for half the window, not because a constant was
+  mis-estimated by 2.3×.
+- ❌ **`filler()`'s assumption of 3 was never the fault.** At a real 3.4 it is
+  about 12 % low, which is a rounding choice, not an instrument fault. Report 32
+  named it as one of the session's discovered instrument limits; it is not one.
+
+**Why this one is worth recording even though no number moved.** The correction
+that reached the ledger and the hand-off was *"the harness assumed 3 and reality
+is 7"* — an accusation against a tool that was behaving correctly. Acting on it
+would mean 'fixing' `filler()` to send 2.3× more text and silently doubling the
+depth of every future row while the label stayed the same. **A wrong explanation
+attached to a right number is not harmless; it is a wrong instruction to the
+next person who reads it.**
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `chars-per-token-7`.
+
+---
+
+## 26. "Decode collapses to 2.8–5.0 tok/s at the window we serve" — the window is fine; the drafter is not
+
+**Where it was published.** [`04-context-depth.md`](../results/04-context-depth.md),
+*"The window we serve is the one that does not work"*, and the
+🔴 UNTRACKED row of the same name in
+[`OPEN-WORK-LEDGER.md`](../OPEN-WORK-LEDGER.md):
+
+> ctx 98,304: **13 of 16 measurements timed out** … and the three that finished
+> decoded at 2.8 / 5.0 / 4.2 tok/s against a median **75.2** at 16,384 … every
+> arm `65+0`, acceptance still 59–77 %, **so neither residency nor speculation
+> explains it**
+
+**What the sweep could not see.** Every one of those sixteen rows ran
+`--spec-type draft-dflash,ngram-mod` with the DFlash2 sidecar loaded — readable
+in each row's own `args` field. **No arm at that depth ever ran without it**, so
+"depth" and "drafter" were never separated, and the clause *"neither residency
+nor speculation explains it"* rests on a comparison that was never made.
+
+**Measured 2026-08-23**, `results/decoders-98304.jsonl`, 24 rows, six paired
+rounds, same ctx, same corpus (`real-code-deep`, sha `1a3ae4b813dd8447`), same
+binary, arms alternated within each round:
+
+| arm | ok | timed out | tg samples | median | free MiB after load |
+|---|---:|---:|---|---:|---|
+| `none` | 6/6 | 0 | 33.53 · 33.55 · 33.58 · 33.80 · 34.15 · 34.76 | **33.69** | 800–1,935 |
+| **`ngram-mod`** | **6/6** | **0** | 96.14 · 96.40 · 96.80 · 97.04 · 98.85 · 98.88 | **96.92** | 769–2,117 |
+| `dflash2` | 5/6 | 1 | 0.64 · 47.31 · 49.31 · 52.82 · 53.62 | 49.31 | **45–376** |
+| `dflash2+ngram` | 4/6 | 2 | 1.46 · 4.53 · 6.78 · 93.29 | **5.66** | **153–240** |
+
+**The two groups do not overlap on free VRAM, and that is the whole finding.**
+Arms without the drafter sit at 769–2,117 MiB, finish 12 times out of 12, and
+spread 3–4 %. Arms with it sit at 45–376 MiB every single time, time out 3 times
+in 12, and spread **146×** — 0.64 to 93.29 tok/s on identical flags.
+
+**What is retracted:**
+
+- ❌ **"Decode collapses at the window we serve."** The profile we actually
+  serve is `ngram-mod` alone, and it returns **96.92 tok/s median at ctx
+  98,304** — *faster* than the 75.2 median recorded at 16,384. Depth is not the
+  variable.
+- ❌ **"Neither residency nor speculation explains it."** Speculation explains
+  it. The sweep held it fixed and could not see it.
+- ❌ **The 2.8–5.0 range as a property of the window.** It is the lower tail of
+  a bimodal distribution belonging to the drafter arms.
+
+**What survives:**
+
+- ✅ **The numbers themselves.** 2.76 / 5.01 / 4.18 were real measurements of
+  `draft-dflash,ngram-mod` at that depth, and this run reproduces that regime
+  (1.46 / 4.53 / 6.78) alongside the fast one (93.29).
+- ✅ **`65+0` on every row.** Confirmed again here — and confirmed *not* to be
+  the explanation, since the fast and slow rounds of the *same arm* allocate
+  byte-identically: model 6,521.13 MiB, KV 1,728.00, RS **748.12 on CUDA0**,
+  compute 472.27, no OOM, and `--fit` logging *"will leave 849 >= 768 MiB, no
+  changes needed"* in both.
+
+**The mechanism, as far as it is established.** With a model-based drafter
+`n_rs_seq` is 4, so the server writes a **`created speculative checkpoint …
+size = 149.626 MiB`** — one full recurrent-state plane — every few generated
+tokens. With `ngram-mod` alone `n_rs_seq` is 0 and no such checkpoint exists. In
+the slow rounds the gap between checkpoints reaches **30.41 s** against a median
+2.35 s in the fast ones, which is a stall rather than uniform slowness. Sampled
+live during a slow arm: `free 196 MiB · util_gpu 100 % · util_memory 3 % ·
+2820 MHz · 70.18 W · 57 °C` — matching `gpu-trace-98304.jsonl`'s medians
+(246 MiB, 100 %, 4 %, 2820 MHz, 75.2 W, 57 °C) in every column.
+
+**What is NOT established.** Why some drafter rounds escape — 93.29 tok/s at
+240 MiB free while another round managed 1.46 at 153 MiB. There is no clean
+threshold, only a band in which the outcome is unreliable. **The 100 % / 3 %
+split is not the memory-bound signature `04-context-depth.md` called it** — a
+memory-bound decode shows high *memory* utilisation, and this shows 3 %. It is a
+card spinning, not a card working.
+
+**Consequence for shipping.** All four `worker-*.ps1` run `ngram-mod` alone and
+are **correct as they stand for this window**. Adding DFlash2 to the served
+profile would cost 94 % of decode and a one-in-four chance of not finishing —
+the exact opposite of its **+48.5 %** at ctx 16,384. This is the sharpest
+instance yet of the rule that a verdict at one depth does not transfer.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `decode-collapse-98304`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

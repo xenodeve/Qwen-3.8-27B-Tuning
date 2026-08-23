@@ -31,11 +31,17 @@ retracted** (`CORRECTIONS.md` §24). Reproduced deliberately: `cwd=` alone gives
 symptom and all. The driver that walked into it was a few hundred lines away and
 nothing made anyone re-read it.
 
-**Decode at the served ctx 98,304 is 2.8–5.0 tok/s**, against a median 75.2 at
-16,384, with **13 of 16 measurements timing out**. Cold prefill falls
-**1,129 → 924 → 74.3** over the same three depths, every layer resident. Found
-because `gpu_trace.py` happened to be running and showed 100 % utilisation at
-**76 W** with **32 MiB free**.
+**~~Decode at the served ctx 98,304 is 2.8–5.0 tok/s~~** — measured correctly,
+attributed wrongly, and **retracted the next day**
+([`CORRECTIONS.md` §26](docs/reports/CORRECTIONS.md)). All sixteen of those rows
+loaded the DFlash2 sidecar, so depth and drafter never varied independently.
+With `ngram-mod` alone — what every worker profile serves — the same window
+returns **96.92 tok/s over 6 of 6 rounds**. Cold prefill falls
+**1,129 → 924 → 74.3** over the three depths with the drafter loaded, and has
+not been re-measured without it. Found at all because `gpu_trace.py` happened to
+be running and showed 100 % utilisation at **76 W** with **32 MiB free** — a
+signature this entry read as memory-bound, which the same trace refutes at
+`utilization_memory` **4 %**.
 
 **Shipped:** `bench/gpu_trace.py`, `bench/edit_canary.py`,
 `harness.window_repetition_pct`, `bench/corpora/real-code-deep.txt`, a

@@ -30,7 +30,7 @@ spread the floor came from. **A quiet night is not a smaller floor.**
 | flag | tried | result |
 |---|---|---|
 | `-t` 8 / 12 / 18 / 24 | yes | 18 chosen; differences under the floor |
-| `-b` / `-ub` | yes | see [`03-memory-and-kv.md`](03-memory-and-kv.md) — a VRAM lever, not a speed lever |
+| `-b` / `-ub` | yes, and **re-measured at depth 2026-08-23** — see below | it is **both**, and the exchange rate is bad |
 | `-fa on` / `off` | yes | `on` required; `off` loses residency |
 | `-sm tensor` | yes | single GPU, no effect |
 | `--no-repack`, `--no-op-offload`, `--load-mode`, `--no-host`, `--swa-full`, `--no-kv-unified` | yes | all confirmed inert, as report 16 predicted |
@@ -38,12 +38,94 @@ spread the floor came from. **A quiet night is not a smaller floor.**
 *Raw: `results/sweep-threads*.jsonl`, `results/sweep-batch*.jsonl`,
 `results/kv-layers-16k.jsonl`, `results/kv-depth-levers.jsonl`.*
 
+### `-ub` at the served window — swept 2026-08-23. The VRAM is real and costs too much
+
+From the RTX 3090 scan's *present-and-never-set* list, where it is described as
+*"the single knob that sizes the worst-case compute buffer"* — the reserve pass
+builds the prompt-processing graph at `n_tokens = min(n_ctx, n_ubatch)`. **The
+mechanism is correct. The exchange rate is what kills it.**
+
+**Step 1 — what it buys**, `bench/ubatch_preflight.py`, one boot per value at
+ctx 98,304, read back from `llama_context: n_ubatch = N` rather than assumed:
+
+| `-ub` | compute buffer | free after load |
+|---:|---:|---:|
+| 256 (ours) | 472.27 MiB | 825 MiB |
+| 128 | 428.27 MiB | 869 MiB |
+| 64 | 406.27 MiB | 891 MiB |
+
+**A 4× cut returns 66 MiB.** That is the whole prize, and it is not enough to
+matter where it was wanted: the DFlash2 arms finish with 45–376 MiB free and are
+unreliable there ([`CORRECTIONS.md` §26](../reports/CORRECTIONS.md)); 66 MiB
+moves them to 111–442, the same band.
+
+**Step 2 — what it costs**, `results/ubatch-98304.jsonl`, three paired rounds
+against `ngram-mod`, which is what every worker profile serves:
+
+| arm | rounds | vs `-ub 256` |
+|---|---|---|
+| `ub-256-base` | 106.3 · 108.3 · 107.8 | baseline |
+| `ub-128` | 100.6 · 101.8 · **108.0** | −3.7 % [−5.9, +0.2] — **inconsistent, see below** |
+| **`ub-64`** | 91.8 · 92.3 · 93.0 | **−14.0 % [−14.8, −13.7] RESOLVED** |
+
+**`-ub 64` loses 14 % of decode to buy 77 MiB.** Nothing on this page is worth
+that trade.
+
+**The `ub-128` third round is the interesting part, and it is not noise in the
+usual sense.** All three of its boots are byte-identical in the log —
+`n_ubatch = 128`, compute buffer `428.27 MiB`, `projected to use 8827 MiB vs
+10919`, `will leave 2091 >= 768`, `11069 MiB free` at boot. Yet `free_after`,
+sampled while the server is still running, reads **759 · 757 · 1,214 MiB**. The
+457 MiB the third round had spare was not allocated differently by us; **it was
+released by something else on the machine.** That round also ran 6 % faster.
+
+This is the first direct evidence in this project that the desktop's VRAM
+occupancy — the ledger's *"1,650–2,200 MiB, the largest untouched lever on this
+machine"* — moves a measured rate on an otherwise identical configuration. It
+does not license a conclusion about `-ub 128`; it disqualifies that round.
+
+**Also worth noting: `-ub` moves the n-gram statistics**, which nothing
+predicted. `ngram-mod`'s mean accepted length falls 20.35 → 19.0 → 17.57 and its
+decline rate goes 33.8 % → 22.1 % → 54.2 % across 256/128/64. Unexplained.
+
 ## Six flags read from source before spending GPU time — 2026-08-22
 
 **Read, not measured.** Six agents each traced one flag into the code that
 *consumes* it, after two sweeps that day were designed against a misreading and
 measured nothing. Three of the six turn out to be provably inert in our
 configuration, which saves three GPU rounds.
+
+### ☠️ fp16 recurrent state — DO NOT ATTEMPT. It would not fail, it would lie
+
+**Read from source 2026-08-23, no GPU round spent.** The RTX 3090 scan lists
+*"fp16 Gated-DeltaNet recurrent state (`--mamba-ssm-cache-dtype float16`)"* as a
+**small-patch** whose seam is *"`recurrent_type_r` / `recurrent_type_s` are
+`GGML_TYPE_F32` literals at the call site"*. The literals are real —
+`src/llama-model.cpp:2316-2317` and `:2335-2336` — and the prize is real too: our
+boot log records `llama_memory_recurrent: size = 748.12 MiB … S (f32): 720.00
+MiB`, so halving it returns **~360 MiB**, five times what `-ub` returns.
+
+**Do not change them.** Qwen3.8's recurrent layers run
+`ggml/src/ggml-cuda/gated_delta_net.cu`, and that file:
+
+- contains **zero** occurrences of `GGML_TYPE_F32` — there is no type check of
+  any kind on the state tensor;
+- casts it unconditionally — `const float * s_d = (const float *) src_state->data;`
+- computes every stride as `nb / sizeof(float)`.
+
+So flipping the literal produces a server that **boots, allocates 374 MiB
+instead of 748, reports a healthy `65+0`, and decodes at a plausible rate while
+the kernel reads the state array at twice its real span.** No assertion fires,
+no error is logged, and the only symptom is wrong output.
+
+**This is the project's north-star failure mode in its purest form**, and it is
+worse than the other do-not-sweep entries on this page: those produce a bad
+number you can see. This one produces a good number that is false.
+
+Reaching fp16 state here means writing a templated or converting DeltaNet
+kernel — **new-backend effort, not a patch** — and the scan's own effort rating
+is wrong by two tiers. Recorded so the 360 MiB does not tempt the next reader
+the way it tempted this one.
 
 ### 🔴 `-ctkd` / `-ctvd` — DO NOT SWEEP. The saving is real; the cost is larger
 

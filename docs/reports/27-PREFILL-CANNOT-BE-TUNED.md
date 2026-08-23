@@ -1,12 +1,21 @@
 # 27 — Prefill cannot be tuned on this machine
 
 > 🔴 **Scoped to ctx ≤ 32,768 — and the title does not hold at depth.**
-> Measured 2026-08-23: cold prefill is **1,129 tok/s at 16,384, 924 at
-> 65,536 and 74.3 at 98,304** — a 15× collapse at the window actually
-> served, with every layer resident (`65/65`). Decode collapses with it, to
-> **2.8–5.0 tok/s**. That is now the highest-value open question in the
-> project, not a closed one. Every number below stands at the depth it was
-> taken. See [32 §3.1](32-BENCHMARK-STATUS-BRIEF.md).
+> Cold prefill is **1,129 tok/s at 16,384, 924 at 65,536 and 74.3 at
+> 98,304** — a 15× collapse at the window actually served, with every layer
+> resident (`65/65`).
+>
+> ⚠️ **But read the 74.3 with its configuration attached.** It was measured
+> with the DFlash2 sidecar loaded, as was every row at that depth. The
+> companion claim that *decode collapses with it to 2.8–5.0 tok/s* is
+> **retracted — [CORRECTIONS §26](CORRECTIONS.md), 2026-08-23**: with
+> `ngram-mod` alone, which is what all four worker profiles serve, decode at
+> ctx 98,304 is **96.92 tok/s median over 6 of 6 rounds**. The prefill figure
+> above has not been re-measured without the drafter and should be treated as
+> a drafter-loaded number until it is.
+>
+> Every number below stands at the depth it was taken.
+> See [32 §3.1](32-BENCHMARK-STATUS-BRIEF.md).
 
 **Measured 2026-08-21.** Raw: `qwen38-tuning/results/prefill-kv-type.jsonl`.
 Two rounds, arm order reversed, `UD-IQ2_S` at 32,768 with the default reserve —

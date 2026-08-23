@@ -138,6 +138,29 @@ RULES = [
      "between them validated nothing",
      "CORRECTIONS.md 21"),
 
+    ("decode-collapse-98304",
+     r"2\.8\s*[-–]\s*5\.0 tok/s|decode collapses|13 of 16 measurements|"
+     r"13/16 timeouts|the window we serve is the one that does not work|"
+     r"neither residency nor speculation explains",
+     "the collapse belongs to the DFlash2 arms, not the window. Every row of "
+     "sweep-ngram-nmatch-98304 loaded the drafter, so depth and drafter were "
+     "never separated. Measured 2026-08-23 over six paired rounds: ngram-mod "
+     "alone -- what all four worker profiles serve -- returns 96.92 tok/s "
+     "median at ctx 98,304 with 6/6 rounds finishing, against 5.66 median and "
+     "2 timeouts for dflash2+ngram. Free VRAM 769-2,117 MiB without the "
+     "drafter vs 45-376 with it, no overlap",
+     "CORRECTIONS.md 26"),
+
+    ("chars-per-token-7",
+     r"7\.0\s*[-–]\s*7\.4|~?7 chars/token|chars per token is [^\n]{0,12}7|"
+     r"assumed 3 chars/token; real is ~7|it is 7\.0",
+     "chars/token is ~3.4, not 7. dflash2_arena.py:478 asks for "
+     "filler(int(ctx * 0.5)) -- half the window by design -- so ctx 98,304 "
+     "sends 147,456 chars, not 294,912. The published 6.83 dropped the 0.5. "
+     "The token counts and the '~40 % of N' conclusion are unaffected; the "
+     "explanation and the accusation against filler() are not",
+     "CORRECTIONS.md 25"),
+
     ("real-task-zero-diff",
      r"changed no files|0 PASS, 5 FAIL|the worker changed nothing|"
      r"no mechanism is attached|diff_bytes.{0,12}0,",

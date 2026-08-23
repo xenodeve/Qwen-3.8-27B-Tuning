@@ -329,6 +329,35 @@ def draft_acceptance(timings):
     return round(100.0 * accepted / drafted, 1)
 
 
+def cache_reuse_pct(timings):
+    """Share of the submitted prompt that llama-server served from cache.
+
+    `cache_n` + `prompt_n` is the whole prompt: tokens reused, plus tokens
+    actually evaluated this request. The ratio is what says whether an agent
+    turn re-prefilled or appended.
+
+    Reads both fields with `[]`, deliberately. The 2026-08-22 prefix-cache run
+    used `.get()` with a default, so a response whose timings block lacked
+    `cache_n` -- which is what /v1/chat/completions returns, against the raw
+    /completion endpoint this needs -- would have rendered as a 0 % row and read
+    as a real cache miss. Pointing a driver at the wrong endpoint has to be a
+    crash, not a page of plausible zeros.
+
+    Both counters zero is not 0 % either: nothing was submitted, so the question
+    was never asked.
+    """
+    cached = timings["cache_n"]
+    evaluated = timings["prompt_n"]
+    if cached is None or evaluated is None:
+        raise TypeError("cache_n/prompt_n present but null: not a measurement")
+    if cached < 0 or evaluated < 0:
+        raise ValueError(f"negative token counter: cache_n={cached} prompt_n={evaluated}")
+    total = cached + evaluated
+    if total == 0:
+        raise ValueError("empty prompt: reuse percentage is undefined, not 0 %")
+    return 100.0 * cached / total
+
+
 NOISE_FLOOR_PCT = 13.6   # measured restart-to-restart peak-to-peak; report 04 s0
 
 

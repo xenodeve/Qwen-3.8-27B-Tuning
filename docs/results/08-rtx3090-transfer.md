@@ -34,11 +34,25 @@ Flag semantics for the shortlist:
 | 12 | Quantised DFlash2 drafter (3.85 GB bf16 → 1.19 GB W4A16) | — | **ALREADY HAD IT** | our GGUF is 1.06 GB and was never bf16 |
 | 13 | Adaptive verify block beyond the trained block size | — | **IMPOSSIBLE** | `speculative.cpp:989` clamps at `block_size − 1` = 7 |
 | 14 | KVarN 4-bit K / 2-bit V | — | **IMPOSSIBLE** | llama.cpp's KV types bottom out at 4 bits |
-| 15 | Hybrid recurrent-state prefix cache | `--cache-reuse` / `-sps` | **OPEN** | whether llama.cpp restores DeltaNet state or only KV is unknown |
+| 15 | Hybrid recurrent-state prefix cache | `cache_prompt` + `--ctx-checkpoints` | **MEASURED** | **It transfers.** 99.9 % reuse and ~250 ms per warm turn at 44,255 tokens — but any edit ahead of the suffix costs a full re-prefill (41.8 s) |
+| 16 | "max-num-batched-tokens chosen against the KV pool" | `-ub` / `--ubatch-size` | **MEASURED — and refused** | Mechanism correct, exchange rate bad. A 4x cut returns **66 MiB** and costs **−14.0 % decode RESOLVED**. `05-runtime-flags.md` |
+| 17 | fp16 Gated-DeltaNet recurrent state | `recurrent_type_r/_s` literals | **READ — ☠️ DO NOT ATTEMPT** | Would return **360 MiB** and **corrupt silently**: the DeltaNet CUDA kernel has *no* type check and casts the state to `float *` unconditionally. Scan rates it `small-patch`; it is new-backend |
+| 18 | Per-token arrival capture / exact-token replay | `"timings_per_token"`, `"return_tokens"` | **READ — AVAILABLE NOW** | Both are plain request booleans, no patch and no server flag. Directly serve the recorder (#30–#36). Never set here |
+| 19 | Lookup applied after the selector rather than before | speculator priority list | **READ — needs a patch** | `speculative.cpp:2540-2552` hardcodes every `ngram-*` above every model-based type, so our measured `draft-dflash,ngram-mod` **ran ngram first**. "dflash first" is unmeasured |
 
-**Three measured wins — one of them by refuting the claim that produced it —
-two measured nulls, four read-and-closed, two we already had, two impossible,
-one open.**
+**Nineteen rows, and the tally is the point of the page.** Four measured wins —
+one of them by refuting the claim that produced it. Two measured nulls. **One
+measured and refused**, where the mechanism held and the price did not. Two
+instruments we already had and had not read. Four read-and-closed without a GPU
+round, one of which would have corrupted output silently had it been tried.
+Three read and still live. One we already had, two the architecture forecloses.
+**None open.**
+
+**The read-and-closed column is worth as much as the wins.** Four GPU rounds not
+spent, and `#17` is the sharpest of them: following the scan's own `small-patch`
+rating would have produced a server that boots, saves 360 MiB, reports a healthy
+split and a plausible rate, and reads its recurrent state at twice the real
+span with nothing logged.
 
 **The refutation is one of the wins.** Their claim was that a *shorter* match
 predicts better. Measured here the direction reverses, and acting on the claim
@@ -167,7 +181,66 @@ confidence sits above 0.10 essentially always. **Designing the arms above the
 algebraic bound was necessary and not sufficient.**
 [`02-decoders.md`](02-decoders.md).
 
-## 6. `-fitt` — the transfer that found an error in our own profiles
+## 6. Prefix reuse — the last open item, and it transferred — measured 2026-08-23
+
+`results/prefix-cache-depth.jsonl`, `bench/prefix_cache_depth.py`, one boot at
+ctx 98,304, `--spec-type ngram-mod`, corpus `real-code-deep` sha `1a3ae4b813dd8447`.
+
+Their `PREFIX_CACHE=1` took turn 2 of a 24K chat from ~23 s to 1.15 s. Ours:
+
+| | 8,147 tokens | 44,255 tokens |
+|---|---:|---:|
+| turn 1, cold | 6,727 ms | 35,301 ms |
+| turns 2–4, append-only | 218 / 223 / 257 ms | 228 / 254 / 265 ms |
+| cache reuse on those turns | 99.5–99.7 % | **99.9 %** |
+| saved per warm turn | **96.7 %** | **99.3 %** |
+| one sentence edited near the front | 0.0 %, 6,627 ms | **0.0 %, 41,810 ms** |
+
+**A warm turn costs the same ~250 ms whether the conversation is 8K or 44K
+tokens.** That is the finding, and it is the one that reorders the cost model:
+prefill is a per-conversation cost, not a per-turn one, as long as the prompt
+only grows.
+
+**It works despite `n_rs_seq = 0`, not because of a rollback.** Read from source
+and confirmed in the boot log. Qwen3.8 loads as arch `qwen35`, which is on the
+`llm_arch_supports_rs_rollback` whitelist (`src/llama-arch.cpp:1044`), so the
+recurrent half *can* be partially removed — but only by `n_rs_seq` tokens
+(`src/llama-memory-recurrent.cpp:180-192`), and `n_rs_seq` is `draft.n_max`,
+**zero unless a model-based drafter is loaded** (`common/common.h:386`). Every
+`worker-*.ps1` runs `--spec-type ngram-mod` alone, so
+`common_context_can_seq_rm` classifies the context as `SEQ_RM_TYPE_FULL`. What
+covers the gap is `--ctx-checkpoints`, **default 32** (`common/common.h:613`),
+which the server enables for exactly the FULL and RS cases
+(`tools/server/server-context.cpp:3372-3376`). The log confirms
+`n_rs_seq = 0` on both probes.
+
+**The reuse is not one mechanism but two, and the second was invisible to us.**
+`--cache-ram` defaults to **8192 MiB** (`common/common.h:615`) — a server-level
+prompt cache in host RAM into which *idle slots are saved and from which they
+are restored*. It is why the deep probe's "cold" turn 1 came back at **17.8 %
+reuse** after an explicit `POST /slots/0?action=erase`: erase clears the slot,
+not the RAM cache, and 7,887 tokens of the shallow probe's prompt were still
+recoverable. **No profile here has ever set `-cram`, and nothing in this
+project had noticed it was on.** Its effect on a slot-thrashing multi-agent
+workload is unmeasured.
+
+**The cost of the failure case grows with depth and is the thing to design
+against.** An edit ahead of the suffix does not degrade reuse, it zeroes it:
+0.0 % at both depths, and at 44K that is **41.8 s** — six times the shallow
+penalty. OpenCode may reserialize tool schemas between turns, and
+`results/prefix-cache.jsonl` (2026-08-22, 3,878 tokens) already showed a tool
+reorder, a one-sentence system-prompt edit, and a prepended skill block each
+collapsing reuse to a single token. **Anything injected ahead of the
+conversation must be byte-stable across turns or the entire prefill is repaid
+every turn.**
+
+**Limits of this measurement, stated.** One boot, one round per depth, no
+repeats — so these are not paired figures and carry no verdict label. Decode was
+not measured here (`n_predict` 8). The conversation is an agent-shaped synthetic,
+not a captured OpenCode session, so it establishes that the *mechanism* works at
+depth, not that OpenCode's actual serialization keeps it working.
+
+## 7. `-fitt` — the transfer that found an error in our own profiles
 
 `tools/server/server-context.cpp:1074` **adds the draft model's bytes** to
 `fit_params_target` before `--fit` runs. With the 1,090 MiB sidecar, our
@@ -251,11 +324,17 @@ quantisation. [Report 30](../reports/30-SYV-RTX3090-REFERENCE-REVIEW.md).
   would have been accepted, since dflash already keeps only 2.91 of 5.
 - **#7 `-fitt`** — a step function with a dead zone whose step moves with boot
   VRAM. Read the fitted configuration from the log before measuring any rate.
-- **#15 recurrent-state prefix reuse** — their `PREFIX_CACHE=1` took turn 2 of a
-  24K chat from ~23 s to 1.15 s, and a 100K prefix from 169 s cold to 4.7 s.
-  Whether llama.cpp's `--cache-reuse` restores DeltaNet state or only KV is
-  **unknown here and not answered by their repo**. The single largest untested
-  idea left in the pool.
+- ✅ **#15 recurrent-state prefix reuse — CLOSED, and it transferred.** 99.9 %
+  reuse and ~250 ms per warm turn at 44,255 tokens; see §6. The question as it
+  was posed — *"does `--cache-reuse` restore DeltaNet state or only KV"* — turned
+  out to be aimed at the wrong flag: `--cache-reuse` is the **chunk-shifting**
+  path, was never set here, and is gated on `llama_memory_can_shift`, which the
+  hybrid answers by asking **only its attention half**
+  (`src/llama-memory-hybrid.cpp:133-135`). What actually carries the reuse is
+  plain `cache_prompt` plus `--ctx-checkpoints`. **Two things left open by it:**
+  `--cache-reuse` itself is still unmeasured and would only bite on the
+  edited-head case, and `-cram` (default 8192 MiB, never set by any profile) has
+  no measurement at all.
 - **The speculator order.** `speculative.cpp:2540-2552` hardcodes every `ngram-*`
   above every model-based type and discards command-line order, so our measured
   `draft-dflash,ngram-mod` **+48.5 %** ran *ngram first*. Since dflash alone beat
