@@ -140,9 +140,62 @@ it replaced.** That is consistent with the silicon — 4,608 CUDA cores against
 7,168, and 448 GB/s against 504 — and it means **the 5060 Ti bought VRAM, not
 speed.** Plan around capacity, not throughput.
 
-**Decode across the two cards remains unmeasured** until the arena sweep runs
-here; `results/decoders-98304-blackwell.jsonl` is the file that will answer it,
-row-for-row against `decoders-98304.jsonl`.
+### Decode across the two cards — measured, and it is not the story
+
+`results/decoders-98304-blackwell.jsonl`, three rounds, four arms, arms rotated
+within each round, same corpus and ctx as `decoders-98304.jsonl` on the old card.
+Produced by `bench/compare_cards.py`, which **withholds a ratio** when draft
+acceptance differs, when the corpus hash differs, or when either side's median is
+taken over the survivors of an arm that timed out:
+
+| arm | 4070 SUPER | 5060 Ti | spread, old → new | |
+|---|---:|---:|---|---|
+| `none` | 33.69 | 26.42 | 3.7 % → **1.9 %** | **1.28× slower** |
+| `ngram-mod` | 96.92 | 86.45 | 2.8 % → 5.7 % | **1.12× slower** |
+| `dflash2` | 49.31 *(5/6 rows)* | 41.42 *(3/3)* | **107.4 % → 8.3 %** | ratio withheld |
+| `dflash2+ngram` | **5.66** *(4/6 rows)* | **87.72** *(3/3)* | **1623.4 % → 9.8 %** | ratio withheld |
+
+**Per arm the new card is 1.1–1.3× slower, which is the silicon and was
+expected.** Acceptance matched closely enough to compare on the two clean arms
+(60.2 vs 61.4 on `ngram-mod`); the two drafter arms are withheld because the Ada
+medians are over survivors, not because the new numbers are doubtful.
+
+**What actually changed is that the unusable arms became usable.** On Ada,
+`dflash2+ngram` spanned **1.46 to 93.29 tok/s** with two timeouts in six rounds —
+a median of 5.66 that describes a failure mode, not a rate. Here it is
+**81.64–90.27 with none**, and it is the **fastest arm on the card**, ahead of
+the `ngram-mod` every worker profile currently serves.
+
+**The mechanism is free VRAM, and it was predicted before it was measured.**
+`CORRECTIONS.md` §26 pinned the drafter's collapse to a **45–376 MiB** band. The
+same arms finish here with **2,842–3,183 MiB**. Nothing about the drafter changed;
+it stopped being squeezed.
+
+> **So the 16 GB bought reliability and headroom, not throughput.** Every
+> individual number got slightly worse and the configuration space got much
+> larger. For a project whose metric is *verified accepted coding tasks per
+> hour*, an arm that finishes 6 times out of 6 at 87.72 beats one that finishes
+> 4 times out of 6 with a median of 5.66, and the tok/s column never said so.
+
+**Not yet claimed:** that `dflash2+ngram` should replace `ngram-mod` in the
+served profiles. Three rounds is thin, this is one depth, and `CLAUDE.md` warns
+that a verdict at one depth does not transfer. No profile has been changed.
+
+### The noise floor on this card, as far as three rounds can say
+
+| arm | peak-to-peak over 3 rounds |
+|---|---:|
+| `none` | **1.9 %** |
+| `ngram-mod` | 5.7 % |
+| `dflash2` | 8.3 % |
+| `dflash2+ngram` | **9.8 %** |
+
+The retired **13.6 %** figure was Ada, 12 GB, **ctx 16,384**. At ctx 98,304 on
+this card nothing exceeded **9.8 %**, and the arms without a sidecar sit far
+below it. **Do not read 9.8 % as the new floor** — three rounds cannot establish
+one, and `CORRECTIONS.md` §23 records the same arm spanning 48.9 % at 65,536 on
+the old card with byte-identical counters. What it does support is that **an
+effect smaller than ~10 % at this depth on a drafter arm is not yet an effect.**
 
 **The guard.** `scripts/worker-5060ti.ps1` reads the code objects out of
 `ggml-cuda.dll` before launching and **refuses to start** on a binary without
@@ -196,12 +249,46 @@ which is `1200` on this card *even in the Ada build*. Neither flips.
 | `fattn.cu:202` | **no** | inside `case 576:`; our head dim is 256 |
 | `GGML_CUDA_USE_PDL` | **not compiled** | see below |
 
-### The one lever, and it is a model change
+### The one lever, and it is a model change — surveyed 2026-08-24
 
 Native FP4 needs **MXFP4 or NVFP4 weights**. That is an artifact swap, not a
 flag — and it is genuinely something the 4070 SUPER could not have used, since
-`blackwell_mma_available()` is false on Ada by construction. **Whether a
-Qwen3.8-27B GGUF exists in either type, and whether it would fit, is unresearched.**
+`blackwell_mma_available()` is false on Ada by construction.
+
+**The artifacts exist.** Sizes are from the Hub file listing; **none of this is
+measured here and none of it has been downloaded.**
+
+| GGUF | on disk | fits 14.82 GiB? |
+|---|---:|---|
+| [`esatapedico/…-NVFP4-BUDGET`](https://hf.co/esatapedico/Qwen3.8-27B-NVFP4-BUDGET-GGUF) `STARVED` | **13.59 GiB** | yes, ~1.23 GiB left |
+| the same repo's `BUDGET` | **13.71 GiB** | yes, ~1.11 GiB left |
+| [`esatapedico/…-NVFP4-MTP`](https://hf.co/esatapedico/Qwen3.8-27B-NVFP4-MTP-GGUF) `VERY-LOW` | 13.84 GiB | yes, ~0.98 GiB left |
+| the same repo's `COMPACT-LOW` | 14.12 GiB | marginal |
+| [`quark75/Qwen3.8-27B-MXFP4-GGUF`](https://hf.co/quark75/Qwen3.8-27B-MXFP4-GGUF) | **15.71 GiB** | **no** |
+
+**The floor is hard and it is not the head tensors.** All seven compact NVFP4
+tiers share a **byte-identical 448-tensor NVFP4 backbone of 13.69 GB** — every
+layer's attention and MLP. Trimming the LM head, embeddings and MTP block is all
+that separates `STARVED` from `VERY-HIGH`, so **no NVFP4 build of this model gets
+below ~13.6 GiB.**
+
+**What that leaves for context.** Taking the smallest, `STARVED`: ~1,260 MiB free,
+minus the **472 MiB** compute buffer this project measures at `-ub 256`, leaves
+~788 MiB of KV at **18.00 KiB/token** — **roughly 44,000 tokens.**
+
+**So the trade is explicit:** FP4 tensor cores and ~4.4 bpw weights at ~44K, against
+`UD-IQ2_XXS` at 2.4 bpw with 98,304 measured and 262,144 projected. **For a
+project whose stated goal is a usable 128K or more, that is probably the wrong
+side of the trade** — but it is now a numbered choice rather than an open question.
+
+**Two more things about the MTP repo, both double-edged.** Its MTP draft head is
+**baked into the GGUF** (`blk.64.nextn.*`, enabled with `--spec-type draft-mtp`),
+so no sidecar and no second allocation. But `CLAUDE.md` records `draft-mtp` at
+**+81 % at 16K and −71 % at 131,072** on our own artifact, so at whatever depth
+NVFP4 can reach, the drafter's sign is not predictable from either measurement.
+
+**Nothing above has been run.** It is a survey of what is purchasable with a
+download, priced in VRAM.
 
 ### The 16 GB upgrade does not unlock Q4 residency
 

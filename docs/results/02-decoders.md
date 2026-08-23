@@ -2,6 +2,18 @@
 
 Eleven values exist in build 10472. All eleven have been tried.
 
+> 🔴 **Every arm on this page was measured on the RTX 4070 SUPER 12 GB, and the
+> decoder ranking has since changed on the card that is installed.** Re-measured
+> at ctx 98,304 on the RTX 5060 Ti 16 GB, three rounds
+> (`results/decoders-98304-blackwell.jsonl`): **`dflash2+ngram` went from a
+> median of 5.66 tok/s with two timeouts in six rounds to 87.72 with none, and is
+> now the fastest arm** — ahead of the `ngram-mod` every worker profile serves.
+> Nothing about the drafter changed; it stopped being squeezed into the
+> **45–376 MiB** band that [`CORRECTIONS.md` §26](../reports/CORRECTIONS.md)
+> identified, and finishes with 2,842–3,183 MiB here.
+> **Read [`09-hardware.md`](09-hardware.md) before quoting any elimination on
+> this page as current.**
+
 > **Every figure on this page carries the same caveat.** The timed prompt is
 > **84.5 % duplicate lines** — one class repeated with a changing index, 962
 > blocks at 147,456, adjacent blocks 99.5 % identical. An n-gram decoder drafts
