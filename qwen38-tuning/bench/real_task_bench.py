@@ -186,6 +186,60 @@ def apply_log_fault(row, fault):
     return row
 
 
+# llama.cpp writes both of these once, at startup, before any request. Anchored
+# on `srv    load_model: loading model` rather than on `loaded meta data ...
+# from`, because the latter also matches the DRAFTER -- which on this machine
+# loads first, so matching it would label every speculative row with the 1.05 GiB
+# sidecar as its model.
+_RX_MODEL = re.compile(r"srv\s+load_model:\s+loading model\s+'([^']+)'")
+_RX_BUILD = re.compile(r"system_info:\s*(.+)")
+
+
+def _read_whole(log_path):
+    """The log from byte zero. The boot precedes every task, so the harness's
+    rolling offset is past both lines by the time the first row is written."""
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
+def server_model(log_path):
+    """The model file the server actually loaded, or None.
+
+    `real_task_bench` does not start the server -- deliberately -- so it never
+    sees `-m`, and until this existed the rows could not say which artifact
+    produced them. On 2026-08-24 the two rows comparing `UD-IQ2_XXS` against
+    `UD-Q2_K_XL` both recorded nothing, and the only thing distinguishing them
+    was that a human remembered setting an environment variable.
+
+    None rather than a guess: a row naming the wrong model is worse than one
+    naming none, because the first is believed.
+    """
+    text = _read_whole(log_path)
+    if text is None:
+        return None
+    m = _RX_MODEL.search(text)
+    return m.group(1) if m else None
+
+
+def server_build_info(log_path):
+    """The server's own `system_info:` line, or None.
+
+    Worth as much as the model path. It carries the compiled architecture list
+    and the feature flags -- `CUDA : ARCHS = 890,1200 | USE_GRAPHS = 1 |
+    BLACKWELL_NATIVE_FP4 = 1` -- so a row can state what the build could do
+    without anyone running cuobjdump against a dll that may since have been
+    replaced.
+    """
+    text = _read_whole(log_path)
+    if text is None:
+        return None
+    m = _RX_BUILD.search(text)
+    return m.group(1).strip() if m else None
+
+
 def ctx_high_water(log_path, since_offset):
     """Peak context reached, from the server log.
 
@@ -301,6 +355,11 @@ def run_one(spec, scratch, cfgdir, model, log_path, offset, timeout_s, n_ctx):
     after = sh(repo["verify"], cwd=str(clone), timeout=1800)
     row["verify_exit"] = after.returncode
     row["verify_tail"] = (after.stdout or "")[-1500:]
+
+    # Which model and which build answered. Read from the server's own boot
+    # lines, because this harness never launches it and so never sees `-m`.
+    row["target"] = server_model(log_path)
+    row["build"] = server_build_info(log_path)
 
     prev_offset = offset
     row["ctx_high_water"], offset = ctx_high_water(log_path, offset)
