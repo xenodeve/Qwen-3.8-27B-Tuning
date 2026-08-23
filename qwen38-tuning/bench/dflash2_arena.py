@@ -46,7 +46,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from harness import (median, parse_layer_split, draft_acceptance,
                      paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
                      parse_spec_impl_stats, generation_is_measurable)
-from provenance import resolve_exe, resolve_target, cuda_archs, model_size_mib
+from provenance import (resolve_exe, resolve_target, resolve_effort,
+                        cuda_archs, model_size_mib)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 EXE = resolve_exe(r"C:\AI\llama.cpp-dflash2\llama-server.exe")
@@ -59,6 +60,12 @@ DRAFTER = (r"C:\Users\xenod\.cache\huggingface\hub"
            r"\snapshots\57ab3265056d4024870b0621cfc2c127537020ed"
            r"\Qwen3.8-27B-DFlash2-Q4_K_M.gguf")
 BASE = "http://127.0.0.1:8080"
+
+# Set explicitly from 2026-08-24. Everything before that date ran at the chat
+# template's `xhigh` with an unlimited budget -- never chosen, just never set --
+# so NOTHING measured after this line is comparable to an earlier figure without
+# saying so. The row records it for that reason.
+EFFORT = resolve_effort()
 TARGET_LAYERS = 65          # Qwen3.8-27B: 64 blocks plus the MTP head
 N_PREDICT = 512
 N_GEN = 3                   # timed generations per arm per round, after a warm turn
@@ -659,6 +666,7 @@ def server_argv(ctx, extra):
             "-np", "1", "-t", "18", "-b", "2048", "-ub", "256",
             "-ctk", "q4_0", "-ctv", "q4_0",
             "--no-mmproj-auto", "-lv", "5",
+            "--reasoning-effort", EFFORT,
             "--host", "127.0.0.1", "--port", "8080"] + list(extra)
 
 
@@ -709,6 +717,9 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
                # name UD-Q2_K_XL and differ by 808 MiB, so the path alone is not
                # an identity if the cache ever moves.
                target=TARGET, target_mib=model_size_mib(TARGET),
+               # Which reasoning effort. Everything before 2026-08-24 ran at the
+               # template's xhigh; a row without this field is one of those.
+               effort=EFFORT,
                # Always present, even when empty: absent and {} must not be the
                # same value, or "this arm set nothing" reads the same as "this
                # row predates the feature".

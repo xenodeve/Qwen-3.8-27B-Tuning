@@ -41,6 +41,21 @@ ENV_VAR = "QWEN38_LLAMA_EXE"
 # confound this module exists to prevent rather than create.
 TARGET_ENV_VAR = "QWEN38_TARGET"
 
+# Three separate levers -- binary, model, effort. One variable for two of them
+# would make changing either silently change the other.
+EFFORT_ENV_VAR = "QWEN38_REASONING_EFFORT"
+
+# The served default, set 2026-08-24. NOT the template's, which is `xhigh` with
+# an unlimited thinking budget and which every server this project launched used
+# until that date -- not by choice, but because nothing ever set the flag.
+#
+# Artificial Analysis prices this model on the AGENTIC axis, the one this
+# project's metric sits on, at xhigh 51 / medium 50 / low 44. One point separates
+# the level everything used from this one; six separate this one from the bottom.
+# On the general Intelligence Index the shape reverses (52 / 44 / 43), which is
+# why "medium or low" is two questions rather than one.
+DEFAULT_EFFORT = "medium"
+
 # Shipped with the CUDA toolkit; the only tool here that reads code objects.
 CUOBJDUMP = (r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3"
              r"\bin\cuobjdump.exe")
@@ -76,6 +91,16 @@ def resolve_target(default):
     filename cannot identify the artifact either.
     """
     return _from_env(TARGET_ENV_VAR, default)
+
+
+def resolve_effort(default=DEFAULT_EFFORT):
+    """The reasoning effort to serve: `QWEN38_REASONING_EFFORT` or `medium`.
+
+    An override rather than an edit for the same reason as the other two: an
+    effort sweep has to be able to reach `low` and `xhigh` without making the
+    served default unreproducible.
+    """
+    return _from_env(EFFORT_ENV_VAR, default)
 
 
 def model_size_mib(path):

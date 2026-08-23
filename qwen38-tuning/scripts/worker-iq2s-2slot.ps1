@@ -77,4 +77,5 @@ $ErrorActionPreference = 'Continue'
     --spec-type ngram-mod `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
     --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `
+    --reasoning-effort medium `
     --host 127.0.0.1 --port $Port

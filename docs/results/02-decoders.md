@@ -9,6 +9,13 @@
 > the agentic axis and `low` **six** below that
 > ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
 > so **effort is a live confound here, not a settled background condition.**
+>
+> **The served default became `medium` on 2026-08-24** — all five
+> `worker-*.ps1` profiles and `dflash2_arena.server_argv` now set it, and the
+> arena records `effort` on every row. **So this banner describes what is
+> already on the page, not what will be added to it.** Anything measured after
+> that date states its own level, and a figure from before it cannot be
+> compared with one from after without saying which is which.
 
 Eleven values exist in build 10472. All eleven have been tried.
 
@@ -148,6 +155,33 @@ Two observations, one per arm. Not established.
 **743 MiB returned, not the ~1,394 that removing the sidecar suggests.** The model
 buffer itself grows **334.74 MiB** once the head is used, and `--fit` raises its
 own target from 768 to 1,234 MiB for the 466 MiB MTP context.
+
+### `--spec-draft-n-max 7` — the ceiling, measured 2026-08-24
+
+`common.h:325` defaults `n_max` to **3**; `speculative.cpp:989` caps it at
+`block_size - 1`, and the boot log prints **`block_size=8`** for DFlash2, so **7**.
+Every DFlash2 figure this project holds was taken at **4**, a value the ledger
+records as *"chosen without knowing either number"*. Both arms accepted 7 with no
+`clamping to` warning, and the recurrent state came out at **1,197.00 MiB** =
+`149.62 x (1 + 7)`, confirming the formula at the ceiling rather than only at 4.
+
+| decoder | `n_max` | outcome | ctx high-water | wall | acceptance |
+|---|---:|---|---:|---:|---|
+| `dflash2+ngram` | 4 | **WINDOW_BOUND** | 98,303 | 1,019.3 s | 0.36–0.49 |
+| `dflash2+ngram` | **7** | FAIL | **87,390** | **762.3 s** | 0.37–0.44 |
+| `draft-mtp+ngram` | 3 | FAIL | 82,696 | 947.2 s | **0.48–0.61** |
+| `draft-mtp+ngram` | **7** | **WINDOW_BOUND** | **98,537** | **1,481.3 s** | 0.38–0.44 |
+
+**It helps one arm and hurts the other, and the mechanism is readable.**
+`dflash2+ngram` gets **25 % off the wall clock** and stops saturating the window.
+`draft-mtp+ngram` runs **56 % slower** and its acceptance falls from 0.48–0.61 to
+0.38–0.44 — because the metadata says `qwen35.nextn_predict_layers = 1`: the MTP
+head predicts **one** token ahead, so asking it for seven produces drafts that are
+mostly rejected and the verify cost is paid anyway. DFlash2's `block_size = 8`
+makes 7 its natural maximum.
+
+**Still zero files changed, six of six.** `n_max` moves wall clock and window
+pressure; it has not moved the outcome.
 
 *Raw: `results/real-task-q2kxl-draft-mtp*.jsonl`,
 `logs/dflash2-serve-draft-mtp*.log`. The two `dflash2+ngram` rows predate the
