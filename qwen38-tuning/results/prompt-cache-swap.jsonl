@@ -1,0 +1,10 @@
+{"label": "A-cold", "cram": "8192", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 44254, "prompt_n": 44254, "cache_n": 0, "reuse_pct": 0.0, "prompt_ms": 40513.5, "wall_s": 40.77}
+{"label": "B-cold", "cram": "8192", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 42522, "prompt_n": 42522, "cache_n": 0, "reuse_pct": 0.0, "prompt_ms": 38819.5, "wall_s": 39.49}
+{"label": "A-return", "cram": "8192", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 44254, "prompt_n": 4, "cache_n": 44250, "reuse_pct": 100.0, "prompt_ms": 118.2, "wall_s": 0.89}
+{"label": "B-return", "cram": "8192", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 42522, "prompt_n": 4, "cache_n": 42518, "reuse_pct": 100.0, "prompt_ms": 121.2, "wall_s": 0.85}
+{"label": "A-again", "cram": "8192", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 44254, "prompt_n": 4, "cache_n": 44250, "reuse_pct": 100.0, "prompt_ms": 114.6, "wall_s": 0.79}
+{"label": "A-cold", "cram": "0", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 44254, "prompt_n": 44254, "cache_n": 0, "reuse_pct": 0.0, "prompt_ms": 40655.1, "wall_s": 40.92}
+{"label": "B-cold", "cram": "0", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 42522, "prompt_n": 42522, "cache_n": 0, "reuse_pct": 0.0, "prompt_ms": 38804.4, "wall_s": 39.08}
+{"label": "A-return", "cram": "0", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 44254, "prompt_n": 44254, "cache_n": 0, "reuse_pct": 0.0, "prompt_ms": 40596.0, "wall_s": 40.87}
+{"label": "B-return", "cram": "0", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 42522, "prompt_n": 42522, "cache_n": 0, "reuse_pct": 0.0, "prompt_ms": 38775.3, "wall_s": 39.04}
+{"label": "A-again", "cram": "0", "corpus_sha": "1a3ae4b813dd8447", "chars": 150000, "depth_tokens": 44254, "prompt_n": 44254, "cache_n": 0, "reuse_pct": 0.0, "prompt_ms": 40604.6, "wall_s": 40.86}

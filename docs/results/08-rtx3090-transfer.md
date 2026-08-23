@@ -40,19 +40,26 @@ Flag semantics for the shortlist:
 | 18 | Per-token arrival capture / exact-token replay | `"timings_per_token"`, `"return_tokens"` | **READ — AVAILABLE NOW** | Both are plain request booleans, no patch and no server flag. Directly serve the recorder (#30–#36). Never set here |
 | 19 | Lookup applied after the selector rather than before | speculator priority list | **READ — needs a patch** | `speculative.cpp:2540-2552` hardcodes every `ngram-*` above every model-based type, so our measured `draft-dflash,ngram-mod` **ran ngram first**. "dflash first" is unmeasured |
 | 20 | "Pin the KV pool in bytes instead of by utilization" — the scan's *highest value for measurement integrity* | explicit `-c N` + `-ngl N`, `--fit off` | **MEASURED — no effect, and it retired a rule** | Pinned and auto agree on every observable at ctx 98,304. `--fit` had nothing to pin: llama.cpp sees **11,069 MiB free in all 552 logs** and 148 of 150 boots say *no changes needed*. [`CORRECTIONS.md` §27](../reports/CORRECTIONS.md) |
+| 21 | "Shared-versus-distinct prompt switch to model prefix-cache-friendly clients" | `-cram` / `--cache-ram` (default **8192 MiB**, never set here) | **MEASURED — the strongest single result on this page** | Returning to a 44K conversation after working on another: **118 ms at 100 % reuse with the default, 40,596 ms at 0 % with `-cram 0`.** A 343x difference on a flag nobody knew was on. §6 |
 
-**Twenty rows, and the tally is the point of the page.** Four measured wins —
-one of them by refuting the claim that produced it. Two measured nulls. **One
-measured and refused**, where the mechanism held and the price did not. Two
-instruments we already had and had not read. Four read-and-closed without a GPU
-round, one of which would have corrupted output silently had it been tried.
-Three read and still live. One we already had, two the architecture forecloses.
-**None open.**
+**Twenty-one rows, and the tally is the point of the page.** **Five measured
+wins** — one by refuting the claim that produced it, and one on a flag that was
+already switched on. Two measured nulls. **One measured and refused**, where the
+mechanism held and the price did not. **One measured to no effect, which retired
+a rule.** Two instruments we already had and had not read. Four read-and-closed
+without a GPU round, one of which would have corrupted output silently had it
+been tried. Three read and still live. One we already had, two the architecture
+forecloses. **None open.**
 
-**Two of the measured results retired a claim rather than adding a setting** —
-`#16` refused a flag whose mechanism held, and `#20` refuted the stated cause of
-this project's own no-cross-boot rule. Neither changes a profile. Both change
-what the next reader is allowed to assume.
+**The largest win was not a setting to add.** `#21` — `-cram` — was **on by
+default the whole time**, worth **343x** on the case an agent actually produces,
+and had never been named in a profile, a document or a sweep. It was found only
+because an erase that should have produced a cold turn did not.
+
+**Two results retired a claim instead of adding a setting.** `#16` refused a
+flag whose mechanism held, and `#20` refuted the stated cause of this project's
+own no-cross-boot rule. Neither changes a profile. Both change what the next
+reader is allowed to assume.
 
 **The read-and-closed column is worth as much as the wins.** Four GPU rounds not
 spent, and `#17` is the sharpest of them: following the scan's own `small-patch`
@@ -245,6 +252,56 @@ repeats — so these are not paired figures and carry no verdict label. Decode w
 not measured here (`n_predict` 8). The conversation is an agent-shaped synthetic,
 not a captured OpenCode session, so it establishes that the *mechanism* works at
 depth, not that OpenCode's actual serialization keeps it working.
+
+### And the second mechanism is the one that matches their claim — `-cram`
+
+The in-slot reuse above only covers **one growing conversation**. An agent that
+switches between tasks does something the probe above cannot see: it leaves A,
+works on B, and comes back. With one slot, A's state has to have gone somewhere.
+
+**It does.** `--cache-ram` defaults to **8192 MiB** (`common/common.h:615`) and
+**no profile, document or sweep in this project had ever mentioned it.** It was
+found only because `POST /slots/0?action=erase` failed to produce a cold turn.
+
+`prompt_save` stores `llama_state_seq_get_data_ext` — **the whole sequence
+state, attention KV and recurrent together** (`server-context.cpp:261-274`), not
+a token list. Idle slots are saved into it and cleared for the next task.
+
+**Measured 2026-08-23**, `results/prompt-cache-swap.jsonl`,
+`bench/prompt_cache_swap.py`. Two disjoint 44K-token conversations, A→B→A→B→A,
+one boot per arm:
+
+| | `-cram 8192` (the default) | `-cram 0` |
+|---|---:|---:|
+| A cold | 40,513.5 ms, 0.0 % | 40,655.1 ms, 0.0 % |
+| **A after B** | **118.2 ms, 100.0 %** | **40,596.0 ms, 0.0 %** |
+| B after A | 121.2 ms, 100.0 % | 38,775.3 ms, 0.0 % |
+| A again | 114.6 ms, 100.0 % | 40,604.6 ms, 0.0 % |
+| saved on return | **99.7 %** | 0.1 % |
+
+**A 343× difference on one flag.** The two cold turns agree to within 142 ms
+(0.35 %), so the arms are comparable; every return is **100 %** reuse, not
+partial. This is the closest thing measured here to the 3090 stack's claim of a
+100K prefix falling from 169 s to 4.7 s.
+
+**What it costs and what bounds it**, from the log and the source:
+
+- **898–928 MiB of host RAM per conversation** at this depth
+  (`saving prompt with length 44261, total state size = 928.496 MiB`), which the
+  cache accounts as ~1,200 MiB. Against 8,192 MiB that is roughly six.
+- **Restore is a move, not a copy** — `prompt = std::move(it_best->prompt)`
+  (`server-task.cpp:1858`), so an entry leaves the cache when it is loaded. With
+  one slot and two tasks the cache holds exactly one, which is what the log
+  shows.
+- **A 25 % floor on what may be evicted.** `load()` skips any entry whose
+  common prefix is under a quarter of its length — *"don't trash large prompts"*
+  (`server-task.cpp:1810`) — and requires the candidate to beat the incumbent on
+  **both** `f_keep` and `f_sim`. A short prompt therefore cannot displace a long
+  cached one.
+
+**Not measured:** three or more conversations in rotation, the RAM cost under a
+real agent's task mix, and what `-cram` does when the host is under memory
+pressure.
 
 ## 7. `-fitt` — the transfer that found an error in our own profiles
 
