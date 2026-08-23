@@ -35,6 +35,7 @@ interchangeable on that metric just because tok/s says so.
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -67,14 +68,53 @@ NGRAM = ["--spec-ngram-mod-n-match", "12",
          "--spec-ngram-mod-n-min", "16", "--spec-ngram-mod-n-max", "32"]
 DFLASH = ["-md", DRAFTER, "--spec-draft-n-max", "4", "-ngld", "99"]
 
+# The decoder every worker-*.ps1 actually serves. Named once so an arm set that
+# means "the incumbent, with one thing changed" cannot drift from the incumbent
+# by being retyped. `arm_parts` copies it, so sharing the object is safe.
+SERVED_NGRAM = ["--spec-type", "ngram-mod"] + NGRAM
+
 ARMS = [
     ("none", []),
-    ("ngram-mod", ["--spec-type", "ngram-mod"] + NGRAM),
+    ("ngram-mod", SERVED_NGRAM),
     ("dflash2", ["--spec-type", "draft-dflash"] + DFLASH),
     # Verified supported by reading common/arg.cpp:4155 -- --spec-type is a
     # comma-separated list -- not by trusting a forum post.
     ("dflash2+ngram", ["--spec-type", "draft-dflash,ngram-mod"] + DFLASH + NGRAM),
 ]
+
+
+def arm_parts(arm):
+    """Normalise an arm to `(label, extra_argv, env)`.
+
+    Arms are `(label, extra)` or `(label, extra, env)`. Most of what llama.cpp's
+    CUDA backend can be told is a flag, but twelve knobs are environment
+    variables (`grep getenv ggml/src/ggml-cuda/`), and at least one of them --
+    `GGML_CUDA_GRAPH_OPT` -- is an optimisation that is off unless asked for.
+    Without this, testing one meant exporting it and re-running the whole sweep,
+    which is a comparison ACROSS BOOTS and forbidden here.
+
+    A malformed arm raises rather than defaulting: silently reading it as
+    `(label, [])` would run the control config under the arm's name and publish
+    the result as the arm's.
+    """
+    if len(arm) == 2:
+        label, extra = arm
+        env = {}
+    elif len(arm) == 3:
+        label, extra, env = arm
+    else:
+        raise ValueError("arm must be (label, extra) or (label, extra, env), "
+                         "got %r" % (arm,))
+    return label, list(extra), dict(env)
+
+
+def launch_env(env):
+    """The process environment with `env` layered on top.
+
+    Layered, not replaced: llama-server needs PATH and CUDA_PATH to start, and a
+    bare dict would fail in a way that looks like a bad flag.
+    """
+    return {**os.environ, **env}
 
 
 def _ngram(n_min, n_match=12, n_max=32):
@@ -94,6 +134,34 @@ def _pair(extra_ngram=None, n_draft=4, extra=()):
 # levers are.
 ARM_SETS = {
     "decoders": ARMS,
+
+    # `GGML_CUDA_GRAPH_OPT` -- NEVER RUN HERE. An optimisation that is off
+    # unless asked for, and nothing in this project has ever asked.
+    #
+    #     static bool enable_graph_optimization = [] {
+    #         const char * env = getenv("GGML_CUDA_GRAPH_OPT");
+    #         return env != nullptr && atoi(env) == 1;    // ggml-cuda.cu:4330
+    #     }();
+    #
+    # It additionally requires CUDA graphs to be in use and EXACTLY ONE device
+    # (ggml-cuda.cu:4342), both true here: GGML_CUDA_GRAPHS was ON in the build,
+    # and there is one card. Decode at batch 1 is a long sequence of small
+    # kernels, which is the case graph optimisation exists for, so this is the
+    # runtime knob most likely to move the number that matters.
+    #
+    # Both arms carry the SAME argv -- the incumbent `ngram-mod` window every
+    # worker profile serves -- so the only difference between them is the
+    # variable. An arm set that also changed a flag would produce a delta with
+    # two causes, which is the shape of CORRECTIONS 26 and 28.
+    #
+    # WHAT THIS CANNOT SHOW: nothing in argv or the boot banner echoes the
+    # variable back, so there is no independent confirmation that llama.cpp read
+    # it. A null result here means "no effect OR not applied" and must be
+    # written up that way.
+    "graph-opt": [
+        ("graph-opt-off", SERVED_NGRAM, {}),
+        ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
+    ],
 
     # `--spec-ngram-mod-n-min` -- MEASURED, NO EFFECT. Kept so nobody re-runs it.
     #
@@ -534,13 +602,14 @@ def server_argv(ctx, extra):
             "--host", "127.0.0.1", "--port", "8080"] + list(extra)
 
 
-def start(ctx, extra, tag, boot_s=240):
+def start(ctx, extra, tag, boot_s=240, env=None):
     stop_server()
     free_before = vram()[1]
     log = ROOT / "logs" / ("dflash2-" + tag + ".log")
     args = server_argv(ctx, extra)
     fh = log.open("w", encoding="utf-8", errors="replace")
-    p = subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT,
+                         env=launch_env(env or {}))
     for _ in range(boot_s // 3):
         time.sleep(3)
         if p.poll() is not None:
@@ -563,10 +632,11 @@ def rate(t):
     return r if t.get("predicted_n") and r and r > 0 else None
 
 
-def run_arm(ctx, label, extra, rnd, regime="synthetic"):
+def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
+    env = env or {}
     tag = (label.replace("+", "-") + "-" + regime
            + "-c" + str(ctx) + "-r" + str(rnd))
-    p, fh, log, free_before = start(ctx, extra, tag)
+    p, fh, log, free_before = start(ctx, extra, tag, env=env)
     row = dict(ctx=ctx, arm=label, round=rnd, regime=regime,
                args=" ".join(extra),
                n_predict=N_PREDICT, free_before=free_before,
@@ -575,6 +645,10 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic"):
                # report the same version string and differ 4x in decode; without
                # these two fields the JSONL cannot tell them apart afterwards.
                exe=EXE, cuda_archs=cuda_archs(EXE),
+               # Always present, even when empty: absent and {} must not be the
+               # same value, or "this arm set nothing" reads the same as "this
+               # row predates the feature".
+               env=dict(env),
                loaded=p is not None)
     if p is None:
         row["note"] = "server failed to start"
@@ -723,9 +797,10 @@ def main():
                 order = arms[k:] + arms[:k]
                 print("  ctx=%d %s round %d: %s"
                       % (ctx, regime, rnd,
-                         " -> ".join(l for l, _ in order)), flush=True)
-                for label, extra in order:
-                    row = run_arm(ctx, label, extra, rnd, regime)
+                         " -> ".join(arm_parts(a)[0] for a in order)), flush=True)
+                for arm in order:
+                    label, extra, env = arm_parts(arm)
+                    row = run_arm(ctx, label, extra, rnd, regime, env)
                     rows.append(row)
                     fh.write(json.dumps(row) + "\n")
                     fh.flush()
