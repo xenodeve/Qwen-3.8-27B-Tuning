@@ -3,6 +3,55 @@
 Two full sweeps of this surface found **nothing above the 13.6 % drift floor**.
 That is the headline of the page: the flags are not where the wins are.
 
+## Environment knobs — the surface nobody had looked at
+
+`grep getenv ggml/src/ggml-cuda/` at `1deefcca3` finds **twelve** runtime knobs
+that are not command-line flags. Until 2026-08-24 the arena could not test one:
+arms carried argv only, so trying an env var meant re-running the whole sweep
+with it exported — a comparison **across boots**, which `CLAUDE.md` forbids.
+Arms now carry an env mapping and every row records it.
+
+### `GGML_CUDA_GRAPH_OPT` — MEASURED 2026-08-24, NOT RESOLVED
+
+Off unless asked for, and never asked for here:
+
+```c
+static bool enable_graph_optimization = [] {
+    const char * env = getenv("GGML_CUDA_GRAPH_OPT");
+    return env != nullptr && atoi(env) == 1;      // ggml-cuda.cu:4330
+}();
+```
+
+It further requires CUDA graphs in use and **exactly one device**
+(`ggml-cuda.cu:4342`) — both true here. Decode at batch 1 is a long run of small
+kernels, which is the case graph optimisation exists for, so this was the
+runtime knob most likely to move the number that matters.
+
+RTX 5060 Ti, ctx 98,304, corpus `real-code-deep`, three rounds, arms alternated
+within each round, **identical argv on both arms** — the incumbent `ngram-mod`
+window — so the variable is the only difference:
+
+| | round 1 | round 2 | round 3 | |
+|---|---:|---:|---:|---|
+| `graph-opt-off` | 79.4 | 82.3 | 84.6 | spread 6.6 % |
+| `graph-opt-on` | 84.0 | 76.6 | 89.3 | spread **16.6 %** |
+| paired delta | **+5.8 %** | **−6.9 %** | **+5.6 %** | mean +1.4 % |
+
+**`within noise / inconsistent`** by `harness.paired_deltas`, which resolves an
+effect only when it is consistent in sign across rounds *and* above the floor.
+It is neither. **And it did not reduce variance either** — the treated arm is the
+wider of the two.
+
+> ⚠️ **A null here means "no effect OR not applied".** Nothing in argv, the boot
+> banner or the log echoes `GGML_CUDA_GRAPH_OPT` back, so there is no independent
+> confirmation llama.cpp read it. Both readings are consistent with this data and
+> the register must not collapse them.
+
+*Raw: `results/graph-opt-98304-blackwell.jsonl`, 6 rows. Eleven knobs untried —
+`GGML_CUDA_DISABLE_FUSION`, `GGML_CUDA_CUBLAS_COMPUTE_TYPE`,
+`GGML_CUDA_REGISTER_HOST`, `GGML_CUDA_NO_PINNED`, `GGML_OP_OFFLOAD_MIN_BATCH`
+and the rest are single- or multi-GPU knobs listed but not swept.*
+
 ## Placement and scheduling — all inert
 
 Two rounds each at 16,384 on `v3-iq2xxs`, `--fixed-text`, order reversed:
