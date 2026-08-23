@@ -437,6 +437,59 @@ probe was far too short to see.
 *Raw: `results/reasoning-effort-sweep.jsonl` (note: UTF-8 BOM, read with
 `utf-8-sig`).*
 
+### 🔴 2026-08-24 — the prediction above landed, and nothing has ever set the flag
+
+**Every server this project has launched runs at `xhigh` with an unlimited
+thinking budget**, because the template supplies both and nothing overrides them.
+Read out of a boot log, not inferred:
+
+```
+init: chat template, example_format: '<|im_start|>system
+Reasoning effort is set to xhigh. Please think carefully through the task,
+validate key assumptions, consider plausible alternatives, and prioritize
+correctness, consistency, and clarity in the final answer.
+init: chat template, thinking = 1
+srv eval_llama_c: reasoning budget: tokens=-1
+```
+
+The client sends no `reasoning_effort` field — the level comes from the
+template's own default. And:
+
+| | sets a reasoning flag? |
+|---|---|
+| `worker-5060ti.ps1` | **no** |
+| `worker-iq2s-2slot.ps1` | **no** |
+| `worker-iq2s-fast.ps1` | **no** |
+| `worker-iq2s-quality.ps1` | **no** |
+| `worker-iq2xxs-deep.ps1` | **no** |
+| `bench/dflash2_arena.py` | **no — zero references** |
+
+**So does every measurement on this page, and every real-task run.**
+
+**The section above predicted this on 2026-08-18** — *"an external review reports
+xHigh taking 15 minutes where medium takes 3"* — and the four real-task runs of
+2026-08-24 all landed in that band:
+
+| artifact + decoder | wall | outcome | files |
+|---|---:|---|---:|
+| `IQ2_XXS` `dflash2+ngram` | **537.7 s** | FAIL | 0 |
+| `Q2_K_XL` `draft-mtp` | **855.8 s** | FAIL | 0 |
+| `Q2_K_XL` `draft-mtp+ngram` | **947.2 s** | FAIL | 0 |
+| `Q2_K_XL` `dflash2+ngram` | **1,019.3 s** | WINDOW_BOUND | 0 |
+
+9 to 17 minutes each, `reasoning_content` dominating the stream, zero files
+changed four times out of four.
+
+> ⚠️ **This is a hypothesis with a named mechanism, not a result.** No run at a
+> lower effort has been made on these artifacts, so "xhigh is why they failed"
+> is unproven. What IS established: the flag exists
+> (`--reasoning-effort minimal|low|medium|high|xhigh`, plus
+> `--reasoning-budget N`), nothing here has ever set it, and the level in force
+> is the most expensive one the template offers.
+
+**The two items under *Never tried* below are now the highest-value untried
+things on this page**, and the first of them costs one flag.
+
 ## Never tried
 
 - **A system prompt that instructs how to think** rather than how to format —
