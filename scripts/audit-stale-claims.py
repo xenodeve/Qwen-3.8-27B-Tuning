@@ -158,6 +158,20 @@ RULES = [
      "its stated cause does not",
      "CORRECTIONS.md 27"),
 
+    ("blackwell-4x-slower",
+     r"[Ff]our times slower|4x slow|4× slow|~?4x slower|"
+     r"22\.67 tok/s|22\.67 tokens",
+     "withdrawn as a HARDWARE verdict. 22.67 came from hardware_baseline.py at "
+     "draft acceptance 0.14870; 96.92 came from dflash2_arena at acceptance "
+     "60.2 -- ngram-mod is speculative and its tok/s tracks acceptance, so the "
+     "two were never comparable, and the 4070 SUPER never ran "
+     "hardware_baseline.py at all. What IS measured: the native sm_120a "
+     "rebuild takes prefill 146,155 -> 66,582 ms with acceptance byte-identical "
+     "in both, and per prefill token this card is 1.517 ms against the 4070 "
+     "SUPER's 0.798 -- 1.90x slower, matching 4,608 CUDA cores vs 7,168. "
+     "Decode across the two cards is UNMEASURED",
+     "CORRECTIONS.md 28"),
+
     ("decode-collapse-98304",
      r"2\.8\s*[-–]\s*5\.0 tok/s|decode collapses|13 of 16 measurements|"
      r"13/16 timeouts|the window we serve is the one that does not work|"

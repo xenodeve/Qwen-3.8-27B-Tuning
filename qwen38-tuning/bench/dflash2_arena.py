@@ -35,6 +35,8 @@ interchangeable on that metric just because tok/s says so.
 """
 import argparse
 import json
+import os
+import re
 import subprocess
 import sys
 import time
@@ -48,6 +50,49 @@ from harness import (median, parse_layer_split, draft_acceptance,
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 EXE = r"C:\AI\llama.cpp-dflash2\llama-server.exe"
+CUOBJDUMP = r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\cuobjdump.exe"
+_ARCH_CACHE = {}
+
+
+def resolve_exe():
+    """Which llama-server to launch. `QWEN38_LLAMA_EXE` overrides the default.
+
+    An override rather than an edit, because both builds have to stay
+    measurable: re-pointing EXE by hand makes the Ada figures unreproducible,
+    and not being able to point it at all makes the Blackwell build unmeasurable.
+    Whichever one is chosen, `cuda_archs()` records it into the row.
+    """
+    return os.environ.get("QWEN38_LLAMA_EXE") or EXE
+
+
+def cuda_archs(exe):
+    """The GPU architectures compiled into the ggml-cuda.dll beside `exe`.
+
+    Returns a sorted tuple, e.g. ("sm_120a", "sm_89"), or None when it could not
+    be determined -- a missing dll, a missing cuobjdump, a non-zero exit. None
+    means "not checked", never "none present"; conflating those is how an
+    unverified build gets filed as a verified one.
+
+    This is the ONLY thing on this machine that separates the two builds.
+    `--version` does not: llama.cpp-dflash2 and llama.cpp-blackwell are the same
+    commit built with different CMAKE_CUDA_ARCHITECTURES and print identical
+    version strings, while measuring 22.67 against 96.92 tok/s on the same corpus
+    (docs/results/09-hardware.md).
+    """
+    if exe in _ARCH_CACHE:
+        return _ARCH_CACHE[exe]
+    dll = Path(exe).parent / "ggml-cuda.dll"
+    archs = None
+    if dll.is_file() and Path(CUOBJDUMP).is_file():
+        try:
+            out = subprocess.run([CUOBJDUMP, "--list-elf", str(dll)],
+                                 capture_output=True, text=True, timeout=300)
+            if out.returncode == 0:
+                archs = tuple(sorted(set(re.findall(r"sm_\w+", out.stdout))))
+        except (OSError, subprocess.SubprocessError):
+            archs = None
+    _ARCH_CACHE[exe] = archs
+    return archs
 TARGET = (r"C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF"
           r"\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed"
           r"\Qwen3.8-27B-UD-IQ2_XXS.gguf")
@@ -525,7 +570,7 @@ def server_argv(ctx, extra):
     setters) decides which value is used. An arm set that got that backwards
     would run every arm at the hardcoded value and report a flat sweep.
     """
-    return [EXE, "-m", TARGET, "--alias", "qwen38", "-c", str(ctx),
+    return [resolve_exe(), "-m", TARGET, "--alias", "qwen38", "-c", str(ctx),
             "-ngl", "auto", "--fit", "on", "--fit-target", "768", "-fa", "on",
             "-np", "1", "-t", "18", "-b", "2048", "-ub", "256",
             "-ctk", "q4_0", "-ctv", "q4_0",
@@ -570,6 +615,10 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic"):
                args=" ".join(extra),
                n_predict=N_PREDICT, free_before=free_before,
                corpus=corpus_hash(regime),
+               # Which binary produced this number. Two builds on this machine
+               # report the same version string and differ 4x in decode; without
+               # these two fields the JSONL cannot tell them apart afterwards.
+               exe=resolve_exe(), cuda_archs=cuda_archs(resolve_exe()),
                loaded=p is not None)
     if p is None:
         row["note"] = "server failed to start"

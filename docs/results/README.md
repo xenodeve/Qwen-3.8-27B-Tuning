@@ -57,7 +57,7 @@ act on and one you can only cite.
 `qwen38-tuning/results/`, it is not a measurement and says so.
 
 **Before quoting anything, read
-[`../reports/CORRECTIONS.md`](../reports/CORRECTIONS.md)** — twenty-seven claims this
+[`../reports/CORRECTIONS.md`](../reports/CORRECTIONS.md)** — twenty-eight claims this
 project published and later contradicted. The rows here reflect the corrections;
 older reports may not.
 

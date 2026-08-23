@@ -7,7 +7,7 @@ python -m pytest tests\ -q
 ```
 
 Every primitive here raises rather than guessing. That is deliberate: this
-project has published twenty-seven numbers it later had to withdraw, and each came from
+project has published twenty-eight numbers it later had to withdraw, and each came from
 code that returned something plausible instead of an error.
 
 | file | what it measures | typical cost |

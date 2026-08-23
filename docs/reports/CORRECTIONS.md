@@ -928,6 +928,68 @@ a hypothesis.** It should not be written into a rule the way this one was.
 
 ---
 
+## 28. "The 5060 Ti is 4× slower than the 4070 SUPER" — half that comparison was between two different instruments
+
+**Where it was published**, on 2026-08-23, in `docs/results/09-hardware.md`, the
+open-work ledger, issue #40 and the commit that shipped them:
+
+> | | 5060 Ti (Ada PTX, JIT) | 4070 SUPER (native SASS) |
+> | prefill, 43,898 tokens | **146,155 ms** | 35,301 ms |
+> | decode | **22.67 tok/s** | 96.92 tok/s |
+>
+> **Four times slower with three times the headroom.**
+
+**Measured 2026-08-24**, by reading where each number came from.
+
+```
+96.92 tok/s   results/decoders-98304.jsonl  -- dflash2_arena, 6 rounds, median of 3
+              every one of its six ngram-mod rows records:   acceptance 60.2
+
+22.67 / 25.63 logs/dflash2-hwbase-98304*.log -- hardware_baseline.py, 1 generation
+              both runs record:            draft acceptance 0.14870 (40 / 269)
+```
+
+**`ngram-mod` is a speculative decoder, and its tok/s tracks draft acceptance
+directly.** 60.2 % against 14.87 % is a four-fold difference in how much
+speculation is doing, produced by the two tools building their prompts
+differently — `hardware_baseline.py` takes the first 150,000 *characters* of
+`real-code-deep`, the arena builds its prompt its own way. **Neither number is
+wrong. Putting them in the same table was.**
+
+`hardware_baseline.py` was written *after* the card was swapped, so **the 4070
+SUPER never ran it.** There was no same-instrument figure to compare against, and
+the table filled the gap with the nearest available number instead of saying so.
+
+**What survives, and what does not.**
+
+- ✅ **The prefill row was fine, and now has a control.** `35,301 ms` is the cold
+  turn-1 of 44,255 tokens, same corpus, same ctx, same decoder
+  (`08-rtx3090-transfer.md` §6), and **prefill does not involve speculation at
+  all**. Per token: 4070 SUPER **0.798 ms**, 5060 Ti JIT 3.330, 5060 Ti native
+  **1.517**.
+- ✅ **The wrong-architecture finding stands and the rebuild confirmed it.** Same
+  script, same corpus, same flags, acceptance byte-identical at 0.14870 in both:
+  prefill **146,155 → 66,582 ms, 2.20× faster**. That comparison was always
+  clean because both sides came from the same instrument.
+- ❌ **"Four times slower" as a hardware verdict is withdrawn.** Correctly built,
+  the gap that is actually measurable is **1.90× at prefill**, and it is a
+  property of the silicon — 4,608 CUDA cores against 7,168, 448 GB/s against
+  504. **The 5060 Ti bought VRAM, not speed.**
+- ❌ **Decode across the two cards is unmeasured**, not slow and not fast. The
+  arena sweep on this card is the only thing that can answer it, row-for-row.
+
+**Why this one is worth its own entry.** Every other correction in this register
+came from re-reading the project's own data. This one came from re-reading its
+own *plumbing*: two numbers, both correctly measured, both correctly recorded,
+made false by being placed side by side. **The failure was in the table, not in
+the instrument** — which is why nothing anywhere flagged it, and why the result
+row now carries `exe` and `cuda_archs` (`bench/tests/test_exe_provenance.py`) so
+at least the *binary* can never again go unrecorded.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `blackwell-4x-slower`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":
