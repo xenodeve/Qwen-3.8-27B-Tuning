@@ -15,9 +15,17 @@ vLLM 0.27.1 stack serving Qwen3.8-27B on one RTX 3090, read line by line so that
 nobody has to open it again. **434 techniques**, each matched against a
 **175-capability map of our own llama.cpp** at build 10499.
 
-Start at its **48 flags we already have and have never set**. The scan's first
-concrete result was not a technique of theirs at all — it was a false claim in
-one of our own worker profiles, caught by mapping our tool exhaustively.
+**Start at [`../results/08-rtx3090-transfer.md`](../results/08-rtx3090-transfer.md),
+not at the scan.** Twenty-one of those techniques now carry a verdict here, and
+the scan is a frozen capture that is deliberately never edited when a
+measurement lands — so its **48 flags we already have and have never set** still
+reads as if none of them had been tried. Three of its entries reverse on contact
+with the register: one would corrupt output silently, one costs 14 % of decode
+for 66 MiB, and one it rates highest-value changes nothing at all.
+
+The scan's first concrete result was not a technique of theirs at all — it was a
+false claim in one of our own worker profiles, caught by mapping our tool
+exhaustively.
 
 ## The chart this project keeps coming back to
 

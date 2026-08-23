@@ -37,8 +37,48 @@ the ceiling, not the task.** `worker-iq2s-quality.ps1` at 98,304 is the
 **minimum sensible window**, and §3.5's premise — that an over-provisioned
 window is currency for a higher quantisation rung — has no currency to spend.
 
-**And the drafter still fits there:** at 98,304 with `--spec-draft-n-max 4`,
-`65+0` resident, 254 MiB free. I predicted it would not.
+**~~And the drafter still fits there~~ -- it fits and does not work.**
+At 98,304 with `--spec-draft-n-max 4` it loads `65+0` resident with **254 MiB
+free**, and that is the middle of the band measured 2026-08-23 as unreliable.
+Six paired rounds at that depth: arms with the sidecar finish with **45-376 MiB
+free**, time out **3 times in 12**, and spread **146x** on identical flags --
+0.64 to 93.29 tok/s. Arms without it sit at 769-2,117 MiB and land within 4 %
+every time. `results/decoders-98304.jsonl`,
+[`CORRECTIONS.md` 26](../reports/CORRECTIONS.md).
+
+**Do not load the drafter for this benchmark.** `ngram-mod` alone -- what all
+four `worker-*.ps1` already serve -- returns **96.92 tok/s median at 98,304**,
+faster than the 75.2 median at 16,384. Residency was never the question; it
+reads healthy in both cases.
+
+### What changed on 2026-08-23, before this is executed
+
+Two premises of this runbook moved on the same day, in opposite directions.
+
+**The window is fine.** This document was written while
+`04-context-depth.md` recorded decode at ctx 98,304 as 2.8-5.0 tok/s with 13 of
+16 rows timing out, which made "a median 259 added lines" read as hours. That
+figure belonged to the DFlash2 arms, not the window
+([`CORRECTIONS.md` 26](../reports/CORRECTIONS.md)). The served profile returns
+**96.92 tok/s**. **A real task at the served window is not slow.**
+
+**And switching between the 19 issues is nearly free.** `--cache-ram` defaults
+to **8192 MiB** and stores the whole sequence state -- attention KV and
+recurrent together -- for idle slots. Measured over two 44K conversations,
+returning to the first after working on the second costs **118.2 ms at 100 %
+reuse**; with `-cram 0` it costs **40,596 ms at 0 %**
+([`08` section 6](../results/08-rtx3090-transfer.md)). This runbook rotates
+through 19 issues, which is exactly that case.
+
+**Two consequences for how it is run.** Do not pass `-cram 0` -- it is not set
+by any profile and the default is what makes rotation cheap. And **at ~900 MiB
+of host RAM per cached conversation against an 8,192 MiB limit, roughly six fit
+at this depth**; rotating more than that evicts, and `load()` refuses any entry
+whose common prefix is under 25 % of its length.
+
+**Phase 1's rows remain retracted** for the directory fault
+([`CORRECTIONS.md` 24](../reports/CORRECTIONS.md)) -- that is unaffected by any
+of this, and the transcript-preservation slice (#34) still gates a re-run.
 
 ### A fourth outcome was needed
 

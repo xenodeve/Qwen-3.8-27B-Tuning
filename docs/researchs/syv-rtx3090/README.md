@@ -1,5 +1,27 @@
 # syv-ai/qwen38-27b-rtx3090 — the whole repo, so nobody reads it again
 
+> ## Read the verdicts before picking anything off this list
+>
+> **[`../../results/08-rtx3090-transfer.md`](../../results/08-rtx3090-transfer.md)
+> is the register of what has already been tried here.** Twenty-one of these
+> techniques now carry a verdict: five measured wins, two nulls, one measured
+> and refused, one measured to no effect that retired a project rule, four
+> closed by reading source without spending a GPU round, and two the
+> architecture forecloses.
+>
+> **None of that is reflected below.** This folder is a frozen capture of the
+> external repository and is deliberately left alone when our own measurements
+> land -- correcting somebody else's claims in place would destroy the record of
+> what they actually said.
+>
+> **Three entries are actively dangerous to act on without the register.**
+> *fp16 recurrent state* is rated `small-patch` here and would corrupt output
+> silently -- the DeltaNet kernel has no type check at all. *`-ub`* is presented
+> as a high-value knob and costs **14 % of decode** to return 66 MiB. *Pinning
+> the pool* is rated the single highest-value item for measurement integrity and
+> **changes nothing**, because `--fit` was never following what this list
+> assumes it follows.
+
 **External material. Nothing here is evidence about this machine** — see
 [`../README.md`](../README.md). The one exception is
 [`01-llamacpp-capability-map.md`](01-llamacpp-capability-map.md), which was

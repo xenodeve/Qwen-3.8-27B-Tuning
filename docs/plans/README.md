@@ -11,7 +11,7 @@
 | 03 | [16-layer programme](03-SIXTEEN-LAYER-PROGRAMME.md) | every tunable layer, ordered by expected value on tok/s, context, VRAM and quality | executing; results in [report 20](../reports/20-SIXTEEN-LAYER-RESULTS.md) |
 | 04 | [Revised plan 2026-08-21](04-REVISED-PLAN-2026-08-21.md) | what to do after the 16-layer sweep — supersedes 03's ordering | superseded by 06 |
 | 05 | [Research brief 2026-08-21](05-RESEARCH-BRIEF-2026-08-21.md) | **For an external researcher.** Five open problems with the evidence for each, what was already ruled out, and the six external claims this project measured wrong |
-| 06 | [Real-task benchmark](06-REAL-TASK-BENCHMARK.md) | **The runbook.** 19 real open issues from four repos, run against a same-model FP8 ceiling. Answers what context a real task needs, whether the skills earn their 38,064 tokens, and whether `UD-IQ2_XXS` is enough for T4 Labs' work | Phase 1 run 2026-08-22, its rows RETRACTED (CORRECTIONS §24); Phases 0 and 2-6 not started |
+| 06 | [Real-task benchmark](06-REAL-TASK-BENCHMARK.md) | **The runbook.** 19 real open issues from four repos, run against a same-model FP8 ceiling. Answers what context a real task needs, whether the skills earn their 38,064 tokens, and whether `UD-IQ2_XXS` is enough for T4 Labs' work | Phase 1 run 2026-08-22, its rows RETRACTED (CORRECTIONS §24); Phases 0 and 2-6 not started. **Two premises moved 2026-08-23** — the served window is not slow (96.92 tok/s, CORRECTIONS §26) and rotating between the 19 issues is nearly free (`-cram`, 343×). **Do not load the drafter for it.** See the banner in the runbook |
 
 ---
 
