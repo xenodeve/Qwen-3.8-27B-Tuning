@@ -60,7 +60,9 @@ unreliable there ([`CORRECTIONS.md` §26](../reports/CORRECTIONS.md)); 66 MiB
 moves them to 111–442, the same band.
 
 **Step 2 — what it costs**, `results/ubatch-98304.jsonl`, three paired rounds
-against `ngram-mod`, which is what every worker profile serves:
+against `ngram-mod` on **`UD-IQ2_XXS` at ctx 98,304** -- `ngram-mod` is the
+decoder every worker profile runs, though none serves that artifact at that
+depth:
 
 | arm | rounds | vs `-ub 256` |
 |---|---|---|

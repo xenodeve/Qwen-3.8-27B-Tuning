@@ -59,8 +59,11 @@ Two premises of this runbook moved on the same day, in opposite directions.
 `04-context-depth.md` recorded decode at ctx 98,304 as 2.8-5.0 tok/s with 13 of
 16 rows timing out, which made "a median 259 added lines" read as hours. That
 figure belonged to the DFlash2 arms, not the window
-([`CORRECTIONS.md` 26](../reports/CORRECTIONS.md)). The served profile returns
-**96.92 tok/s**. **A real task at the served window is not slow.**
+([`CORRECTIONS.md` 26](../reports/CORRECTIONS.md)). With `ngram-mod` alone --
+the decoder every profile runs -- `UD-IQ2_XXS` at 98,304 returns
+**96.92 tok/s**. **The window is not slow.** The artifact measured is not the
+one `worker-iq2s-quality` serves at that depth (`UD-IQ2_S`, 1.1 GB larger),
+so run the rung this benchmark is testing and read its own rate.
 
 **And switching between the 19 issues is nearly free.** `--cache-ram` defaults
 to **8192 MiB** and stores the whole sequence state -- attention KV and

@@ -9,8 +9,11 @@
 > with the DFlash2 sidecar loaded, as was every row at that depth. The
 > companion claim that *decode collapses with it to 2.8–5.0 tok/s* is
 > **retracted — [CORRECTIONS §26](CORRECTIONS.md), 2026-08-23**: with
-> `ngram-mod` alone, which is what all four worker profiles serve, decode at
-> ctx 98,304 is **96.92 tok/s median over 6 of 6 rounds**. The prefill figure
+> `ngram-mod` alone -- the decoder all four worker profiles run -- decode on
+> **`UD-IQ2_XXS` at ctx 98,304** is **96.92 tok/s median over 6 of 6 rounds**.
+> Note the artifact: no profile serves that pairing. `worker-iq2s-quality`
+> serves 98,304 on **`UD-IQ2_S`**, which is 1.1 GB larger and unmeasured
+> with these arms. The prefill figure
 > above has not been re-measured without the drafter and should be treated as
 > a drafter-loaded number until it is.
 >

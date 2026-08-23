@@ -693,14 +693,16 @@ exiting `rc=0` was read as the worker deciding it was finished; it may equally
 have been the worker finishing correctly in the wrong tree.**
 
 **What survives.** The wall-clock times and the context high-water figures —
-those came from the process and the server, not from the diff. And the separate
-finding that decode collapses to **2.8–5.0 tok/s at ctx 98,304** stands on its
-own data (`results/sweep-ngram-nmatch-98304.jsonl`, 13 of 16 rows timing out).
+those came from the process and the server, not from the diff.
 
-> **Two independent explanations for the same zero, and fixing one does not fix
-> the other.** The worker wrote to the wrong tree, *and* the served window is
-> too slow to finish a real task. The next real-task run must not change both at
-> once, or it will be unreadable.
+> **~~Two independent explanations for the same zero~~ — there is one.**
+> This entry originally added that decode collapses to 2.8–5.0 tok/s at ctx
+> 98,304 and *"stands on its own data"*. **It does not — see
+> [§26](#26-decode-collapses-to-2850-toks-at-the-window-we-serve--the-window-is-fine-the-drafter-is-not).**
+> Every row of that sweep loaded the DFlash2 sidecar; with `ngram-mod` alone the
+> same depth returns 96.92 tok/s over 6 of 6 rounds. **The directory fault is
+> the only established explanation for the five zero-diff rows**, so the next
+> real-task run has one variable, not two.
 
 **The fix.** `edit_canary.worker_argv()` puts `--dir <absolute path>` on the
 command line and **raises on an empty directory rather than defaulting**, since
@@ -847,11 +849,21 @@ split is not the memory-bound signature `04-context-depth.md` called it** — a
 memory-bound decode shows high *memory* utilisation, and this shows 3 %. It is a
 card spinning, not a card working.
 
-**Consequence for shipping.** All four `worker-*.ps1` run `ngram-mod` alone and
-are **correct as they stand for this window**. Adding DFlash2 to the served
-profile would cost 94 % of decode and a one-in-four chance of not finishing —
-the exact opposite of its **+48.5 %** at ctx 16,384. This is the sharpest
-instance yet of the rule that a verdict at one depth does not transfer.
+**Consequence for shipping, stated at the precision the measurement supports.**
+These rows are **`UD-IQ2_XXS` at ctx 98,304**, and **no worker profile serves
+that pairing** — `worker-iq2xxs-deep` runs that artifact at 131,072,
+`worker-iq2s-quality` runs 98,304 on the 1.1 GB larger `UD-IQ2_S`.
+
+- **Measured:** with this artifact at this depth, adding DFlash2 costs 94 % of
+  decode and a one-in-four chance of not finishing — the exact opposite of its
+  **+48.5 %** at ctx 16,384. The sharpest instance yet of the rule that a
+  verdict at one depth does not transfer.
+- **Inferred, and labelled as such:** the failures track free VRAM, and
+  `UD-IQ2_S` is **larger** than the artifact measured, so a drafter beside it
+  at 98,304 would have *less* headroom, not more. That argues the same way,
+  and it has not been run.
+- **Unchanged:** all four profiles run `ngram-mod` alone and none was
+  modified. Nothing here licenses a claim about their absolute rates.
 
 **Guarded by** `scripts/audit-stale-claims.py`, rule `decode-collapse-98304`.
 

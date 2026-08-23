@@ -387,8 +387,15 @@ round, deep corpus sha `1a3ae4b813dd8447`.
 | `dflash2+ngram` | 4/6 | 2 | 1.46 / 4.53 / 6.78 / 93.29 | **5.66** | **153-240** |
 
 **`ngram-mod` at 98,304 is faster than the 75.2 median recorded at 16,384**, and
-it is what all four `worker-*.ps1` already serve. Speculation is worth **+188 %**
-over none at this depth.
+`ngram-mod` is the decoder all four `worker-*.ps1` already run. Speculation is
+worth **+188 %** over none at this depth.
+
+> **Read the artifact before transferring this.** These rows are
+> **`UD-IQ2_XXS` at ctx 98,304**, and **no worker profile serves that
+> pairing** -- `worker-iq2xxs-deep` runs that artifact at 131,072, and
+> `worker-iq2s-quality` runs 98,304 on `UD-IQ2_S`, which is 1.1 GB larger.
+> What transfers directly is the decoder verdict. What does **not** transfer
+> without measurement is the rate.
 
 **The free-VRAM columns do not overlap, and that is the finding.** Arms without
 the drafter sit at 769-2,117 MiB, finish 12 times out of 12 and spread 3-4 %.

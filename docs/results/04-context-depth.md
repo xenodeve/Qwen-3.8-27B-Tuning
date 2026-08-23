@@ -109,11 +109,19 @@ the run that saturated at 32,768.** It measured the ceiling, not the task.
 > headroom.** Any plan to shrink the window to buy a higher quantisation rung
 > has to be rewritten.
 
-### And the drafter still fits there
+### ~~And the drafter still fits there~~ — it fits and does not work
 
 At ctx 98,304 with `--spec-draft-n-max 4` and the DFlash2 drafter loaded, the
 target is **`65+0` resident with 254 MiB free**. KV 1,728 MiB, recurrent state
 748.12 MiB, drafter KV 45.00 MiB. This was predicted not to fit and it does.
+
+> 🔴 **Fitting is not the test, and 254 MiB is the middle of the band that
+> fails.** Measured 2026-08-23 over six paired rounds: arms with the sidecar at
+> this depth finish with **45–376 MiB free**, time out **3 times in 12**, and
+> spread **146×** on identical flags — 0.64 to 93.29 tok/s. Arms without it sit
+> at 769–2,117 MiB and land within 4 % every time. **Residency reads healthy in
+> both cases**, which is why this row was written as good news.
+> [`CORRECTIONS.md` §26](../reports/CORRECTIONS.md).
 
 🔴 **The true requirement above 98,304 is unknown.** Three windows, three
 saturations; 98,304 was the first that held, and one task reached 88,668 of it.
@@ -129,10 +137,12 @@ Fixed in both drivers, pinned by `bench/tests/test_worker_workdir.py`.
 **What survives:** the wall-clock times and the context high-water figures —
 those came from the process and the server, not from the diff.
 
-**A second cause is independent of it and still open:** decode at this window is
-**2.8–5.0 tok/s** (below), where a real task needs a median 259 added lines.
-**Fixing the directory does not make that finishable**, and the next real-task
-run must not change both at once.
+**~~A second cause is independent of it and still open: decode at this window
+is 2.8–5.0 tok/s~~ — RETRACTED [`CORRECTIONS.md` §26](../reports/CORRECTIONS.md).**
+That range belongs to the DFlash2 arms, not to the window: with `ngram-mod`
+alone the same depth returns **96.92 tok/s over 6 of 6 rounds**. **So the
+directory fault is the only established explanation for the zero diffs**, and
+the next real-task run has one variable rather than two.
 
 ## ~~The window we serve is the one that does not work~~ — the DRAFTER does not work there
 
@@ -145,12 +155,18 @@ run must not change both at once.
 > | arm | ok | timed out | median tok/s | free MiB after load |
 > |---|---:|---:|---:|---|
 > | `none` | 6/6 | 0 | 33.69 | 800–1,935 |
-> | **`ngram-mod` — what all four profiles serve** | **6/6** | **0** | **96.92** | 769–2,117 |
+> | **`ngram-mod` — the decoder all four profiles run** | **6/6** | **0** | **96.92** | 769–2,117 |
 > | `dflash2` | 5/6 | 1 | 49.31 | **45–376** |
 > | `dflash2+ngram` | 4/6 | 2 | 5.66 | **153–240** |
 >
 > **`ngram-mod` at ctx 98,304 is faster than the 75.2 median recorded at
 > 16,384.** The window is not the problem. `results/decoders-98304.jsonl`.
+>
+> **Read the artifact with the rate.** These rows are **`UD-IQ2_XXS` at 98,304**,
+> a pairing **no profile serves** — `worker-iq2xxs-deep` runs that artifact at
+> 131,072 and `worker-iq2s-quality` runs 98,304 on the 1.1 GB larger
+> `UD-IQ2_S`. The decoder verdict transfers, since all four run `ngram-mod`; the
+> absolute rate does not.
 
 `results/sweep-ngram-nmatch-98304.jsonl`, 16 rows, deep corpus, four rounds —
 **all sixteen with `--spec-type draft-dflash,ngram-mod`.**

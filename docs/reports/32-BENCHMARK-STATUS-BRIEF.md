@@ -115,12 +115,15 @@ corpus, arms alternated (`results/decoders-98304.jsonl`, 24 rows):
 | arm | ok | timed out | median tok/s | free MiB after load |
 |---|---:|---:|---:|---|
 | `none` | 6/6 | 0 | 33.69 | 800–1,935 |
-| **`ngram-mod` — what every `worker-*.ps1` serves** | **6/6** | **0** | **96.92** | 769–2,117 |
+| **`ngram-mod` — the decoder every `worker-*.ps1` runs** | **6/6** | **0** | **96.92** | 769–2,117 |
 | `dflash2` | 5/6 | 1 | 49.31 | **45–376** |
 | `dflash2+ngram` | 4/6 | 2 | 5.66 | **153–240** |
 
-**The served profile is fine at this window and always was** — 96.92 is above
-the 75.2 median at 16,384. The clause *"neither residency nor speculation
+**The window is fine and always was** — 96.92 is above the 75.2 median at
+16,384. **Read the artifact with it:** these rows are `UD-IQ2_XXS` at ctx
+98,304, which **no profile serves** — `worker-iq2xxs-deep` runs that artifact
+at 131,072, `worker-iq2s-quality` runs 98,304 on the 1.1 GB larger
+`UD-IQ2_S`. The decoder verdict transfers; the absolute rate does not. The clause *"neither residency nor speculation
 explains it"* was exactly backwards: speculation explains it, and the sweep held
 it fixed. The prefill table above carries the same caveat, since its 74.3 was
 measured with the drafter loaded too.

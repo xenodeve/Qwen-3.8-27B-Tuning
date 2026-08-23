@@ -453,9 +453,12 @@ assuming transfer.
 > workflow is withdrawn.** The wall-clock and context high-water figures
 > survive — they came from the process and the server, not from the diff.
 >
-> A second, independent cause is also live: decode at ctx 98,304 is
-> **2.8–5.0 tok/s**, where a real task would take hours. Fixing the directory
-> does not fix that.
+> ~~A second, independent cause is also live: decode at ctx 98,304 is
+> **2.8–5.0 tok/s**~~ — **RETRACTED 2026-08-23,
+> [`CORRECTIONS.md` §26](CORRECTIONS.md).** That range belongs to the DFlash2
+> arms, not to the window: every row of that sweep loaded the sidecar, and with
+> `ngram-mod` alone the same depth returns **96.92 tok/s over 6 of 6 rounds**.
+> **The directory fault is the only established cause of the zero diffs.**
 
 `bench/real_task_bench.py`, throwaway clones from the GitHub remote, scored by
 each repo's own verify command. Raw: `results/real-task-bench.jsonl`.

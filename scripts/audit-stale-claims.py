@@ -19,6 +19,14 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Extensions scanned. `.md` alone was the original scope and it left the four
+# `worker-*.ps1` profiles -- the things that actually run -- outside the audit
+# entirely, which is where the RTX 3090 scan found a false claim about
+# `--fit-target` on 2026-08-22. A stale claim in a served profile is worse than
+# one in a report: a report is read by someone deciding, a profile header is read
+# by someone about to launch.
+SCANNED_SUFFIXES = (".md", ".ps1", ".sh")
+
 SKIP_DIRS = (".git", "node_modules", "__pycache__", ".cache", ".venv", "researchs")
 
 RULES = [
@@ -66,8 +74,8 @@ RULES = [
      "plan 04 P0, step W"),
 
     ("test-count",
-     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246)\s+tests?\b",
-     "the suite is 253 tests -- but a DATED report quoting its own count is a "
+     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246|253|262|269|278)\s+tests?\b",
+     "the suite is 287 tests -- but a DATED report quoting its own count is a "
      "historical record and correct as written; only operational docs must be current",
      "bench/README.md, CLAUDE.md"),
 
@@ -222,7 +230,7 @@ def main():
     for base, dirs, names in os.walk(ROOT):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for name in sorted(names):
-            if not name.endswith(".md"):
+            if not name.endswith(SCANNED_SUFFIXES):
                 continue
             path = os.path.join(base, name)
             rel = os.path.relpath(path, ROOT)

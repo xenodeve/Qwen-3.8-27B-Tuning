@@ -201,8 +201,17 @@ a candidate to beat the incumbent on **both** `f_keep` and `f_sim`.
 
 ## What this session changed about what may be assumed
 
-**Nothing shipped.** All four `worker-*.ps1` run `ngram-mod` alone and are
-correct as they stand for this window — which is now measured rather than hoped.
+**Nothing shipped.** All four `worker-*.ps1` run `ngram-mod` alone and none was
+modified.
+
+**And one precision this report owes.** Every rate above is
+**`UD-IQ2_XXS` at ctx 98,304**, which **no profile serves** —
+`worker-iq2xxs-deep` runs that artifact at 131,072 and `worker-iq2s-quality`
+runs 98,304 on the larger `UD-IQ2_S`. The decoder verdict transfers, since all
+four run `ngram-mod`. The absolute rate does not, and neither does the
+drafter's failure band without re-measuring — though `UD-IQ2_S` being 1.1 GB
+larger argues in the same direction. **An earlier draft of this report said
+these rows were what the profiles serve. They are not.**
 
 **Three claims came out.** [§25](CORRECTIONS.md) chars/token,
 [§26](CORRECTIONS.md) the decode collapse, [§27](CORRECTIONS.md) `--fit`. All
