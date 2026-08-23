@@ -93,6 +93,56 @@ cold prefill that production would not.
 
 *Raw: `results/prefix-cache.jsonl`.*
 
+**Re-measured at real depth, 2026-08-23, and a second mechanism found.**
+The nine rows above are all at **3,878 tokens**, which is a tenth of what the
+served profile carries. Both findings survive depth, and one of them gets much
+more expensive there.
+
+`results/prefix-cache-depth.jsonl`, `bench/prefix_cache_depth.py`, one boot at
+ctx 98,304:
+
+| | 8,147 tokens | 44,255 tokens |
+|---|---:|---:|
+| turn 1, cold | 6,727 ms | 35,301 ms |
+| turns 2-4, append-only | 218-257 ms | 228-265 ms |
+| cache reuse | 99.5-99.7 % | **99.9 %** |
+| one sentence edited near the front | 0.0 %, 6,627 ms | **0.0 %, 41,810 ms** |
+
+**A warm turn costs the same ~250 ms whether the conversation is 8K or 44K.**
+Prefill is a per-conversation cost, not a per-turn one, as long as the prompt
+only grows.
+
+**The skill-injection tension above is confirmed and its price is now known.**
+An edit ahead of the suffix does not degrade reuse, it **zeroes** it - 0.0 % at
+both depths - and at 44K that is **41.8 s per turn**, six times the shallow
+penalty. The fix stated above is unchanged and now load-bearing: the injected
+text must sit inside the stable prefix, byte-identical on every call.
+
+**The second mechanism is `-cram`, and it is what an agent switching tasks
+actually needs.** `--cache-ram` defaults to **8192 MiB** and stores the whole
+sequence state - attention KV and recurrent together - for idle slots. No
+profile or document here had ever named it. `results/prompt-cache-swap.jsonl`,
+two disjoint 44K conversations, A-B-A-B-A:
+
+| | `-cram 8192` (default) | `-cram 0` |
+|---|---:|---:|
+| A cold | 40,513.5 ms, 0.0 % | 40,655.1 ms, 0.0 % |
+| **A after B** | **118.2 ms, 100.0 %** | **40,596.0 ms, 0.0 %** |
+| saved on return | **99.7 %** | 0.1 % |
+
+**343x on one flag.** Costs 898-928 MiB of host RAM per conversation; restore is
+a move, not a copy, so an entry leaves the cache when loaded; and `load()`
+refuses any entry whose common prefix is under 25 % of its length.
+
+**What this means for the corpus numbers below.** They still run
+`cache_prompt: False`, so they still pay a cold prefill production would not -
+and the gap is now measured at **40.5 s** rather than the 12.6 s the shallow
+rows implied.
+
+*Raw: `results/prefix-cache-depth.jsonl`, `results/prompt-cache-swap.jsonl`.
+[Report 33](../reports/33-WHAT-THE-3090-POOL-ACTUALLY-GAVE-US.md),
+[08 section 6](08-rtx3090-transfer.md).*
+
 ## Skill injection — measured once, on the wrong machine and the right one
 
 `clink-subagents` §7 requires it: *"`karpathy-guidelines` on every call; `tdd`
