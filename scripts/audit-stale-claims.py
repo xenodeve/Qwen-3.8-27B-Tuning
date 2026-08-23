@@ -158,6 +158,21 @@ RULES = [
      "its stated cause does not",
      "CORRECTIONS.md 27"),
 
+    ("fa-all-quants-decided",
+     r"FA_ALL_QUANTS`? rebuild for Q8 KV\?\s*\|\s*\*\*not needed|"
+     r"Is `?FA_ALL_QUANTS`? needed for Q8 KV\?\s*\|\s*\*\*No|"
+     r"Q8 KV is faster on the stock binary, so it was not needed",
+     "the answer is right and the row is wider than it. GGML_TYPE_Q8_0 is in "
+     "the always-compiled list at fattn.cu:340-352 and falls through to "
+     "return true with the flag ON or OFF, so a Q8 result cannot test this "
+     "option at all. What OFF actually removes is q4_1/q5_0/q5_1 as KV types "
+     "and, at fattn.cu:442-446, every asymmetric K!=V pair -- none of which "
+     "was ever run. Both builds are OFF. -fa auto degrades through a WARN at "
+     "llama-context.cpp:547 rather than failing, so -ctk q5_1 -ctv f16 boots "
+     "with flash attention silently off. Whether ON is worth a rebuild is "
+     "UNMEASURED; the correction is to the word 'decided'",
+     "CORRECTIONS.md 29"),
+
     ("blackwell-4x-slower",
      r"[Ff]our times slower|4x slow|4× slow|~?4x slower|"
      r"22\.67 tok/s|22\.67 tokens",

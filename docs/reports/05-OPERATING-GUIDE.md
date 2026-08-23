@@ -150,4 +150,4 @@ Operational reasoning profile: **`medium`**.
 | ngram speculation? | **no** — 30.8 % acceptance, no gain | 00 §3 |
 | speculative sub-knobs? | **no** — neutral to −10 % | 04 §1 |
 | threads / batch / fit-target? | **settled**; further 16K flag tuning is below the noise floor | 01 §7 |
-| `FA_ALL_QUANTS` rebuild for Q8 KV? | **not needed** — Q8 is faster on the stock binary | 02 §3.1 |
+| `FA_ALL_QUANTS` rebuild **for Q8 KV**? | **not needed** — and it could not have been: `Q8_0` compiles either way (`fattn.cu:340-352`). It gates `q4_1`/`q5_0`/`q5_1` and asymmetric K≠V, **all unmeasured** | 02 §3.1, [`CORRECTIONS` §29](CORRECTIONS.md) |

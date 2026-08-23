@@ -990,6 +990,68 @@ at least the *binary* can never again go unrecorded.
 
 ---
 
+## 29. "`FA_ALL_QUANTS` is not needed" — true of Q8, and Q8 is the one KV type the flag does not gate
+
+**Where it was published**, in three places, each stating the same reason:
+
+> `reports/05-OPERATING-GUIDE.md:153` — | `FA_ALL_QUANTS` rebuild for Q8 KV? | **not needed** -- Q8 is faster on the stock binary | 02 SS3.1 |
+> `reports/06-OPEN-QUESTIONS.md:211` — | Is `FA_ALL_QUANTS` needed for Q8 KV? | **No** -- Q8 is faster on the stock b10472 binary |
+> `reports/16-OPTIMIZATION-SURFACE.md:228` — | build: `FA_ALL_QUANTS` | off | **decided** | Q8 KV is faster on the stock binary, so it was not needed |
+
+**Read out of the tree 2026-08-24**, `ggml/src/ggml-cuda/fattn.cu:340-352`:
+
+```c
+        case GGML_TYPE_Q4_1:
+        case GGML_TYPE_Q5_0:
+        case GGML_TYPE_Q5_1:
+#ifndef GGML_CUDA_FA_ALL_QUANTS
+            return false;
+#endif
+        case GGML_TYPE_Q4_0:
+        case GGML_TYPE_Q8_0:
+        case GGML_TYPE_BF16:
+            return true;
+```
+
+**`GGML_TYPE_Q8_0` falls through to `return true` whether the flag is on or
+off.** A Q8 measurement is structurally incapable of testing this option. The
+answer to the question asked -- *is it needed for Q8?* -- is right. The row that
+records it says **`decided`**, and what that forecloses is a different set
+entirely: `q4_1`, `q5_0`, `q5_1`, and, at `fattn.cu:442-446`, **every asymmetric
+K!=V pair**, none of which was ever run.
+
+The caveat was on the page the decision came from.
+`researchs/Deep Research/deep-research-optimization2.md:138` scopes the flag to
+*"Only for asymmetric/non-stock KV experiments"* -- precisely the experiments the
+`decided` row then closed.
+
+**Verified state of both binaries**, `CMakeCache.txt`:
+
+```
+llama.cpp/build-blackwell   GGML_CUDA_FA_ALL_QUANTS:BOOL=OFF
+llama.cpp/build-dflash2     GGML_CUDA_FA_ALL_QUANTS:BOOL=OFF
+```
+
+**And the failure is half-silent.** `-fa auto` is the default
+(`llama-context.cpp:3534`); an unsupported KV type resolves through
+`llama-context.cpp:547`, which emits `LLAMA_LOG_WARN(... "set to disabled")` and
+**continues**. A quantized *V* cache then hard-fails at
+`llama-context.cpp:3607-3610` -- but `-ctk q5_1 -ctv f16` boots, runs with flash
+attention silently off, and returns a number.
+
+**What is NOT claimed:** that turning the flag on would help. No KV type it
+unlocks has ever been measured here, on either card. The correction is to the
+word **`decided`**, not to the flag's value.
+
+Found because an outside operator on the same RTX 5060 Ti 16 GB opened a config
+with *"IMPORTANT: Compile llama.cpp with `GGML_CUDA_FA_ALL_QUANTS=ON`"* and a
+`q5_0`/`q4_1` KV pair -- a line our binaries cannot express. Captured in
+[`researchs/reddit-5060ti-quant-thread/`](../researchs/reddit-5060ti-quant-thread/README.md).
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `fa-all-quants-decided`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":
