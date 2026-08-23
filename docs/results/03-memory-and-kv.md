@@ -17,6 +17,53 @@
 > that date states its own level, and a figure from before it cannot be
 > compared with one from after without saying which is which.
 
+## 🔴 Three buffers that look fixed scale with context — measured 2026-08-24
+
+**A projection built from buffers measured at one depth was wrong at another, and
+a boot caught it.** `UD-Q2_K_XL` with `draft-mtp,ngram-mod` was projected to leave
+1,790 MiB at ctx 163,840. It does not load there: `--fit` reports *"cannot meet
+free memory target of 1522 MiB, need to reduce device memory by 154 MiB"* and
+spills to **64/66**, and two CPU layers at depth cost what
+[`04-context-depth.md`](04-context-depth.md) measures — `AD-IQ1_M` at `65+1`
+decodes **6.08 tok/s** against 26.50 resident.
+
+The projection treated as fixed three buffers that are not:
+
+| buffer | 98,304 | 131,072 | 147,456 | 163,840 | rate |
+|---|---:|---:|---:|---:|---|
+| target KV | 1,728.00 | 2,304.00 | 2,592.00 | 2,880.00 | **18.00 KiB/token** |
+| **target compute** | **472.27** | **616.27** | **688.27** | **777.57** | **~0.0047 MiB/token** |
+| **MTP draft KV** | **384.00** | **512.00** | **576.00** | **640.00** | **4.00 KiB/token exactly** |
+| **MTP compute** | **82.01** | **98.01** | **106.01** | **114.01** | **~0.0005 MiB/token** |
+
+**Only the first row is the one everybody knows.** The other three add roughly
+**290 MiB per 32,768 tokens** — enough to turn a 1,790 MiB projection into a
+154 MiB shortfall over two rungs.
+
+`-ub` does not change between these boots. The compute buffer grows with the
+window anyway.
+
+**The measured ceiling for that configuration is 147,456**, 66/66 resident:
+
+```
+model 8,965.31 | KV 2,592.00 | RS 598.50 | compute 688.27
+MTP KV 576.00  | MTP compute 106.01 | CPU_Mapped 397.85
+13,526 MiB of the 15,172 llama.cpp sees, leaving 1,646
+--fit: "will leave 1727 >= 1450 MiB, no changes needed"
+```
+
+131,072 is the safer rung at **2,078 MiB** free.
+
+> **Rule this leaves behind: a VRAM projection is not a residency verdict.** One
+> boot settles it in under a minute, and `--fit` will silently spill layers
+> rather than refuse — which reads as success in every field except the layer
+> count.
+
+*Raw: `logs/probe-q2kxl-mtp-131072.log`, `-147456.log`, `-163840.log`,
+`scripts/worker-q2kxl-mtp.ps1`.*
+
+---
+
 The binding constraint on this machine is 12 GB, and everything on this page is
 an attempt to spend it better.
 
