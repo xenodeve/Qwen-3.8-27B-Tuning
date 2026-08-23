@@ -490,6 +490,22 @@ changed four times out of four.
 **The two items under *Never tried* below are now the highest-value untried
 things on this page**, and the first of them costs one flag.
 
+**And the level to try first is `medium`, not `low`.** Artificial Analysis
+prices the three levels of this model on both of its indices
+([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+and they disagree about where the cost sits:
+
+| Qwen3.8-27B | Intelligence Index | **Agentic Index** |
+|---|---:|---:|
+| `xhigh` | 52 | **51** |
+| `medium` | 44 | **50** |
+| `low` | 43 | 44 |
+
+**On the agentic axis — the one this project's metric sits on — `xhigh` to
+`medium` costs one point and `medium` to `low` costs six.** The general axis
+is the other way round. Full-precision through an API, so the ranking may
+transfer and the absolute numbers do not.
+
 ## Never tried
 
 - **A system prompt that instructs how to think** rather than how to format —
