@@ -14,6 +14,59 @@ Eleven values exist in build 10472. All eleven have been tried.
 > **Read [`09-hardware.md`](09-hardware.md) before quoting any elimination on
 > this page as current.**
 
+## `dflash2+ngram` on a REAL task — first measurement, 2026-08-24
+
+Every other number on this page is tok/s on a generated prompt. This is one run
+of `bench/real_task_bench.py` against a real open issue (`xeno-skills#306`) in a
+throwaway clone, ctx 98,304, on the native `sm_120a` build.
+**`results/real-task-dflash2ngram.jsonl`**, transcript preserved at
+`D:\bench-scratch\transcripts\xeno-skills-306-20260824-014053.stdout.txt`.
+
+**The server side is healthy.** Peak context **69,401 of 98,304** (70.6 %),
+`truncated = 0` on every turn, 45 turns across the session, no timeout.
+**The window was not the constraint and neither was the drafter.**
+
+**Speculation works on real work, which the synthetic corpus could not show.**
+Acceptance on the corpus is 0.614; here it ran **0.47–0.65**, same band.
+
+**But tok/s is not one number — it tracks turn length, and agent turns are
+short:**
+
+| generated tokens | tok/s | acceptance | mean accepted len |
+|---:|---:|---:|---:|
+| 324 | **19.68** | 0.479 | 3.47 |
+| 698 | 33.16 | 0.470 | 3.69 |
+| 8,192 *(hit the cap)* | **62.85** | 0.654 | 7.18 |
+
+**87.72 tok/s — this arm's corpus figure — is not what an agent loop gets.**
+A short turn is dominated by per-request overhead, and a coding agent is mostly
+short turns. Anywhere this project quotes a decoder rate as what the worker
+delivers, that gap applies.
+
+### The task itself FAILED, for a reason that is not about the decoder
+
+`changed_files = 0` after 537.7 s. The preserved transcript says why, and it is
+the shell:
+
+```
+$ ls -la
+Get-ChildItem: A parameter cannot be found that matches parameter name 'la'.
+
+$ ls -la . 2>/dev/null || dir /B
+Out-File: Could not find a part of the path 'D:\dev\null'.
+Get-ChildItem: Cannot find path 'D:\B' because it does not exist.
+```
+
+The worker emitted POSIX commands into PowerShell, spent its opening turns on
+that, recovered into correct cmdlets, then explored the repository for nine
+minutes and never reached an edit. **This is a worker/environment result, not a
+decoder result.**
+
+> ⚠️ **One task with no control proves nothing about the arm.** There is no
+> `ngram-mod` run of the same task to compare against, so this says the arm
+> *serves* real agent work correctly — it does not say it is better or worse
+> than the incumbent at it. That comparison needs the same task on both arms.
+
 > **Every figure on this page carries the same caveat.** The timed prompt is
 > **84.5 % duplicate lines** — one class repeated with a changing index, 962
 > blocks at 147,456, adjacent blocks 99.5 % identical. An n-gram decoder drafts
