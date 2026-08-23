@@ -1,6 +1,12 @@
 # C:\AI — Local Coding Worker
 
-A Qwen3.8-27B coding agent running on one RTX 4070 SUPER (12 GB).
+A Qwen3.8-27B coding agent running on one **RTX 5060 Ti (16 GB)**.
+
+> **The card changed on 2026-08-23.** It was an RTX 4070 SUPER 12 GB, and
+> **every measurement in this repo predating that date was taken on the old
+> card.** What transfers and what does not:
+> [`docs/results/09-hardware.md`](docs/results/09-hardware.md).
+
 Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 
 **Metric:** verified accepted coding tasks per hour — a task counts only if the

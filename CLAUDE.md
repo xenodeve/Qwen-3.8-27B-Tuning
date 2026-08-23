@@ -3,7 +3,10 @@
 <!-- lang:en -->
 
 This repo is a **measurement project**, not a product. It exists to find the
-fastest usable configuration for Qwen3.8-27B on one RTX 4070 SUPER 12 GB, and
+fastest usable configuration for Qwen3.8-27B on one **RTX 5060 Ti 16 GB**
+(Blackwell, from 2026-08-23 -- it replaced an RTX 4070 SUPER 12 GB, and
+**every number recorded before that date belongs to the old card**:
+`docs/results/09-hardware.md`), and
 to record what was measured well enough that a later reader can tell a result
 from a guess.
 
@@ -161,7 +164,8 @@ sub-progress. One digest at the end, enumerating what ran and what did not.
 # CLAUDE.md — วิธีทำงานใน repository นี้
 
 repo นี้เป็น **โปรเจกต์วัดผล** ไม่ใช่ผลิตภัณฑ์ มีไว้เพื่อหา config ที่เร็วที่สุด
-ที่ใช้งานได้จริงของ Qwen3.8-27B บน RTX 4070 SUPER 12 GB ใบเดียว และเพื่อบันทึกสิ่ง
+ที่ใช้งานได้จริงของ Qwen3.8-27B บน **RTX 5060 Ti 16 GB** ใบเดียว
+(Blackwell ตั้งแต่ 2026-08-23 มาแทน RTX 4070 SUPER 12 GB — **ตัวเลขทุกตัวที่บันทึกก่อนวันนั้นเป็นของการ์ดใบเก่า**: `docs/results/09-hardware.md`) และเพื่อบันทึกสิ่ง
 ที่วัดได้ดีพอที่คนอ่านทีหลังจะแยกออกว่าอันไหนคือผลจริงอันไหนคือการเดา
 
 **agent คือวิศวกรหลักที่นี่** ทุกไฟล์ข้างล่างมีไว้ให้ session ใหม่กู้สถานะได้โดยไม่ต้องหาเอง
