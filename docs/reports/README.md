@@ -43,7 +43,8 @@ One document per topic. Read in this order; each builds on the one before.
 | 30 | [RTX 3090 reference review](30-SYV-RTX3090-REFERENCE-REVIEW.md) | An external stack reviewed against our own files — **one claim retracted, §21** | complete |
 | 31 | [Session record 2026-08-22](31-SESSION-RECORD-2026-08-22.md) | **Every measurement of that day with its conditions**, including the runs that turned out invalid | complete |
 | 32 | [**Benchmark status brief**](32-BENCHMARK-STATUS-BRIEF.md) | **The standalone hand-off** — the whole state with every number traced to its file, written to be read cold | **current** |
-| ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Twenty-four published claims this project later contradicted with its own data, each with where the correction lives | current |
+| 33 | [**What the RTX 3090 pool actually gave us**](33-WHAT-THE-3090-POOL-ACTUALLY-GAVE-US.md) | **Eight techniques measured or closed in one session** — five wins, three retractions, no profile changed. The largest win was already switched on | **current** |
+| ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Twenty-seven published claims this project later contradicted with its own data, each with where the correction lives. **§25–§27 all share one shape: the conclusion was right and the stated mechanism was wrong** | current |
 | ★ | [**Master report** (self-contained, for external review)](MASTER-REPORT-2026-08-19.md) | Everything above in one document that assumes no access to this machine | 2026-08-19 |
 | — | [Session state](SESSION-STATE.md) | restart notes — the interrupted run it describes is now complete | superseded |
 

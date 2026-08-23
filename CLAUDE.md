@@ -16,7 +16,7 @@ session can recover state without re-deriving it.
 
 1. **`docs/OPEN-WORK-LEDGER.md`** — what is open, including MD-only items that
    no issue tracks. The 🔴 UNTRACKED rows are the highest miss-risk.
-2. **`docs/reports/CORRECTIONS.md`** — twenty-four claims this project published
+2. **`docs/reports/CORRECTIONS.md`** — twenty-seven claims this project published
    and later contradicted with its own data. **Read it before quoting any number.**
 3. **`docs/agents/traps.md`** — the ways of WORKING that failed here. Corrections
    tells you which figures to distrust; this tells you which of your own
@@ -73,7 +73,7 @@ Every folder has a `README.md` that says what is in it and what to read first.
 ## Commands
 
 ```powershell
-cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 253 tests — the gate
+cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 287 tests — the gate
 python scripts\check-doc-links.py                      # every link resolves
 python scripts\audit-stale-claims.py                   # superseded claims
 ```
@@ -170,7 +170,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 
 1. **`docs/OPEN-WORK-LEDGER.md`** — อะไรค้างอยู่ รวมของที่มีแต่ใน MD ไม่มี issue
    แถวที่ติด 🔴 UNTRACKED คือกลุ่มที่หลุดง่ายที่สุด
-2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 24 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
+2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 27 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
    ด้วยข้อมูลตัวเอง **อ่านก่อนยกตัวเลขไหนไปใช้**
 3. **`docs/agents/traps.md`** — *วิธีทำงาน* ที่เคยพลาดที่นี่ CORRECTIONS บอกว่าตัวเลขไหน
    ห้ามเชื่อ ส่วนอันนี้บอกว่าสัญชาตญาณข้อไหนของตัวเองห้ามเชื่อ **สิบเอ็ดจากสิบสามกับดักในนั้น
@@ -197,7 +197,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 ## คำสั่ง
 
 ```powershell
-cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 253 test — ด่านหลัก
+cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 287 test — ด่านหลัก
 python scripts\check-doc-links.py                      # ลิงก์ทุกเส้นต้องไปถึง
 python scripts\audit-stale-claims.py                   # ข้ออ้างที่ถูกแทนที่แล้ว
 ```

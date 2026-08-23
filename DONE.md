@@ -9,6 +9,67 @@ hundred lines.
 
 ---
 
+## 2026-08-23 — eight techniques from the RTX 3090 pool, and the biggest one was already on
+
+**The pool had one row left open.** `08-rtx3090-transfer.md` called
+recurrent-state prefix reuse *"the single largest untested idea left"*. Answering
+it required measuring at the window we serve, and that is what broke three
+published claims. Narrative:
+[report 33](docs/reports/33-WHAT-THE-3090-POOL-ACTUALLY-GAVE-US.md). PR #39,
+issue #38.
+
+**`-cram` is worth 343x and nobody knew it was on.** `--cache-ram` defaults to
+**8192 MiB** and stores the whole sequence state — attention KV and recurrent
+together — for idle slots. Returning to a 44K conversation after working on
+another costs **118.2 ms at 100 % reuse**; with `-cram 0` it costs
+**40,596 ms at 0 %**. Cold turns agree to 0.35 %, so the arms are comparable.
+It surfaced only because a slot erase failed to produce a cold turn. Costs
+898-928 MiB of host RAM per conversation; restore is a *move*, not a copy.
+
+**Prefix reuse inside one conversation transfers too.** A warm turn costs the
+same **~250 ms whether the conversation is 8,147 or 44,255 tokens** — 99.9 %
+reuse, 99.3 % saved. It works despite `n_rs_seq = 0`, carried by
+`--ctx-checkpoints`. But an edit ahead of the suffix does not degrade reuse, it
+**zeroes** it, and at 44K that is 41.8 s.
+
+**The window we serve was never the problem.** `04-context-depth.md` recorded
+decode at ctx 98,304 as 2.8-5.0 tok/s and called it a property of the window.
+All sixteen of those rows loaded DFlash2. Six paired rounds with the arms
+alternated: **`ngram-mod` alone returns 96.92 tok/s median, 6 of 6 rounds
+finishing** — faster than the 75.2 median at 16,384 — against 5.66 and two
+timeouts for `dflash2+ngram`. Free VRAM splits cleanly and does not overlap:
+769-2,117 MiB without the drafter, 45-376 with it.
+
+**`--fit` was never following anything.** The north star said free VRAM at boot
+moves 9,326-10,732 MiB and `--fit` follows it. **llama.cpp has reported 11,069
+MiB free in all 552 logs this project has kept**, and 148 of 150 boots on our
+artifact end in *"no changes needed"*. The moving range is `nvidia-smi`'s view
+of the card; `--fit` reasons from the constant one. Pinning `-ngl 65 --fit off`
+was tried and changes nothing observable. **The no-cross-boot rule stands and
+its cause is now unattributed.**
+
+**`-ub` refused.** A 4x cut returns 66 MiB and costs **14.0 % of decode,
+RESOLVED** — and 66 MiB does not reach the band where it was wanted.
+
+**Four closed by reading source, no GPU round spent.** The sharpest:
+**fp16 recurrent state would return 360 MiB and corrupt silently** —
+`gated_delta_net.cu` has zero type checks and casts the state to `float *`
+unconditionally. The scan rates it `small-patch`; it is new-backend. Also found
+available and never set: `"timings_per_token"` and `"return_tokens"`, both plain
+request booleans that serve the recorder (#30-#36).
+
+**Retracted: `CORRECTIONS.md` 25, 26 and 27**, taking the register to
+twenty-seven. All three share one shape — **the conclusion was right and the
+stated mechanism was wrong** — which is worse than a wrong number, because a
+wrong mechanism tells the next reader what to fix. This session spent real time
+pinning `-ngl` against a force that was not there.
+
+**Nothing shipped.** All four `worker-*.ps1` run `ngram-mod` alone and are
+correct as they stand for this window, which is now measured rather than hoped.
+Suite 253 -> 287; `traps.md` gained a thirteenth entry, written about this
+session's own bespoke script reporting 71.76 tok/s where the harness reports
+96.9.
+
 ## 2026-08-23 — the benchmark was measuring the wrong tree, and the served window does not work
 
 **Two independent faults, each of which alone explains a result this project

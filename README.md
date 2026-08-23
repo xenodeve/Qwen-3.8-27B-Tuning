@@ -18,7 +18,7 @@ open. Everything else is the detail behind it.
 ---
 
 **Before quoting any number:** [`docs/reports/CORRECTIONS.md`](docs/reports/CORRECTIONS.md)
-lists twenty-four claims this project published and later contradicted with its own
+lists twenty-seven claims this project published and later contradicted with its own
 measurements.
 
 ---
