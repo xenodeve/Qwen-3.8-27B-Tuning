@@ -138,6 +138,18 @@ RULES = [
      "between them validated nothing",
      "CORRECTIONS.md 21"),
 
+    ("fit-follows-boot-vram",
+     r"9,?326\s*[-–]\s*10,?7?3?2|`?--fit`? follows it|and `?--fit`? follows|"
+     r"free VRAM at boot moves",
+     "the range is right and the mechanism is not. 9,326-10,732 MiB is "
+     "nvidia-smi's view of the CARD; llama.cpp has reported 11,069 MiB free to "
+     "the process in all 552 logs this project has kept, and --fit reasons from "
+     "that one. 148 of 150 boots on our artifact say 'no changes needed'; the "
+     "2 that acted are n-7-clamp at 65,536. Pinning -ngl and --fit off changes "
+     "nothing measurable, verified 2026-08-23. The no-cross-boot rule stands; "
+     "its stated cause does not",
+     "CORRECTIONS.md 27"),
+
     ("decode-collapse-98304",
      r"2\.8\s*[-–]\s*5\.0 tok/s|decode collapses|13 of 16 measurements|"
      r"13/16 timeouts|the window we serve is the one that does not work|"

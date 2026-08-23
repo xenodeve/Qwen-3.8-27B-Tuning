@@ -857,6 +857,65 @@ instance yet of the rule that a verdict at one depth does not transfer.
 
 ---
 
+## 27. "`--fit` follows the boot VRAM" — it does not. It has seen 11,069 MiB every time, 552 times
+
+**Where it was published.** `CLAUDE.md`, the engineering north star, and repeated
+across at least five documents:
+
+> **Never compare raw decode across boots.** Free VRAM at boot moves
+> 9,326–10,732 MiB and `--fit` follows it.
+
+**Measured 2026-08-23**, by reading every server log this project has kept.
+
+```
+free-at-boot as llama.cpp reports it, across ALL 552 logs:
+    552 x "RTX 4070 SUPER (12281 MiB, 11069 MiB free)"
+
+fit decisions on our own artifact (dflash2-*.log, 150 boots with a fit pass):
+    148 x "will leave N >= 768 MiB of free device memory, no changes needed"
+      2 x fit actually acted -- both `n-7-clamp` at ctx 65,536, already in the ledger
+
+layer split across those boots:
+    301 x 65/65 (target)   224 x 6/6 (drafter)   8 x anything else
+```
+
+**The two numbers measure different things, and the wrong one was in the rule.**
+9,326–10,732 MiB is `nvidia-smi` — free VRAM on the *card*, desktop included,
+and it does move. **11,069 MiB is what CUDA reports to the process**, and it is
+the number `--fit` reasons from. It has not varied once in 552 launches, so
+`--fit` reaches the same decision every time and says so.
+
+**What survives, and what does not.**
+
+- ✅ **"Never compare raw decode across boots" still stands.** The spread is
+  real and measured: 13.6 % peak-to-peak at ctx 16,384, up to 48.9 % at 65,536
+  with byte-identical counters (§23). Nothing here touches that.
+- ✅ **`nvidia-smi` free VRAM does move**, and 2026-08-23 caught it moving *mid
+  run*: three `-ub 128` boots with byte-identical allocation read `free_after`
+  of 759, 757 and **1,214 MiB**, and the third ran 6 % faster.
+- ❌ **`--fit` is not the mechanism.** It cannot follow a number it never sees
+  change. Whatever produces the boot-to-boot spread, this is not it.
+
+**Why a wrong mechanism costs more than a wrong number here.** The stated cause
+implies a fix — pin `-ngl`, turn `--fit` off, and the drift goes away. The RTX
+3090 scan proposes exactly that and rates it *"highest value on this list for
+measurement integrity"*. **It was tried on 2026-08-23 and changes nothing**:
+`pinned_alloc_preflight.py` boots both forms at ctx 98,304 and they agree on
+every observable — `65+0`, `n_ctx 98304`, model 6,521.13 MiB, KV 1,728.00,
+compute 472.27, `free_after` 1,427. There was nothing to pin, because `--fit`
+had already decided to leave everything alone.
+
+**What this reopens.** The real source of the boot-to-boot spread is **unknown
+and now unattributed**. The best current lead is contention from the desktop —
+the ledger's *"1,650–2,200 MiB, the largest untouched lever on this machine"* —
+supported by the `-ub 128` round above and by `gpu-trace-98304.jsonl`'s
+signature of 100 % GPU utilisation at 4 % memory utilisation and 76 W. **That is
+a hypothesis.** It should not be written into a rule the way this one was.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `fit-follows-boot-vram`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

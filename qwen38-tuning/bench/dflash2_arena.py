@@ -214,6 +214,57 @@ ARM_SETS = {
         ("ub-64",       ["--spec-type", "ngram-mod"] + NGRAM + ["-ub", "64"]),
     ],
 
+    # Pinned allocation -- the RTX 3090 scan's *"highest value on this list for
+    # measurement integrity"*, and it is aimed at a constraint this project
+    # imposes on itself rather than at tok/s.
+    #
+    # `CLAUDE.md` forbids comparing raw decode across boots because free VRAM at
+    # boot moves 9,326-10,732 MiB and `--fit` follows it. `common/fit.cpp` only
+    # adjusts arguments the user did NOT set, so giving `-ngl` a number and
+    # turning `--fit` off leaves it nothing to do. If that lowers the
+    # boot-to-boot spread, the standing constraint becomes negotiable.
+    #
+    # THE EVIDENCE THAT MADE THIS WORTH A SWEEP, 2026-08-23. Three `-ub 128`
+    # boots logged byte-identical allocation -- same n_ubatch, same 428.27 MiB
+    # compute buffer, same `projected to use 8827 MiB vs 10919`, same
+    # `will leave 2091 >= 768` -- and `free_after`, sampled while the server
+    # ran, read 759, 757 and **1,214 MiB**. The round with 457 MiB more spare
+    # ran 6 % faster. Nothing in the experiment caused that.
+    #
+    # NEVER SWEPT, AND IT SHOULD NOT BE. The preflight closed the question more
+    # cheaply than ten boots could: `pinned` and `fit-auto-base` agree on every
+    # observable at ctx 98,304 -- 65+0, n_ctx 98304, model 6,521.13 MiB, KV
+    # 1,728.00, compute 472.27, free_after 1,427 -- because `--fit` had nothing
+    # to pin. Reading every log this project has kept says why: llama.cpp has
+    # reported **11,069 MiB free in all 552 of them**, and 148 of the 150 boots
+    # on our own artifact end in "no changes needed". `--fit` cannot follow a
+    # number it never sees change. CORRECTIONS.md 27, which retracts the stated
+    # cause of the no-cross-boot rule while leaving the rule itself standing.
+    #
+    # KEPT ANYWAY, for two reasons. The arms are the control if the boot picture
+    # ever changes -- another machine, another artifact, a depth where `--fit`
+    # does act, as it did twice for `n-7-clamp` at 65,536. And the test beside
+    # them pins the double-flag override that any future arm set will need.
+    #
+    # READ THE SPREAD, NOT THE MEDIAN if it is ever run. `paired_deltas` answers
+    # "which arm is faster", which is not the question. The question is whether
+    # `pinned` varies less across rounds, so the useful columns are the per-arm
+    # range and `free_after`.
+    #
+    # THE BASELINE PASSES NO OVERRIDE ON PURPOSE. server_argv() already
+    # hardcodes `-ngl auto --fit on`, which is the configuration every
+    # measurement in this project has used; restating it in the arm would let
+    # the baseline drift away from the prefix without the test noticing.
+    # tests/test_pinned_alloc_arm_set.py pins both halves, and
+    # `pinned_alloc_preflight.py` proves the pinned form boots before any sweep
+    # spends ten of them -- pinning removes llama.cpp's ability to back off, so
+    # anything `--fit` was quietly reducing becomes an OOM instead.
+    "pinned-alloc": [
+        ("fit-auto-base", ["--spec-type", "ngram-mod"] + NGRAM),
+        ("pinned",        ["--spec-type", "ngram-mod"] + NGRAM
+                          + ["-ngl", "65", "--fit", "off"]),
+    ],
+
     # `--spec-draft-p-min` -- MEASURED, NULL at these values. Kept so nobody
     # re-runs it, and because the counters carry a lesson the rate does not.
     #

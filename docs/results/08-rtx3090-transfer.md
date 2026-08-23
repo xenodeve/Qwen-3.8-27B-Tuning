@@ -39,14 +39,20 @@ Flag semantics for the shortlist:
 | 17 | fp16 Gated-DeltaNet recurrent state | `recurrent_type_r/_s` literals | **READ — ☠️ DO NOT ATTEMPT** | Would return **360 MiB** and **corrupt silently**: the DeltaNet CUDA kernel has *no* type check and casts the state to `float *` unconditionally. Scan rates it `small-patch`; it is new-backend |
 | 18 | Per-token arrival capture / exact-token replay | `"timings_per_token"`, `"return_tokens"` | **READ — AVAILABLE NOW** | Both are plain request booleans, no patch and no server flag. Directly serve the recorder (#30–#36). Never set here |
 | 19 | Lookup applied after the selector rather than before | speculator priority list | **READ — needs a patch** | `speculative.cpp:2540-2552` hardcodes every `ngram-*` above every model-based type, so our measured `draft-dflash,ngram-mod` **ran ngram first**. "dflash first" is unmeasured |
+| 20 | "Pin the KV pool in bytes instead of by utilization" — the scan's *highest value for measurement integrity* | explicit `-c N` + `-ngl N`, `--fit off` | **MEASURED — no effect, and it retired a rule** | Pinned and auto agree on every observable at ctx 98,304. `--fit` had nothing to pin: llama.cpp sees **11,069 MiB free in all 552 logs** and 148 of 150 boots say *no changes needed*. [`CORRECTIONS.md` §27](../reports/CORRECTIONS.md) |
 
-**Nineteen rows, and the tally is the point of the page.** Four measured wins —
+**Twenty rows, and the tally is the point of the page.** Four measured wins —
 one of them by refuting the claim that produced it. Two measured nulls. **One
 measured and refused**, where the mechanism held and the price did not. Two
 instruments we already had and had not read. Four read-and-closed without a GPU
 round, one of which would have corrupted output silently had it been tried.
 Three read and still live. One we already had, two the architecture forecloses.
 **None open.**
+
+**Two of the measured results retired a claim rather than adding a setting** —
+`#16` refused a flag whose mechanism held, and `#20` refuted the stated cause of
+this project's own no-cross-boot rule. Neither changes a profile. Both change
+what the next reader is allowed to assume.
 
 **The read-and-closed column is worth as much as the wins.** Four GPU rounds not
 spent, and `#17` is the sharpest of them: following the scan's own `small-patch`
