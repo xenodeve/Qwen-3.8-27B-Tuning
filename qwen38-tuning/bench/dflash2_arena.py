@@ -159,6 +159,38 @@ ARM_SETS = {
     # variable back, so there is no independent confirmation that llama.cpp read
     # it. A null result here means "no effect OR not applied" and must be
     # written up that way.
+    # `draft-mtp` USING THE HEAD BAKED INTO THE TARGET -- never run here before.
+    #
+    # 02-decoders.md carries draft-mtp at +81 % @16K and -71 % @131,072, and the
+    # same page records why those could not have used a baked-in head:
+    #
+    #     Can `draft-mtp` run on `UD-IQ2_S` alone?  No. "model doesn't contain
+    #     MTP layers" -- the weights are a separate 1.3 GB file passed with -md
+    #
+    # So every prior figure paid 564 MiB for a sidecar on an artifact that had
+    # none. `UD-Q2_K_XL` reports n_layer_all = 65, offloads 66/66, and its boot
+    # log shows blk.64.nextn.* loading out of the main file, with
+    # `creating MTP draft context against the TARGET model`.
+    #
+    # NO -md ON PURPOSE. Passing one moves the head into a file, adds its weights
+    # to fit_params_target (server-context.cpp:1074, gated only on "was -md
+    # given"), and makes the arm measure the configuration that was already
+    # measured while carrying the label of the one that was not.
+    #
+    # Probed at ctx 98,304: model 8965.31, KV 1728.00, MTP KV 384.00, RS 598.50
+    # at the n_max=3 default, compute 472.27 + 82.01 -- 12,230 MiB leaving 2,942,
+    # against dflash2+ngram's 12,973 leaving 2,199. 743 MiB back, not the 1,394 a
+    # first estimate suggested: the model buffer grows 334.74 MiB when the head
+    # is used, and --fit raises its own target 768 -> 1234 for the MTP context.
+    #
+    # REQUIRES A MODEL WITH AN MTP HEAD. Nothing in an arm names a model; on an
+    # artifact without one the server refuses at boot, which is the right loud
+    # failure.
+    "mtp": [
+        ("draft-mtp", ["--spec-type", "draft-mtp"], {}),
+        ("draft-mtp+ngram", ["--spec-type", "draft-mtp,ngram-mod"] + NGRAM, {}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
