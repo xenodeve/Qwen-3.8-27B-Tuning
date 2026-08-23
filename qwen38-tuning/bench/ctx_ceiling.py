@@ -33,11 +33,12 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from provenance import resolve_exe
 from harness import parse_layer_split
 import depth_sweep as D
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
-EXE = r"C:\AI\llama.cpp-cuda\llama-server.exe"
+EXE = resolve_exe(r"C:\AI\llama.cpp-cuda\llama-server.exe")
 BASE = "http://127.0.0.1:8080"
 
 

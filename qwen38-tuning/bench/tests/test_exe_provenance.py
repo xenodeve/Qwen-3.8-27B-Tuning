@@ -41,6 +41,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import dflash2_arena as arena
+import provenance
 
 ADA = r"C:\AI\llama.cpp-dflash2\llama-server.exe"
 BLACKWELL = r"C:\AI\llama.cpp-blackwell\llama-server.exe"
@@ -48,21 +49,30 @@ BLACKWELL = r"C:\AI\llama.cpp-blackwell\llama-server.exe"
 
 # --------------------------------------------------------------- the override
 
-def test_resolve_exe_defaults_to_the_module_constant(monkeypatch):
-    monkeypatch.delenv("QWEN38_LLAMA_EXE", raising=False)
-    assert arena.resolve_exe() == arena.EXE
+def test_resolve_exe_falls_through_to_the_default(monkeypatch):
+    monkeypatch.delenv(provenance.ENV_VAR, raising=False)
+    assert provenance.resolve_exe(ADA) == ADA
 
 
 def test_resolve_exe_honours_the_environment(monkeypatch):
-    monkeypatch.setenv("QWEN38_LLAMA_EXE", BLACKWELL)
-    assert arena.resolve_exe() == BLACKWELL
+    monkeypatch.setenv(provenance.ENV_VAR, BLACKWELL)
+    assert provenance.resolve_exe(ADA) == BLACKWELL
 
 
-def test_server_argv_launches_the_resolved_exe_not_the_constant(monkeypatch):
-    """The override is worthless if argv still carries the frozen default."""
-    monkeypatch.setenv("QWEN38_LLAMA_EXE", BLACKWELL)
-    argv = arena.server_argv(16384, [])
-    assert argv[0] == BLACKWELL
+def test_an_empty_variable_does_not_produce_an_empty_argv0(monkeypatch):
+    """Exporting the variable blank is a plausible operator slip. It must read
+    as "not set" rather than as "launch the empty string", which would fail
+    somewhere far from the cause."""
+    monkeypatch.setenv(provenance.ENV_VAR, "")
+    assert provenance.resolve_exe(ADA) == ADA
+
+
+def test_server_argv_launches_the_module_exe():
+    """EXE is resolved once at import, which is when the environment is read.
+    What this pins is that `server_argv` carries THAT value rather than a second
+    literal written out again inside the function -- the two drifting apart is
+    how an override gets honoured in the log banner and ignored in the launch."""
+    assert arena.server_argv(16384, [])[0] == arena.EXE
 
 
 # ------------------------------------------------------------- the provenance

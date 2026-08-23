@@ -30,10 +30,11 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from provenance import resolve_exe
 from harness import median
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
-EXE = r"C:\AI\llama.cpp-cuda\llama-server.exe"
+EXE = resolve_exe(r"C:\AI\llama.cpp-cuda\llama-server.exe")
 BASE = "http://127.0.0.1:8080"
 MODEL = "unsloth/Qwen3.8-27B-GGUF:UD-IQ2_XXS"
 

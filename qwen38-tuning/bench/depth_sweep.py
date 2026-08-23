@@ -25,12 +25,13 @@ import hashlib, json, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from provenance import resolve_exe
 from harness import (median, parse_layer_split, project_prefill_seconds,
                      completion_timeout_s, vram_settled, VRAM_MIN_RISE_MIB,
                      draft_acceptance)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
-EXE = r"C:\AI\llama.cpp-cuda\llama-server.exe"
+EXE = resolve_exe(r"C:\AI\llama.cpp-cuda\llama-server.exe")
 import glob as _glob, os as _os
 def _c(repo, fn, size=None):
     """Resolve a cached artifact to a path. See the note in model_arena.ARMS:
