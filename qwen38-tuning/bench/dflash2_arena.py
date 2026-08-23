@@ -159,6 +159,33 @@ ARM_SETS = {
     # variable back, so there is no independent confirmation that llama.cpp read
     # it. A null result here means "no effect OR not applied" and must be
     # written up that way.
+    # `--spec-draft-n-max 7` -- THE CEILING, NEVER SET.
+    #
+    # common.h:325 defaults n_max to 3. speculative.cpp:989 takes the ceiling
+    # from the drafter's own metadata -- block_size - 1 -- and our boot log
+    # prints `block_size=8` for DFlash2, so 7. Every DFlash2 figure this repo
+    # holds, report 29 included, was measured at 4: a value the ledger records as
+    # "chosen without knowing either number", with two independent reviews
+    # calling it the largest unclaimed lever on the list.
+    #
+    # Cost is known and flat: the Gated DeltaNet recurrent state is
+    # 149.62 x (1 + n_max) and does not scale with context, so 4 -> 7 is
+    # +448.84 MiB. On UD-Q2_K_XL that is 12,973 -> 13,422 of 15,172.
+    #
+    # ONE NUMBER CHANGED. Both arms are byte-identical to arms already measured
+    # apart from `--spec-draft-n-max`; a delta with two causes is unattributable
+    # and is what CORRECTIONS 26 and 28 both are.
+    #
+    # THE MTP ARM'S CEILING IS UNREAD. draft-mtp prints no block_size line, and
+    # the server CLAMPS WITH A WARNING rather than an error -- so a run can
+    # silently draft 3 while the label says 7. Read `n_max=` back out of the boot
+    # log before believing either row.
+    "n-max-7": [
+        ("dflash2+ngram n7", _pair(n_draft=7), {}),
+        ("draft-mtp+ngram n7",
+         ["--spec-type", "draft-mtp,ngram-mod"] + NGRAM + ["--spec-draft-n-max", "7"], {}),
+    ],
+
     # `draft-mtp` USING THE HEAD BAKED INTO THE TARGET -- never run here before.
     #
     # 02-decoders.md carries draft-mtp at +81 % @16K and -71 % @131,072, and the
