@@ -74,8 +74,8 @@ RULES = [
      "plan 04 P0, step W"),
 
     ("test-count",
-     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246|253|262|269|278)\s+tests?\b",
-     "the suite is 287 tests -- but a DATED report quoting its own count is a "
+     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246|253|262|269|278|287|288|295|310|318)\s+tests?\b",
+     "the suite is 329 tests -- but a DATED report quoting its own count is a "
      "historical record and correct as written; only operational docs must be current",
      "bench/README.md, CLAUDE.md"),
 
@@ -232,6 +232,30 @@ RULES = [
      "under test; valid within a depth only",
      "report 24 section 6"),
 ]
+
+
+# A rule that cannot match is worse than a missing rule: the audit still runs,
+# still prints, and still reports the tree clean of something it stopped looking
+# for. On 2026-08-24 a patch script widening `test-count` wrote `\\b` where it
+# meant `\b` -- legal regex for "a literal backslash, then b", which nothing in
+# this tree contains. The file imported, the audit ran, the rule was silent, and
+# reading the diff did not reveal it. Only executing the pattern does.
+#
+# So every rule is exercised at import, before anything is scanned. This costs
+# 26 regex compiles and is the cheapest guard in the repo.
+_DOUBLED_ESCAPE = re.compile(r"\\\\[bswdBSWD]")
+
+for _rid, _pattern, _why, _where in RULES:
+    try:
+        re.compile(_pattern)
+    except re.error as _exc:
+        raise SystemExit(f"audit rule {_rid!r} does not compile: {_exc}")
+    if _DOUBLED_ESCAPE.search(_pattern):
+        raise SystemExit(
+            f"audit rule {_rid!r} contains a doubled escape, so it matches a "
+            f"literal backslash rather than a character class. It would report "
+            f"the tree clean of something it is no longer looking for.")
+del _rid, _pattern, _why, _where
 
 
 def main():

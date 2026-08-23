@@ -41,7 +41,7 @@ C:\AI\
 │   └── researchs\             external material, NOT our measurements
 ├── scripts\                   tools for the docs map → scripts/README.md
 └── qwen38-tuning\             the machine           → qwen38-tuning/README.md
-    ├── bench\                 the harness (253 tests)
+    ├── bench\                 the harness (329 tests)
     ├── scripts\               launch profiles and unattended queues
     ├── results\               raw JSONL, one row per boot
     ├── logs\                  server and driver logs
@@ -66,7 +66,7 @@ first.** If you land somewhere and are unsure, read that folder's README.
    lock. An armed queue once killed a running corpus and the summary still
    printed a plausible number.
 3. **Run the test gate before trusting any measurement:**
-   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — 253 tests.
+   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — 329 tests.
 
 Twelve more in [`docs/reports/04-MEASUREMENT-METHODOLOGY.md`](docs/reports/04-MEASUREMENT-METHODOLOGY.md) §7,
 each of which produced a believable wrong number.
