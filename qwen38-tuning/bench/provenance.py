@@ -36,6 +36,11 @@ from pathlib import Path
 
 ENV_VAR = "QWEN38_LLAMA_EXE"
 
+# Separate from ENV_VAR on purpose. One variable for both would make pointing at
+# a different model silently also point at a different binary, which is the
+# confound this module exists to prevent rather than create.
+TARGET_ENV_VAR = "QWEN38_TARGET"
+
 # Shipped with the CUDA toolkit; the only tool here that reads code objects.
 CUOBJDUMP = (r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3"
              r"\bin\cuobjdump.exe")
@@ -45,13 +50,49 @@ CUOBJDUMP = (r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3"
 _ARCH_CACHE = {}
 
 
-def resolve_exe(default):
-    """The server binary to launch: `QWEN38_LLAMA_EXE` if set, else `default`.
+def _from_env(var, default):
+    """`var` if it is set to something non-empty, else `default`.
 
-    An empty or unset variable falls through to the default, so exporting it
-    blank cannot silently produce an empty argv[0].
+    The `or` is deliberate: an empty variable is a plausible operator slip
+    (`$env:X = ""`), and treating it as "set" would launch the empty string and
+    fail somewhere far from the cause.
     """
-    return os.environ.get(ENV_VAR) or default
+    return os.environ.get(var) or default
+
+
+def resolve_exe(default):
+    """The server binary to launch: `QWEN38_LLAMA_EXE` if set, else `default`."""
+    return _from_env(ENV_VAR, default)
+
+
+def resolve_target(default):
+    """The model file to load: `QWEN38_TARGET` if set, else `default`.
+
+    Added for the same reason as `resolve_exe`, one question later. Comparing
+    two quantisations of one model means running the identical arm on two files;
+    editing the module constant to do it makes the first figure unreproducible,
+    and `docs/results/01-artifacts.md` lists TWO different files both named
+    `Qwen3.8-27B-UD-Q2_K_XL.gguf` in different snapshot directories, so a
+    filename cannot identify the artifact either.
+    """
+    return _from_env(TARGET_ENV_VAR, default)
+
+
+def model_size_mib(path):
+    """Size of `path` in MiB, or None if it is not there.
+
+    Recorded beside the path because the path alone is not an identity: the two
+    `UD-Q2_K_XL` files on this machine differ by 808 MiB, and a moved or
+    re-synced cache would make a recorded path point at something else without
+    changing a single character of the row.
+
+    None rather than 0.0 -- an empty model and a missing one are different
+    failures, and the missing one is the case where the row is already wrong.
+    """
+    try:
+        return os.path.getsize(path) / 1048576
+    except OSError:
+        return None
 
 
 def cuda_archs(exe):

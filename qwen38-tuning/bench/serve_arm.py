@@ -51,6 +51,11 @@ def main():
     print(f"env    {env or '{}'}")
     print(f"exe    {A.EXE}")
     print(f"archs  {A.cuda_archs(A.EXE)}")
+    # The model, with its size: two files on this machine share a filename and
+    # differ by 808 MiB, so the path alone does not identify what is loading.
+    size = A.model_size_mib(A.TARGET)
+    print(f"target {A.TARGET}")
+    print(f"       {size:.0f} MiB" if size else "       SIZE UNREADABLE")
 
     p, fh, log, free_before = A.start(a.ctx, extra, f"serve-{label.replace('+', '-')}",
                                       boot_s=a.boot_s, env=env)

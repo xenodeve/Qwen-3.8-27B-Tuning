@@ -46,13 +46,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 from harness import (median, parse_layer_split, draft_acceptance,
                      paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
                      parse_spec_impl_stats, generation_is_measurable)
-from provenance import resolve_exe, cuda_archs
+from provenance import resolve_exe, resolve_target, cuda_archs, model_size_mib
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 EXE = resolve_exe(r"C:\AI\llama.cpp-dflash2\llama-server.exe")
-TARGET = (r"C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF"
-          r"\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed"
-          r"\Qwen3.8-27B-UD-IQ2_XXS.gguf")
+TARGET = resolve_target(
+    r"C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF"
+    r"\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed"
+    r"\Qwen3.8-27B-UD-IQ2_XXS.gguf")
 DRAFTER = (r"C:\Users\xenod\.cache\huggingface\hub"
            r"\models--z-lab--Qwen3.8-27B-DFlash2-GGUF"
            r"\snapshots\57ab3265056d4024870b0621cfc2c127537020ed"
@@ -645,6 +646,10 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
                # report the same version string and differ 4x in decode; without
                # these two fields the JSONL cannot tell them apart afterwards.
                exe=EXE, cuda_archs=cuda_archs(EXE),
+               # Which MODEL, with its size: two files on this machine share the
+               # name UD-Q2_K_XL and differ by 808 MiB, so the path alone is not
+               # an identity if the cache ever moves.
+               target=TARGET, target_mib=model_size_mib(TARGET),
                # Always present, even when empty: absent and {} must not be the
                # same value, or "this arm set nothing" reads the same as "this
                # row predates the feature".

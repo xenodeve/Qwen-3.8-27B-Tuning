@@ -266,12 +266,16 @@ statement.**
 His sizes are decimal GB; ours are binary GiB. Converted, they identify our own
 snapshot `27af057ec…` (Dynamic v3) exactly:
 
-| his label | his size | our file | our size | decimal |
-|---|---:|---|---:|---:|
-| `UD-IQ2_XXS` | 7.3 GB | `Qwen3.8-27B-UD-IQ2_XXS.gguf` (v3) | **6,929 MiB** | **7.27 GB** |
-| `UD-Q2_K_XL` | 9.8 GB | `Qwen3.8-27B-UD-Q2_K_XL.gguf` (v3) | **9,373 MiB** | **9.83 GB** |
-| `UD-Q3_K_XL` | 13.1 GB | `Qwen3.8-27B-UD-Q3_K_XL.gguf` | 12,818 MiB | 13.44 GB |
-| `UD-Q4_K_XL` | 17.6 GB | `Qwen3.8-27B-UD-Q4_K_XL.gguf` | 17,093 MiB | 17.92 GB |
+| his label | his size | our file | bytes | MiB | decimal GB |
+|---|---:|---|---:|---:|---:|
+| `UD-IQ2_XXS` | **7.3 GB** | `…-UD-IQ2_XXS.gguf` (v3) | 7,266,070,528 | 6,929.46 | **7.266** |
+| `UD-Q2_K_XL` | **9.8 GB** | `…-UD-Q2_K_XL.gguf` (v3) | 9,828,981,664 | 9,373.65 | **9.829** |
+| `UD-Q3_K_XL` | 13.1 GB | `…-UD-Q3_K_XL.gguf` | — | 12,818 | 13.44 |
+| `UD-Q4_K_XL` | 17.6 GB | `…-UD-Q4_K_XL.gguf` | — | 17,093 | 17.92 |
+
+**The two that matter agree to three significant figures**, which is not a
+coincidence of rounding: `9,828,981,664 bytes = 9.829 GB` against his "9.8 GB",
+and `7,266,070,528 = 7.266 GB` against his "7.3 GB".
 
 **He benchmarked the two files at the centre of our decision.** That is unusual
 enough to state plainly — most external ladders test a different vendor's build.
