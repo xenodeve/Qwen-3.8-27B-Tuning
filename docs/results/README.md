@@ -1,5 +1,14 @@
 # tested — the register of what has actually been run
 
+> 🔴 **Every page in this folder now carries a banner naming the reasoning
+> effort its numbers were taken at.** Established 2026-08-24: the model's chat
+> template supplies `xhigh` with an unlimited thinking budget, the client sends
+> no effort field, and **nothing in this repo has ever overridden either** — not
+> one of the five `worker-*.ps1` profiles, and not `bench/dflash2_arena.py`,
+> which has zero references. Three pages carry exceptions where a run set the
+> flag deliberately; the rest are the default throughout
+> ([`05-runtime-flags.md`](05-runtime-flags.md)).
+
 **This folder answers one question: has X been tried, and what happened?**
 
 It exists because that question kept getting answered wrong. On 2026-08-21 the

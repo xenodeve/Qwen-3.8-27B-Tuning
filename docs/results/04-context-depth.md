@@ -1,5 +1,15 @@
 # 04 — Context depth: what is resident where, and how fast
 
+> 🔴 **Every number on this page was measured at `reasoning_effort: xhigh` with
+> an unlimited thinking budget — the cold-start row below asks *about* the flag but was itself taken at that default, so it is covered rather than excepted.** That is the model's chat-template
+> default — the client sends no effort field, and **no `worker-*.ps1` profile and
+> nothing in `bench/` has ever set the flag** (established 2026-08-24 from a boot
+> log: [`05-runtime-flags.md`](05-runtime-flags.md)).
+> Artificial Analysis prices this model's `medium` **one point** below `xhigh` on
+> the agentic axis and `low` **six** below that
+> ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+> so **effort is a live confound here, not a settled background condition.**
+
 **The model is not the limit.** The loader reports `n_ctx_train = 262144` with no
 scaling engaged at 163,840 — no YaRN, no rope extension. Every depth this
 project has tried is inside the native window. **12 GB of VRAM is the only

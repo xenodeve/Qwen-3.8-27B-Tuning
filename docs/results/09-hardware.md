@@ -1,5 +1,15 @@
 # 09 — The machine itself, and what changed when the card did
 
+> 🔴 **Every number on this page was measured at `reasoning_effort: xhigh` with
+> an unlimited thinking budget.** That is the model's chat-template
+> default — the client sends no effort field, and **no `worker-*.ps1` profile and
+> nothing in `bench/` has ever set the flag** (established 2026-08-24 from a boot
+> log: [`05-runtime-flags.md`](05-runtime-flags.md)).
+> Artificial Analysis prices this model's `medium` **one point** below `xhigh` on
+> the agentic axis and `low` **six** below that
+> ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+> so **effort is a live confound here, not a settled background condition.**
+
 **Every other file in this folder assumes one GPU. On 2026-08-23 that stopped
 being true.** This page records which card produced which numbers, so a reader
 can tell a stale figure from a current one without checking a date.
