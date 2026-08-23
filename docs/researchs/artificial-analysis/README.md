@@ -9,6 +9,22 @@ GPQA Diamond, CritPt, AA-Omniscience, AA-LCR) and the **Agentic Index**, which i
 the weighted average of the agentic benchmarks inside it (GDPval-AA v2,
 τ³-Banking).
 
+### The exact comparison, reproducible
+
+[**Open the live Agentic Index view with this model
+set**](https://artificialanalysis.ai/?models=muse-spark-1-2%2Cgemini-3-5-flash-lite%2Cinkling%2Ck-exaone-2-0-0803%2Cminimax-m3%2Cnemotron-3-5-lightning%2Ccommand-a-plus%2Cgpt-5-6-luna%2Cmuse-glimmer%2Cnvidia-nemotron-3-ultra-550b-a55b%2Cnvidia-nemotron-3-super-120b-a12b%2Csolar-open2-250b%2Ca-x-k2%2Cdeepseek-v4-pro%2Cqwen3-8-2-4t-a95b%2Cclaude-4-5-haiku-reasoning%2Cqwen3-8-27b%2Cmotif-3%2Cgemini-3-7-flash%2Cclaude-opus-5%2Cgpt-5-6-terra%2Cgrok-4-6%2Cclaude-fable-5%2Cglm-5-3%2Cgpt-5-6-sol%2Cmistral-medium-3-5%2Cgpt-5-5-pro%2Cgpt-oss-120b%2Ckimi-k3%2Cqwen3-8-27b-low%2Cqwen3-8-27b-medium&intelligence=agentic-index)
+
+The three effort levels are separate entries in that selection — `qwen3-8-27b`
+(which is `xhigh`), **`qwen3-8-27b-medium`** and **`qwen3-8-27b-low`** — which is
+what makes the comparison in this file possible at all; most published charts
+carry one row per model.
+
+> ⚠️ **The link is a live view and the images are a capture.** They will drift
+> apart: Artificial Analysis re-runs its suites, revises index versions (these
+> images are **v4.1.1**), and adds models. **Quote the images, not the link**, and
+> if the two ever disagree the images are what this project's reasoning was built
+> on. Nothing here was fetched — the numbers below were read off the captures.
+
 **Why it is filed.** It is the only source this project has that prices
 `reasoning_effort` for *this model* on an *agentic* axis — the axis the worker
 actually runs on — and it arrived the same night
