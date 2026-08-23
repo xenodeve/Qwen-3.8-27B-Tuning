@@ -67,6 +67,82 @@ decoder result.**
 > *serves* real agent work correctly — it does not say it is better or worse
 > than the incumbent at it. That comparison needs the same task on both arms.
 
+## Four configurations on one real task — 2026-08-24
+
+`xeno-skills#306`, ctx 98,304, native `sm_120a`, `q4_0` KV, one run each.
+**Nothing completed the task. Zero files changed, four times out of four.**
+
+| artifact | decoder | outcome | ctx high-water | wall | files |
+|---|---|---|---:|---:|---:|
+| `UD-IQ2_XXS` | `dflash2+ngram` | FAIL | 69,401 | 537.7 s | 0 |
+| `UD-Q2_K_XL` | `dflash2+ngram` | **WINDOW_BOUND** | **98,303** | 1,019.3 s | 0 |
+| `UD-Q2_K_XL` | **`draft-mtp`** | FAIL | 85,782 | 855.8 s | 0 |
+| `UD-Q2_K_XL` | **`draft-mtp+ngram`** | FAIL | 82,696 | 947.2 s | 0 |
+
+**On task success this says one thing only: the task is beyond this model class
+at this window, whichever decoder runs it.** Four decoders and two artifacts is
+not a decoder question any more.
+
+### Decode rate, and why the short turns are the ones to read
+
+An agent loop is mostly short turns, and rate depends heavily on generation
+length ([above](#dflash2ngram-on-a-real-task--first-measurement-2026-08-24)). On
+the turns under ~400 tokens, which is most of them:
+
+| decoder on `UD-Q2_K_XL` | short-turn decode | acceptance | mean accepted len |
+|---|---|---|---|
+| **`draft-mtp+ngram`** | **54–67 tok/s** | 0.48–0.61 | 2.66–5.13 |
+| `draft-mtp` | 44–57 tok/s | 0.53–0.66 | 2.58–2.99 |
+| `dflash2+ngram` | 30–43 tok/s | 0.36–0.49 | 2.43–3.04 |
+
+**`draft-mtp+ngram` is the fastest arm measured on this artifact**, peaking at
+**67.25 tok/s**, against `dflash2+ngram`'s best of 42.83 on the same task. The
+separation is a consistent cluster across seven early turns, not one point.
+
+**Not a verdict.** One run per arm, turns are not paired, and different turns
+carry different prompts. The arena's paired protocol is what would settle it.
+
+### ⚠️ Both MTP arms ended in an 8,192-token runaway; `dflash2+ngram` did not
+
+The final generation of **each** MTP arm hit the request cap:
+
+```
+draft-mtp         ... 1237 · 4252 · 424 · 8192 tok   @ 26.19 tok/s
+draft-mtp+ngram   ... 2008 · 7170 ·  165 · 196 · 8192 tok   @ 26.60 tok/s
+```
+
+`dflash2+ngram` on the same artifact never exceeded 4,811 and terminated every
+generation. **This is the "stops stopping" signature
+([`researchs/superalesha-quant-ladder/`](../researchs/superalesha-quant-ladder/README.md))
+appearing on the MTP arms of an artifact that does not show it otherwise** —
+which, if it holds up, would be a cost of MTP rather than of the quantisation.
+Two observations, one per arm. Not established.
+
+### What MTP costs and returns, measured
+
+`UD-Q2_K_XL` carries `blk.64` in the file, so `--spec-type draft-mtp` needs **no
+`-md`** — a configuration this project had never run, because every earlier
+`draft-mtp` figure fed a separate 1.3 GB head to an artifact that lacked one.
+
+| | `dflash2+ngram` | `draft-mtp` |
+|---|---:|---:|
+| model, CUDA0 | 8,630.57 | **8,965.31** |
+| target KV | 1,728.00 | 1,728.00 |
+| MTP draft KV | — | 384.00 |
+| RS | 748.12 *(n_max 4)* | 598.50 *(n_max 3)* |
+| compute | 472.27 | 472.27 + 82.01 |
+| separate drafter | 1,393.90 | **0** |
+| **total on CUDA0** | **12,973** | **12,230** |
+| **free of the 15,172 llama.cpp sees** | 2,199 | **2,942** |
+
+**743 MiB returned, not the ~1,394 that removing the sidecar suggests.** The model
+buffer itself grows **334.74 MiB** once the head is used, and `--fit` raises its
+own target from 768 to 1,234 MiB for the 466 MiB MTP context.
+
+*Raw: `results/real-task-q2kxl-draft-mtp*.jsonl`,
+`logs/dflash2-serve-draft-mtp*.log`. The two `dflash2+ngram` rows predate the
+provenance fix and do not name their model; the two MTP rows do.*
+
 > **Every figure on this page carries the same caveat.** The timed prompt is
 > **84.5 % duplicate lines** — one class repeated with a changing index, 962
 > blocks at 147,456, adjacent blocks 99.5 % identical. An n-gram decoder drafts
