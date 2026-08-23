@@ -52,6 +52,7 @@ to reopen an image to look a number up.
 
 | folder / file | what it is |
 |---|---|
+| [`superalesha-quant-ladder/`](superalesha-quant-ladder/README.md) | **12 formats × 720 tasks on 4× RTX 3090** — the only public ladder that tests the exact two GGUF files at the centre of our next decision. Its author then **audited his own methodology in public**: 90 of 150 tasks pass on every quant, so the ranking rests on 54 and gaps under 3 points are noise. **Only the cliff survives that** — `IQ2_XXS` 0.76 against `Q2_K_XL` 0.86, and the failure is *non-termination*, which this folder's own README had already described before his thread |
 | [`vendor-quantization-tables.md`](vendor-quantization-tables.md) | Unsloth V3-preview, V3-final and AtomicChat charts transcribed from their images — sampling presets, hardware guidance, accuracy curves, and the naming correction (there is no "pre-V3") |
 | [`Deep Research/`](Deep%20Research/) | seven replies from external research agents — model candidates, quantization strategy, decoder ecosystem, runtime selection |
 | [`Qwen3.8-27B_Optimization_Research_Docs/`](Qwen3.8-27B_Optimization_Research_Docs/) | the original ten-document research pack that started the project, with its own README |
