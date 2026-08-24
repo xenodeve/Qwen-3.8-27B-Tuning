@@ -70,6 +70,78 @@ function Get-ServerProps {
     try { Invoke-RestMethod -Uri "$base/props" -TimeoutSec 4 } catch { $null }
 }
 
+function Show-ServerStatus {
+    <#
+      One report, called from BOTH paths. The already-serving branch used to
+      print two lines and exit, which is the branch taken most often: a fresh
+      boot happens once, "is it up and how is it doing" is asked all day.
+
+      Everything here is READ, not assumed. This function may be looking at a
+      server it did not start, so it takes the bind from the listening socket
+      rather than from whether -Lan was passed on this invocation -- a -Lan now
+      does not change a server that came up on loopback an hour ago.
+    #>
+    param($Props, $ResidencyLog)
+
+    $listen = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+                ForEach-Object { $_.LocalAddress } | Sort-Object -Unique)
+    $wide = $listen -contains '0.0.0.0' -or $listen -contains '::'
+
+    Write-Host ""
+    Write-Host "Serving on $base" -ForegroundColor Green
+    Write-Host ("  model     {0}  ({1})" -f $Props.model_alias, $Props.model_ftype)
+    Write-Host ("  build     {0}" -f $Props.build_info)
+    $nctx = $Props.default_generation_settings.n_ctx
+    if ($nctx) { Write-Host ("  window    {0:N0} tokens" -f $nctx) }
+
+    # Residency: from the boot log if one is at hand. Absent rather than guessed
+    # -- --fit spills instead of refusing, so an assumed 66/66 is exactly the
+    # field that reads as success while the card thrashes.
+    $split = $null
+    if ($ResidencyLog) {
+        $streams = @($ResidencyLog) | Where-Object { $_ -and (Test-Path $_) }
+        if ($streams) {
+            $split = Select-String -Path $streams -Pattern 'offloaded (\d+)/(\d+) layers to GPU' |
+                     Select-Object -Last 1
+        }
+    }
+    if ($split) {
+        $onGpu = [int]$split.Matches[0].Groups[1].Value
+        $total = [int]$split.Matches[0].Groups[2].Value
+        if ($onGpu -eq $total) {
+            Write-Host ("  layers    {0}/{1} on the GPU" -f $onGpu, $total) -ForegroundColor Green
+        } else {
+            Write-Host ("  layers    {0}/{1} -- SPILLED" -f $onGpu, $total) -ForegroundColor Red
+        }
+    } else {
+        Write-Host "  layers    not checked -- no boot log for this process" -ForegroundColor DarkGray
+    }
+
+    $vram = & nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader 2>$null
+    if ($vram) { Write-Host ("  VRAM      {0}" -f ($vram -join '')) }
+
+    # What the conversation has actually reached, which is the number that says
+    # whether the window we paid for is being used.
+    try {
+        $slots = Invoke-RestMethod -Uri "$base/slots" -TimeoutSec 4
+        $used = @($slots | ForEach-Object { $_.n_prompt_tokens }) | Where-Object { $_ }
+        if ($used) { Write-Host ("  context   {0:N0} tokens in the live slot" -f ($used | Measure-Object -Maximum).Maximum) }
+    } catch { }
+
+    Write-Host ("  bind      {0}" -f ($listen -join ', ')) -ForegroundColor $(if ($wide) { 'Yellow' } else { 'Green' })
+    if ($wide) {
+        Write-Host "  reachable from another machine at:" -ForegroundColor Yellow
+        Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -ne '127.0.0.1' } |
+            Sort-Object InterfaceAlias |
+            ForEach-Object { Write-Host ("    http://{0}:{1}   ({2})" -f $_.IPAddress, $Port, $_.InterfaceAlias) }
+    }
+
+    Write-Host ""
+    Write-Host "It keeps running in the background -- this terminal is free and closing it" -ForegroundColor DarkGray
+    Write-Host "does not stop the server. Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
+}
+
 # ---- what this is, and what is still open ------------------------------------
 Write-Host ""
 Write-Host "Qwen3.8-27B on RTX 5060 Ti 16 GB -- the configuration the evidence supports" -ForegroundColor Cyan
@@ -103,8 +175,13 @@ if ($WhatIfPreference) {
 $existing = Get-ServerProps
 if ($existing) {
     if ($existing.model_alias -eq 'qwen38') {
-        Write-Host "Already serving on port $Port -- alias '$($existing.model_alias)', $($existing.model_ftype), build $($existing.build_info)." -ForegroundColor Green
-        Write-Host "Restarting a healthy server is not an improvement. Nothing to do." -ForegroundColor Green
+        Write-Host "Already serving. Restarting a healthy server is not an improvement." -ForegroundColor Green
+        # The newest boot log this launcher wrote, if any. It may be a server we
+        # did not start, in which case residency reads "not checked" rather than
+        # being invented.
+        $prev = Get-ChildItem (Join-Path $logDir 'serve-*.log.err') -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime | Select-Object -Last 1
+        Show-ServerStatus -Props $existing -ResidencyLog $(if ($prev) { $prev.FullName })
         exit 0
     }
     Write-Host "FATAL: port $Port is answering and it is NOT ours." -ForegroundColor Red
@@ -269,13 +346,4 @@ if (-not $split) {
     }
 }
 
-Write-Host ""
-Write-Host "Ready on $base -- alias '$($props.model_alias)', $($props.model_ftype), build $($props.build_info)." -ForegroundColor Green
-if ($Lan) {
-    Write-Host "Reachable from another machine at:" -ForegroundColor Green
-    Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-        Where-Object { $_.IPAddress -ne '127.0.0.1' } |
-        Sort-Object InterfaceAlias |
-        ForEach-Object { Write-Host ("  http://{0}:{1}   ({2})" -f $_.IPAddress, $Port, $_.InterfaceAlias) -ForegroundColor Green }
-}
-Write-Host "Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
+Show-ServerStatus -Props $props -ResidencyLog $errLog

@@ -58,15 +58,27 @@ def test_the_profile_takes_the_bind_address_as_a_parameter():
 
 def test_the_launcher_does_not_expose_by_default():
     """No switch, no exposure. A launcher that binds wide unless told otherwise
-    is the same defect wearing a friendlier face."""
+    is the same defect wearing a friendlier face.
+
+    Asserted on the ARGUMENT that reaches the profile, not on where the string
+    "0.0.0.0" sits in the file. The first version checked position and went red
+    when Show-ServerStatus was added -- that function READS whether the socket
+    is 0.0.0.0, it does not bind it, so the test was failing on structure while
+    the behaviour was correct. A test that moves with refactoring is measuring
+    the file, not the program."""
     s = read(SERVE)
     m = re.search(r"if\s*\(\s*\$Lan\s*\)", s)
     assert m, "serve.ps1 has no branch on -Lan"
-    assert "0.0.0.0" in s
-    before = s[:m.start()]
-    assert "0.0.0.0" not in before, (
-        "serve.ps1 mentions a wide bind before it checks -Lan; exposure must "
-        "sit inside the branch, not outside it")
+    branch_line = len(s[:m.start()].splitlines())
+
+    binds = [(i, ln) for i, ln in enumerate(s.splitlines())
+             if "-BindAddress" in ln and "0.0.0.0" in ln]
+    assert binds, "nothing ever passes a wide bind to the profile"
+    for i, ln in binds:
+        guarded = i > branch_line or "$Lan" in ln
+        assert guarded, (
+            "a wide bind is passed with nothing conditioning it on -Lan: %r"
+            % ln.strip())
 
 
 def test_the_launcher_offers_the_switch():
