@@ -38,6 +38,11 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
+    # Bind to every interface so another machine on the developer's own network
+    # can reach it. OFF by default and never implied: --host is the only access
+    # control this server has (no API key, CORS '*'), so this removes it rather
+    # than loosening it. Issue #49.
+    [switch]$Lan,
     [int]$Port = 8080,
     [int]$BootTimeoutSeconds = 240
 )
@@ -80,7 +85,7 @@ Write-Host ""
 
 if ($WhatIfPreference) {
     Write-Host "WhatIf: would run" -ForegroundColor Green
-    Write-Host "  pwsh -NoProfile -File `"$profileScript`""
+    Write-Host "  pwsh -NoProfile -File `"$profileScript`" -Verbosity 4$(if ($Lan) { ' -BindAddress 0.0.0.0' })"
     Write-Host ""
     Write-Host "The flags themselves are in that file. Read it there, not here --" -ForegroundColor DarkGray
     Write-Host "a copy in this script is how the two stop agreeing." -ForegroundColor DarkGray
@@ -120,9 +125,37 @@ $errLog = "$log.err"
 # from 4 up. Five buys nothing here and costs 20x, on a server that runs for
 # hours. The DEFAULT in the profile does not move: every served row was measured
 # at 3.
+$profileArgs = @('-NoProfile', '-File', $profileScript, '-Verbosity', '4')
+if ($Lan) {
+    $profileArgs += @('-BindAddress', '0.0.0.0')
+    Write-Host "EXPOSING on every interface. There is no API key and no origin" -ForegroundColor Yellow
+    Write-Host "restriction, so anyone who can reach this port can use the GPU and" -ForegroundColor Yellow
+    Write-Host "read whatever context is loaded. Developer decision, issue #49." -ForegroundColor Yellow
+
+    # The rule cannot be added from here -- it needs elevation. Printing the
+    # command is not the same as running it, and a launcher does not get to
+    # edit firewall state on its own.
+    $rule = Get-NetFirewallPortFilter -ErrorAction SilentlyContinue |
+            Where-Object { $_.LocalPort -eq $Port } |
+            ForEach-Object { $_ | Get-NetFirewallRule -ErrorAction SilentlyContinue } |
+            Where-Object { $_.Direction -eq 'Inbound' -and $_.Enabled -eq 'True' }
+    if (-not $rule) {
+        Write-Host ""
+        Write-Host "No inbound firewall rule for port $Port. The bind will succeed and the" -ForegroundColor Yellow
+        Write-Host "connection will time out, which looks like a model problem and is not." -ForegroundColor Yellow
+        Write-Host "Run this ONCE in an elevated shell:" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  New-NetFirewallRule -DisplayName 'llama-server $Port' -Direction Inbound ``" -ForegroundColor Cyan
+        Write-Host "    -Protocol TCP -LocalPort $Port -Action Allow -Profile Any" -ForegroundColor Cyan
+        Write-Host ""
+    } else {
+        Write-Host "Inbound rule present: $($rule.DisplayName -join ', ')" -ForegroundColor Green
+    }
+}
+
 Write-Host "Starting. Log: $log"
 $proc = Start-Process -FilePath 'pwsh' `
-    -ArgumentList '-NoProfile', '-File', $profileScript, '-Verbosity', '4' `
+    -ArgumentList $profileArgs `
     -RedirectStandardOutput $log -RedirectStandardError $errLog `
     -WindowStyle Hidden -PassThru
 
@@ -175,4 +208,11 @@ if (-not $split) {
 
 Write-Host ""
 Write-Host "Ready on $base -- alias '$($props.model_alias)', $($props.model_ftype), build $($props.build_info)." -ForegroundColor Green
+if ($Lan) {
+    Write-Host "Reachable from another machine at:" -ForegroundColor Green
+    Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -ne '127.0.0.1' } |
+        Sort-Object InterfaceAlias |
+        ForEach-Object { Write-Host ("  http://{0}:{1}   ({2})" -f $_.IPAddress, $Port, $_.InterfaceAlias) -ForegroundColor Green }
+}
 Write-Host "Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray

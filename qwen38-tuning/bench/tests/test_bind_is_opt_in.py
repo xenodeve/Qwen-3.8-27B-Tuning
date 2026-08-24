@@ -1,0 +1,104 @@
+r"""Exposing the worker on a network must be an act, never a default.
+
+WHY (issue #49). The developer wants to reach the worker from another machine on
+their own network and has accepted the exposure. The measured state before this:
+the socket listened on `127.0.0.1:8080` only, and the `Radmin VPN` interface at
+26.33.142.160 had nothing bound to it.
+
+WHAT MAKES THIS WORTH A TEST RATHER THAN A COMMENT.
+
+`--host 127.0.0.1` is the **only** access control this server has. It runs with
+no API key and CORS `*` -- its own boot banner says so -- and
+`middleware_validate_api_key` (`tools/server/server-http.cpp:208`) returns `true`
+immediately when no key is configured, so no route is protected. Widening the
+bind does not weaken one control among several; it removes the only one.
+
+So the default is pinned here, in a file that fails loudly, rather than trusted
+to stay put. A future edit that moves it exposes the worker on **every** boot
+after it, with nobody having chosen that and nothing in the output saying so --
+the same shape as the reasoning effort that ran at `xhigh` for the life of the
+project because no one had set it (report 35).
+
+WHAT IS NOT ASSERTED. That the exposed path works. A bind is verified by
+connecting to it from another address, which pytest cannot do from here. What is
+checked is that exposure is opt-in, that the flag exists, and that the launcher
+tells the truth about the two things that are not ours: the missing firewall rule
+and the absent API key.
+"""
+import os
+import re
+
+import pytest
+
+BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(BENCH))
+SERVE = os.path.join(ROOT, "serve.ps1")
+PROFILE = os.path.join(ROOT, "qwen38-tuning", "scripts", "worker-q2kxl-mtp.ps1")
+
+
+def read(path):
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return fh.read()
+
+
+def test_the_profile_still_defaults_to_loopback():
+    """The one that matters. Every measured row was taken on a server nothing
+    off the machine could reach, and moving this default changes that for every
+    future boot without anyone choosing it."""
+    assert re.search(r'\$BindAddress\s*=\s*[\'"]127\.0\.0\.1[\'"]', read(PROFILE)), (
+        "the profile's bind default is not 127.0.0.1")
+
+
+def test_the_profile_takes_the_bind_address_as_a_parameter():
+    p = read(PROFILE)
+    assert "$BindAddress" in p
+    assert "--host $BindAddress" in p, (
+        "the profile still hardcodes its host; the parameter is decorative")
+
+
+def test_the_launcher_does_not_expose_by_default():
+    """No switch, no exposure. A launcher that binds wide unless told otherwise
+    is the same defect wearing a friendlier face."""
+    s = read(SERVE)
+    m = re.search(r"if\s*\(\s*\$Lan\s*\)", s)
+    assert m, "serve.ps1 has no branch on -Lan"
+    assert "0.0.0.0" in s
+    before = s[:m.start()]
+    assert "0.0.0.0" not in before, (
+        "serve.ps1 mentions a wide bind before it checks -Lan; exposure must "
+        "sit inside the branch, not outside it")
+
+
+def test_the_launcher_offers_the_switch():
+    assert re.search(r"\[switch\]\s*\$Lan", read(SERVE))
+
+
+def test_it_reports_the_firewall_rule_it_cannot_add():
+    """There is no inbound rule for the port, both adapters are classified
+    Public, and adding one needs elevation the agent does not have. Without this
+    the bind succeeds and the connection times out, which reads as a model
+    problem."""
+    s = read(SERVE)
+    assert "New-NetFirewallRule" in s, (
+        "serve.ps1 does not print the command for the rule it cannot add")
+    assert re.search(r"Get-NetFirewallPortFilter|Get-NetFirewallRule", s), (
+        "serve.ps1 does not check whether the rule already exists")
+
+
+def test_it_does_not_change_firewall_state_itself():
+    """Printing a command the developer runs is different from running it.
+    Silent firewall edits are not something a launcher gets to do."""
+    s = read(SERVE)
+    for line in s.splitlines():
+        if "New-NetFirewallRule" in line:
+            assert line.lstrip().startswith(("Write-Host", "#", '"')) or '"' in line, (
+                "New-NetFirewallRule appears outside a printed string: %r" % line)
+
+
+def test_it_states_the_missing_authentication_at_the_moment_of_exposure():
+    """Once, where the developer is looking, and not on every loopback boot."""
+    s = read(SERVE)
+    m = re.search(r"if\s*\(\s*\$Lan\s*\)", s)
+    after = s[m.start():]
+    assert re.search(r"API key|api-key", after), (
+        "the exposed path does not mention that no API key is set")

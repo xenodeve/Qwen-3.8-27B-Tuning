@@ -106,6 +106,14 @@ param(
     # `serve.ps1` asks for 5 at boot. Changing the DEFAULT would change what
     # every future served row was measured under, so it does not move.
     [int]$Verbosity = 3,
+    # The ONLY access control this server has. It runs with no API key and CORS
+    # '*', and middleware_validate_api_key (server-http.cpp:208) returns true
+    # immediately when no key is set -- so no route is protected and widening
+    # this does not weaken one control among several, it removes the only one.
+    # Every measured row was taken on a server nothing off the machine could
+    # reach. The default does not move; exposure is `serve.ps1 -Lan`, an act.
+    # Pinned by bench/tests/test_bind_is_opt_in.py (issue #49).
+    [string]$BindAddress = '127.0.0.1',
     [string]$Exe = "C:\AI\llama.cpp-blackwell\llama-server.exe",
     [string]$Model = "C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed\Qwen3.8-27B-UD-Q2_K_XL.gguf",
     [switch]$IKnowTheBuildIsWrong
@@ -163,4 +171,4 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
     --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `
     --reasoning-effort medium `
-    --host 127.0.0.1 --port $Port
+    --host $BindAddress --port $Port
