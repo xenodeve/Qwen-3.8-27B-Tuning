@@ -59,10 +59,18 @@ def test_it_anchors_on_its_own_folder(path):
 
 @pytest.mark.parametrize("path", [PLAIN, LAN])
 def test_it_keeps_the_window_open(path):
-    """Without -Follow the server detaches, the script returns, and the console
-    closes before anything can be read."""
+    """The window stays because the SERVER runs in it -- serve.ps1 invokes the
+    profile in-process and does not return while it lives.
+
+    The first version passed -Follow, from the design where the server was
+    detached and the window tailed its log. That switch no longer exists, and a
+    .bat still passing it would fail at the first line with a parameter error --
+    a launcher broken by a rename in the thing it launches."""
     t = read(path)
-    assert "-Follow" in t, "%s flashes and closes" % path
+    assert "-Follow" not in t, (
+        "%s passes -Follow, which serve.ps1 no longer accepts" % path)
+    assert "-Detach" not in t, (
+        "%s detaches; then the window closes and the point is lost" % path)
     assert "pause" in t.lower(), (
         "%s discards its own error message when it fails" % path)
 

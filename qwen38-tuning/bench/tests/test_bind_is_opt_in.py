@@ -71,8 +71,13 @@ def test_the_launcher_does_not_expose_by_default():
     assert m, "serve.ps1 has no branch on -Lan"
     branch_line = len(s[:m.start()].splitlines())
 
+    # Matches the hashtable form as well as the old array one. The first
+    # version looked for "-BindAddress" with its leading dash and went blind the
+    # moment splatting moved to a hashtable, where the key has no dash -- a test
+    # that stops seeing the thing it guards is worse than no test, because it
+    # goes green.
     binds = [(i, ln) for i, ln in enumerate(s.splitlines())
-             if "-BindAddress" in ln and "0.0.0.0" in ln]
+             if "BindAddress" in ln and "0.0.0.0" in ln]
     assert binds, "nothing ever passes a wide bind to the profile"
     for i, ln in binds:
         guarded = i > branch_line or "$Lan" in ln

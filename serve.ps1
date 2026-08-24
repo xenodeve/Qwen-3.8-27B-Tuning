@@ -7,6 +7,12 @@
     says which one is current. Several serve artifacts that stopped being the
     default and windows that stopped being the answer. This is the one to run.
 
+    ONE SCRIPT, ONE PROCESS. The profile is invoked in THIS process and its
+    output is this terminal's output. Ctrl+C stops the server; closing the
+    window stops the server. An earlier version launched it detached and tailed
+    the log file, which made "live terminal" mean watching a file that another
+    process was writing.
+
     IT DELEGATES. The configuration lives in worker-q2kxl-mtp.ps1 and only
     there. This file resolves that profile and invokes it; it declares no
     serving flag of its own, because a launcher that copies them becomes a
@@ -14,18 +20,25 @@
     since both files still run and both still look right.
     tests/test_serve_entrypoint.py asserts the absences.
 
-    IT VERIFIES RATHER THAN ASSUMES. Two incidents in this repository's history
-    apply directly:
+    IT VERIFIES AS THE STREAM PASSES. A foreground server never returns, so
+    there is no "after boot" to check anything in. Both checks happen inline:
+    the layer split when llama.cpp prints it, and the status block when
+    llama.cpp says it is listening. `--fit` SPILLS rather than refusing, and
+    that reads as success in every field except the layer count.
 
-      * Two orchestrators cannot share port 8080. An armed queue once killed a
-        running corpus and the summary still printed a plausible number. So this
-        refuses to start over a port that is already answering.
+    Two orchestrators cannot share port 8080 -- an armed queue once killed a
+    running corpus and the summary still printed a plausible number -- so this
+    refuses to start over a port that is already answering.
 
-      * A projection at context 163,840 was accepted before a boot showed
-        64 of 66 layers resident. `--fit` SPILLS rather than refusing, and that
-        reads as success in every field except the layer count. So this reads
-        the split back out of the log and treats anything but full residency as
-        a failure.
+.PARAMETER Lan
+    Bind every interface so another machine can reach it. Off by default:
+    --host is the only access control this server has (no API key, CORS '*').
+
+.PARAMETER AllowFirewall
+    Add the inbound rule, through a UAC prompt. Separate from -Lan on purpose.
+
+.PARAMETER Detach
+    Run the server in the background and hand the prompt back.
 
 .PARAMETER WhatIf
     Print the resolved command line and exit without touching the GPU.
@@ -34,7 +47,7 @@
     .\serve.ps1
 
 .EXAMPLE
-    .\serve.ps1 -WhatIf
+    .\serve.ps1 -Lan -AllowFirewall
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -50,14 +63,10 @@ param(
     # subnet -- because those are what was asked for, and a rule wider than the
     # request is a rule nobody granted.
     [switch]$AllowFirewall,
-    # Tail everything llama.cpp writes while it runs -- slot lifecycle, prompt
-    # and eval timings, speculation counters, warnings. Ctrl+C leaves the server
-    # running; it only stops the watching. Said out loud in the output too,
-    # because a terminal full of server output invites Ctrl+C and a detached
-    # server already read as a stopped one once.
-    [switch]$Follow,
-    [int]$Port = 8080,
-    [int]$BootTimeoutSeconds = 240
+    # The old behaviour, for when the terminal is needed for something else.
+    # Not the default: the default should do what it looks like it does.
+    [switch]$Detach,
+    [int]$Port = 8080
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,16 +87,11 @@ function Get-ServerProps {
 
 function Show-ServerStatus {
     <#
-      One report, called from BOTH paths. The already-serving branch used to
-      print two lines and exit, which is the branch taken most often: a fresh
-      boot happens once, "is it up and how is it doing" is asked all day.
-
-      Everything here is READ, not assumed. This function may be looking at a
-      server it did not start, so it takes the bind from the listening socket
-      rather than from whether -Lan was passed on this invocation -- a -Lan now
-      does not change a server that came up on loopback an hour ago.
+      One report, called from every path. Everything here is READ, not assumed:
+      this may be looking at a server it did not start, so the bind comes from
+      the listening socket rather than from whether -Lan was passed now.
     #>
-    param($Props, $ResidencyLog)
+    param($Props, [int]$OnGpu = 0, [int]$Total = 0)
 
     $listen = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
                 ForEach-Object { $_.LocalAddress } | Sort-Object -Unique)
@@ -100,34 +104,19 @@ function Show-ServerStatus {
     $nctx = $Props.default_generation_settings.n_ctx
     if ($nctx) { Write-Host ("  window    {0:N0} tokens" -f $nctx) }
 
-    # Residency: from the boot log if one is at hand. Absent rather than guessed
-    # -- --fit spills instead of refusing, so an assumed 66/66 is exactly the
-    # field that reads as success while the card thrashes.
-    $split = $null
-    if ($ResidencyLog) {
-        $streams = @($ResidencyLog) | Where-Object { $_ -and (Test-Path $_) }
-        if ($streams) {
-            $split = Select-String -Path $streams -Pattern 'offloaded (\d+)/(\d+) layers to GPU' |
-                     Select-Object -Last 1
-        }
-    }
-    if ($split) {
-        $onGpu = [int]$split.Matches[0].Groups[1].Value
-        $total = [int]$split.Matches[0].Groups[2].Value
-        if ($onGpu -eq $total) {
-            Write-Host ("  layers    {0}/{1} on the GPU" -f $onGpu, $total) -ForegroundColor Green
+    if ($Total -gt 0) {
+        if ($OnGpu -eq $Total) {
+            Write-Host ("  layers    {0}/{1} on the GPU" -f $OnGpu, $Total) -ForegroundColor Green
         } else {
-            Write-Host ("  layers    {0}/{1} -- SPILLED" -f $onGpu, $total) -ForegroundColor Red
+            Write-Host ("  layers    {0}/{1} -- SPILLED" -f $OnGpu, $Total) -ForegroundColor Red
         }
     } else {
-        Write-Host "  layers    not checked -- no boot log for this process" -ForegroundColor DarkGray
+        Write-Host "  layers    not seen in this stream" -ForegroundColor DarkGray
     }
 
     $vram = & nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader 2>$null
     if ($vram) { Write-Host ("  VRAM      {0}" -f ($vram -join '')) }
 
-    # What the conversation has actually reached, which is the number that says
-    # whether the window we paid for is being used.
     try {
         $slots = Invoke-RestMethod -Uri "$base/slots" -TimeoutSec 4
         $used = @($slots | ForEach-Object { $_.n_prompt_tokens }) | Where-Object { $_ }
@@ -142,37 +131,7 @@ function Show-ServerStatus {
             Sort-Object InterfaceAlias |
             ForEach-Object { Write-Host ("    http://{0}:{1}   ({2})" -f $_.IPAddress, $Port, $_.InterfaceAlias) }
     }
-
-    Write-Host ""
-    Write-Host "It keeps running in the background -- this terminal is free and closing it" -ForegroundColor DarkGray
-    Write-Host "does not stop the server. Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
-    Write-Host "Watch what llama.cpp is printing:  .\serve.ps1 -Follow" -ForegroundColor DarkGray
 }
-
-function Start-Following {
-    <#
-      Tail the log the server is writing. Takes the path rather than finding it,
-      so the fresh path can pass the log it just created and the already-serving
-      path can pass the newest one it can find -- or nothing, if the server
-      predates this script or was started by hand.
-    #>
-    param([string]$Path)
-
-    if (-not $Path -or -not (Test-Path $Path)) {
-        Write-Host ""
-        Write-Host "Cannot follow: no log for this server." -ForegroundColor Yellow
-        Write-Host "  It was probably started by hand or before this script existed." -ForegroundColor Yellow
-        Write-Host "  Restart it with .\serve.ps1 to get one." -ForegroundColor Yellow
-        return
-    }
-
-    Write-Host ""
-    Write-Host "Following $Path" -ForegroundColor Cyan
-    Write-Host "Ctrl+C stops the watching only -- the server keeps running." -ForegroundColor Cyan
-    Write-Host ("-" * 78) -ForegroundColor DarkGray
-    Get-Content -Path $Path -Tail 40 -Wait
-}
-
 
 # ---- what this is, and what is still open ------------------------------------
 Write-Host ""
@@ -194,9 +153,27 @@ Write-Host "        The one natural round, at 98,304, says keeping it is worth +
 Write-Host "        Two variables moved between those numbers. Issues #44 and #47." -ForegroundColor Yellow
 Write-Host ""
 
+# -Verbosity 4 is asked of the PROFILE, not declared here. The served default is
+# 3, which omits the tensor-assignment lines. 4 rather than 5, measured: one boot
+# writes 1.7 KB at 3, 24.7 KB at 4 and 511.9 KB at 5, and the layer line is
+# present from 4 up. The DEFAULT in the profile does not move -- every served row
+# was measured at 3.
+# A HASHTABLE, not an array. `& $script @arr` on an array splats POSITIONALLY,
+# so '-Verbosity' arrived as the profile's first parameter, $Ctx, and the run
+# died with: Cannot convert value "-Verbosity" to type "System.Int32". Named
+# splatting needs a hashtable. Pinned by tests/test_foreground_is_the_default.py.
+$profileArgs = @{ Verbosity = 4 }
+if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
+
+# Start-Process wants a flat string array, so derive one rather than keeping two
+# hand-written copies that can disagree about what is being launched.
+$profileArgv = @($profileArgs.GetEnumerator() |
+                 Sort-Object Name |
+                 ForEach-Object { "-$($_.Key)", "$($_.Value)" })
+
 if ($WhatIfPreference) {
     Write-Host "WhatIf: would run" -ForegroundColor Green
-    Write-Host "  pwsh -NoProfile -File `"$profileScript`" -Verbosity 4$(if ($Lan) { ' -BindAddress 0.0.0.0' })"
+    Write-Host "  $profileScript $($profileArgv -join ' ')"
     Write-Host ""
     Write-Host "The flags themselves are in that file. Read it there, not here --" -ForegroundColor DarkGray
     Write-Host "a copy in this script is how the two stop agreeing." -ForegroundColor DarkGray
@@ -208,13 +185,10 @@ $existing = Get-ServerProps
 if ($existing) {
     if ($existing.model_alias -eq 'qwen38') {
         Write-Host "Already serving. Restarting a healthy server is not an improvement." -ForegroundColor Green
-        # The newest boot log this launcher wrote, if any. It may be a server we
-        # did not start, in which case residency reads "not checked" rather than
-        # being invented.
-        $prev = Get-ChildItem (Join-Path $logDir 'serve-*.log.err') -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTime | Select-Object -Last 1
-        Show-ServerStatus -Props $existing -ResidencyLog $(if ($prev) { $prev.FullName })
-        if ($Follow) { Start-Following -Path $(if ($prev) { $prev.FullName }) }
+        Show-ServerStatus -Props $existing
+        Write-Host ""
+        Write-Host "It was not started by this window, so Ctrl+C here will not reach it." -ForegroundColor DarkGray
+        Write-Host "Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
         exit 0
     }
     Write-Host "FATAL: port $Port is answering and it is NOT ours." -ForegroundColor Red
@@ -224,38 +198,16 @@ if ($existing) {
     exit 1
 }
 
-# ---- launch ------------------------------------------------------------------
-if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
-# InvariantCulture: a Thai locale renders the year as 2569 and the log names
-# stop sorting next to every other dated artifact in this repository.
-$stamp  = [datetime]::Now.ToString('yyyyMMdd-HHmmss', [cultureinfo]::InvariantCulture)
-$log    = Join-Path $logDir "serve-$stamp.log"
-$errLog = "$log.err"
-
-# -Verbosity 4 is asked of the PROFILE, not declared here. The served default is
-# 3, which omits the tensor-assignment lines, so the first version of this
-# launcher reported residency UNVERIFIED on every boot -- it was looking for a
-# line the profile never writes.
-#
-# 4 rather than 5, measured rather than assumed: one boot writes 1.7 KB at
-# verbosity 3, 24.7 KB at 4, and 511.9 KB at 5, and the layer line is present
-# from 4 up. Five buys nothing here and costs 20x, on a server that runs for
-# hours. The DEFAULT in the profile does not move: every served row was measured
-# at 3.
-$profileArgs = @('-NoProfile', '-File', $profileScript, '-Verbosity', '4')
+# ---- exposure, and the rule that makes it reachable --------------------------
 if ($Lan) {
-    $profileArgs += @('-BindAddress', '0.0.0.0')
     Write-Host "EXPOSING on every interface. There is no API key and no origin" -ForegroundColor Yellow
     Write-Host "restriction, so anyone who can reach this port can use the GPU and" -ForegroundColor Yellow
     Write-Host "read whatever context is loaded. Developer decision, issue #49." -ForegroundColor Yellow
 
-    # The rule cannot be added from here -- it needs elevation. Printing the
-    # command is not the same as running it, and a launcher does not get to
-    # edit firewall state on its own.
-    # Scope, not existence. The first version skipped this whole branch when ANY
+    # Scope, not existence. An earlier version skipped this branch whenever ANY
     # inbound rule was present, so a rule created when only Radmin was wanted
-    # could never be widened -- and it would report "rule present" while the LAN
-    # still timed out. What matters is which remote addresses it admits.
+    # could never be widened -- and it reported "rule present" while the LAN
+    # still timed out.
     $wanted = @('LocalSubnet', '26.0.0.0/8')
     $rule = Get-NetFirewallPortFilter -ErrorAction SilentlyContinue |
             Where-Object { $_.LocalPort -eq $Port } |
@@ -263,33 +215,23 @@ if ($Lan) {
             Where-Object { $_.Direction -eq 'Inbound' -and $_.Enabled -eq 'True' } |
             Where-Object {
                 $scope = @($_ | Get-NetFirewallAddressFilter | ForEach-Object { $_.RemoteAddress })
-                # 'Any' admits everything, so it covers both. Otherwise every
-                # wanted network must appear.
                 ($scope -contains 'Any') -or
                 (($wanted | Where-Object { $scope -notcontains $_ }).Count -eq 0)
             }
+
     if (-not $rule) {
-        Write-Host ""
         Write-Host "No inbound rule for port $Port admitting both LocalSubnet and 26.0.0.0/8." -ForegroundColor Yellow
         Write-Host "The bind will succeed and the connection will time out, which looks like" -ForegroundColor Yellow
         Write-Host "a model problem and is not." -ForegroundColor Yellow
 
         if ($AllowFirewall) {
-            # -Verb RunAs, not a silent edit. The agent is not an administrator
-            # and must not try to become one quietly; the consent dialog is what
-            # makes this authorised rather than sneaked in.
             Write-Host "LocalSubnet means whatever network this machine is on, and the Wi-Fi" -ForegroundColor Yellow
             Write-Host "adapter is classified Public -- so the rule follows the laptop onto any" -ForegroundColor Yellow
             Write-Host "network you join, not only this one." -ForegroundColor Yellow
             Write-Host "Asking Windows for permission to add it -- accept the prompt." -ForegroundColor Cyan
-            # Remove first: New-NetFirewallRule with an existing DisplayName adds
-            # a SECOND rule rather than replacing it, and Windows evaluates the
-            # union -- so a narrower old rule would sit there looking authoritative.
-            # By PREFIX, not by exact name. The first release called this rule
-            # 'llama-server 8080 (Radmin)'; removing only the current name left
-            # that one behind, so two rules existed and Windows evaluated their
-            # union -- a stale narrower rule sitting next to the real one and
-            # looking just as authoritative.
+            # By PREFIX. An earlier release named this rule 'llama-server 8080
+            # (Radmin)'; removing only the current name left that one behind, so
+            # two rules existed and Windows evaluated their union.
             $add = "Remove-NetFirewallRule -DisplayName 'llama-server $Port*' -ErrorAction SilentlyContinue; " +
                    "New-NetFirewallRule -DisplayName 'llama-server $Port' " +
                    "-Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow " +
@@ -300,7 +242,6 @@ if ($Lan) {
             } catch {
                 Write-Host "Elevation was refused or failed: $_" -ForegroundColor Red
             }
-
             # A UAC dialog can be dismissed. Re-check rather than reporting
             # success because a command was launched.
             $rule = Get-NetFirewallRule -ErrorAction SilentlyContinue |
@@ -315,69 +256,96 @@ if ($Lan) {
             }
         } else {
             Write-Host "Re-run with -AllowFirewall to add it, or run this elevated:" -ForegroundColor Yellow
-            Write-Host ""
             Write-Host "  New-NetFirewallRule -DisplayName 'llama-server $Port' -Direction Inbound ``" -ForegroundColor Cyan
             Write-Host "    -Protocol TCP -LocalPort $Port -Action Allow -Profile Any ``" -ForegroundColor Cyan
             Write-Host "    -RemoteAddress LocalSubnet,26.0.0.0/8" -ForegroundColor Cyan
-            Write-Host ""
         }
     } else {
         Write-Host "Inbound rule present: $($rule.DisplayName -join ', ')" -ForegroundColor Green
     }
+    Write-Host ""
 }
 
-Write-Host "Starting. Log: $log"
-$proc = Start-Process -FilePath 'pwsh' `
-    -ArgumentList $profileArgs `
-    -RedirectStandardOutput $log -RedirectStandardError $errLog `
-    -WindowStyle Hidden -PassThru
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+# InvariantCulture: a Thai locale renders the year as 2569 and the log names stop
+# sorting next to every other dated artifact in this repository.
+$stamp = [datetime]::Now.ToString('yyyyMMdd-HHmmss', [cultureinfo]::InvariantCulture)
+$log   = Join-Path $logDir "serve-$stamp.log"
 
-$deadline = (Get-Date).AddSeconds($BootTimeoutSeconds)
-$props = $null
-while ((Get-Date) -lt $deadline) {
-    Start-Sleep -Seconds 3
-    if ($proc.HasExited) {
-        Write-Host "FATAL: the profile exited during boot (code $($proc.ExitCode))." -ForegroundColor Red
-        foreach ($f in @($errLog, $log)) {
-            if ((Test-Path $f) -and (Get-Item $f).Length -gt 0) { Get-Content $f -Tail 25 }
+# ---- -Detach: the server outlives this window -------------------------------
+if ($Detach) {
+    Write-Host "Detaching. The server will outlive this window; the log is $log" -ForegroundColor DarkGray
+    $proc = Start-Process -FilePath 'pwsh' `
+        -ArgumentList (@('-NoProfile', '-File', $profileScript) + $profileArgv) `
+        -RedirectStandardOutput $log -RedirectStandardError "$log.err" `
+        -WindowStyle Hidden -PassThru
+    $props = $null
+    for ($i = 0; $i -lt 80; $i++) {
+        Start-Sleep -Seconds 3
+        if ($proc.HasExited) {
+            Write-Host "FATAL: the profile exited during boot (code $($proc.ExitCode))." -ForegroundColor Red
+            if (Test-Path "$log.err") { Get-Content "$log.err" -Tail 25 }
+            exit 1
         }
+        $props = Get-ServerProps
+        if ($props) { break }
+    }
+    if (-not $props) {
+        Write-Host "FATAL: no response on $base." -ForegroundColor Red
+        if (Test-Path "$log.err") { Get-Content "$log.err" -Tail 25 }
         exit 1
     }
-    $props = Get-ServerProps
-    if ($props) { break }
-}
-
-if (-not $props) {
-    Write-Host "FATAL: no response on $base after $BootTimeoutSeconds s." -ForegroundColor Red
-    foreach ($f in @($errLog, $log)) {
-        if ((Test-Path $f) -and (Get-Item $f).Length -gt 0) { Get-Content $f -Tail 25 }
-    }
-    exit 1
-}
-
-# ---- verify residency from the log, do not assume it -------------------------
-# llama.cpp logs to STDERR. The first version of this searched stdout, found an
-# empty file, and reported residency unverified while the evidence sat next to it.
-$streams = @($errLog, $log) | Where-Object { Test-Path $_ }
-$split = Select-String -Path $streams -Pattern 'offloaded (\d+)/(\d+) layers to GPU' |
-         Select-Object -Last 1
-if (-not $split) {
-    Write-Host "WARNING: no layer-assignment line in either stream -- residency UNVERIFIED." -ForegroundColor Yellow
-    Write-Host "  The server is up and this script cannot tell you whether it spilled." -ForegroundColor Yellow
-    Write-Host "  Looked in: $($streams -join ', ')" -ForegroundColor Yellow
-} else {
-    $onGpu = [int]$split.Matches[0].Groups[1].Value
-    $total = [int]$split.Matches[0].Groups[2].Value
-    if ($onGpu -eq $total) {
-        Write-Host "Resident: $onGpu/$total layers on the GPU." -ForegroundColor Green
+    $split = Select-String -Path "$log.err" -Pattern 'offloaded (\d+)/(\d+) layers to GPU' |
+             Select-Object -Last 1
+    if ($split) {
+        Show-ServerStatus -Props $props -OnGpu ([int]$split.Matches[0].Groups[1].Value) `
+                          -Total ([int]$split.Matches[0].Groups[2].Value)
     } else {
-        Write-Host "FAILED: only $onGpu of $total layers are on the GPU." -ForegroundColor Red
-        Write-Host "  --fit spilled rather than refusing. Decode past this point is not the" -ForegroundColor Yellow
-        Write-Host "  configuration you asked for, and the numbers it produces are not" -ForegroundColor Yellow
-        Write-Host "  comparable to anything measured while fully resident." -ForegroundColor Yellow
-        exit 1
+        Show-ServerStatus -Props $props
     }
+    Write-Host ""
+    Write-Host "Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
+    exit 0
 }
 
-Show-ServerStatus -Props $props -ResidencyLog $errLog
-if ($Follow) { Start-Following -Path $errLog }
+# ---- foreground: this process IS the server ---------------------------------
+Write-Host "Starting. Ctrl+C stops the server; so does closing this window." -ForegroundColor Cyan
+Write-Host "A copy of this output is kept at $log" -ForegroundColor DarkGray
+Write-Host ("-" * 78) -ForegroundColor DarkGray
+
+$script:onGpu = 0
+$script:total = 0
+$script:reported = $false
+
+# The two checks happen INLINE, because a foreground server never returns and
+# there is no "after boot" to do them in.
+& $profileScript @profileArgs 2>&1 | ForEach-Object {
+    $line = "$_"
+    Add-Content -Path $log -Value $line -ErrorAction SilentlyContinue
+    Write-Host $line
+
+    if (-not $script:reported) {
+        if ($line -match 'offloaded (\d+)/(\d+) layers to GPU') {
+            $script:onGpu = [int]$Matches[1]
+            $script:total = [int]$Matches[2]
+            if ($script:onGpu -ne $script:total) {
+                Write-Host ""
+                Write-Host "SPILLED: only $($script:onGpu) of $($script:total) layers are on the GPU." -ForegroundColor Red
+                Write-Host "  --fit spilled rather than refusing. Numbers taken past this point are" -ForegroundColor Yellow
+                Write-Host "  not comparable to anything measured while fully resident." -ForegroundColor Yellow
+                Write-Host ""
+            }
+        }
+        # llama.cpp's own readiness line. Printing the status before it would
+        # describe a server that is not answering yet.
+        if ($line -match 'listening on http') {
+            $props = Get-ServerProps
+            if ($props) {
+                Show-ServerStatus -Props $props -OnGpu $script:onGpu -Total $script:total
+                Write-Host ""
+                Write-Host ("-" * 78) -ForegroundColor DarkGray
+            }
+            $script:reported = $true
+        }
+    }
+}

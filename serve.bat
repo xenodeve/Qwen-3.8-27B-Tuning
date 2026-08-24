@@ -2,13 +2,12 @@
 REM ============================================================================
 REM  Start the worker  --  loopback only, this machine
 REM
-REM  Double-click this. It starts the Qwen3.8-27B worker and leaves the window
-REM  open showing what llama.cpp prints -- prompt timings, cache reuse,
-REM  speculation counters, warnings.
+REM  Double-click this. The server runs IN this window and its output is this
+REM  window's output -- prompt timings, cache reuse, speculation counters,
+REM  warnings.
 REM
-REM  Ctrl+C stops the WATCHING. The server keeps running in the background and
-REM  survives closing this window. Stop it from PowerShell with:
-REM      Get-Process llama-server ^| Stop-Process
+REM  Ctrl+C stops the server. So does closing this window. There is one
+REM  process, not a server beside a log-watcher.
 REM
 REM  It holds no configuration. The flags live in
 REM  qwen38-tuning\scripts\worker-q2kxl-mtp.ps1 and only there; a copy here
@@ -31,7 +30,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Follow
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1"
 set RC=%ERRORLEVEL%
 
 if not "%RC%"=="0" (

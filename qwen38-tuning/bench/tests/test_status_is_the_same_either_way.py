@@ -81,13 +81,26 @@ def test_the_status_reports_the_window_and_the_memory():
     assert "nvidia-smi" in body, "no VRAM in the status"
 
 
-def test_the_status_says_the_server_keeps_running_and_how_to_stop_it():
-    """It returns to the prompt on purpose -- the server is detached so the
-    terminal stays usable and the server outlives it. Saying nothing makes that
-    read as 'it exited'."""
+def test_each_path_says_who_owns_the_process():
+    """Rewritten when the launcher moved to the foreground. It used to promise
+    the server keeps running when the window closes; in the foreground design
+    that is FALSE, and a leftover reassurance is worse than none -- a believable
+    sentence about the wrong world.
+
+    The two paths now own the process differently and each says which:
+      * foreground -- Ctrl+C stops the server, so does closing the window
+      * already-serving -- this window did not start it, so Ctrl+C will not
+        reach it, and here is how to stop it
+    """
     s = read()
-    m = re.search(r"function\s+Show-ServerStatus", s)
-    body = s[m.start():]
-    assert "Stop-Process" in body, "the status does not say how to stop it"
-    assert re.search(r"background|keeps running|detached", body), (
-        "the status does not say the server survives this terminal")
+
+    fg = [ln for ln in s.splitlines()
+          if "Write-Host" in ln and re.search(r"Ctrl\+C stops the server", ln)]
+    assert fg, "the foreground path never says Ctrl+C stops the server"
+
+    m = re.search(r"Already serving", s)
+    tail = s[m.start():m.start() + 900]
+    assert "Stop-Process" in tail, (
+        "the already-serving path does not say how to stop a server it did not start")
+    assert re.search(r"not started by this window|will not reach it", tail), (
+        "the already-serving path does not say the terminal does not own it")
