@@ -69,6 +69,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Pass llama.cpp's colours through verbatim. MEASURED 2026-08-25: with
+# --log-colors on it emits 1,180 escape bytes in four codes -- blue timestamps,
+# green INFO, magenta warnings, reset -- and they still vanished from a capture,
+# because PowerShell 7 strips ANSI at render time whenever the output is not a
+# console ($PSStyle.OutputRendering defaulted to PlainText). The colours were
+# being removed by the thing forwarding them.
+if ($PSStyle) { $PSStyle.OutputRendering = 'Ansi' }
+
 $profileScript = Join-Path $PSScriptRoot 'qwen38-tuning\scripts\worker-q2kxl-mtp.ps1'
 $logDir        = Join-Path $PSScriptRoot 'qwen38-tuning\logs'
 $base          = "http://127.0.0.1:$Port"
@@ -223,6 +231,11 @@ Write-Host "        The one natural round, at 98,304, says keeping it is worth +
 Write-Host "        Two variables moved between those numbers. Issues #44 and #47." -ForegroundColor Yellow
 Write-Host ""
 
+# Both asked of the PROFILE, not declared here. LogColors='on' because this
+# script reads the output through a pipeline, and llama.cpp's default 'auto'
+# means "colour when stdout is a TTY" -- a pipe is not one, so the colours were
+# being turned off by the act of reading them.
+#
 # -Verbosity 4 is asked of the PROFILE, not declared here. The served default is
 # 3, which omits the tensor-assignment lines. 4 rather than 5, measured: one boot
 # writes 1.7 KB at 3, 24.7 KB at 4 and 511.9 KB at 5, and the layer line is
@@ -232,7 +245,7 @@ Write-Host ""
 # so '-Verbosity' arrived as the profile's first parameter, $Ctx, and the run
 # died with: Cannot convert value "-Verbosity" to type "System.Int32". Named
 # splatting needs a hashtable. Pinned by tests/test_foreground_is_the_default.py.
-$profileArgs = @{ Verbosity = 4 }
+$profileArgs = @{ Verbosity = 4; LogColors = 'on' }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
 
 # Flattened for the -WhatIf preview only; nothing launches a separate process.

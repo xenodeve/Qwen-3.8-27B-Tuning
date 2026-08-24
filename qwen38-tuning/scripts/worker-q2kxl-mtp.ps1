@@ -106,6 +106,13 @@ param(
     # `serve.ps1` asks for 5 at boot. Changing the DEFAULT would change what
     # every future served row was measured under, so it does not move.
     [int]$Verbosity = 3,
+    # llama.cpp's own colours. 'auto' is exactly what it does with the flag
+    # absent -- colour when stdout is a TTY -- so this default changes nothing
+    # for a profile run by hand, and no measured row changes meaning. serve.ps1
+    # asks for 'on' because it reads the output through a pipeline, which is not
+    # a TTY, and auto would silently turn colour off there (issue #49).
+    [ValidateSet('on', 'off', 'auto')]
+    [string]$LogColors = 'auto',
     # The ONLY access control this server has. It runs with no API key and CORS
     # '*', and middleware_validate_api_key (server-http.cpp:208) returns true
     # immediately when no key is set -- so no route is protected and widening
@@ -166,6 +173,7 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
     --alias qwen38 -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
     -t 18 -b 2048 -ub 256 --no-mmproj-auto -lv $Verbosity `
+    --log-colors $LogColors `
     -ctk q4_0 -ctv q4_0 `
     --spec-type draft-mtp,ngram-mod `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
