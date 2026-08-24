@@ -85,6 +85,78 @@ function Get-ServerProps {
     try { Invoke-RestMethod -Uri "$base/props" -TimeoutSec 4 } catch { $null }
 }
 
+# ---- make the server die with this terminal ---------------------------------
+# MEASURED 2026-08-25: it did not. The chain is cmd.exe -> pwsh.exe ->
+# llama-server.exe, and killing the top cmd left both descendants running and
+# the server still answering /props. Windows does not propagate a parent's death
+# down the tree. The launcher was printing "closing this window stops the
+# server" over an unchecked condition.
+#
+# A try/finally is not enough: it runs on a clean exit and on Ctrl+C, and not at
+# all when the process is killed outright, which is what closing a console can
+# amount to. A job object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x2000) is
+# enforced by the KERNEL -- when the last handle closes, however the holder
+# died, every process in the job is terminated.
+Add-Type -ErrorAction SilentlyContinue -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class KillOnClose {
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode)]
+    static extern IntPtr CreateJobObject(IntPtr a, string name);
+    [DllImport("kernel32.dll")]
+    static extern bool SetInformationJobObject(IntPtr job, int cls, IntPtr info, uint len);
+    [DllImport("kernel32.dll")]
+    static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+    [DllImport("kernel32.dll")]
+    static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+
+    static IntPtr job = IntPtr.Zero;
+
+    // Held for the life of this process on purpose. The handle closing is the
+    // event that kills the job, so it must not be released early.
+    public static bool Adopt(int pid) {
+        if (job == IntPtr.Zero) {
+            job = CreateJobObject(IntPtr.Zero, null);
+            if (job == IntPtr.Zero) return false;
+            // JOBOBJECT_EXTENDED_LIMIT_INFORMATION, LimitFlags at offset 16 on
+            // both 32- and 64-bit; 0x2000 = KILL_ON_JOB_CLOSE.
+            int size = Marshal.SizeOf(typeof(long)) * 6 + Marshal.SizeOf(typeof(IntPtr)) * 6 + 48;
+            IntPtr info = Marshal.AllocHGlobal(size);
+            for (int i = 0; i < size; i++) Marshal.WriteByte(info, i, 0);
+            Marshal.WriteInt32(info, 16, 0x2000);
+            SetInformationJobObject(job, 9, info, (uint)size);
+        }
+        IntPtr h = OpenProcess(0x1F0FFF, false, pid);   // PROCESS_ALL_ACCESS
+        if (h == IntPtr.Zero) return false;
+        return AssignProcessToJobObject(job, h);
+    }
+}
+"@
+
+function Adopt-ServerProcess {
+    <#
+      serve.ps1 does not launch llama-server -- the profile does -- so the job
+      can only own a process the launcher has located. Poll briefly rather than
+      assume one is there.
+    #>
+    for ($i = 0; $i -lt 20; $i++) {
+        $srv = Get-Process llama-server -ErrorAction SilentlyContinue |
+               Select-Object -First 1
+        if ($srv) {
+            $ok = [KillOnClose]::Adopt($srv.Id)
+            if ($ok) {
+                Write-Host "Bound to this terminal: PID $($srv.Id) dies when this process does." -ForegroundColor DarkGray
+            } else {
+                Write-Host "WARNING: could not bind the server to this terminal." -ForegroundColor Yellow
+                Write-Host "  It will OUTLIVE this window. Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor Yellow
+            }
+            return
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    Write-Host "WARNING: no llama-server process found to bind to this terminal." -ForegroundColor Yellow
+}
+
 function Show-ServerStatus {
     <#
       One report, called from every path. Everything here is READ, not assumed:
@@ -310,12 +382,17 @@ if ($Detach) {
 
 # ---- foreground: this process IS the server ---------------------------------
 Write-Host "Starting. Ctrl+C stops the server; so does closing this window." -ForegroundColor Cyan
+# Verified by hard-kill (Stop-Process -Force on the owning pwsh), which runs no
+# cleanup code at all and is strictly harder than a window close. The
+# interactive close itself was not exercised: a headless session has no window
+# handle to deliver it to.
 Write-Host "A copy of this output is kept at $log" -ForegroundColor DarkGray
 Write-Host ("-" * 78) -ForegroundColor DarkGray
 
 $script:onGpu = 0
 $script:total = 0
 $script:reported = $false
+$script:adopted = $false
 
 # The two checks happen INLINE, because a foreground server never returns and
 # there is no "after boot" to do them in.
@@ -323,6 +400,15 @@ $script:reported = $false
     $line = "$_"
     Add-Content -Path $log -Value $line -ErrorAction SilentlyContinue
     Write-Host $line
+
+    if (-not $script:adopted) {
+        # The kernel-enforced half of "closing this window stops the server".
+        # Done once, as soon as the process exists.
+        if ($line -match 'load_model: loading model|llama_server:') {
+            Adopt-ServerProcess
+            $script:adopted = $true
+        }
+    }
 
     if (-not $script:reported) {
         if ($line -match 'offloaded (\d+)/(\d+) layers to GPU') {
