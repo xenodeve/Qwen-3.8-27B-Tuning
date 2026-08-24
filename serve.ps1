@@ -43,6 +43,12 @@ param(
     # control this server has (no API key, CORS '*'), so this removes it rather
     # than loosening it. Issue #49.
     [switch]$Lan,
+    # Add the inbound firewall rule this needs, through a UAC prompt. SEPARATE
+    # from -Lan on purpose: a single switch that binds wide AND edits the
+    # firewall means nobody ever chose the second thing. The rule is scoped to
+    # Radmin VPN's 26.0.0.0/8, because "let Radmin in" is the authorisation and
+    # allowing the whole world inbound is wider than what was asked.
+    [switch]$AllowFirewall,
     [int]$Port = 8080,
     [int]$BootTimeoutSeconds = 240
 )
@@ -143,11 +149,40 @@ if ($Lan) {
         Write-Host ""
         Write-Host "No inbound firewall rule for port $Port. The bind will succeed and the" -ForegroundColor Yellow
         Write-Host "connection will time out, which looks like a model problem and is not." -ForegroundColor Yellow
-        Write-Host "Run this ONCE in an elevated shell:" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "  New-NetFirewallRule -DisplayName 'llama-server $Port' -Direction Inbound ``" -ForegroundColor Cyan
-        Write-Host "    -Protocol TCP -LocalPort $Port -Action Allow -Profile Any" -ForegroundColor Cyan
-        Write-Host ""
+
+        if ($AllowFirewall) {
+            # -Verb RunAs, not a silent edit. The agent is not an administrator
+            # and must not try to become one quietly; the consent dialog is what
+            # makes this authorised rather than sneaked in.
+            Write-Host "Asking Windows for permission to add it -- accept the prompt." -ForegroundColor Cyan
+            $add = "New-NetFirewallRule -DisplayName 'llama-server $Port (Radmin)' " +
+                   "-Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow " +
+                   "-Profile Any -RemoteAddress 26.0.0.0/8"
+            try {
+                Start-Process pwsh -Verb RunAs -Wait -WindowStyle Hidden `
+                    -ArgumentList '-NoProfile', '-Command', $add
+            } catch {
+                Write-Host "Elevation was refused or failed: $_" -ForegroundColor Red
+            }
+
+            # A UAC dialog can be dismissed. Re-check rather than reporting
+            # success because a command was launched.
+            $rule = Get-NetFirewallRule -ErrorAction SilentlyContinue |
+                    Where-Object { $_.DisplayName -eq "llama-server $Port (Radmin)" -and $_.Enabled -eq 'True' }
+            if ($rule) {
+                Write-Host "Rule added and enabled, scoped to 26.0.0.0/8 (Radmin VPN)." -ForegroundColor Green
+            } else {
+                Write-Host "The rule is STILL NOT THERE. Remote machines will time out." -ForegroundColor Red
+                Write-Host "  Run this yourself in an elevated shell:" -ForegroundColor Yellow
+                Write-Host "  $add" -ForegroundColor Cyan
+            }
+        } else {
+            Write-Host "Re-run with -AllowFirewall to add it, or run this elevated:" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "  New-NetFirewallRule -DisplayName 'llama-server $Port (Radmin)' -Direction Inbound ``" -ForegroundColor Cyan
+            Write-Host "    -Protocol TCP -LocalPort $Port -Action Allow -Profile Any -RemoteAddress 26.0.0.0/8" -ForegroundColor Cyan
+            Write-Host ""
+        }
     } else {
         Write-Host "Inbound rule present: $($rule.DisplayName -join ', ')" -ForegroundColor Green
     }

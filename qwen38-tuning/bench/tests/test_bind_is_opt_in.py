@@ -85,14 +85,44 @@ def test_it_reports_the_firewall_rule_it_cannot_add():
         "serve.ps1 does not check whether the rule already exists")
 
 
-def test_it_does_not_change_firewall_state_itself():
-    """Printing a command the developer runs is different from running it.
-    Silent firewall edits are not something a launcher gets to do."""
+def test_adding_the_rule_needs_its_own_switch():
+    """The launcher may now add the rule, because the developer asked it to.
+    It may not do so as a side effect of -Lan: a switch that binds wide and
+    edits the firewall in one step means nobody ever chose the second thing."""
     s = read(SERVE)
-    for line in s.splitlines():
-        if "New-NetFirewallRule" in line:
-            assert line.lstrip().startswith(("Write-Host", "#", '"')) or '"' in line, (
-                "New-NetFirewallRule appears outside a printed string: %r" % line)
+    assert re.search(r"\[switch\]\s*\$AllowFirewall", s), (
+        "no separate switch guards the firewall change")
+    m = re.search(r"if\s*\(\s*\$AllowFirewall\s*\)", s)
+    assert m, "New-NetFirewallRule is not gated on -AllowFirewall"
+
+
+def test_the_rule_is_added_through_an_elevation_prompt():
+    """The agent is not admin and must not try to become it quietly. -Verb RunAs
+    puts a consent dialog in front of the developer, which is the mechanism that
+    makes this an authorised change rather than a silent one."""
+    s = read(SERVE)
+    assert "RunAs" in s, (
+        "the firewall change does not go through an elevation prompt")
+
+
+def test_the_rule_is_scoped_to_the_network_that_asked_for_it():
+    """26.0.0.0/8 is Radmin VPN's range. Allowing the whole world inbound when
+    the developer asked for one VPN is wider than the request, and the request
+    is the authorisation."""
+    s = read(SERVE)
+    assert "26.0.0.0/8" in s, "the rule is not scoped to the Radmin range"
+    assert "-RemoteAddress" in s, "the rule does not restrict remote addresses"
+
+
+def test_it_verifies_the_rule_landed_instead_of_assuming_the_prompt_was_accepted():
+    """A UAC dialog can be dismissed. Reporting success because a command was
+    launched is the same class of mistake as reporting residency from a
+    projection."""
+    s = read(SERVE)
+    m = re.search(r"if\s*\(\s*\$AllowFirewall\s*\)", s)
+    after = s[m.start():]
+    assert after.count("Get-NetFirewallRule") >= 1, (
+        "nothing re-checks the rule after the elevation attempt")
 
 
 def test_it_states_the_missing_authentication_at_the_moment_of_exposure():
