@@ -103,14 +103,19 @@ def test_it_asks_the_profile_for_the_verbosity_it_needs():
 
 
 def test_it_reads_the_stream_llama_cpp_actually_writes_to():
-    """llama.cpp logs to stderr. The first version searched stdout, found an
+    """llama.cpp logs to STDERR. An early version searched stdout, found an
     empty file, and reported residency unverified while the evidence sat in the
-    other one."""
+    other stream.
+
+    It used to assert -RedirectStandardError, which belonged to the detached
+    design. In the foreground there is no second process to redirect: `2>&1`
+    merges stderr into the pipeline this script reads line by line. Same
+    property, different mechanism -- and asserting the old mechanism would have
+    gone red for the right reason and the wrong cause."""
     t = text()
-    assert "RedirectStandardError" in t
-    assert re.search(r"\$errLog|\.err", t), (
-        "nothing in serve.ps1 looks at the error stream, which is where the "
-        "layer-assignment lines are")
+    assert re.search(r"\$profileScript\s+@\w+\s+2>&1", t), (
+        "stderr is not merged into the pipeline, so the layer-assignment lines "
+        "never reach the residency check")
 
 
 def test_it_names_the_open_question_instead_of_presenting_the_config_as_settled():

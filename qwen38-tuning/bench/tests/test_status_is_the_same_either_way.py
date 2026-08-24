@@ -100,7 +100,10 @@ def test_each_path_says_who_owns_the_process():
 
     m = re.search(r"Already serving", s)
     tail = s[m.start():m.start() + 900]
-    assert "Stop-Process" in tail, (
-        "the already-serving path does not say how to stop a server it did not start")
-    assert re.search(r"not started by this window|will not reach it", tail), (
-        "the already-serving path does not say the terminal does not own it")
+    # Updated when -Detach went. A server on the port can no longer be a
+    # leftover -- it belongs to a window that is still open -- so the useful
+    # instruction is "close that window", not "Stop-Process".
+    assert re.search(r"Close that window", tail), (
+        "the already-serving path does not say how to stop a peer's server")
+    assert re.search(r"reaches nothing|will not reach it", tail), (
+        "the already-serving path does not say this terminal does not own it")

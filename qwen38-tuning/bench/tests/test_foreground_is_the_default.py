@@ -25,9 +25,10 @@ WHAT IS KEPT. The port guard, the firewall handling, the bind-is-opt-in rule and
 the delegation rule are unchanged -- this is about who owns the process, not
 about what gets served or to whom.
 
-`-Detach` keeps the old behaviour for the case where the terminal is needed for
-something else. It is not the default, because the default should be the thing
-that does what it looks like it does.
+`-Detach` was kept for a while as an escape hatch and then removed: a launcher
+that offers both stories has to explain which one is running, every time, and
+"closing this window stops the server" becomes true only sometimes. Its absence
+is asserted in test_one_window_one_server.py.
 """
 import os
 import re
@@ -57,12 +58,6 @@ def test_the_foreground_path_does_not_detach():
         window = s[max(0, m.start() - 400):m.start()]
         assert "$Detach" in window, (
             "a detached launch is not guarded by -Detach: %r" % m.group(0))
-
-
-def test_detach_exists_but_is_not_the_default():
-    s = read()
-    assert re.search(r"\[switch\]\s*\$Detach", s), "no -Detach escape hatch"
-    assert not re.search(r"\[switch\]\s*\$Detach\s*=\s*\$true", s)
 
 
 def test_the_profile_is_splatted_by_name_not_by_position():

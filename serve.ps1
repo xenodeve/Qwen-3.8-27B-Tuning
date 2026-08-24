@@ -7,11 +7,15 @@
     says which one is current. Several serve artifacts that stopped being the
     default and windows that stopped being the answer. This is the one to run.
 
-    ONE SCRIPT, ONE PROCESS. The profile is invoked in THIS process and its
+    ONE WINDOW, ONE SERVER. The profile is invoked in THIS process and its
     output is this terminal's output. Ctrl+C stops the server; closing the
-    window stops the server. An earlier version launched it detached and tailed
-    the log file, which made "live terminal" mean watching a file that another
-    process was writing.
+    window stops the server; there is no mode in which it survives either.
+
+    That is a simplification, not only a behaviour. Every way a server could
+    outlive its terminal needed handling -- a detach mode, a branch reporting on
+    a server this window did not start, a hunt through old logs for the
+    residency of a process nobody watched. Removing the situation removed all
+    three.
 
     IT DELEGATES. The configuration lives in worker-q2kxl-mtp.ps1 and only
     there. This file resolves that profile and invokes it; it declares no
@@ -37,9 +41,6 @@
 .PARAMETER AllowFirewall
     Add the inbound rule, through a UAC prompt. Separate from -Lan on purpose.
 
-.PARAMETER Detach
-    Run the server in the background and hand the prompt back.
-
 .PARAMETER WhatIf
     Print the resolved command line and exit without touching the GPU.
 
@@ -63,9 +64,6 @@ param(
     # subnet -- because those are what was asked for, and a rule wider than the
     # request is a rule nobody granted.
     [switch]$AllowFirewall,
-    # The old behaviour, for when the terminal is needed for something else.
-    # Not the default: the default should do what it looks like it does.
-    [switch]$Detach,
     [int]$Port = 8080
 )
 
@@ -237,8 +235,7 @@ Write-Host ""
 $profileArgs = @{ Verbosity = 4 }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
 
-# Start-Process wants a flat string array, so derive one rather than keeping two
-# hand-written copies that can disagree about what is being launched.
+# Flattened for the -WhatIf preview only; nothing launches a separate process.
 $profileArgv = @($profileArgs.GetEnumerator() |
                  Sort-Object Name |
                  ForEach-Object { "-$($_.Key)", "$($_.Value)" })
@@ -256,11 +253,11 @@ if ($WhatIfPreference) {
 $existing = Get-ServerProps
 if ($existing) {
     if ($existing.model_alias -eq 'qwen38') {
-        Write-Host "Already serving. Restarting a healthy server is not an improvement." -ForegroundColor Green
+        Write-Host "Already serving -- ANOTHER WINDOW owns it." -ForegroundColor Green
+        Write-Host "A server cannot outlive the window that started it, so one is open." -ForegroundColor Green
         Show-ServerStatus -Props $existing
         Write-Host ""
-        Write-Host "It was not started by this window, so Ctrl+C here will not reach it." -ForegroundColor DarkGray
-        Write-Host "Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
+        Write-Host "Close that window to stop it. Ctrl+C here reaches nothing." -ForegroundColor DarkGray
         exit 0
     }
     Write-Host "FATAL: port $Port is answering and it is NOT ours." -ForegroundColor Red
@@ -343,42 +340,6 @@ if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out
 # sorting next to every other dated artifact in this repository.
 $stamp = [datetime]::Now.ToString('yyyyMMdd-HHmmss', [cultureinfo]::InvariantCulture)
 $log   = Join-Path $logDir "serve-$stamp.log"
-
-# ---- -Detach: the server outlives this window -------------------------------
-if ($Detach) {
-    Write-Host "Detaching. The server will outlive this window; the log is $log" -ForegroundColor DarkGray
-    $proc = Start-Process -FilePath 'pwsh' `
-        -ArgumentList (@('-NoProfile', '-File', $profileScript) + $profileArgv) `
-        -RedirectStandardOutput $log -RedirectStandardError "$log.err" `
-        -WindowStyle Hidden -PassThru
-    $props = $null
-    for ($i = 0; $i -lt 80; $i++) {
-        Start-Sleep -Seconds 3
-        if ($proc.HasExited) {
-            Write-Host "FATAL: the profile exited during boot (code $($proc.ExitCode))." -ForegroundColor Red
-            if (Test-Path "$log.err") { Get-Content "$log.err" -Tail 25 }
-            exit 1
-        }
-        $props = Get-ServerProps
-        if ($props) { break }
-    }
-    if (-not $props) {
-        Write-Host "FATAL: no response on $base." -ForegroundColor Red
-        if (Test-Path "$log.err") { Get-Content "$log.err" -Tail 25 }
-        exit 1
-    }
-    $split = Select-String -Path "$log.err" -Pattern 'offloaded (\d+)/(\d+) layers to GPU' |
-             Select-Object -Last 1
-    if ($split) {
-        Show-ServerStatus -Props $props -OnGpu ([int]$split.Matches[0].Groups[1].Value) `
-                          -Total ([int]$split.Matches[0].Groups[2].Value)
-    } else {
-        Show-ServerStatus -Props $props
-    }
-    Write-Host ""
-    Write-Host "Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
-    exit 0
-}
 
 # ---- foreground: this process IS the server ---------------------------------
 Write-Host "Starting. Ctrl+C stops the server; so does closing this window." -ForegroundColor Cyan
