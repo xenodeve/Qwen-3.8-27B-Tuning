@@ -31,6 +31,89 @@ Eleven values exist in build 10472. All eleven have been tried.
 > **Read [`09-hardware.md`](09-hardware.md) before quoting any elimination on
 > this page as current.**
 
+## The served arm against its own ablations — 2026-08-24, issue #44
+
+**Six paired rounds, arms rotated so each ran in each position twice, two
+depths, `UD-Q2_K_XL`, `q4_0` KV, effort `medium`, `sm_120a` build.**
+`--ignore-eos` on **both** depths so one rule covers both.
+Raw: `results/served-ablation-deep-ignoreeos.jsonl`, 36 rows.
+
+| ctx | arm | median tok/s | spread | acceptance | free after |
+|---:|---|---:|---:|---:|---:|
+| 98,304 | `ngram-mod` | **27.82** | 0.3 % | 39.9 | 3,110 MiB |
+| 98,304 | `none` | 25.87 | 0.2 % | — | 3,114 |
+| 98,304 | `draft-mtp,ngram-mod` | **voided** | — | 64.3 | 1,859 |
+| 147,456 | `ngram-mod` | **52.11** | 1.3 % | 42.9 | 2,187 |
+| 147,456 | `draft-mtp,ngram-mod` | **45.09** | 0.5 % | 54.5 | 697 |
+| 147,456 | `none` | **voided** | — | — | 2,191 |
+
+**At the depth we serve, adding `draft-mtp` costs 13.5 % and 1,490 MiB.**
+`ngram-mod` alone is 52.11 against the served pair's 45.09, and leaves 2,187 MiB
+free against 697.
+
+### The counters say why, and it is not acceptance
+
+Acceptance is *higher* with MTP — 54.5 against 42.9 — and it is still slower.
+Round 1 at 147,456:
+
+```
+draft-mtp   decline  0.0 %   mean len 3.26   drafted 1037  accepted 783   t_draft 3861.675 ms
+ngram-mod   decline 86.3 %   mean len 16.62  drafted 1627  accepted 859   t_draft    2.051 ms
+```
+
+**MTP spends 3.86 seconds drafting to contribute 783 accepted tokens; `ngram-mod`
+spends 2 milliseconds to contribute 859.** Roughly 3.7 ms per drafted token,
+which is the MTP head's forward pass. Across three 512-token generations at
+~45 tok/s that drafting is ~11 % of wall clock, and the measured gap is 13.5 %.
+
+Removing MTP also gives `ngram-mod` more turns: alone it drafts 2,482 and accepts
+1,301, against 1,627/859 when it shares the slot.
+
+### Two boot-level facts worth keeping
+
+**Six boots, spread 0.2–1.3 %.** `free_before` differs every round, so these are
+distinct loads. `CORRECTIONS.md` §23 records the same arm spanning **48.9 %**
+across boots at 65,536 — that did not happen here, and the cause of that spread
+remains unattributed. **Do not read this as the spread being gone.**
+
+**The generations are deterministic.** `temp 0, top_k 1, seed 42` on a frozen
+prompt gives byte-identical `acceptance` and `copied_frac` in all six rounds. The
+0.2–1.3 % is boot and timing jitter, **not sampling variability** — six rounds
+here are six repeats, not six samples.
+
+### ⚠ This does NOT settle whether to drop `draft-mtp`
+
+**Both arms ran with the budget forced**, and forcing is not obviously neutral
+for MTP: past the point the model would have stopped, `draft-mtp` is drafting
+from a distribution the model did not choose to be in, while `ngram-mod` keeps
+matching context and is unaffected.
+
+The one **natural** measurement points the other way, hard —
+`results/DIAG-q2kxl-98304.jsonl`, one round, no forcing, same corpus and depth:
+
+| arm | natural, 1 round | forced, 6 rounds |
+|---|---:|---:|
+| `draft-mtp,ngram-mod` | **58.31** | voided |
+| `ngram-mod` | 25.64 | 27.82 |
+| `none` | 25.30 | 25.87 |
+
+**+127 % for MTP naturally at 98,304, against −13.5 % forced at 147,456.** Two
+things changed between those numbers — the depth and the forcing — so neither can
+be blamed. Acceptance agrees across the two conditions (63.5/64.3 for the pair,
+39.9/39.9 for `ngram-mod`), so the disagreement is in time, not in hit rate.
+
+**Both missing cells are blocked by a different guard.** Forced MTP at 98,304
+voids because one of its three generations copies 61.3 % of the prompt; natural
+MTP at 147,456 voids because the model stops after 9 tokens
+([results 06](06-prompt-and-quality.md)).
+
+**What would settle it:** a **natural** paired sweep at 32,768 / 65,536 / 98,304
+— three depths where `real-code-deep` generates without forcing — and read the
+*trend* toward 147,456 rather than measuring it there. This is consistent with
+what the register already holds: `draft-mtp` at **+81 % at 16K and −71 % at
+131,072** on `UD-IQ2_S`. Two artifacts now show the same shape, and the served
+window sits past the crossing on one of them.
+
 ## `dflash2+ngram` on a REAL task — first measurement, 2026-08-24
 
 Every other number on this page is tok/s on a generated prompt. This is one run
