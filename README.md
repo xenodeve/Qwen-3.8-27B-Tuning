@@ -11,8 +11,21 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 
 ## Just start it
 
+**Double-click [`serve.bat`](serve.bat).** The window stays open showing what
+llama.cpp is printing; `Ctrl+C` stops the watching, not the server.
+
+**[`serve-lan.bat`](serve-lan.bat)** does the same and makes it reachable from
+other machines. It is a second file rather than a prompt because `--host` is the
+only access control this server has — no API key, CORS `*` — so exposure should
+happen because someone clicked the thing that says `lan`, not because they wanted
+the model running.
+
+From a terminal, the same thing with flags:
+
 ```powershell
-.\serve.ps1
+.\serve.ps1              # loopback
+.\serve.ps1 -Follow      # and watch the live log
+.\serve.ps1 -Lan -AllowFirewall -Follow
 ```
 
 That is the whole answer. `qwen38-tuning/scripts/` holds **58 `.ps1` files** and
