@@ -9,6 +9,8 @@ Thread posted 2 days before capture; 74 upvotes, ~40 top-level comments.
 > worth a folder is the **hardware**: at least four commenters are on a
 > **5060 Ti 16 GB**, and this project has never had an outside number on its own
 > card. Read every figure below as *a claim someone made*, not a result.
+>
+> **A better-conditioned capture from the same day exists**: [`../hf-discussion-5060ti-mtp/`](../hf-discussion-5060ti-mtp/README.md) — same card, and its participants *do* name artifact, depth, KV type and effort. Prefer it.
 
 **What it actually bought us is not a number.** It is a **compile flag our build
 does not have**, which we found by checking our own `CMakeCache.txt` after a
