@@ -44,6 +44,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from harness import (median, parse_layer_split, target_layer_count,
+                     generation_is_original, copied_window_fraction,
                      draft_acceptance,
                      paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
                      parse_spec_impl_stats, generation_is_measurable)
@@ -840,26 +841,40 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None,
         # of three mostly absorbed it, which is precisely why it could have gone
         # unnoticed: a systematic bias hidden inside a summary statistic.
         post("/completion", body, timeout=900)
-        timings, rates = [], []
+        timings, rates, contents = [], [], []
         for _ in range(N_GEN):
             r = post("/completion", body, timeout=900)
             timings.append(r["timings"])
             rates.append(rate(r["timings"]))
+            contents.append(r.get("content"))
         # A row whose generations produced almost nothing is not a measurement.
         # At ctx 65,536 the corpus ran out, the model answered in 2-4 tokens
         # against a 512-token budget, and the arena reported a tight RESOLVED
         # -56.5 % computed over that. Refuse the row instead of ranking it.
-        measurable = generation_is_measurable(timings, N_PREDICT)
+        long_enough = generation_is_measurable(timings, N_PREDICT)
+        # A 512-token verbatim copy of the prompt passes the length gate and is
+        # not a decode measurement: the first row taken on real-code-vendor read
+        # 195.13 tok/s with ngram-mod accepting 1,911 of 1,912 drafted tokens in
+        # runs of 32.85, because the model was continuing the corpus rather than
+        # answering the instruction appended to it (issue #44).
+        original = generation_is_original(contents, prompt)
+        measurable = long_enough and original
         good = [x for x in rates if x]
         row.update(tg_samples=rates,
                    predicted_n=[t.get("predicted_n") for t in timings],
                    measurable=measurable,
                    tg_med=(median(good) if (good and measurable) else None),
                    acceptance=draft_acceptance(timings))
-        if not measurable:
+        row["copied_frac"] = [round(copied_window_fraction(c, prompt), 3)
+                              for c in contents]
+        if not long_enough:
             row["note"] = ("generations too short to measure: predicted_n=%s "
                            "against n_predict=%d" %
-                           ([t.get("predicted_n") for t in timings], N_PREDICT))
+                           ([x.get("predicted_n") for x in timings], N_PREDICT))
+        elif not original:
+            row["note"] = ("generations copy the prompt rather than answer it: "
+                           "12-word windows found verbatim in the prompt = %s"
+                           % row["copied_frac"])
         fh.flush()
         text = log.read_text(encoding="utf-8", errors="replace")
         row["split"] = "%d+%d" % parse_layer_split(

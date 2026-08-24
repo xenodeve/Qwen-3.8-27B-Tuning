@@ -270,7 +270,70 @@ stores its incident history, and a bespoke script starts with none of it.
 parallel one is genuinely warranted, list which of the host module's guards you
 are choosing not to inherit, and say why in the file.
 
-Eleven of these thirteen produced **a plausible number or a clean exit**, not
+## 14. A probe that reuses the prompt cache is not a controlled experiment
+
+**What happened, 2026-08-24.** Eighteen arena rows at ctx 147,456 were voided
+because every generation produced 9 tokens against a 512-token budget. To find
+where that starts, a one-off script booted once and swept the prompt from 49,152
+to 73,728 requested tokens, ascending, **with `cache_prompt: True`** -- left on
+because the arena sets it and it was copied without thought.
+
+It came back **512 / 1 / 1 / 484 / 512 / 1 / 1**: not monotonic in length, and
+briefly readable as a finding about depth.
+
+**The tell was in a column already being printed.** `prompt_n` read 43,162 on
+the first request and then **3,532 to 4,389** on every one after. Each later
+prompt shared its prefix with the cached one, so the server processed only the
+delta -- the requests were not the lengths they were labelled with. **The
+variable under test was the cache.**
+
+Re-run with `cache_prompt: False`, `prompt_n` tracks the requested length and
+the numbers change.
+
+**The rule.** A sweep whose inputs share a prefix must turn prefix reuse **off**,
+or reboot between points. And when a probe copies settings from the harness,
+list which ones are *measurement policy* rather than defaults -- `cache_prompt`
+is there so the arena's timed generations skip a cold prefill they already paid
+for, which is correct for the arena and wrong for anything varying the prompt.
+
+---
+
+## 15. Two points look like a line
+
+**What happened, minutes later.** With the cache off, two clean points existed:
+a 43,162-token prompt generated the full 512, a 64,210-token prompt generated 9.
+The conclusion written down -- **in a commit message** -- was *"the boundary is
+prompt length, between 43k and 64k"*.
+
+**Seven points refuted it.**
+
+```
+43,162 -> 512   46,909 -> 1   51,038 -> 1   54,310 -> 512
+57,780 -> 512   60,831 -> 512   64,210 -> 9
+```
+
+Failure is not monotonic in length, so length is not the variable. `filler` cuts
+the corpus at exactly `n * 3` characters, so **each length ends at a different
+point in the source** -- and what decides the outcome is where the cut lands.
+
+**Confirmed by changing the text instead of the length.** The same seven lengths
+on `real-code-vendor`, 11 files of `llama.cpp`'s `gguf-py`, complete **7 of 7**,
+including 70,322 tokens -- deeper than the 64,210 that collapsed. Same model,
+same ctx, same greedy sampler, same day.
+
+**The rule.** Two points fit infinitely many curves, and the one the mind
+supplies is a straight line through them. **A monotonic hypothesis needs a
+monotonic test**: sample the interval before naming a threshold, and prefer
+changing the *other* variable -- here the corpus -- over adding more points along
+the one you already suspect.
+
+**And do not put an unverified boundary in a commit message.** Commit messages
+are the layer this project treats as durable; a hypothesis written there reads
+as a result to everyone who comes after.
+
+---
+
+Thirteen of these fifteen produced **a plausible number or a clean exit**, not
 an error. That is the signature to watch for:
 
 - `split: 65+0` while the card thrashes at 32 MiB free

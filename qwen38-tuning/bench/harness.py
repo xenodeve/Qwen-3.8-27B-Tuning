@@ -144,6 +144,60 @@ def target_layer_count(log_text):
     return max(len(p) for p in passes)
 
 
+COPIED_FRACTION_LIMIT = 0.5
+
+
+def copied_window_fraction(output, prompt, n=12):
+    """Fraction of the output's n-word windows that appear verbatim in the prompt.
+
+    A generation that reproduces its own prompt is not a decode measurement, and
+    it is the failure mode `generation_is_measurable` cannot see: that guard
+    counts TOKENS, and a 512-token copy passes it (issue #44).
+
+    n=12 because `--spec-ngram-mod-n-match 12` is what every worker profile
+    serves, so twelve is the width at which copying actually pays the decoder.
+    The same idiom as `window_repetition_pct` above, which measures repetition
+    WITHIN one text; this measures overlap BETWEEN two.
+
+    Returns 0.0 when the output is shorter than one window. Returning 1.0 there
+    would void every short answer as a copy, and "no window" is an absence of
+    evidence, not evidence of copying.
+    """
+    ow = (output or "").split()
+    if len(ow) < n:
+        return 0.0
+    pw = (prompt or "").split()
+    seen = {tuple(pw[i:i + n]) for i in range(len(pw) - n + 1)}
+    windows = [tuple(ow[i:i + n]) for i in range(len(ow) - n + 1)]
+    return sum(1 for w in windows if w in seen) / len(windows)
+
+
+def generation_is_original(contents, prompt, limit=COPIED_FRACTION_LIMIT, n=12):
+    """True when EVERY timed generation said something the prompt did not.
+
+    ALL of them, not the median -- a row is one paired datapoint, and a median
+    over one answer and one copy measures neither. `generation_is_measurable`
+    refuses a mixed row for the same reason.
+
+    Missing content voids the row rather than passing it. A believable number
+    with no evidence behind it is the one outcome this project treats as worse
+    than a crash.
+
+    THE LIMIT IS A FIRST GUESS. 0.5 separates the two populations observed on
+    2026-08-24 -- verbatim continuations of `real-code-vendor` scoring near 1.0
+    against answers scoring near 0 -- and was not derived. The fraction is
+    recorded on the row either way, so a later run can move it on evidence.
+    """
+    if not contents:
+        return False
+    for c in contents:
+        if c is None:
+            return False
+        if copied_window_fraction(c, prompt, n) > limit:
+            return False
+    return True
+
+
 def project_prefill_seconds(pp_tok_s, ctx_tokens):
     """Straight-line cold-prefill estimate. Ignores depth degradation by design."""
     if pp_tok_s <= 0:
