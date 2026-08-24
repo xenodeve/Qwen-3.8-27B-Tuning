@@ -44,6 +44,30 @@ def load_jsonl(path):
 _LAYER_RE = None
 
 
+def _assignment_passes(log_text):
+    """The layer-assignment lines, split into passes.
+
+    llama.cpp emits several reserve passes and each restarts at layer 0, so a
+    pass boundary is simply where the index stops increasing. Shared by
+    `parse_layer_split` and `target_layer_count` so the two can never disagree
+    about where one pass ends and the next begins.
+    """
+    global _LAYER_RE
+    if _LAYER_RE is None:
+        import re
+        _LAYER_RE = re.compile(
+            r"load_tensors: layer\s+(\d+) assigned to device (\w+)")
+
+    pairs = _LAYER_RE.findall(log_text)
+    if not pairs:
+        raise ValueError("no layer-assignment lines found; was -lv 5 passed?")
+
+    devices = [d for _, d in pairs]
+    idx = [int(i) for i, _ in pairs]
+    bounds = [0] + [i for i in range(1, len(idx)) if idx[i] <= idx[i - 1]] + [len(idx)]
+    return [devices[a:b] for a, b in zip(bounds, bounds[1:])]
+
+
 def parse_layer_split(log_text, total=None, expect_layers=None):
     r"""Count GPU vs CPU layer placement from a verbose llama.cpp load report.
 
@@ -74,22 +98,8 @@ def parse_layer_split(log_text, total=None, expect_layers=None):
     (\w+) rather than (\S+) because the device token carries a trailing comma
     ("CUDA0,"), which made an exact == "CPU" comparison match nothing.
     """
-    global _LAYER_RE
-    if _LAYER_RE is None:
-        import re
-        _LAYER_RE = re.compile(
-            r"load_tensors: layer\s+(\d+) assigned to device (\w+)")
-
-    pairs = _LAYER_RE.findall(log_text)
-    if not pairs:
-        raise ValueError("no layer-assignment lines found; was -lv 5 passed?")
-
-    devices = [d for _, d in pairs]
-    idx = [int(i) for i, _ in pairs]
-
-    # Split into passes first: a pass boundary is where the index stops rising.
-    bounds = [0] + [i for i in range(1, len(idx)) if idx[i] <= idx[i - 1]] + [len(idx)]
-    passes = [devices[a:b] for a, b in zip(bounds, bounds[1:])]
+    passes = _assignment_passes(log_text)
+    devices = [d for p in passes for d in p]
 
     if expect_layers is not None:
         matching = [p for p in passes if len(p) == expect_layers]
@@ -109,6 +119,29 @@ def parse_layer_split(log_text, total=None, expect_layers=None):
             f"unexpected devices: {sorted(set(last) - {'CPU'} - {d for d in last if d.startswith('CUDA')})}"
         )
     return gpu, cpu
+
+
+def target_layer_count(log_text):
+    """How many layers the TARGET model has, read from its own load report.
+
+    Replaces a caller-side constant. `dflash2_arena` hardcoded 65 -- "64 blocks
+    plus the MTP head" -- which was the count for `UD-IQ2_XXS`, an artifact with
+    no MTP head at all. `UD-Q2_K_XL` has one at `blk.64` and reports 66, so
+    every row it produced raised instead of recording a split (issue #44).
+
+    THE TARGET IS THE MODEL WITH THE MOST LAYERS. True of every configuration
+    this project runs: the DFlash2 drafter is 6 against a target's 65 or 66, and
+    with `draft-mtp` there is no second model at all. If a drafter ever carries
+    more layers than its target this inverts -- stated here rather than assumed,
+    because a wrong answer would look like a healthy split for the wrong model,
+    which is the fault `expect_layers` was added to prevent in the first place.
+
+    Raises on a log with no assignment lines rather than returning a default:
+    the caller feeds this straight into `parse_layer_split`, and a guessed count
+    there is exactly the silent fallback that function refuses.
+    """
+    passes = _assignment_passes(log_text)
+    return max(len(p) for p in passes)
 
 
 def project_prefill_seconds(pp_tok_s, ctx_tokens):

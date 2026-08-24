@@ -43,7 +43,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from harness import (median, parse_layer_split, draft_acceptance,
+from harness import (median, parse_layer_split, target_layer_count,
+                     draft_acceptance,
                      paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
                      parse_spec_impl_stats, generation_is_measurable)
 from provenance import (resolve_exe, resolve_target, resolve_effort,
@@ -66,7 +67,6 @@ BASE = "http://127.0.0.1:8080"
 # so NOTHING measured after this line is comparable to an earlier figure without
 # saying so. The row records it for that reason.
 EFFORT = resolve_effort()
-TARGET_LAYERS = 65          # Qwen3.8-27B: 64 blocks plus the MTP head
 N_PREDICT = 512
 N_GEN = 3                   # timed generations per arm per round, after a warm turn
 
@@ -732,6 +732,23 @@ def rate(t):
     return r if t.get("predicted_n") and r and r > 0 else None
 
 
+def record_fault(row, exc):
+    """Append a fault to `row["note"]` without erasing what is already there.
+
+    `run_arm` writes WHY a row is unmeasurable, then keeps working, and the
+    later work can raise. Assigning to `note` in the handler destroyed the
+    diagnosis: on 2026-08-24 eighteen rows at ctx 147,456 reported
+
+        ValueError: no assignment pass has 65 layers; passes seen: [66, 66, 66]
+
+    while the real problem -- every generation producing 9 tokens against a
+    512-token budget -- had already been written to that field and was gone
+    (issue #44). A harness that deletes its own evidence cannot be debugged.
+    """
+    fault = "%s: %s" % (type(exc).__name__, exc)
+    row["note"] = (row["note"] + " | " + fault) if row.get("note") else fault
+
+
 def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
     env = env or {}
     tag = (label.replace("+", "-") + "-" + regime
@@ -804,7 +821,8 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
                            ([t.get("predicted_n") for t in timings], N_PREDICT))
         fh.flush()
         text = log.read_text(encoding="utf-8", errors="replace")
-        row["split"] = "%d+%d" % parse_layer_split(text, expect_layers=TARGET_LAYERS)
+        row["split"] = "%d+%d" % parse_layer_split(
+            text, expect_layers=target_layer_count(text))
         # Per-implementation counters. The pooled acceptance line cannot say
         # which speculator served which fraction, and with a chained
         # --spec-type that is the whole question.
@@ -822,7 +840,7 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
                      row["acceptance"], row.get("free_after"), decl),
                   flush=True)
     except Exception as exc:               # a failed arm is a row, not a crash
-        row["note"] = "%s: %s" % (type(exc).__name__, exc)
+        record_fault(row, exc)
         print("    %-15s ERROR %s" % (label, exc), flush=True)
     finally:
         stop_server()
