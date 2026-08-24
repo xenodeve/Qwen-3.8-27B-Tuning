@@ -1052,6 +1052,51 @@ with *"IMPORTANT: Compile llama.cpp with `GGML_CUDA_FA_ALL_QUANTS=ON`"* and a
 
 ---
 
+## 30. "The boundary is prompt length, between 43k and 64k" — there is no boundary, and the claim was published in a commit message
+
+**Where it was published**, 2026-08-24, in the body of commit `6b717f7`:
+
+> so the window is fine and the boundary is prompt length, between 43k and 64k.
+
+Written from **two points**: a 43,162-token prompt generating the full 512-token
+budget at ctx 147,456, and a 64,210-token prompt generating 9 and stopping on
+EOS.
+
+**Refuted the same hour by five more points.** Same boot, cold prefix cache,
+varying only the prompt (`results/DIAG-length-real-code-deep.jsonl`):
+
+```
+43,162 -> 512   46,909 ->   1   51,038 ->   1   54,310 -> 512
+57,780 -> 512   60,831 -> 512   64,210 ->   9
+```
+
+**Failure is not monotonic in length**, so length is not the variable. `filler`
+cuts the corpus at exactly `n * 3` characters, so each length ends at a different
+point in the source, and **where the cut lands** is what decides it.
+
+**Confirmed by changing the other variable.** The same seven lengths on
+`real-code-vendor` — 11 files of `llama.cpp`'s `gguf-py`, a codebase nobody here
+wrote — complete **7 of 7**, including **70,322 tokens**, deeper than the length
+that collapsed. Same model, same ctx, same greedy sampler
+(`results/DIAG-length-real-code-vendor.jsonl`).
+
+**Two points fit infinitely many curves and the mind supplies the straight one.**
+Recorded as [`traps.md` 15](../agents/traps.md), together with 14 — the first
+version of that sweep left `cache_prompt` on, so requests 2 through 7 processed
+3,532 to 4,389 tokens instead of their own length and the variable under test was
+the cache.
+
+**The second half of this entry is the part worth keeping.** The claim went into
+a **commit message**, which is a layer this project treats as durable: a
+hypothesis written there reads as a result to everyone who comes after, and
+nothing in the tooling scans commit bodies. The register, the reports and the
+results pages all have a place to mark a claim unverified. A commit message does
+not. **Do not put an unverified boundary in one.**
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `prompt-length-boundary`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

@@ -158,6 +158,18 @@ RULES = [
      "its stated cause does not",
      "CORRECTIONS.md 27"),
 
+    ("prompt-length-boundary",
+     r"boundary is prompt length|between 43k and 64k|"
+     r"collapses? (?:above|past|beyond) (?:a )?\d+k[- ]token|"
+     r"prompt[- ]length (?:threshold|boundary)",
+     "there is no boundary. Seven cold points go 43,162->512, 46,909->1, "
+     "51,038->1, 54,310->512, 57,780->512, 60,831->512, 64,210->9 -- failure is "
+     "not monotonic in length, so length is not the variable. filler cuts the "
+     "corpus at exactly n*3 characters and WHERE THE CUT LANDS decides it. The "
+     "same seven lengths on real-code-vendor complete 7 of 7 including 70,322 "
+     "tokens. The claim was published in a commit message, which nothing scans",
+     "CORRECTIONS.md 30"),
+
     ("fa-all-quants-decided",
      r"FA_ALL_QUANTS`? rebuild for Q8 KV\?\s*\|\s*\*\*not needed|"
      r"Is `?FA_ALL_QUANTS`? needed for Q8 KV\?\s*\|\s*\*\*No|"

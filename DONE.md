@@ -9,6 +9,101 @@ hundred lines.
 
 ---
 
+## 2026-08-24 (second half) — two forum posts, a compile flag nobody could reach, and a measurement that still will not resolve
+
+**Shipped on `build/blackwell-sm120`, 7 commits, PR #42, none merged.** Issues
+[#43](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/43) and
+[#44](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/44).
+
+**Two saved pages, and the numbers in them were the least useful part.** A
+r/LocalLLM thread and HF discussion #26, both on our exact RTX 5060 Ti 16 GB.
+Captured in [`researchs/reddit-5060ti-quant-thread`](docs/researchs/reddit-5060ti-quant-thread/README.md)
+and [`researchs/hf-discussion-5060ti-mtp`](docs/researchs/hf-discussion-5060ti-mtp/README.md).
+
+**What the first one actually bought: `GGML_CUDA_FA_ALL_QUANTS` is `OFF` in both
+our builds.** A commenter opened with *"IMPORTANT: compile with it ON"* and a
+`cache-type-k q5_0 / cache-type-v q4_1` line. That line is not slow on our
+binaries — `fattn.cu:340-352` makes `q4_1`/`q5_0`/`q5_1` unsupported KV types
+when the flag is off, and `:442-446` refuses every asymmetric K≠V pair. **The
+flag was closed here long ago on the reason "Q8 KV is faster on the stock
+binary" — and `GGML_TYPE_Q8_0` is in the always-compiled list, so that result
+could not test it.** [`CORRECTIONS §29`](docs/reports/CORRECTIONS.md). Half the
+failure is silent: `-fa auto` WARNs and continues, so `-ctk q5_1 -ctv f16` boots
+with flash attention off and returns a number.
+
+**The second gave us the only outside paired MTP curve on this card** —
+2.08× at 2,500 tokens decaying to **1.72× at 25,400** — plus the third and
+fourth independent confirmations that the template default is `xhigh`, and a
+`Vulkan-instead-of-CUDA` incident that is our own `sm_89`-on-`sm_120` fault one
+layer up. **Checked every lever it names against our profile; none needed
+changing.**
+
+### The measurement, and four instrument faults found on the way to it
+
+**#44 asked whether `draft-mtp` earns its place at ctx 147,456.** The first
+attempt returned **18 rows, 0 measurable** — every generation 9 tokens against a
+512 budget. Four separate things had to be fixed before a number existed:
+
+**`TARGET_LAYERS = 65`** was a constant commented *"64 blocks plus the MTP
+head"* — the count for `UD-IQ2_XXS`, which has no MTP head. `UD-Q2_K_XL` has one
+at `blk.64` and reports 66. Replaced by reading the count out of the log.
+
+**The `except` clobbered `row["note"]`**, so the real diagnosis — *generations
+too short, `predicted_n=[9,9,9]`* — was overwritten by a complaint about layer
+counting. **A harness that deletes its own evidence cannot be debugged**, fixed
+in `real_task_bench` that morning and still live here.
+
+**A 512-token verbatim copy of the prompt passed every gate.** The first row on
+the new corpus read **195.13 tok/s** with `ngram-mod` accepting 1,911 of 1,912
+drafted tokens in runs of 32.85 — the model was continuing the corpus, not
+answering. **The highest figure this project has ever recorded, and it was a copy
+rate.** Killed after one row; `copied_window_fraction` now gates on the output,
+never on the counters, because `ngram-mod` is one of the arms under test.
+
+**And the 9 tokens were not a bug at all.** Not the window — a 48-token prompt
+runs the full budget at the same ctx. Not the length — seven cold points go
+**512, 1, 1, 512, 512, 512, 9**, which is not monotonic. `filler` cuts at exactly
+`n * 3` characters and **where the cut lands** decides it. Confirmed by changing
+the text instead: the same seven lengths on
+[`real-code-vendor`](qwen38-tuning/bench/corpora/build-vendor-corpus.py), 11
+files of `llama.cpp`'s `gguf-py`, complete **7 of 7** including 70,322 tokens.
+
+### What the run says, and why it is not a verdict
+
+Six paired rounds, arms rotated through every position twice, `--ignore-eos` on
+both depths. **At ctx 147,456 adding `draft-mtp` costs 13.5 % and 1,490 MiB** —
+45.09 against `ngram-mod`'s 52.11, spreads 0.5 % and 1.3 % over six distinct
+boots. Acceptance is *higher* with MTP (54.5 against 42.9) and it is still
+slower, because **MTP spends 3,861 ms drafting for 783 accepted tokens where
+`ngram-mod` spends 2 ms for 859.**
+
+**It does not settle it.** Both arms ran forced, and forcing is not neutral for
+MTP. The one natural round, at 98,304, gives MTP **+127 %** — opposite sign, with
+**both depth and forcing changed between the two numbers.** Both missing cells
+are blocked by a different guard. Next: a natural paired sweep at 32,768 /
+65,536 / 98,304 and read the trend. [`results 02`](docs/results/02-decoders.md).
+
+### Three invariants, and two of them are about my own reasoning
+
+**Two points look like a line.** *"The boundary is prompt length, between 43k and
+64k"* went into a **commit message** from two points, and five more refuted it
+the same hour. [`CORRECTIONS §30`](docs/reports/CORRECTIONS.md) — a commit
+message is a layer this project treats as durable and **nothing scans it**.
+
+**A probe that reuses the prompt cache is not a controlled experiment.** The
+first version of that sweep left `cache_prompt` on; requests 2–7 processed 3,532
+to 4,389 tokens instead of their own length. **The tell was in a column already
+being printed.**
+
+**A number recorded before its condition existed cannot be compared later.**
+`ignore_eos` is the fifth provenance column and the first added *before* rather
+than after a comparison was made without it.
+
+**Validation:** suite **390 → 426**, all red-first; 399 links, 0 broken; audit
+green with two new rules. The served profile was **not modified**.
+
+---
+
 ## 2026-08-24 — the card was never running its own kernels, and the model was never asked to think less
 
 **Shipped on `build/blackwell-sm120`, 22 commits, PR #42, none merged.** Argued in
