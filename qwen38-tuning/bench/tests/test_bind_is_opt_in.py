@@ -105,13 +105,48 @@ def test_the_rule_is_added_through_an_elevation_prompt():
         "the firewall change does not go through an elevation prompt")
 
 
-def test_the_rule_is_scoped_to_the_network_that_asked_for_it():
-    """26.0.0.0/8 is Radmin VPN's range. Allowing the whole world inbound when
-    the developer asked for one VPN is wider than the request, and the request
-    is the authorisation."""
+def test_the_rule_is_scoped_to_the_networks_that_asked_for_it():
+    """26.0.0.0/8 is Radmin VPN's range; LocalSubnet is the Wi-Fi LAN the
+    developer added afterwards. Allowing every remote address when two named
+    networks were asked for is wider than the request, and the request is the
+    authorisation."""
     s = read(SERVE)
     assert "26.0.0.0/8" in s, "the rule is not scoped to the Radmin range"
+    assert "LocalSubnet" in s, "the rule does not admit the local LAN"
     assert "-RemoteAddress" in s, "the rule does not restrict remote addresses"
+
+
+def test_it_checks_the_scope_of_an_existing_rule_not_merely_its_existence():
+    """The first version skipped the whole branch when ANY rule was present, so
+    a rule created when only Radmin was wanted could never be widened for
+    Wi-Fi -- and the launcher would report 'rule present' while the LAN still
+    timed out. Existence is not the property that matters; scope is."""
+    s = read(SERVE)
+    assert "Get-NetFirewallAddressFilter" in s, (
+        "nothing reads the remote-address scope of the rule that already exists")
+
+
+def test_it_removes_every_rule_it_owns_not_only_the_exact_name():
+    """Renaming the rule between versions orphaned the old one. The first
+    release created `llama-server 8080 (Radmin)`; the next removed
+    `llama-server 8080` and left the first sitting there, so two rules existed
+    and Windows evaluated their union -- a stale, narrower rule looking
+    authoritative next to the real one. Remove by PREFIX, so a rule this script
+    made under any past name is cleaned up."""
+    s = read(SERVE)
+    assert "llama-server $Port*" in s, (
+        "the cleanup matches an exact name, so a renamed rule is orphaned")
+
+
+def test_it_says_what_localsubnet_follows():
+    """LocalSubnet means whichever network the machine is on, and the Wi-Fi
+    adapter is classified Public. Taking the laptop elsewhere carries the rule
+    along. Stated once, where the developer is choosing."""
+    s = read(SERVE)
+    m = re.search(r"if\s*\(\s*\$AllowFirewall\s*\)", s)
+    after = s[m.start():]
+    assert re.search(r"whatever network|any network you join|follows", after), (
+        "the launcher does not say that LocalSubnet follows the machine")
 
 
 def test_it_verifies_the_rule_landed_instead_of_assuming_the_prompt_was_accepted():

@@ -45,9 +45,10 @@ param(
     [switch]$Lan,
     # Add the inbound firewall rule this needs, through a UAC prompt. SEPARATE
     # from -Lan on purpose: a single switch that binds wide AND edits the
-    # firewall means nobody ever chose the second thing. The rule is scoped to
-    # Radmin VPN's 26.0.0.0/8, because "let Radmin in" is the authorisation and
-    # allowing the whole world inbound is wider than what was asked.
+    # firewall means nobody ever chose the second thing. The rule admits two
+    # named networks and no more -- Radmin VPN's 26.0.0.0/8 and the local
+    # subnet -- because those are what was asked for, and a rule wider than the
+    # request is a rule nobody granted.
     [switch]$AllowFirewall,
     [int]$Port = 8080,
     [int]$BootTimeoutSeconds = 240
@@ -141,23 +142,48 @@ if ($Lan) {
     # The rule cannot be added from here -- it needs elevation. Printing the
     # command is not the same as running it, and a launcher does not get to
     # edit firewall state on its own.
+    # Scope, not existence. The first version skipped this whole branch when ANY
+    # inbound rule was present, so a rule created when only Radmin was wanted
+    # could never be widened -- and it would report "rule present" while the LAN
+    # still timed out. What matters is which remote addresses it admits.
+    $wanted = @('LocalSubnet', '26.0.0.0/8')
     $rule = Get-NetFirewallPortFilter -ErrorAction SilentlyContinue |
             Where-Object { $_.LocalPort -eq $Port } |
             ForEach-Object { $_ | Get-NetFirewallRule -ErrorAction SilentlyContinue } |
-            Where-Object { $_.Direction -eq 'Inbound' -and $_.Enabled -eq 'True' }
+            Where-Object { $_.Direction -eq 'Inbound' -and $_.Enabled -eq 'True' } |
+            Where-Object {
+                $scope = @($_ | Get-NetFirewallAddressFilter | ForEach-Object { $_.RemoteAddress })
+                # 'Any' admits everything, so it covers both. Otherwise every
+                # wanted network must appear.
+                ($scope -contains 'Any') -or
+                (($wanted | Where-Object { $scope -notcontains $_ }).Count -eq 0)
+            }
     if (-not $rule) {
         Write-Host ""
-        Write-Host "No inbound firewall rule for port $Port. The bind will succeed and the" -ForegroundColor Yellow
-        Write-Host "connection will time out, which looks like a model problem and is not." -ForegroundColor Yellow
+        Write-Host "No inbound rule for port $Port admitting both LocalSubnet and 26.0.0.0/8." -ForegroundColor Yellow
+        Write-Host "The bind will succeed and the connection will time out, which looks like" -ForegroundColor Yellow
+        Write-Host "a model problem and is not." -ForegroundColor Yellow
 
         if ($AllowFirewall) {
             # -Verb RunAs, not a silent edit. The agent is not an administrator
             # and must not try to become one quietly; the consent dialog is what
             # makes this authorised rather than sneaked in.
+            Write-Host "LocalSubnet means whatever network this machine is on, and the Wi-Fi" -ForegroundColor Yellow
+            Write-Host "adapter is classified Public -- so the rule follows the laptop onto any" -ForegroundColor Yellow
+            Write-Host "network you join, not only this one." -ForegroundColor Yellow
             Write-Host "Asking Windows for permission to add it -- accept the prompt." -ForegroundColor Cyan
-            $add = "New-NetFirewallRule -DisplayName 'llama-server $Port (Radmin)' " +
+            # Remove first: New-NetFirewallRule with an existing DisplayName adds
+            # a SECOND rule rather than replacing it, and Windows evaluates the
+            # union -- so a narrower old rule would sit there looking authoritative.
+            # By PREFIX, not by exact name. The first release called this rule
+            # 'llama-server 8080 (Radmin)'; removing only the current name left
+            # that one behind, so two rules existed and Windows evaluated their
+            # union -- a stale narrower rule sitting next to the real one and
+            # looking just as authoritative.
+            $add = "Remove-NetFirewallRule -DisplayName 'llama-server $Port*' -ErrorAction SilentlyContinue; " +
+                   "New-NetFirewallRule -DisplayName 'llama-server $Port' " +
                    "-Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow " +
-                   "-Profile Any -RemoteAddress 26.0.0.0/8"
+                   "-Profile Any -RemoteAddress LocalSubnet,26.0.0.0/8"
             try {
                 Start-Process pwsh -Verb RunAs -Wait -WindowStyle Hidden `
                     -ArgumentList '-NoProfile', '-Command', $add
@@ -168,9 +194,10 @@ if ($Lan) {
             # A UAC dialog can be dismissed. Re-check rather than reporting
             # success because a command was launched.
             $rule = Get-NetFirewallRule -ErrorAction SilentlyContinue |
-                    Where-Object { $_.DisplayName -eq "llama-server $Port (Radmin)" -and $_.Enabled -eq 'True' }
+                    Where-Object { $_.DisplayName -eq "llama-server $Port" -and $_.Enabled -eq 'True' }
             if ($rule) {
-                Write-Host "Rule added and enabled, scoped to 26.0.0.0/8 (Radmin VPN)." -ForegroundColor Green
+                $scope = @($rule | Get-NetFirewallAddressFilter | ForEach-Object { $_.RemoteAddress })
+                Write-Host "Rule added and enabled. Admits: $($scope -join ', ')" -ForegroundColor Green
             } else {
                 Write-Host "The rule is STILL NOT THERE. Remote machines will time out." -ForegroundColor Red
                 Write-Host "  Run this yourself in an elevated shell:" -ForegroundColor Yellow
@@ -179,8 +206,9 @@ if ($Lan) {
         } else {
             Write-Host "Re-run with -AllowFirewall to add it, or run this elevated:" -ForegroundColor Yellow
             Write-Host ""
-            Write-Host "  New-NetFirewallRule -DisplayName 'llama-server $Port (Radmin)' -Direction Inbound ``" -ForegroundColor Cyan
-            Write-Host "    -Protocol TCP -LocalPort $Port -Action Allow -Profile Any -RemoteAddress 26.0.0.0/8" -ForegroundColor Cyan
+            Write-Host "  New-NetFirewallRule -DisplayName 'llama-server $Port' -Direction Inbound ``" -ForegroundColor Cyan
+            Write-Host "    -Protocol TCP -LocalPort $Port -Action Allow -Profile Any ``" -ForegroundColor Cyan
+            Write-Host "    -RemoteAddress LocalSubnet,26.0.0.0/8" -ForegroundColor Cyan
             Write-Host ""
         }
     } else {
