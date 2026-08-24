@@ -50,6 +50,12 @@ param(
     # subnet -- because those are what was asked for, and a rule wider than the
     # request is a rule nobody granted.
     [switch]$AllowFirewall,
+    # Tail everything llama.cpp writes while it runs -- slot lifecycle, prompt
+    # and eval timings, speculation counters, warnings. Ctrl+C leaves the server
+    # running; it only stops the watching. Said out loud in the output too,
+    # because a terminal full of server output invites Ctrl+C and a detached
+    # server already read as a stopped one once.
+    [switch]$Follow,
     [int]$Port = 8080,
     [int]$BootTimeoutSeconds = 240
 )
@@ -140,7 +146,33 @@ function Show-ServerStatus {
     Write-Host ""
     Write-Host "It keeps running in the background -- this terminal is free and closing it" -ForegroundColor DarkGray
     Write-Host "does not stop the server. Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor DarkGray
+    Write-Host "Watch what llama.cpp is printing:  .\serve.ps1 -Follow" -ForegroundColor DarkGray
 }
+
+function Start-Following {
+    <#
+      Tail the log the server is writing. Takes the path rather than finding it,
+      so the fresh path can pass the log it just created and the already-serving
+      path can pass the newest one it can find -- or nothing, if the server
+      predates this script or was started by hand.
+    #>
+    param([string]$Path)
+
+    if (-not $Path -or -not (Test-Path $Path)) {
+        Write-Host ""
+        Write-Host "Cannot follow: no log for this server." -ForegroundColor Yellow
+        Write-Host "  It was probably started by hand or before this script existed." -ForegroundColor Yellow
+        Write-Host "  Restart it with .\serve.ps1 to get one." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host ""
+    Write-Host "Following $Path" -ForegroundColor Cyan
+    Write-Host "Ctrl+C stops the watching only -- the server keeps running." -ForegroundColor Cyan
+    Write-Host ("-" * 78) -ForegroundColor DarkGray
+    Get-Content -Path $Path -Tail 40 -Wait
+}
+
 
 # ---- what this is, and what is still open ------------------------------------
 Write-Host ""
@@ -182,6 +214,7 @@ if ($existing) {
         $prev = Get-ChildItem (Join-Path $logDir 'serve-*.log.err') -ErrorAction SilentlyContinue |
                 Sort-Object LastWriteTime | Select-Object -Last 1
         Show-ServerStatus -Props $existing -ResidencyLog $(if ($prev) { $prev.FullName })
+        if ($Follow) { Start-Following -Path $(if ($prev) { $prev.FullName }) }
         exit 0
     }
     Write-Host "FATAL: port $Port is answering and it is NOT ours." -ForegroundColor Red
@@ -347,3 +380,4 @@ if (-not $split) {
 }
 
 Show-ServerStatus -Props $props -ResidencyLog $errLog
+if ($Follow) { Start-Following -Path $errLog }
