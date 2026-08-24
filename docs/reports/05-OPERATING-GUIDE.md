@@ -10,6 +10,26 @@
 
 ---
 
+## 0. Or do not pick one — 2026-08-24
+
+```powershell
+.\serve.ps1
+```
+
+From the repository root, no arguments. It resolves the profile this project's
+evidence supports today, refuses to start over a port that is already answering,
+and **reads the layer split out of the boot log** rather than assuming it —
+`--fit` spills rather than refusing, and that reads as success in every field
+except the layer count.
+
+**The table below is from 2026-08-18 and is kept as history.** Three of its
+profiles serve `UD-IQ2_XXS` at windows this project no longer runs, and every
+number in it was taken on the **RTX 4070 SUPER** and at the chat template's
+`xhigh`, which nobody had set on purpose
+([results 09](../results/09-hardware.md), [report 35](35-Q2KXL-MTP-AND-THE-EFFORT-NOBODY-SET.md)).
+
+---
+
 ## 1. Pick a profile by working context
 
 **Revised 2026-08-19** — Experiment A (report 10) replaced the 16K default.

@@ -101,6 +101,11 @@ WHAT IS NOT SETTLED
 param(
     [int]$Ctx  = 147456,
     [int]$Port = 8080,
+    # Log verbosity. 3 is the served default and keeps the log small; the
+    # tensor-assignment lines that prove residency only appear at 5, so
+    # `serve.ps1` asks for 5 at boot. Changing the DEFAULT would change what
+    # every future served row was measured under, so it does not move.
+    [int]$Verbosity = 3,
     [string]$Exe = "C:\AI\llama.cpp-blackwell\llama-server.exe",
     [string]$Model = "C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed\Qwen3.8-27B-UD-Q2_K_XL.gguf",
     [switch]$IKnowTheBuildIsWrong
@@ -152,7 +157,7 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
 & $Exe -m $Model `
     --alias qwen38 -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
-    -t 18 -b 2048 -ub 256 --no-mmproj-auto -lv 3 `
+    -t 18 -b 2048 -ub 256 --no-mmproj-auto -lv $Verbosity `
     -ctk q4_0 -ctv q4_0 `
     --spec-type draft-mtp,ngram-mod `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `

@@ -9,6 +9,27 @@ A Qwen3.8-27B coding agent running on one **RTX 5060 Ti (16 GB)**.
 
 Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 
+## Just start it
+
+```powershell
+.\serve.ps1
+```
+
+That is the whole answer. `qwen38-tuning/scripts/` holds **58 `.ps1` files** and
+several of them serve artifacts that stopped being the default at windows that
+stopped being the answer; nothing in the tree said which was current.
+[`serve.ps1`](serve.ps1) resolves the profile the evidence supports, **refuses to
+start over a port already answering**, and **reads the layer split back out of
+the boot log** — `--fit` spills rather than refusing, so residency is checked,
+never assumed. It prints what each choice rests on and names the one still open.
+
+`.\serve.ps1 -WhatIf` shows the resolved command without touching the GPU.
+
+**It holds no configuration of its own.** The flags live in
+`qwen38-tuning/scripts/worker-q2kxl-mtp.ps1` and only there — a launcher that
+copied them would become a second source of truth and drift silently, since both
+files would still run.
+
 **Metric:** verified accepted coding tasks per hour — a task counts only if the
 generated code runs and passes its tests.
 **Current goal:** a usable context of 128K or more, fully GPU-resident, at the
