@@ -754,31 +754,73 @@ def record_fault(row, exc):
     row["note"] = (row["note"] + " | " + fault) if row.get("note") else fault
 
 
-def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
+SAMPLER = {"temperature": 0.0, "top_k": 1, "seed": 42}
+
+
+def completion_payload(prompt, ignore_eos=False):
+    """The body of every /completion this arena sends.
+
+    One function so a forced row and a natural one can be diffed: the ONLY key
+    that may differ between them is `ignore_eos`, and a test asserts it.
+
+    Absent rather than false by default. A row measured before this option
+    existed carries neither the key nor the column, and writing `false` into
+    the request would make the two look different in a packet capture while
+    being identical in behaviour.
+    """
+    body = dict({"prompt": prompt, "n_predict": N_PREDICT,
+                 "cache_prompt": True}, **SAMPLER)
+    if ignore_eos:
+        body["ignore_eos"] = True
+    return body
+
+
+def new_row(ctx, arm, rnd, regime, extra, env, free_before, ignore_eos=False,
+            loaded=True):
+    """The columns every row carries, and why each one is there.
+
+    Four of these -- exe/cuda_archs, env, target/target_mib, effort -- were each
+    added on 2026-08-24 AFTER a comparison had already been made without them.
+    `ignore_eos` is the fifth and is being added before rather than after.
+    """
+    return dict(
+        ctx=ctx, arm=arm, round=rnd, regime=regime,
+        args=" ".join(extra),
+        n_predict=N_PREDICT, free_before=free_before,
+        corpus=corpus_hash(regime),
+        # Which binary produced this number. Two builds on this machine report
+        # the same version string and differ 2x in prefill; without these two
+        # fields the JSONL cannot tell them apart afterwards.
+        exe=EXE, cuda_archs=cuda_archs(EXE),
+        # Which MODEL, with its size: two files on this machine share the name
+        # UD-Q2_K_XL and differ by 808 MiB, so the path alone is not an identity
+        # if the cache ever moves.
+        target=TARGET, target_mib=model_size_mib(TARGET),
+        # Which reasoning effort. Everything before 2026-08-24 ran at the
+        # template's xhigh; a row without this field is one of those.
+        effort=EFFORT,
+        # Whether the generation budget was FORCED. Past the point the model
+        # would have stopped it is decoding text it did not choose to write, and
+        # draft acceptance is a property of how predictable that text is -- so a
+        # forced row's acceptance is not comparable with a natural one's. Arm
+        # against arm within one forced run is unaffected: every arm decodes
+        # under the same rule.
+        ignore_eos=bool(ignore_eos),
+        # Always present, even when empty: absent and {} must not be the same
+        # value, or "this arm set nothing" reads the same as "this row predates
+        # the feature".
+        env=dict(env),
+        loaded=loaded)
+
+
+def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None,
+            ignore_eos=False):
     env = env or {}
     tag = (label.replace("+", "-") + "-" + regime
            + "-c" + str(ctx) + "-r" + str(rnd))
     p, fh, log, free_before = start(ctx, extra, tag, env=env)
-    row = dict(ctx=ctx, arm=label, round=rnd, regime=regime,
-               args=" ".join(extra),
-               n_predict=N_PREDICT, free_before=free_before,
-               corpus=corpus_hash(regime),
-               # Which binary produced this number. Two builds on this machine
-               # report the same version string and differ 4x in decode; without
-               # these two fields the JSONL cannot tell them apart afterwards.
-               exe=EXE, cuda_archs=cuda_archs(EXE),
-               # Which MODEL, with its size: two files on this machine share the
-               # name UD-Q2_K_XL and differ by 808 MiB, so the path alone is not
-               # an identity if the cache ever moves.
-               target=TARGET, target_mib=model_size_mib(TARGET),
-               # Which reasoning effort. Everything before 2026-08-24 ran at the
-               # template's xhigh; a row without this field is one of those.
-               effort=EFFORT,
-               # Always present, even when empty: absent and {} must not be the
-               # same value, or "this arm set nothing" reads the same as "this
-               # row predates the feature".
-               env=dict(env),
-               loaded=p is not None)
+    row = new_row(ctx, label, rnd, regime, extra, env, free_before,
+                  ignore_eos=ignore_eos, loaded=p is not None)
     if p is None:
         row["note"] = "server failed to start"
         print("    %-15s FAILED TO LOAD" % label, flush=True)
@@ -786,7 +828,7 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
 
     try:
         prompt = filler(int(ctx * 0.5), regime)
-        samp = {"temperature": 0.0, "top_k": 1, "seed": 42}
+        body = completion_payload(prompt, ignore_eos=ignore_eos)
         # Warm turn: pays the cold prefill once so the timed generations measure
         # decode rather than prefill. Its timings are discarded deliberately.
         #
@@ -797,16 +839,10 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None):
         # because neither builds a table from the text it just emitted. Median
         # of three mostly absorbed it, which is precisely why it could have gone
         # unnoticed: a systematic bias hidden inside a summary statistic.
-        post("/completion",
-             dict({"prompt": prompt, "n_predict": N_PREDICT, "cache_prompt": True},
-                  **samp),
-             timeout=900)
+        post("/completion", body, timeout=900)
         timings, rates = [], []
         for _ in range(N_GEN):
-            r = post("/completion",
-                     dict({"prompt": prompt, "n_predict": N_PREDICT,
-                           "cache_prompt": True}, **samp),
-                     timeout=900)
+            r = post("/completion", body, timeout=900)
             timings.append(r["timings"])
             rates.append(rate(r["timings"]))
         # A row whose generations produced almost nothing is not a measurement.
@@ -908,6 +944,16 @@ def main():
                              "real-code-vendor"],
                     nargs="+", default=["synthetic"])
     ap.add_argument("--arms", choices=sorted(ARM_SETS), default="decoders")
+    # OFF by default. Every decoder figure this project holds was taken without
+    # it, and turning it on globally would make new rows quietly incomparable
+    # with old ones -- the shape of four fixes made on 2026-08-24, each added
+    # after a comparison had already been made without the field. The row
+    # carries the flag either way (issue #44).
+    ap.add_argument("--ignore-eos", action="store_true",
+                    help="force the full n_predict budget. Needed where the "
+                         "model stops on EOS after a few tokens and the row is "
+                         "voided; NOT comparable with a natural row's draft "
+                         "acceptance")
     ap.add_argument("--out",
                     default=str(ROOT / "results" / "dflash2-arena.jsonl"))
     a = ap.parse_args()
@@ -932,7 +978,8 @@ def main():
                          " -> ".join(arm_parts(a)[0] for a in order)), flush=True)
                 for arm in order:
                     label, extra, env = arm_parts(arm)
-                    row = run_arm(ctx, label, extra, rnd, regime, env)
+                    row = run_arm(ctx, label, extra, rnd, regime, env,
+                                  ignore_eos=a.ignore_eos)
                     rows.append(row)
                     fh.write(json.dumps(row) + "\n")
                     fh.flush()
