@@ -225,6 +225,38 @@ ARM_SETS = {
         ("draft-mtp+ngram", ["--spec-type", "draft-mtp,ngram-mod"] + NGRAM, {}),
     ],
 
+    # THE SERVED ARM AGAINST ITS OWN ABLATIONS -- issue #44.
+    #
+    # `worker-q2kxl-mtp.ps1` serves `draft-mtp,ngram-mod` at ctx 147,456, and
+    # that choice rests on ONE UNPAIRED SESSION PER ARM on a single real task
+    # (report 35). Two things say that is not enough:
+    #
+    #   02-decoders.md carries draft-mtp at +81 % @16K and -71 % @131,072. We
+    #   serve DEEPER than the depth where the sign flipped. That figure used a
+    #   sidecar head on an artifact with none, so it does not transfer -- which
+    #   is the point: the figure that would transfer was never taken.
+    #
+    #   An operator on the same RTX 5060 Ti published the paired curve we lack
+    #   (researchs/hf-discussion-5060ti-mtp): 2.08x at 2,500 decaying to 1.72x
+    #   at 25,400, and his measurement stops there. Ours runs six times deeper.
+    #
+    # THREE ARMS. Dropping MTP alone leaves `ngram-mod` -- the decoder every
+    # other worker profile serves, and the real alternative. Dropping both is
+    # the only honest floor. Two arms would have made the answer "MTP or
+    # nothing", which is not the choice in front of us.
+    #
+    # ONE VARIABLE BETWEEN NEIGHBOURS. The ngram window is byte-identical in the
+    # two arms that have one; `tests/test_served_ablation_arm_set.py` asserts it
+    # rather than trusting this comment. A delta with two causes is what
+    # CORRECTIONS 26 and 28 both are.
+    #
+    # NO -md, for the reason the "mtp" set above gives at length.
+    "served-ablation": [
+        ("draft-mtp+ngram", ["--spec-type", "draft-mtp,ngram-mod"] + NGRAM, {}),
+        ("ngram-mod", SERVED_NGRAM, {}),
+        ("none", [], {}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
