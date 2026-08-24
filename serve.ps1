@@ -91,6 +91,11 @@ function Get-ServerProps {
     try { Invoke-RestMethod -Uri "$base/props" -TimeoutSec 4 } catch { $null }
 }
 
+# One copy, dot-sourced here and by the watcher. Two processes need the same
+# report and the watcher cannot call a function defined in this file.
+$statusScript = Join-Path $PSScriptRoot 'qwen38-tuning\scripts\Show-ServerStatus.ps1'
+. $statusScript
+
 # ---- make the server die with this terminal ---------------------------------
 # MEASURED 2026-08-25: it did not. The chain is cmd.exe -> pwsh.exe ->
 # llama-server.exe, and killing the top cmd left both descendants running and
@@ -139,78 +144,6 @@ public static class KillOnClose {
 }
 "@
 
-function Adopt-ServerProcess {
-    <#
-      serve.ps1 does not launch llama-server -- the profile does -- so the job
-      can only own a process the launcher has located. Poll briefly rather than
-      assume one is there.
-    #>
-    for ($i = 0; $i -lt 20; $i++) {
-        $srv = Get-Process llama-server -ErrorAction SilentlyContinue |
-               Select-Object -First 1
-        if ($srv) {
-            $ok = [KillOnClose]::Adopt($srv.Id)
-            if ($ok) {
-                Write-Host "Bound to this terminal: PID $($srv.Id) dies when this process does." -ForegroundColor DarkGray
-            } else {
-                Write-Host "WARNING: could not bind the server to this terminal." -ForegroundColor Yellow
-                Write-Host "  It will OUTLIVE this window. Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor Yellow
-            }
-            return
-        }
-        Start-Sleep -Milliseconds 500
-    }
-    Write-Host "WARNING: no llama-server process found to bind to this terminal." -ForegroundColor Yellow
-}
-
-function Show-ServerStatus {
-    <#
-      One report, called from every path. Everything here is READ, not assumed:
-      this may be looking at a server it did not start, so the bind comes from
-      the listening socket rather than from whether -Lan was passed now.
-    #>
-    param($Props, [int]$OnGpu = 0, [int]$Total = 0)
-
-    $listen = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
-                ForEach-Object { $_.LocalAddress } | Sort-Object -Unique)
-    $wide = $listen -contains '0.0.0.0' -or $listen -contains '::'
-
-    Write-Host ""
-    Write-Host "Serving on $base" -ForegroundColor Green
-    Write-Host ("  model     {0}  ({1})" -f $Props.model_alias, $Props.model_ftype)
-    Write-Host ("  build     {0}" -f $Props.build_info)
-    $nctx = $Props.default_generation_settings.n_ctx
-    if ($nctx) { Write-Host ("  window    {0:N0} tokens" -f $nctx) }
-
-    if ($Total -gt 0) {
-        if ($OnGpu -eq $Total) {
-            Write-Host ("  layers    {0}/{1} on the GPU" -f $OnGpu, $Total) -ForegroundColor Green
-        } else {
-            Write-Host ("  layers    {0}/{1} -- SPILLED" -f $OnGpu, $Total) -ForegroundColor Red
-        }
-    } else {
-        Write-Host "  layers    not seen in this stream" -ForegroundColor DarkGray
-    }
-
-    $vram = & nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader 2>$null
-    if ($vram) { Write-Host ("  VRAM      {0}" -f ($vram -join '')) }
-
-    try {
-        $slots = Invoke-RestMethod -Uri "$base/slots" -TimeoutSec 4
-        $used = @($slots | ForEach-Object { $_.n_prompt_tokens }) | Where-Object { $_ }
-        if ($used) { Write-Host ("  context   {0:N0} tokens in the live slot" -f ($used | Measure-Object -Maximum).Maximum) }
-    } catch { }
-
-    Write-Host ("  bind      {0}" -f ($listen -join ', ')) -ForegroundColor $(if ($wide) { 'Yellow' } else { 'Green' })
-    if ($wide) {
-        Write-Host "  reachable from another machine at:" -ForegroundColor Yellow
-        Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-            Where-Object { $_.IPAddress -ne '127.0.0.1' } |
-            Sort-Object InterfaceAlias |
-            ForEach-Object { Write-Host ("    http://{0}:{1}   ({2})" -f $_.IPAddress, $Port, $_.InterfaceAlias) }
-    }
-}
-
 # ---- what this is, and what is still open ------------------------------------
 Write-Host ""
 Write-Host "Qwen3.8-27B on RTX 5060 Ti 16 GB -- the configuration the evidence supports" -ForegroundColor Cyan
@@ -245,7 +178,17 @@ Write-Host ""
 # so '-Verbosity' arrived as the profile's first parameter, $Ctx, and the run
 # died with: Cannot convert value "-Verbosity" to type "System.Int32". Named
 # splatting needs a hashtable. Pinned by tests/test_foreground_is_the_default.py.
-$profileArgs = @{ Verbosity = 4; LogColors = 'on' }
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+# InvariantCulture: a Thai locale renders the year as 2569 and the log names stop
+# sorting next to every other dated artifact in this repository.
+#
+# Assigned BEFORE $profileArgs reads it. It used to be set a hundred lines later,
+# so the profile received an empty path, no log was written, and the watcher
+# polled a file nothing would ever create -- then timed out in silence.
+$stamp = [datetime]::Now.ToString('yyyyMMdd-HHmmss', [cultureinfo]::InvariantCulture)
+$log   = Join-Path $logDir "serve-$stamp.log"
+
+$profileArgs = @{ Verbosity = 4; LogColors = 'on'; LogFile = $log }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
 
 # Flattened for the -WhatIf preview only; nothing launches a separate process.
@@ -268,7 +211,7 @@ if ($existing) {
     if ($existing.model_alias -eq 'qwen38') {
         Write-Host "Already serving -- ANOTHER WINDOW owns it." -ForegroundColor Green
         Write-Host "A server cannot outlive the window that started it, so one is open." -ForegroundColor Green
-        Show-ServerStatus -Props $existing
+        Show-ServerStatus -Props $existing -Port $Port
         Write-Host ""
         Write-Host "Close that window to stop it. Ctrl+C here reaches nothing." -ForegroundColor DarkGray
         exit 0
@@ -351,61 +294,83 @@ if ($Lan) {
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 # InvariantCulture: a Thai locale renders the year as 2569 and the log names stop
 # sorting next to every other dated artifact in this repository.
-$stamp = [datetime]::Now.ToString('yyyyMMdd-HHmmss', [cultureinfo]::InvariantCulture)
-$log   = Join-Path $logDir "serve-$stamp.log"
 
-# ---- foreground: this process IS the server ---------------------------------
-Write-Host "Starting. Ctrl+C stops the server; so does closing this window." -ForegroundColor Cyan
-# Verified by hard-kill (Stop-Process -Force on the owning pwsh), which runs no
+# ---- foreground: llama.cpp owns this console -------------------------------
+# NOTHING between llama.cpp and the terminal. Every layer that carried the output
+# dropped something from it: --log-colors auto turned colour off because a pipe
+# is not a terminal, and PowerShell then stripped the codes it did forward
+# because its own output was not a console. Each fix was right and the next layer
+# was still there. So the launcher stops carrying it.
+#
+# The checks still happen, from the FILE: llama.cpp writes each entry to the
+# console and then again to --log-file (common/log.cpp:170-178), so a reader can
+# follow the boot without standing in the way.
+# Verified by hard-kill -- Stop-Process -Force on the owning pwsh, which runs no
 # cleanup code at all and is strictly harder than a window close. The
-# interactive close itself was not exercised: a headless session has no window
-# handle to deliver it to.
+# interactive close itself was NOT exercised: a headless session has no window
+# handle to deliver it to. Covered by the kill-on-close job, not by an
+# observation, and those are different sentences.
+Write-Host "Starting. Ctrl+C stops the server; so does closing this window." -ForegroundColor Cyan
 Write-Host "A copy of this output is kept at $log" -ForegroundColor DarkGray
 Write-Host ("-" * 78) -ForegroundColor DarkGray
 
-$script:onGpu = 0
-$script:total = 0
-$script:reported = $false
-$script:adopted = $false
+# The watcher shares this console -- hidden or redirected, its report would land
+# somewhere nobody is looking. It exits on its own once it has reported, and it
+# is not the server, so it does not reintroduce anything that can outlive the
+# window.
+$watch = @'
+param($Log, $Base, $Port, $StatusScript)
+. $StatusScript
+$deadline = (Get-Date).AddMinutes(10)
+$warnAt = (Get-Date).AddSeconds(45)
+$warned = $false
+$onGpu = 0; $total = 0
+while ((Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 700
+    if (-not (Test-Path $Log)) {
+        if ((Get-Date) -gt $warnAt -and -not $warned) {
+            Write-Host ""
+            Write-Host "The boot log never appeared at $Log -- residency and status" -ForegroundColor Yellow
+            Write-Host "will not be reported for this run. The server itself is unaffected." -ForegroundColor Yellow
+            $warned = $true
+        }
+        continue
+    }
+    try {
+        $fs = [IO.File]::Open($Log, 'Open', 'Read', 'ReadWrite')
+        $sr = New-Object IO.StreamReader($fs); $txt = $sr.ReadToEnd()
+        $sr.Close(); $fs.Close()
+    } catch { continue }
 
-# The two checks happen INLINE, because a foreground server never returns and
-# there is no "after boot" to do them in.
-& $profileScript @profileArgs 2>&1 | ForEach-Object {
-    $line = "$_"
-    Add-Content -Path $log -Value $line -ErrorAction SilentlyContinue
-    Write-Host $line
-
-    if (-not $script:adopted) {
-        # The kernel-enforced half of "closing this window stops the server".
-        # Done once, as soon as the process exists.
-        if ($line -match 'load_model: loading model|llama_server:') {
-            Adopt-ServerProcess
-            $script:adopted = $true
+    if ($total -eq 0 -and $txt -match 'offloaded (\d+)/(\d+) layers to GPU') {
+        $onGpu = [int]$Matches[1]; $total = [int]$Matches[2]
+        if ($onGpu -ne $total) {
+            Write-Host ""
+            Write-Host "SPILLED: only $onGpu of $total layers are on the GPU." -ForegroundColor Red
+            Write-Host "  --fit spilled rather than refusing. Numbers taken past this point are" -ForegroundColor Yellow
+            Write-Host "  not comparable to anything measured while fully resident." -ForegroundColor Yellow
         }
     }
-
-    if (-not $script:reported) {
-        if ($line -match 'offloaded (\d+)/(\d+) layers to GPU') {
-            $script:onGpu = [int]$Matches[1]
-            $script:total = [int]$Matches[2]
-            if ($script:onGpu -ne $script:total) {
-                Write-Host ""
-                Write-Host "SPILLED: only $($script:onGpu) of $($script:total) layers are on the GPU." -ForegroundColor Red
-                Write-Host "  --fit spilled rather than refusing. Numbers taken past this point are" -ForegroundColor Yellow
-                Write-Host "  not comparable to anything measured while fully resident." -ForegroundColor Yellow
-                Write-Host ""
-            }
-        }
-        # llama.cpp's own readiness line. Printing the status before it would
-        # describe a server that is not answering yet.
-        if ($line -match 'listening on http') {
-            $props = Get-ServerProps
-            if ($props) {
-                Show-ServerStatus -Props $props -OnGpu $script:onGpu -Total $script:total
-                Write-Host ""
-                Write-Host ("-" * 78) -ForegroundColor DarkGray
-            }
-            $script:reported = $true
-        }
+    if ($txt -match 'listening on http') {
+        try { $props = Invoke-RestMethod "$Base/props" -TimeoutSec 4 } catch { continue }
+        Show-ServerStatus -Props $props -Port $Port -OnGpu $onGpu -Total $total
+        Write-Host ("-" * 78) -ForegroundColor DarkGray
+        return
     }
 }
+'@
+$watchFile = Join-Path $logDir "watch-$stamp.ps1"
+Set-Content -Path $watchFile -Value $watch -Encoding UTF8
+$null = Start-Process pwsh -NoNewWindow -PassThru `
+    -ArgumentList '-NoProfile', '-File', $watchFile, $log, $base, "$Port", $statusScript
+
+# Put THIS process in the job. Job membership is inherited by children, so
+# llama-server joins the moment the profile starts it -- no polling for a PID,
+# and no window in which the server exists outside the job. When this process
+# dies, however it dies, the kernel takes everything in the job with it.
+if (-not [KillOnClose]::Adopt($PID)) {
+    Write-Host "WARNING: could not bind this terminal's processes together." -ForegroundColor Yellow
+    Write-Host "  The server may OUTLIVE this window. Stop it with: Get-Process llama-server | Stop-Process" -ForegroundColor Yellow
+}
+
+& $profileScript @profileArgs

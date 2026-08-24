@@ -37,6 +37,7 @@ import re
 BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(BENCH))
 SERVE = os.path.join(ROOT, "serve.ps1")
+STATUS = os.path.join(ROOT, "qwen38-tuning", "scripts", "Show-ServerStatus.ps1")
 
 
 def read():
@@ -47,11 +48,13 @@ def read():
 def test_there_is_one_status_report_not_two():
     """Two copies drift, and the one on the rarely-taken path is the one that
     goes stale unnoticed."""
+    assert os.path.isfile(STATUS), STATUS
+    with open(STATUS, encoding="utf-8") as fh:
+        assert re.search(r"function\s+Show-ServerStatus", fh.read())
     s = read()
-    assert re.search(r"function\s+Show-ServerStatus", s), (
-        "the status block is not a single function both paths call")
-    assert len(re.findall(r"Show-ServerStatus", s)) >= 3, (
-        "the status function is defined but not called from both paths")
+    assert "Show-ServerStatus.ps1" in s, "serve.ps1 does not load the shared status"
+    assert s.count("Show-ServerStatus -Props") >= 2, (
+        "the shared status is not called from both paths")
 
 
 def test_the_already_serving_path_reports_status_before_exiting():
@@ -66,17 +69,14 @@ def test_the_already_serving_path_reports_status_before_exiting():
 def test_the_bind_is_read_from_the_socket_not_from_the_switch():
     """This branch did not start the process. Reporting the bind from -Lan
     would describe this invocation rather than the running server."""
-    s = read()
-    m = re.search(r"function\s+Show-ServerStatus", s)
-    body = s[m.start():]
-    assert "Get-NetTCPConnection" in body, (
-        "the status does not read the listening socket")
+    with open(STATUS, encoding="utf-8") as fh:
+        assert "Get-NetTCPConnection" in fh.read(), (
+            "the status does not read the listening socket")
 
 
 def test_the_status_reports_the_window_and_the_memory():
-    s = read()
-    m = re.search(r"function\s+Show-ServerStatus", s)
-    body = s[m.start():]
+    with open(STATUS, encoding="utf-8") as fh:
+        body = fh.read()
     assert "n_ctx" in body, "no context window in the status"
     assert "nvidia-smi" in body, "no VRAM in the status"
 

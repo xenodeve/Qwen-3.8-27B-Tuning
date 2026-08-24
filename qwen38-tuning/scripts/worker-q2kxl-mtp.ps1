@@ -113,6 +113,11 @@ param(
     # a TTY, and auto would silently turn colour off there (issue #49).
     [ValidateSet('on', 'off', 'auto')]
     [string]$LogColors = 'auto',
+    # llama.cpp writes an entry to the console AND then again to this file
+    # (common/log.cpp:170-178), so a reader can follow the boot without standing
+    # between llama.cpp and the terminal. Empty by default: a profile run by
+    # hand should not start writing files nobody asked for.
+    [string]$LogFile = '',
     # The ONLY access control this server has. It runs with no API key and CORS
     # '*', and middleware_validate_api_key (server-http.cpp:208) returns true
     # immediately when no key is set -- so no route is protected and widening
@@ -164,6 +169,11 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
     Write-Host "WARNING: cannot verify GPU architecture (missing $dll or cuobjdump)." -ForegroundColor Yellow
 }
 
+# An ARRAY, empty when no log was asked for. An inline `$(if ...)` would pass an
+# empty string as a real argument and llama-server would see a flag it cannot
+# parse -- the kind of failure that only shows up on the default path.
+$logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
+
 # ---- serve -------------------------------------------------------------------
 # -cram is NOT set: its 8192 MiB default is worth 343x on task switching and
 # caches into HOST RAM. Never set it to 0.
@@ -174,6 +184,7 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
     -t 18 -b 2048 -ub 256 --no-mmproj-auto -lv $Verbosity `
     --log-colors $LogColors `
+    @logFileArg `
     -ctk q4_0 -ctv q4_0 `
     --spec-type draft-mtp,ngram-mod `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `

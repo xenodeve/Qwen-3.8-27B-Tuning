@@ -90,9 +90,15 @@ def test_the_launcher_does_not_rely_on_powershell_s_default_rendering():
         "the output is redirected")
 
 
-def test_the_pipeline_does_not_strip_what_it_forwards():
-    """Write-Host passes ANSI through; formatting or -join would not. The line
-    must reach the console as it arrived."""
+def test_nothing_forwards_the_output_at_all():
+    """This used to require `Write-Host $line` -- the forwarder passing ANSI
+    through unchanged. Both fixes above were correct and the next layer still
+    ate the colours, so the forwarding itself went: llama.cpp writes to the
+    console directly. The assertion is now the opposite of what it was, which is
+    the honest shape when a design is replaced rather than patched.
+
+    `test_console_is_llama_cpps_own.py` holds the positive property. This only
+    checks the old mechanism has not crept back."""
     s = read(SERVE)
-    assert re.search(r"Write-Host\s+\$line\b", s), (
-        "the forwarded line is reformatted on its way to the console")
+    assert not re.search(r"Write-Host\s+\$line\b", s), (
+        "a per-line forwarder is back between llama.cpp and the terminal")

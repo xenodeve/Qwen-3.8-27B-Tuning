@@ -77,7 +77,11 @@ def test_it_guards_the_port_before_launching():
     corpus and the summary still printed a plausible number."""
     t = text()
     assert "8080" in t
-    assert re.search(r"health|Invoke-WebRequest|TcpClient|Get-NetTCPConnection", t), (
+    # Invoke-RestMethod is what the guard actually uses. The first version of
+    # this list omitted it and passed anyway, matching Get-NetTCPConnection in
+    # the STATUS block -- green for the wrong reason until that block moved to
+    # its own file, which is the only thing that ever revealed it.
+    assert re.search(r"Invoke-RestMethod|Invoke-WebRequest|TcpClient|Get-NetTCPConnection", t), (
         "nothing in serve.ps1 checks whether the port is already answering")
 
 
@@ -113,9 +117,13 @@ def test_it_reads_the_stream_llama_cpp_actually_writes_to():
     property, different mechanism -- and asserting the old mechanism would have
     gone red for the right reason and the wrong cause."""
     t = text()
-    assert re.search(r"\$profileScript\s+@\w+\s+2>&1", t), (
-        "stderr is not merged into the pipeline, so the layer-assignment lines "
-        "never reach the residency check")
+    # Rewritten twice, because it kept asserting a MECHANISM. First
+    # -RedirectStandardError (detached design), then `2>&1` (piped design).
+    # The property that survived both: the layer-assignment lines must reach the
+    # residency check by some route. They now arrive through llama.cpp's own
+    # --log-file, which it writes IN ADDITION to the console.
+    assert "LogFile" in t, (
+        "nothing routes llama.cpp's output anywhere the residency check can read")
 
 
 def test_it_names_the_open_question_instead_of_presenting_the_config_as_settled():
