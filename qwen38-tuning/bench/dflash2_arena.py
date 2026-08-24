@@ -597,6 +597,11 @@ CORPUS_DIR = Path(__file__).parent / "corpora"
 CORPUS_FILES = {
     "real-code": "real-code.txt",
     "real-code-deep": "real-code-deep.txt",
+    # A third text, from llama.cpp's gguf-py -- written by people who have
+    # never seen this repo. It exists to separate "any prompt this long
+    # collapses" from "this text at this slice does" (issue #44). Rows are
+    # compared WITHIN a corpus, never across: it carries its own hash.
+    "real-code-vendor": "real-code-vendor.txt",
 }
 
 
@@ -898,7 +903,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ctx", type=int, nargs="+", default=[16384])
     ap.add_argument("--rounds", type=int, default=3)
-    ap.add_argument("--regime", choices=["synthetic", "real-code", "real-code-deep"],
+    ap.add_argument("--regime",
+                    choices=["synthetic", "real-code", "real-code-deep",
+                             "real-code-vendor"],
                     nargs="+", default=["synthetic"])
     ap.add_argument("--arms", choices=sorted(ARM_SETS), default="decoders")
     ap.add_argument("--out",

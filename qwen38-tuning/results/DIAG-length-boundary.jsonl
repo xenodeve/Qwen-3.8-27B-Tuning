@@ -1,0 +1,8 @@
+{"requested": 49152, "prompt_n": 43162, "predicted_n": 512, "stop_type": "limit", "ignore_eos": false, "content_head": "# Explain what vram_settled guards against, then write a\n\n<t"}
+{"requested": 53248, "prompt_n": 46909, "predicted_n": 1, "stop_type": "eos", "ignore_eos": false, "content_head": ""}
+{"requested": 57344, "prompt_n": 51038, "predicted_n": 1, "stop_type": "eos", "ignore_eos": false, "content_head": ""}
+{"requested": 61440, "prompt_n": 54310, "predicted_n": 512, "stop_type": "limit", "ignore_eos": false, "content_head": "# Explain what vram_settled guards against, then write a tes"}
+{"requested": 65536, "prompt_n": 57780, "predicted_n": 512, "stop_type": "limit", "ignore_eos": false, "content_head": "ons\"\n\n# The tool the model must call. The nested array is th"}
+{"requested": 69632, "prompt_n": 60831, "predicted_n": 512, "stop_type": "limit", "ignore_eos": false, "content_head": "# Explain what vram_settled guards against, then write for i"}
+{"requested": 73728, "prompt_n": 64210, "predicted_n": 9, "stop_type": "eos", "ignore_eos": false, "content_head": "# Explain what helper_3 computes,"}
+{"requested": 73728, "prompt_n": 64210, "predicted_n": 512, "stop_type": "limit", "ignore_eos": true, "content_head": "# Explain what helper_3 computes,\n\n<think>\nThe user wants me to explain what `vram_settled` guards against and then write a test for it.\n\nLet me look at the `vram_settled` function in the harness.py f"}
