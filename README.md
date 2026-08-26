@@ -11,21 +11,42 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 
 ## Just start it
 
-**Double-click [`serve.bat`](serve.bat).** The window stays open showing what
-llama.cpp is printing; `Ctrl+C` stops the watching, not the server.
+**Double-click [`serve.bat`](serve.bat).** The server runs *in* that window and
+its output is that window's output. `Ctrl+C` stops it, and so does closing the
+window — there is one process, not a server beside a log-watcher.
 
-**[`serve-lan.bat`](serve-lan.bat)** does the same and makes it reachable from
-other machines. It is a second file rather than a prompt because `--host` is the
-only access control this server has — no API key, CORS `*` — so exposure should
-happen because someone clicked the thing that says `lan`, not because they wanted
-the model running.
+**Four icons, two independent choices.**
 
-From a terminal, the same thing with flags:
+| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** |
+|---|---|---|
+| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) |
+| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) |
+
+The `lan` files are separate rather than a prompt because `--host` is the **only
+access control this server has** — no API key, CORS `*` — so exposure should
+happen because someone clicked the thing that says `lan`, not because they
+wanted the model running.
+
+**The `dual` files are not a free upgrade.** `UD-Q4_K_XL` is 16.69 GiB and does
+not fit on one 16 GB card at any depth; across both it is fully resident to
+229,376 and runs at **parity** with the single-card profile — 32.4/32.6/33.1
+against 32.1/32.0/32.0 at ctx 147,456. But it draws roughly **130 W more**, it
+**needs both cards installed** (with one it refuses to start rather than quietly
+serving something else), and its **quality has never been measured here** — every
+reason to prefer that artifact comes from a bits-per-weight ladder and an
+external campaign, neither of which is our number. Which icon is right is a
+decision, which is why none of the four implies another.
+[Issue #52](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/52),
+[`docs/results/09-hardware.md`](docs/results/09-hardware.md).
+
+From a terminal, the same four with flags:
 
 ```powershell
-.\serve.ps1              # loopback
-.\serve.ps1 -Follow      # and watch the live log
-.\serve.ps1 -Lan -AllowFirewall -Follow
+.\serve.ps1                          # one card, loopback
+.\serve.ps1 -Lan -AllowFirewall      # one card, exposed
+.\serve.ps1 -Dual                    # both cards, loopback
+.\serve.ps1 -Dual -Lan -AllowFirewall
+.\serve.ps1 -Dual -WhatIf            # print what it would run, touch nothing
 ```
 
 That is the whole answer. `qwen38-tuning/scripts/` holds **58 `.ps1` files** and
