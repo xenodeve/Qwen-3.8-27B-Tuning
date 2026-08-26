@@ -125,6 +125,89 @@ Operational reasoning profile: **`medium`**.
 
 ---
 
+## 3b. Who can actually reach this server — read before `-Lan` — 2026-08-27
+
+**Loopback launchers cannot be reached from anywhere.** `serve.bat`,
+`serve-dual.bat` and `serve-dual-mtp.bat` bind `127.0.0.1`; no firewall setting
+changes that.
+
+**The `lan` launchers bind `0.0.0.0`**, and then a peer on Radmin VPN reaches it
+at `http://26.33.142.160:8080` with the ordinary OpenAI-shaped endpoints. The
+model name to send is `Qwen3.8-27B-Q4_K_XL` (or `Qwen3.8-27B-Q2_K_XL` for the
+single-card profile).
+
+### 🔴 The firewall is wider than the rule we wrote
+
+Read from the machine 2026-08-27. **Three** inbound rules match `llama-server`:
+
+| rule | port | remote | profile |
+|---|---|---|---|
+| `llama-server 8080` *(ours)* | 8080/TCP | LocalSubnet, 26.0.0.0/8 | Any |
+| `TCP Query User{…}` | **Any** | **Any** | Public |
+| `UDP Query User{…}` | **Any** | **Any** | Public |
+
+The two `Query User` rules are what Windows creates when someone clicks
+**Allow** on the first-run popup. **Windows evaluates the union of allow rules,
+not the narrowest**, so our 8080 rule constrains nothing in practice.
+
+And every adapter on this machine is classified **Public** — `Ethernet 3`
+(Internet), `Wi-Fi`, and `Radmin VPN` — which is exactly the profile those two
+rules attach to.
+
+**There is also no API key and CORS is `*`.** `middleware_validate_api_key`
+returns `true` immediately when no key is set, so no route is protected:
+anything that reaches the port gets both GPUs and whatever context is loaded.
+`--host` is the only access control there is.
+
+**Two ways to narrow it**, neither done — the developer's call:
+
+1. Delete the two `Query User` rules, leaving only the 8080 rule. That really
+   does restrict to Radmin plus the local subnet.
+2. Give the server an API key.
+
+## 3c. When the client says the server is hung — 2026-08-27
+
+Claude Code against this server showed
+`Waiting for API response · will retry in 2m 24s · check your network`, and the
+network was fine.
+
+**The wait is prefill, not thinking.** From that session's own log:
+
+```
+prompt eval time = 88556.74 ms / 62408 tokens (704.72 tokens per second)
+prompt eval time = 53008.27 ms / 39747 tokens (749.83 tokens per second)
+```
+
+Before the first token exists there is nothing to stream, and 40–60k tokens at
+~750 tok/s is a minute.
+
+**Measured** on a cold ~45,000-token prompt (prefill 59.4 s), unique prefix each
+time so nothing could be reused:
+
+| request | what the client sees |
+|---|---|
+| `stream: false` | **nothing at all until 59.4 s** |
+| `stream: true`, defaults | first byte **31.5 s** — one 30 s ping — content 59.4 s |
+| `stream: true` + `return_progress` | **progress from 1.4 s**: 0 %, 4 %, 9 %, 13 %, 18 % … |
+
+**`return_progress` is the real fix and it is a REQUEST field.** It streams
+`prompt_progress` with `processed`/`total` during the prefill — the live counter
+one would want. The client has to send it; Claude Code does not, and the server
+cannot turn it on from here.
+
+**What the server owns is the keep-alive**, and llama.cpp's default is 30 s.
+Both profiles now pass `--sse-ping-interval 5`. Verified after the change: pings
+at 5, 10, 16, 21, 26, 31, 37, 42 s — eleven before content at 58.3 s. The
+longest silence a client sees is about five seconds.
+
+**This does not make the wait shorter. It makes it visible.**
+
+**The lever for the wait itself is prompt reuse, and it works:** a repeated
+prompt reused **45,013 of 45,017 tokens** and answered in under a second. The
+two slow turns above were 62,408 tokens then 39,747 — the second *shorter* than
+the first, so the prefix had changed and nothing could be reused. **Why it
+changed is not established here.**
+
 ## 4. Protocol facts worth knowing
 
 - **Tool calls round-trip correctly.** The wire format is XML
