@@ -279,12 +279,25 @@ def test_the_dual_profile_uses_the_micro_batch_that_won():
     Decode was flat across 128/256/512/1024 -- a micro-batch is a prefill knob.
 
     Scoped to the invocation, for the reason the -sm test above records.
+
+        Reads the EFFECTIVE value, not the literal. `-ub 1024` became `-ub $UBatch`
+    when the budget check needed the number too -- the profile still serves
+    1024, and an assertion on the literal called that a regression. Eighth
+    shape-not-property assertion; the fix each time is to ask what the value
+    IS rather than how it is written.
     """
     t = read(DUAL)
     invocation = t[t.index("& $Exe -m $Model"):]
-    assert re.search(r"-ub\s+1024", invocation), (
-        "the dual profile does not pass -ub 1024, which measured +10.1 % "
-        "prefill at no decode cost on the split it serves")
+    m = re.search(r"-ub\s+(\S+)", invocation)
+    assert m, "the dual profile passes no -ub at all"
+    val = m.group(1)
+    if val.startswith("$"):
+        d = re.search(r"\[int\]" + re.escape(val) + r"\s*=\s*(\d+)", t)
+        assert d, "the -ub parameter %s has no default" % val
+        val = d.group(1)
+    assert val == "1024", (
+        "the dual profile serves -ub %s; 1024 measured +10.1 %% prefill at no "
+        "decode cost on the split it serves" % val)
 
 
 def test_the_two_profiles_may_disagree_on_ub_and_the_dual_says_why():
@@ -292,7 +305,8 @@ def test_the_two_profiles_may_disagree_on_ub_and_the_dual_says_why():
     divergence and the header has to carry its evidence, or the next reader
     reads it as drift."""
     dual, solo = read(DUAL), read(SOLO)
-    assert re.search(r"-ub\s+1024", dual[dual.index("& $Exe -m $Model"):])
+    assert re.search(r"\[int\]\$UBatch\s*=\s*1024", dual), (
+        "the dual profile's micro-batch default is not 1024")
     assert re.search(r"-ub\s+256", solo[solo.index("& $Exe -m $Model"):])
     header = dual[:dual.index("param(")]
     assert "-ub 1024" in header and "10.1" in header, (
@@ -584,3 +598,42 @@ def test_the_profile_says_progress_is_the_real_fix_and_the_client_must_ask():
         assert "return_progress" in t, (
             "%s changes the ping without saying what would actually fix the "
             "wait, or why we cannot do it from here" % os.path.basename(path))
+
+
+# ---- the guard approved a context that then OOM'd ---------------------------
+
+def test_the_budget_check_accounts_for_the_context_not_just_the_weights():
+    """WHAT HAPPENED, 2026-08-27. Asked for ctx 262,144 -- the model's own
+    n_ctx_train, which a ladder had measured as fully resident hours earlier.
+    The profile computed `-ts 6899,15489`, started, and died:
+
+        ggml_backend_cuda_buffer_type_alloc_buffer: allocating 1696.30 MiB
+          on device 1: cudaMalloc failed: out of memory
+
+    The guard let it through because it compares the budget against
+    WEIGHTS_MIB alone. Weights are 16,130 MiB; at 262,144 the KV cache is
+    another 4,608 and the compute buffers about 2,048, so the real demand is
+    near 22,800 against a budget of 22,388.
+
+    Why the ladder disagreed: it ran with a hardcoded `-ts 7819,15490`,
+    computed when the desktop held about 1,600 MiB. By the time of this run the
+    desktop held 2,575, the 4070's budget fell by 920 MiB, and proportional
+    splitting pushed the difference onto the 5060 Ti, which ran out.
+
+    A guard that only counts the weights is a guard that passes every context.
+    """
+    t = read(DUAL)
+    assert "KV_KIB_PER_TOKEN" in t, (
+        "the budget check ignores the KV cache, so it approves any -Ctx and "
+        "lets llama.cpp discover the problem with an OOM")
+    assert "$Ctx" in t[t.index("$WEIGHTS_MIB"):t.index("$tsArg")], (
+        "the budget check does not use the requested context")
+
+
+def test_the_refusal_names_the_deepest_context_that_would_fit():
+    """"It does not fit" leaves the developer bisecting by hand. The profile
+    knows the KV rate -- 18.00 KiB per token, measured -- and the budget, so it
+    can say what WOULD work."""
+    t = read(DUAL)
+    assert "deepest" in t.lower(), (
+        "the refusal does not tell the developer what context would fit")

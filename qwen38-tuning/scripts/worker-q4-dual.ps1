@@ -271,6 +271,38 @@ WHY --sse-ping-interval IS 5 AND NOT llama.cpp's 30
   second SHORTER than the first, so the prefix had changed and nothing could be
   reused.
 
+HOW DEEP THE CONTEXT CAN GO, AND WHY THE ANSWER MOVES
+
+  n_ctx_train is 262,144 and a ladder measured it fully resident. It is still
+  NOT a context this machine can be relied on to serve, because the answer
+  depends on what the desktop is holding when the server starts.
+
+  Measured 2026-08-27, minutes apart, same machine, same profile:
+
+      desktop 1,600 MiB   ->  budget 22,388  ->  262,144 loaded (ladder)
+      desktop 2,575 MiB   ->  budget 22,398  ->  262,144 FAILED, OOM 1,696 MiB
+                                                 on device 1
+
+  262,144 needs 22,786 MiB: 16,130 weights + 4,608 KV + 2,048 compute. That is
+  above the budget in both cases -- the ladder got away with it because it used
+  a hardcoded -ts computed at a quieter moment, which handed the display card
+  more than the reserve would now allow.
+
+  237,568 DOES load at the current desktop, verified: 66+0, answers normally.
+  It leaves 996 MiB free on the display card and 412 on the other. THAT IS NOT
+  A SAFE PLACE TO SIT. It is the same margin that produced 0.38 tok/s, and one
+  browser tab spends it.
+
+  147,456 -- the default -- leaves about 2,900 and 2,265 MiB. The depth is
+  bought with the margin that keeps the thing from collapsing, and the trade is
+  not visible in a throughput number.
+
+  THE BUDGET CHECK IS APPROXIMATE ON PURPOSE, AND IT IS OPTIMISTIC. `-ts`
+  governs the WEIGHT slice; KV and compute do not distribute by the same ratio,
+  so a run that the check approves can still finish with less headroom than the
+  reserve implies -- 237,568 did. The check refuses the impossible; it does not
+  promise comfort.
+
 WHY THE CARDS ARE NAMED BY UUID
 
   `--main-gpu` defaults to 0, which on this machine is the RETIRED 4070 SUPER,
@@ -312,6 +344,9 @@ param(
     # most of a minute of silence on a connection that is working -- see the
     # header. This does not shorten a wait, it makes one visible.
     [int]$SsePingIntervalSec = 5,
+    # Micro-batch. A parameter rather than a literal because the budget check
+    # below needs it: the compute buffer is about one -ub of MiB per card.
+    [int]$UBatch = 1024,
     # BOTH cards, by UUID. Empty resolves to the pair below; pass a
     # comma-separated list to override. Order is the CUDA enumeration order and
     # is what any -ts ratio would be indexed by.
@@ -435,21 +470,58 @@ foreach ($uuid in $wanted) {
 # UD-Q4_K_XL needs about 16,130 MiB of weights whatever the split, plus KV and
 # compute. Refusing below that is the only thing standing between the developer
 # and another silent spill: --fit is inert here and llama.cpp will not refuse.
+# WHAT THE RUN ACTUALLY NEEDS, not just its weights.
+#
+# The first version of this check compared the budget against WEIGHTS_MIB alone
+# and therefore approved EVERY context. On 2026-08-27 it approved 262,144 and
+# llama.cpp died on it:
+#
+#   ggml_backend_cuda_buffer_type_alloc_buffer: allocating 1696.30 MiB
+#     on device 1: cudaMalloc failed: out of memory
+#
+# A ladder had measured 262,144 as fully resident hours earlier -- with a
+# hardcoded -ts computed when the desktop held about 1,600 MiB. By that run the
+# desktop held 2,575, the display card's budget fell by 920 MiB, and
+# proportional splitting pushed the difference onto the other card.
+#
+# So the demand is weights + KV(ctx) + compute(ub), and the KV rate is measured:
+# at ctx 147,456 llama.cpp reports 1,296.00 MiB per card, which is 2,592 MiB
+# over 147,456 tokens = 18.00 KiB per token at -ctk q4_0 -ctv q4_0.
 $WEIGHTS_MIB = 16130
-# The nextn head is not free. Measured 2026-08-27: the same configuration used
-# about 2,750 MiB more across the two cards with -Mtp on, and CUDA1 finished
-# with 861 MiB free. Approving a budget that ignores it is how a spill happens.
+$KV_KIB_PER_TOKEN = 18.0
+# One compute buffer per card, and it tracks -ub. 1,024.30 MiB each at -ub 1024,
+# read from the boot log.
+$COMPUTE_MIB = 2 * [Math]::Max(256, $UBatch)
+# The nextn head is not free. Measured: about 2,750 MiB more across the two
+# cards with -Mtp on, and CUDA1 finished with 861 MiB free.
 $MTP_HEAD_MIB = 2750
 if ($Mtp) { $WEIGHTS_MIB += $MTP_HEAD_MIB }
+
+$kvMib     = [int](($Ctx * $KV_KIB_PER_TOKEN) / 1024)
+$demandMib = $WEIGHTS_MIB + $kvMib + $COMPUTE_MIB
 $total = ($budgets | Measure-Object -Sum).Sum
-if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $WEIGHTS_MIB) {
-    Write-Host "FATAL: not enough free VRAM to hold UD-Q4_K_XL without spilling." -ForegroundColor Red
+if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $demandMib) {
+    # The deepest context this budget WOULD hold, so the developer is not left
+    # bisecting -Ctx by hand. Rounded down to a multiple of 4,096.
+    $spare   = $total - $WEIGHTS_MIB - $COMPUTE_MIB
+    $fitsCtx = if ($spare -gt 0) {
+        [int]([Math]::Floor(($spare * 1024 / $KV_KIB_PER_TOKEN) / 4096) * 4096)
+    } else { 0 }
+    Write-Host "FATAL: ctx $Ctx does not fit without spilling." -ForegroundColor Red
+    Write-Host ("    needs {0:N0} MiB  =  {1:N0} weights + {2:N0} KV + {3:N0} compute" -f `
+                $demandMib, $WEIGHTS_MIB, $kvMib, $COMPUTE_MIB) -ForegroundColor Yellow
+    if ($fitsCtx -ge 4096) {
+        Write-Host ("    the deepest context this budget holds is about {0:N0}" -f $fitsCtx) -ForegroundColor Cyan
+        Write-Host ("    try:  -Ctx {0}" -f $fitsCtx) -ForegroundColor Cyan
+    } else {
+        Write-Host "    the weights alone do not fit; close what is using the display card." -ForegroundColor Yellow
+    }
     foreach ($r in $report) {
         Write-Host ("    {0}  free {1,6:N0} MiB  reserve {2,5:N0}  budget {3,6:N0}{4}" -f `
                     $r.Uuid.Substring(0,12), $r.Free, $r.Reserve, $r.Budget,
                     $(if ($r.Display) { "   <- drawing the desktop" } else { "" })) -ForegroundColor Yellow
     }
-    Write-Host ("    budget {0:N0} MiB against about {1:N0} MiB of weights alone." -f $total, $WEIGHTS_MIB) -ForegroundColor Yellow
+    Write-Host ("    budget {0:N0} MiB after reserving for the desktop." -f $total) -ForegroundColor Yellow
     Write-Host "  --fit cannot rescue this: it is not implemented for SPLIT_MODE_TENSOR." -ForegroundColor Yellow
     Write-Host "  A spill here is silent and costs ~85x -- 0.38 tok/s was measured." -ForegroundColor Yellow
     Write-Host "  Close what is using the display card, or run worker-q2kxl-mtp.ps1." -ForegroundColor Yellow
@@ -493,7 +565,7 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
     -sm tensor `
     @tsArg `
-    -t 18 -b 2048 -ub 1024 --no-mmproj-auto -lv $Verbosity `
+    -t 18 -b 2048 -ub $UBatch --no-mmproj-auto -lv $Verbosity `
     --log-colors $LogColors `
     @logFileArg `
     -ctk q4_0 -ctv q4_0 `
