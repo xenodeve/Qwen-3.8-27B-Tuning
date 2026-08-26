@@ -33,6 +33,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import gpu_device
 from provenance import resolve_exe
 from harness import parse_layer_split
 import depth_sweep as D
@@ -51,10 +52,11 @@ def kill():
 
 
 def vram():
-    out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.free",
-                          "--format=csv,noheader,nounits"],
-                         capture_output=True, text=True).stdout.strip()
-    return [int(x) for x in out.split(",")]
+    """[used, free] on the served card. Routed through `gpu_device` because a
+    machine with two cards answers this query per card, and a positional parse
+    of that answer reads whichever the driver listed first (issue #50)."""
+    used, free = gpu_device.vram()
+    return [used, free]
 
 
 def boot(model, ctx, kv, tag, extra=()):

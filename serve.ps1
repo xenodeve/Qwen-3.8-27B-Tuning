@@ -41,6 +41,11 @@
 .PARAMETER AllowFirewall
     Add the inbound rule, through a UAC prompt. Separate from -Lan on purpose.
 
+.PARAMETER Device
+    Which GPU, as a UUID. Empty means "whatever the profile serves", which is
+    where the default lives -- this script holds no serving configuration.
+    Pass a comma-separated list to use more than one card.
+
 .PARAMETER WhatIf
     Print the resolved command line and exit without touching the GPU.
 
@@ -64,6 +69,13 @@ param(
     # subnet -- because those are what was asked for, and a rule wider than the
     # request is a rule nobody granted.
     [switch]$AllowFirewall,
+    # WHICH CARD, when you want one other than the served default. Deliberately
+    # EMPTY here rather than carrying the UUID: this script holds no serving
+    # flag, so that a measured row and a served session cannot diverge by
+    # someone editing the launcher. The default lives beside every other
+    # serving default in worker-q2kxl-mtp.ps1.
+    # Pinned by bench/tests/test_the_launch_names_its_gpu.py (issue #50).
+    [string]$Device = '',
     [int]$Port = 8080
 )
 
@@ -157,6 +169,21 @@ Write-Host "            low costs six. NEVER MEASURED on any artifact here."
 Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
 Write-Host "            and q8_0 for flash attention (issue #43)."
 Write-Host "  draft     3, the default. 7 was measured at -56 % on the MTP head."
+
+# WHICH CARD, read from the driver rather than asserted. Two GPUs have been
+# installed since 2026-08-26 and the retired 4070 SUPER enumerates FIRST, so a
+# banner that named the card from memory would be right about the intention and
+# wrong about the machine (issue #50).
+. (Join-Path $PSScriptRoot 'qwen38-tuning\scripts\Get-GpuVram.ps1')
+$installed = @(Get-InstalledGpu)
+if ($installed.Count -gt 1) {
+    Write-Host ("  gpu       {0} cards installed; this uses one of them" -f `
+                $installed.Count) -ForegroundColor Cyan
+    foreach ($card in $installed) {
+        $mark = if ($card.Uuid -eq $script:ServedGpuUuid) { '->' } else { '  ' }
+        Write-Host ("            {0} {1}" -f $mark, $card.Name) -ForegroundColor DarkGray
+    }
+}
 Write-Host ""
 Write-Host "  OPEN: the draft-mtp half of the decoder is under question." -ForegroundColor Yellow
 Write-Host "        Forced at 147,456, removing it is worth +15.6 % and 1,490 MiB." -ForegroundColor Yellow
@@ -190,6 +217,7 @@ $log   = Join-Path $logDir "serve-$stamp.log"
 
 $profileArgs = @{ Verbosity = 4; LogColors = 'on'; LogFile = $log }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
+if ($Device) { $profileArgs['Device'] = $Device }
 
 # Flattened for the -WhatIf preview only; nothing launches a separate process.
 $profileArgv = @($profileArgs.GetEnumerator() |

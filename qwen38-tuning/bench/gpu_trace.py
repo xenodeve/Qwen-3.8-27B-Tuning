@@ -29,8 +29,15 @@ import subprocess
 import sys
 import time
 
+import gpu_device
+
 FIELDS = ["memory.used", "memory.free", "utilization.gpu", "utilization.memory",
-          "temperature.gpu", "clocks.current.sm", "power.draw"]
+          "temperature.gpu", "clocks.current.sm", "power.draw",
+          # PCIe link state. Both fields downtrain when the card is idle, so a
+          # reading taken between runs says nothing about the slot -- they are
+          # here so the trace carries them WHILE the GPU is working, which is
+          # the only form issue #51 stage 4 can use.
+          "pcie.link.gen.current", "pcie.link.width.current"]
 
 
 def sample():
@@ -40,13 +47,14 @@ def sample():
     two-hour run loses the rest of the trace, and a dropped sample is a gap
     the reader can see in the timestamps.
     """
-    r = subprocess.run(
-        ["nvidia-smi", "--query-gpu=" + ",".join(FIELDS),
-         "--format=csv,noheader,nounits"],
-        capture_output=True, text=True)
-    if r.returncode != 0 or not r.stdout.strip():
+    # Routed through `gpu_device` so the sample names one card. The previous
+    # form took `splitlines()[0]`, which on a two-card machine is whichever the
+    # driver listed first -- a full trace of the wrong GPU, with correct
+    # timestamps and nothing to say so (issue #50).
+    try:
+        parts = gpu_device.query(FIELDS)
+    except Exception:
         return None
-    parts = [p.strip() for p in r.stdout.strip().splitlines()[0].split(",")]
     if len(parts) != len(FIELDS):
         return None
     out = {}

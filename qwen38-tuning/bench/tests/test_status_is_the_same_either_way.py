@@ -75,10 +75,24 @@ def test_the_bind_is_read_from_the_socket_not_from_the_switch():
 
 
 def test_the_status_reports_the_window_and_the_memory():
+    """The VRAM half used to assert `"nvidia-smi" in body`, which is the NAME
+    OF A TOOL and not the property. It went red on 2026-08-26 when the reading
+    moved behind `Get-GpuVram` -- the status got strictly better and the test
+    called it a regression. Asserting on the reported values instead."""
     with open(STATUS, encoding="utf-8") as fh:
         body = fh.read()
     assert "n_ctx" in body, "no context window in the status"
-    assert "nvidia-smi" in body, "no VRAM in the status"
+    assert ".Free" in body and ".Used" in body, "no VRAM in the status"
+
+
+def test_the_status_says_which_card_the_vram_belongs_to():
+    """A free-VRAM figure with no card attached to it is what made
+    Show-ServerStatus report the retired 4070 SUPER while the model sat on the
+    5060 Ti, and say nothing (issue #50)."""
+    with open(STATUS, encoding="utf-8") as fh:
+        body = fh.read()
+    assert "ServedGpuName" in body, (
+        "the status prints VRAM without naming the card it came from")
 
 
 def test_each_path_says_who_owns_the_process():

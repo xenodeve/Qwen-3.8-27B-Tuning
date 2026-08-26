@@ -27,6 +27,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'Get-GpuVram.ps1')   # the one place that asks the driver about a GPU (#50)
 
 $c = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
 if ($c) { Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 5 }
@@ -50,7 +51,10 @@ for ($i=0; $i -lt 45; $i++) {
 }
 if (-not $up) { "SERVER FAILED TO START for $Tag/$SpecType/n$NMax"; exit 1 }
 
-$vram = (nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader,nounits) -split '\s*,\s*'
+# One named card. Unfiltered, this reads whichever GPU the driver lists
+# first, which on a two-card machine is not the one serving (#50).
+$g = Get-GpuVram
+$vram = if ($g) { @($g.Used, $g.Free) } else { @($null, $null) }
 "server up: $Tag $SpecType n=$NMax | VRAM used $($vram[0]) MiB, free $($vram[1]) MiB"
 
 foreach ($t in ($Temperatures -split ',' | ForEach-Object { [double]$_.Trim() })) {

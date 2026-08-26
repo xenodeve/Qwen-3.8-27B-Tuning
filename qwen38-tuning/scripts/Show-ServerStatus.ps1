@@ -12,6 +12,8 @@
     than from any flag passed to anyone.
 #>
 
+. (Join-Path $PSScriptRoot 'Get-GpuVram.ps1')   # the one place that asks the driver about a GPU (#50)
+
 function Show-ServerStatus {
     param($Props, [int]$Port = 8080, [int]$OnGpu = 0, [int]$Total = 0)
 
@@ -39,8 +41,16 @@ function Show-ServerStatus {
         Write-Host "  layers    not seen in this stream" -ForegroundColor DarkGray
     }
 
-    $vram = & nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader 2>$null
-    if ($vram) { Write-Host ("  VRAM      {0}" -f ($vram -join '')) }
+    # NAMES the card. The previous form asked the driver about every GPU and
+    # printed whatever came back; with two installed it reported the retired
+    # 4070 SUPER while the model sat on the 5060 Ti, and said nothing (#50).
+    $g = Get-GpuVram
+    if ($g) {
+        Write-Host ("  VRAM      {0:N0} MiB used, {1:N0} MiB free on {2}" -f `
+                    $g.Used, $g.Free, $script:ServedGpuName)
+    } else {
+        Write-Host "  VRAM      served GPU not found -- see Get-GpuVram" -ForegroundColor Red
+    }
 
     try {
         $slots = Invoke-RestMethod -Uri "$base/slots" -TimeoutSec 4

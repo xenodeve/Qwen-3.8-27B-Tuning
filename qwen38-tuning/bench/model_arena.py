@@ -34,6 +34,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import gpu_device
 from provenance import resolve_exe
 from harness import median, parse_layer_split, paired_deltas
 
@@ -242,10 +243,9 @@ def kill_server():
 
 
 def vram():
-    out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.free",
-                          "--format=csv,noheader,nounits"],
-                         capture_output=True, text=True).stdout.strip()
-    return [int(x) for x in out.split(",")]
+    """[used, free] on the served card -- see `gpu_device` (issue #50)."""
+    used, free = gpu_device.vram()
+    return [used, free]
 
 
 def start(tag, repo, quant, extra, round_no):

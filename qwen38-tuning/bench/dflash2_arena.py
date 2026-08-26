@@ -43,6 +43,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import gpu_device
 from harness import (median, parse_layer_split, target_layer_count,
                      generation_is_original, copied_window_fraction,
                      draft_acceptance,
@@ -118,12 +119,22 @@ def arm_parts(arm):
 
 
 def launch_env(env):
-    """The process environment with `env` layered on top.
+    """The process environment with the GPU pin, then `env`, layered on top.
 
     Layered, not replaced: llama-server needs PATH and CUDA_PATH to start, and a
     bare dict would fail in a way that looks like a bad flag.
+
+    The pin sits BELOW `env` so an arm can lift it -- issue #51 measures both
+    cards on purpose, and an arm set is the right place to say so. It sits above
+    nothing else: without it, `--main-gpu` defaults to 0, which on this machine
+    is the retired 4070 SUPER, and llama.cpp spreads layers over both cards
+    while every row keeps claiming one (#50).
+
+    `pin_env()` raises if the card is absent. That is deliberate -- an absent
+    UUID leaves llama-server with no devices and it runs on CPU, which produces
+    a row rather than an error.
     """
-    return {**os.environ, **env}
+    return {**os.environ, **gpu_device.pin_env(), **env}
 
 
 def _ngram(n_min, n_match=12, n_max=32):
@@ -473,10 +484,9 @@ ARM_SETS = {
 
 
 def vram():
-    o = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.free",
-                        "--format=csv,noheader,nounits"],
-                       capture_output=True, text=True).stdout.strip()
-    return [int(x) for x in o.split(",")]
+    """[used, free] on the served card -- see `gpu_device` (issue #50)."""
+    used, free = gpu_device.vram()
+    return [used, free]
 
 
 def port_owner():

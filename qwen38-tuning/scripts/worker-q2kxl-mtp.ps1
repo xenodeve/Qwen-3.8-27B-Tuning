@@ -126,6 +126,13 @@ param(
     # reach. The default does not move; exposure is `serve.ps1 -Lan`, an act.
     # Pinned by bench/tests/test_bind_is_opt_in.py (issue #49).
     [string]$BindAddress = '127.0.0.1',
+    # WHICH CARD. Empty means the served default, which is resolved below from
+    # Get-GpuVram.ps1 rather than repeated here -- the same UUID written in two
+    # files is two files that can disagree, and the one that gets edited is
+    # never the one that gets read. Pass a comma-separated list to use more than
+    # one card (issue #51 does).
+    # Pinned by bench/tests/test_the_launch_names_its_gpu.py (issue #50).
+    [string]$Device = '',
     [string]$Exe = "C:\AI\llama.cpp-blackwell\llama-server.exe",
     [string]$Model = "C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed\Qwen3.8-27B-UD-Q2_K_XL.gguf",
     [switch]$IKnowTheBuildIsWrong
@@ -168,6 +175,31 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
 } else {
     Write-Host "WARNING: cannot verify GPU architecture (missing $dll or cuobjdump)." -ForegroundColor Yellow
 }
+
+# ---- the card ----------------------------------------------------------------
+# Checked BEFORE the model loads. An absent UUID does not make llama-server
+# fail: it reports `(none)` for devices and then runs on CPU, producing correct
+# output at a rate no row explains. A 40-minute plausible answer is the failure
+# mode this repository exists to prevent, so this refuses first.
+. (Join-Path $PSScriptRoot 'Get-GpuVram.ps1')
+
+if (-not $Device) { $Device = $script:ServedGpuUuid }
+
+# Read the driver ONCE. Test-ServedGpuPresent shells out per call, and asking
+# nvidia-smi the same question once per requested card is work for nothing.
+$installed = @(Get-InstalledGpu)
+foreach ($uuid in ($Device -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+    if (-not ($installed | Where-Object { $_.Uuid -eq $uuid })) {
+        Write-Host "FATAL: GPU $uuid is not installed." -ForegroundColor Red
+        Write-Host "  Installed:" -ForegroundColor Yellow
+        $installed | ForEach-Object {
+            Write-Host ("    {0}  {1}" -f $_.Uuid, $_.Name) -ForegroundColor Yellow
+        }
+        Write-Host "  llama-server would see no CUDA device and run on the CPU." -ForegroundColor Yellow
+        exit 1
+    }
+}
+$env:CUDA_VISIBLE_DEVICES = $Device
 
 # An ARRAY, empty when no log was asked for. An inline `$(if ...)` would pass an
 # empty string as a real argument and llama-server would see a flag it cannot

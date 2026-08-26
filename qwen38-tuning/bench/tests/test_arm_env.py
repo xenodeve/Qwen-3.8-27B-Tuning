@@ -44,6 +44,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import gpu_device
 import dflash2_arena as arena
 
 
@@ -96,8 +97,14 @@ def test_launch_env_layers_the_arm_over_the_process(monkeypatch):
 
 
 def test_launch_env_with_nothing_is_still_a_full_environment():
+    """Was `env == dict(os.environ)`. That equality stopped being the contract
+    on 2026-08-26: a launch with no arm still has to name its GPU, because
+    `--main-gpu` defaults to index 0 and on a two-card machine that is not the
+    card the register was measured on (issue #50)."""
     env = arena.launch_env({})
-    assert env == dict(os.environ)
+    pin = "CUDA_VISIBLE_DEVICES"
+    assert env[pin] == gpu_device.SERVED_GPU_UUID,         "a launch with no arm must still pin the served card"
+    assert {k: v for k, v in env.items() if k != pin} ==            {k: v for k, v in os.environ.items() if k != pin},         "nothing but the pin may differ from the process environment"
 
 
 def test_the_graph_opt_arm_set_exists_and_pairs_a_control():
