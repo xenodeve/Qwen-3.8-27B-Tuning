@@ -4,9 +4,14 @@
 self-contained: hardware, build identity, exact command lines, exact error
 strings, source line references, and every number with the run that produced it.
 
-**Read the register split first.** Sections 1–5 are **measured on this machine**.
-Section 6 is **five open questions about mechanism** — those are what we want
-explained, and we have deliberately not guessed at answers there.
+**Read the register split first.** Sections 1–5 and 8 are **measured on this
+machine**. Section 6 is **open questions about mechanism** — what we want
+explained, and where we have deliberately not guessed.
+
+> **§8 is a correction to §6.2 added after an outside review**, and it changes
+> the headline: `draft-mtp` **does** run under `-sm tensor`. Only a drafter
+> loaded from a separate file fails, and the two failures raise **different
+> assertions**. Read §8 before quoting §6.2.
 
 ---
 
@@ -158,7 +163,8 @@ Every figure below: three rounds, arms rotated between rounds, greedy sampler
 | `-sm layer -ub 1024` + `ngram-mod` | 18.1 / 18.7 / 18.7 | 3.6 % |
 | | **−29.2 %** [−31.0, −26.9] | |
 | `-sm layer` + `draft-dflash,ngram-mod` | **FAILED TO LOAD** | — |
-| `-sm tensor` + any external drafter | **FAILED TO LOAD** | — |
+| `-sm tensor` + `draft-mtp,ngram-mod` | **VOIDED** — loads, but copies the prompt (§8) | — |
+| `-sm tensor` + `draft-dflash` *(external `-md`)* | **FAILED TO LOAD** — §8 | — |
 
 Earlier, same depth, `-sm tensor` **without** `-ts` (the even split, on a quiet
 desktop where it happened to fit): 28.7 / 28.7 / 28.6 bare, and 32.4 / 32.6 /
@@ -230,6 +236,10 @@ about Windows WDDM, or about a build option? **Would it work on two identical
 cards on the same board?**
 
 ### 6.2 Why can `-sm tensor` not host an external draft model?
+
+> 🔴 **Superseded by §8, 2026-08-27.** `draft-mtp` **does** load under
+> `-sm tensor`; only a drafter loaded from a separate file via `-md` fails, and
+> the two failures raise **different assertions**. Read §8 first.
 
 **Both** `draft-mtp` and `draft-dflash` abort at the identical assertion, every
 attempt:
@@ -337,6 +347,110 @@ Stated so this report is not read as exhaustive.
 - **Quality, at any depth, on any artifact.** This project has never measured it.
 - **Two identical cards**, which would separate "unequal capacity" from
   "unequal architecture" in almost everything above.
+
+---
+
+## 8. Correction, 2026-08-27 — §6.2 was too strong, and the two failures are different bugs
+
+**An outside review pointed at `--spec-draft-device`, a flag this project had
+never tried, and at upstream reports of MTP working with `-sm tensor`.** Both
+prompted a probe set here. The review's own conclusion — that this is a Meta
+backend limitation rather than a permanent design rule — survives what we
+measured, and **one of our claims does not.**
+
+### The probe: ctx 16,384, `-ub 128`, memory pressure as low as this config goes
+
+| arm | result |
+|---|---|
+| `-sm tensor` + `ngram-mod` *(control)* | **LOADED** |
+| `-sm tensor` + `draft-mtp` *(baked-in head, no `-md`)* | **LOADED** |
+| `-sm tensor` + `draft-dflash` *(external `-md`)* | FAILED — `ggml-backend-meta.cpp:543` |
+| `-sm tensor` + `draft-dflash` + `-devd CUDA1` | FAILED — same |
+| `-sm tensor` + `draft-dflash` + `--no-spec-draft-backend-sampling` | FAILED — same |
+| `-sm layer` + `draft-dflash` *(known good)* | **LOADED** |
+
+### What changes
+
+**§6.2's heading — "why can `-sm tensor` not host an external draft model" —
+was built on lumping two different failures together. They are not the same.**
+
+**`draft-mtp` works.** It uses the head baked into `UD-Q4_K_XL` and loads no
+second file. At ctx 16,384 it loads, and at **147,456 on the computed `-ts` it
+also loads** — 66+0, CUDA0 with 1,571 MiB free and CUDA1 with 861.
+
+Our earlier "MTP fails at 147,456" was measured on the **even** split, and its
+assertion was:
+
+```
+ggml-backend-meta.cpp:1522: GGML_ASSERT(bufs.back() != nullptr) failed
+```
+
+— a buffer allocation returning null, which is what running out of memory looks
+like at that call site. **So that failure was the 0.38 tok/s root cause wearing
+a different error message**, and it went away when the split stopped
+overcommitting the display card.
+
+**`draft-dflash` is a genuinely different failure**, and this is the one worth
+an upstream issue:
+
+```
+ggml-backend-meta.cpp:543:
+GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0) failed
+```
+
+A **graph split axis**, not a buffer — raised at ctx 16,384 with `-ub 128`,
+where the whole configuration needs a fraction of what fits. **Memory is not a
+plausible explanation for it.** Neither pinning the drafter to one device with
+`-devd CUDA1` nor disabling backend sampling changes anything; both still reach
+the same assertion, and both are still preceded by the `ctx_other` throw from
+§6.3.
+
+That assertion is the same *kind* the review found reported for DSpark on 2×
+MI50 — a different architecture and a different vendor, which argues the Meta
+backend's graph-split machinery, not our heterogeneous `sm_89` + `sm_120` pair.
+
+### The revised open question for upstream
+
+**Not** *"can tensor parallelism host a drafter"* — it demonstrably hosts MTP.
+**But:** why does the Meta backend's split-state machinery reach
+`GGML_BACKEND_SPLIT_AXIS_0` on a `draft-dflash` graph, at negligible memory
+pressure, when the same drafter builds and runs under `-sm layer`?
+
+### And MTP still cannot be measured here
+
+It loads. It is **not measurable on our corpus**: all three rounds at 147,456
+were voided by the output guard —
+
+```
+generations copy the prompt rather than answer it:
+12-word windows found verbatim in the prompt = [0.519, 0.0, 0.23]
+```
+
+identical across rounds, so deterministic. Three unpaired manual readings
+before the guard ran gave 44.5 / 54.3 / 92.7 tok/s, and **those are exactly the
+numbers §5 says not to trust**: a speculative rate rises with how predictable
+the text is, and copying the prompt is maximally predictable. **We have no
+usable MTP rate at depth.** That is issue #46's blocker, not a property of MTP.
+
+### The paired result that is usable, same configuration
+
+ctx 147,456, `-sm tensor -ts 7819,15490 -ub 1024`, three rounds rotated:
+
+| arm | tok/s | own spread |
+|---|---|---|
+| `ngram-mod` | **25.5 / 25.4 / 26.4** | 3.7 % |
+| no speculation | 21.8 / 21.9 / 21.8 | 0.6 % — **−15.3 %** [−17.4, −14.0] |
+| `draft-mtp,ngram-mod` | **VOIDED** — copies the prompt | — |
+
+### What we did not do from the review's plan
+
+**Arm D — rebuilding at commit `9ee9fc04c`, before the tensor-split revert.**
+It costs a full CUDA rebuild and would change the binary every measured row in
+this repository was taken on. Worth doing deliberately, not in passing.
+
+We also **cannot verify the upstream issue numbers or discussion links** from
+this machine, and have not tried. Everything in this section is from our own
+runs; the review's upstream citations are its own to stand on.
 
 ---
 

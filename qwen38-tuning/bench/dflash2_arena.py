@@ -477,6 +477,37 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- issue #52: MTP is available on the tensor split after all ----------
+    #
+    # The earlier verdict "no external drafter loads under -sm tensor" was too
+    # strong, and the assertions say why. At 147,456 on the EVEN split MTP died
+    # at ggml-backend-meta.cpp:1522, GGML_ASSERT(bufs.back() != nullptr) -- a
+    # buffer allocation returning null, which is what an out-of-memory looks
+    # like there. With the computed -ts freeing 2.9 GB on the display card it
+    # loads. So that failure was the same root cause as the 0.38 tok/s
+    # incident, wearing a different error message.
+    #
+    # DFlash2 is genuinely different: it dies at ggml-backend-meta.cpp:543,
+    # GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0) -- a graph split
+    # axis, not a buffer -- at ctx 16,384 with -ub 128, where memory pressure
+    # is as low as this configuration goes. Pinning the drafter with -devd and
+    # disabling backend sampling both change nothing.
+    #
+    # NO -md on the MTP arm: UD-Q4_K_XL carries the nextn head in the main
+    # file, and -md would add a 1.4 GB sidecar for nothing.
+    "dual-mtp": [
+        ("ngram-mod-base",
+         ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"] + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("draft-mtp+ngram",
+         ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024",
+          "--spec-type", "draft-mtp,ngram-mod", "--spec-draft-n-max", "3"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("none",
+         ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
