@@ -27,25 +27,60 @@ WHY IT IS A SEPARATE FILE FROM worker-q2kxl-mtp.ps1
 
 WHAT THIS COSTS, STATED PLAINLY
 
-  About a third of raw decode: 20.9 tok/s here against 32.0 for UD-Q2_K_XL on
-  one card, speculation off, ctx 16,384. That pair is ACROSS SWEEPS and so
-  across boots -- it rests on the under-0.8 % per-arm floor measured that day,
-  at that depth only, and the two arms load different files so nothing else
-  about them is paired. A sizing figure, not a verdict.
+  DECODE: ESSENTIALLY NOTHING, once -sm tensor is set. 32.4 / 33.9 / 32.3 tok/s
+  here against 32.1 / 32.0 / 32.0 for UD-Q2_K_XL on one card -- speculation off,
+  ctx 16,384, and the ranges overlap.
 
-  And roughly 130 W more under load: both cards sat at ~50 % utilisation
+  READ THE HISTORY OF THAT SENTENCE BEFORE TRUSTING IT. Earlier the same day
+  this header said "about a third of raw decode: 20.9 against 32.0", and that
+  was honestly measured -- on the DEFAULT layer split, before -sm tensor was
+  tried. One flag moved a 34 % penalty to parity. A cost figure taken before the
+  configuration was optimised is a fact about the configuration, not about the
+  artifact, and this one was two hours old when its own project contradicted it.
+
+  The comparison is still ACROSS SWEEPS and so across boots. It rests on the
+  under-0.8 % per-arm floor measured that day, at that depth only, and the two
+  arms load different files so nothing else about them is paired. A sizing
+  figure, not a verdict.
+
+  POWER: roughly 130 W more under load. Both cards sat at ~50 % utilisation
   drawing 107-114 W and 133-135 W.
 
-  QUALITY IS THE WHOLE REASON TO PAY THAT AND IT HAS NEVER BEEN MEASURED HERE
+  QUALITY IS THE WHOLE REASON TO RUN THIS AND IT HAS NEVER BEEN MEASURED HERE
   on this project's own artifacts. The bits-per-weight ladder and an external
-  12-format campaign both point the same way; neither is our number.
+  12-format campaign both point the same way; neither is our number. With the
+  decode cost now near zero, quality is no longer a trade-off to justify -- it
+  is simply the last unmeasured thing.
 
-WHY -sm IS NOT SET
+WHY -sm tensor, AND IT IS MARKED EXPERIMENTAL
+
+  MEASURED 2026-08-26, ctx 16,384, three paired rounds, arms rotated, no
+  speculation:
+
+      layer (llama.cpp default)   [21.1, 21.0, 19.9] tok/s
+      -sm tensor                  [32.4, 33.9, 32.3]  +59.5 % [+53.9, +62.9]
+      -ts 1,1                     [21.2, 21.9, 20.0]  +1.8 %, within noise
+
+  Same residency ceiling either way: 66+0 to 229,376. The default leaves 59 %
+  on the table for nothing, and the tensor-split RATIO is not a lever here --
+  `-ts 1,1` against the free-VRAM default of 41:59 changed nothing that clears
+  the floor.
+
+  llama.cpp's own help calls this mode EXPERIMENTAL: "split weights and KV
+  across GPUs (parallelized, EXPERIMENTAL)". It is shipped here on a measured
+  +59.5 % with that status stated rather than hidden. It also fails harder at
+  the ceiling: at 262,144 `layer` spills one layer and `tensor` FAILS TO LOAD.
+
+  It aggregates the two cards into a virtual device -- the boot log says
+  "creating a Meta device for tensor parallelism from 2 devices ... 26241 MiB
+  free" and assigns every layer to `Meta()`. `parse_layer_split` had to be
+  taught that token; before that it voided every tensor row, which is the right
+  failure and is the only reason this result was found rather than averaged
+  into nothing.
 
   `-sm row` CANNOT LOAD on this pair: "device CUDA0 does not support split
   buffers", at model load, in about a second, every attempt. The cards sit at
-  PXB with no NVLink. `-sm tensor` and `-ts` were swept -- see
-  docs/results/09-hardware.md for which won and by how much.
+  PXB with no NVLink.
 
 WHY THE CARDS ARE NAMED BY UUID
 
@@ -173,12 +208,13 @@ $env:CUDA_VISIBLE_DEVICES = $Device
 $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 
 # ---- serve -------------------------------------------------------------------
-# -sm is NOT set: `row` cannot load on this pair, and `layer` is the default.
-# -ts is NOT set: llama.cpp splits by free VRAM, measured 41:59 on these cards.
-# Both were swept -- docs/results/09-hardware.md carries the arms that lost.
+# -sm tensor: +59.5 % over the default layer split at the same residency
+# ceiling, three paired rounds. EXPERIMENTAL in llama.cpp's own help.
+# -ts is NOT set: the ratio measured +1.8 %, inside the floor. See the header.
 & $Exe -m $Model `
     --alias qwen38 -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
+    -sm tensor `
     -t 18 -b 2048 -ub 256 --no-mmproj-auto -lv $Verbosity `
     --log-colors $LogColors `
     @logFileArg `

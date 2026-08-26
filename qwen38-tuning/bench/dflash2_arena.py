@@ -359,6 +359,44 @@ ARM_SETS = {
         ("ts-even", ["-ts", "1,1"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- issue #52 stage 2: the micro-batch, on the split that won ----------
+    #
+    # `-ub 256` was chosen against a SINGLE card (results/05-runtime-flags.md).
+    # Two cards change the arithmetic twice over: `-sm tensor` moves activations
+    # between the cards inside every layer rather than once per boundary, and
+    # the link carrying that traffic is gen4 x4 on the 5060 Ti -- a quarter of
+    # what the other card has (CORRECTIONS 31). A wider micro-batch amortises a
+    # transfer over more tokens, which is exactly the shape of a narrow link.
+    #
+    # Every arm carries `-sm tensor` because that is what the profile now
+    # serves: sweeping a second knob on a configuration nobody runs measures
+    # a machine that does not exist.
+    #
+    # -b stays at 2048 throughout. -ub above -b is silently clamped, so moving
+    # both at once would make some arms identical to their neighbours without
+    # anything in the row saying which.
+    "dual-ubatch": [
+        ("ub-256-base", ["-sm", "tensor"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ub-128", ["-sm", "tensor", "-ub", "128"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ub-512", ["-sm", "tensor", "-ub", "512"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ub-1024", ["-sm", "tensor", "-ub", "1024"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- issue #52 stage 3: the KV type, on the split that won --------------
+    #
+    # `q4_0` was never a preference. It bought residency on 12 GB and then on
+    # 16 GB, and this build compiles a flash-attention kernel for only four
+    # types -- f16, bf16, q4_0, q8_0 (issue #43). With 28 GB and 4,670 MiB still
+    # free at 229,376, q8_0 is affordable for the first time in this project.
+    #
+    # Residency is the gate, not throughput: q8_0 doubles the KV bytes per
+    # token, and an arm that spills is not a faster arm, it is a different one.
+    "dual-kv": [
+        ("kv-q4-0-base", ["-sm", "tensor"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("kv-q8-0", ["-sm", "tensor", "-ctk", "q8_0", "-ctv", "q8_0"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),

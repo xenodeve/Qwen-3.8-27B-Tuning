@@ -223,3 +223,41 @@ def test_each_path_says_what_it_has_not_measured():
     that reads as a settled recommendation."""
     assert "#44" in banner()
     assert "147,456" in banner("-Dual") and "#52" in banner("-Dual")
+
+
+@needs_pwsh
+def test_the_dual_profile_uses_the_split_that_won():
+    """MEASURED 2026-08-26, ctx 16,384, three paired rounds, arms rotated:
+
+        layer-default-base  [21.1, 21.0, 19.9]
+        split-tensor        [32.4, 33.9, 32.3]   +59.5 % [+53.9, +62.9] RESOLVED
+        ts-even             [21.2, 21.9, 20.0]   +1.8 %  within noise
+
+    Same residency ceiling either way -- 66+0 to 229,376. So the default layer
+    split leaves 59 % on the table for nothing, and `-ts` is not a lever here.
+
+    Nearly missed: `-sm tensor` aggregates the cards into a `Meta` device, which
+    `parse_layer_split` did not recognise, so the first run of this sweep voided
+    every tensor row. The parser refusing rather than guessing is what kept the
+    number findable.
+
+        SCOPED TO THE INVOCATION. The first draft asserted `"-sm" in t and
+    "tensor" in t` and was GREEN BEFORE THE FLAG WAS ADDED, because the
+    profile's header explains at length why `-sm row` cannot load and that
+    `-sm tensor` was swept. Both tokens were in prose. That is the seventh
+    shape-not-property assertion in three sessions and the second to pass for
+    the wrong reason.
+    """
+    t = read(DUAL)
+    marker = "& $Exe -m $Model"
+    assert marker in t, "cannot find the invocation; this test is not looking at it"
+    invocation = t[t.index(marker):]
+    assert re.search(r"-sm\s+tensor", invocation), (
+        "the dual profile does not PASS -sm tensor, which measured +59.5 % over "
+        "the default layer split at the same residency ceiling")
+
+
+def test_the_profile_says_the_mode_is_experimental():
+    """llama.cpp's own help calls `tensor` EXPERIMENTAL. A profile that ships it
+    without saying so hands the next reader a number and hides its status."""
+    assert "EXPERIMENTAL" in read(DUAL).upper()
