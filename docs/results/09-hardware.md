@@ -611,9 +611,14 @@ each with the arms rotated and speculation off.
 larger at the depth we serve, not smaller.** It also leaves more memory:
 **5,313 MiB free against `layer`'s 2,827** at 147,456.
 
-**The tensor-split *ratio* is not a lever here.** `-ts 1,1` against the
-free-VRAM default of 41:59 measured +1.8 % [+0.6, +4.1] — inside the floor,
-despite the cards being asymmetric in speed as well as size.
+> 🔴 **"The tensor-split *ratio* is not a lever here" — RETRACTED the same
+> day it was written.** `-ts 1,1` measured +1.8 % [+0.6, +4.1] **under
+> `-sm layer`**, where llama.cpp already splits by free VRAM. Under `-sm tensor`
+> the default is an **even** split — `llama-model.cpp:707` falls back to
+> `ne_s * (j+1)/n_devices`, capacity ignored — and on a 12 GB card that is also
+> the display GPU that left **+317 MiB** and produced **0.38 tok/s**.
+> **`-ts` is not optional in tensor mode; it is the difference between 0.38 and
+> 32.** [`CORRECTIONS.md` §33](../reports/CORRECTIONS.md)
 
 **Noise floor at 147,456 on this machine: under 2 %** — 1.8 % for `layer`, 0.3 %
 for `tensor`, three boots each. That is the floor this depth needed;
@@ -676,9 +681,17 @@ and none on the CPU — but there is no automatic adjustment behind it. The flag
 remain because every measured row carries them, and an argv that differs from
 the benchmarked one is not the benchmarked configuration.
 
-**The consequence is a different failure mode, not a worse one.** On one card an
-over-large context *spills* and only the layer count says so. Here it is a hard
-load failure: at 262,144 `layer` spills one layer and `tensor` refuses to start.
+> 🔴 **"Here it is a hard load failure … the better failure of the two" —
+> RETRACTED.** That was reasoned from the word *abort* in the log line, and the
+> word describes the **fitting step** giving up, not the load. What actually
+> happens is a **silent spill into host memory** that returns a working server
+> at **0.38 tok/s**. The profile now computes `-ts` from measured free VRAM and
+> **refuses** when the budget cannot hold the weights, because nothing in
+> llama.cpp will. [`CORRECTIONS.md` §33](../reports/CORRECTIONS.md)
+
+At 262,144 `layer` spills one layer and `tensor` fails to load. That part
+stands, and it is a different thing from an over-committed split at a depth
+that does fit.
 
 #### The decoder, on the tuned configuration at the served depth
 
@@ -690,6 +703,11 @@ cards, ctx 147,456, `real-code-vendor`, three paired rounds rotated:
 | **`ngram-mod`** *(what the profile serves)* | [32.4, 32.6, 33.1] | 2.1 % | baseline |
 | `none` | [28.1, 28.1, 28.7] | 2.1 % | **−13.3 %** [−13.8, −13.1] |
 | `draft-mtp,ngram-mod` | — | — | **CANNOT LOAD** |
+
+**No external drafter loads under `-sm tensor`** — `draft-mtp` *and*
+`draft-dflash`, both measured 2026-08-26, abort at the same assertion on every
+attempt. The Meta backend cannot host a second model; only `ngram-mod`, which
+needs no weights, survives.
 
 **`draft-mtp` is incompatible with `-sm tensor`.** It aborts inside the
 aggregating backend, on every round:

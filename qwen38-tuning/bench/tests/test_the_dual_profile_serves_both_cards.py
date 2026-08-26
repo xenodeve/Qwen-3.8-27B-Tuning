@@ -329,3 +329,74 @@ def test_the_profile_says_fit_is_inert_under_tensor_split():
 def test_the_dual_banner_does_not_promise_fit_will_adjust():
     out = banner("-Dual")
     assert "UD-Q4_K_XL" in out
+
+
+# ---- the incident: 0.38 tok/s on the developer's machine, 2026-08-26 ---------
+
+def test_it_computes_the_split_from_measured_free_vram():
+    """WHAT HAPPENED. `serve-dual-lan.bat` decoded at 0.38 tok/s -- 85x slower
+    than the 32.4 this profile advertises -- with the 5060 Ti at 0 % and the
+    4070 SUPER at 88 % and 11.6 of 12.0 GB, spilling into shared host memory.
+
+    ROOT CAUSE. `-sm tensor` splits EVENLY when no ratio is given:
+    `llama-model.cpp:707` falls back to `ne_s * (j+1)/n_devices`. The cards are
+    not even -- 12 GB against 16 GB -- and the 12 GB one is ALSO THE DISPLAY
+    GPU, carrying explorer, the terminal, the browser and the NVIDIA overlay.
+
+    The arithmetic from the developer's own boot log: the Meta buffers are
+    8065 model + 1296 KV + 1024 compute = 10,385 MiB PER CARD. On the 4070 with
+    1,579 MiB of desktop that leaves +317 MiB. On the 5060 Ti it leaves 5,876.
+
+    So a static ratio is a bandaid: the desktop's appetite is not constant and
+    the next browser tab puts it back over. The split has to be computed from
+    what is actually free, at launch, with a reserve for the card the desktop
+    lives on.
+    """
+    t = read(DUAL)
+    invocation = t[t.index("& $Exe -m $Model"):]
+    assert "-ts" in invocation or "tsArg" in invocation, (
+        "the dual profile does not pass a tensor-split ratio, so llama.cpp "
+        "splits EVENLY across a 12 GB card and a 16 GB card")
+    assert "Get-GpuVram" in t, (
+        "the ratio is not derived from measured free VRAM")
+
+
+def test_it_reserves_headroom_on_the_card_the_desktop_lives_on():
+    """A card already holding memory at launch is the display GPU, and its
+    appetite grows while the server runs. Sizing to what is free RIGHT NOW
+    leaves nothing for that growth -- which is how +317 MiB became a spill."""
+    t = read(DUAL)
+    assert "Reserve" in t, (
+        "nothing reserves VRAM for the desktop to grow into")
+
+
+def test_it_refuses_rather_than_spilling_when_the_budget_is_gone():
+    """`--fit` is inert under -sm tensor, so llama.cpp will NOT trim to fit.
+    The profile's header used to claim that made an over-large context a hard
+    load failure. IT DOES NOT -- it makes it a silent spill into host memory at
+    0.38 tok/s, which is the believable-wrong-number failure CLAUDE.md names.
+    Something has to do the refusing, and llama.cpp will not."""
+    t = read(DUAL)
+    assert "FATAL" in t and "spill" in t.lower(), (
+        "nothing refuses when the cards cannot hold the configuration")
+
+
+def test_the_header_retracts_the_hard_failure_claim_rather_than_deleting_it():
+    """The claim was wrong and it was mine: this header said --fit being inert
+    made an over-large context "a hard load failure ... the better failure of
+    the two". Measured 2026-08-26 -- it SPILLS, silently, and returns a working
+    server at 0.38 tok/s.
+
+    Asserted as a retraction, not as an absence. The first version of this test
+    forbade the string "hard load failure" anywhere in the file and went red on
+    the paragraph that QUOTES the wrong claim in order to withdraw it. Deleting
+    the old wording would leave the next reader no way to know it was ever
+    believed -- which is the opposite of what CORRECTIONS.md exists for.
+    """
+    t = read(DUAL)
+    assert "THAT WAS WRONG" in t, (
+        "the header does not retract the hard-failure claim")
+    assert "SILENT SPILL" in t.upper(), (
+        "the header does not say what actually happens instead")
+    assert "0.38" in t, (
+        "the retraction does not carry the number that disproved it")

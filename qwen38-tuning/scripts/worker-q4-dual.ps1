@@ -131,28 +131,61 @@ WHY ngram-mod AND WHY draft-mtp IS NOT AN OPTION HERE
   2.1 %. The constant was not changed; the arena now prints the floor it
   applied beside each arm's observed spread, and names that third state.
 
---fit IS INERT HERE, AND THE FLAGS ARE STILL PASSED
+WHY THE SPLIT IS COMPUTED AT LAUNCH -- THE 0.38 tok/s INCIDENT
 
-  Boot log at verbosity 5, 2026-08-26:
+  2026-08-26. `serve-dual-lan.bat` decoded at 0.38 tok/s. 85x slower than the
+  number at the top of this file. The 5060 Ti sat at 0 % utilisation and 45 C
+  while the 4070 SUPER ran at 88 %, holding 11.6 of its 12.0 GB with 0.7 GB
+  spilled into SHARED (host) memory. Prefill collapsed too -- 16.4 tok/s on a
+  330-token prompt against the 973 this file was tuned to.
+
+  ROOT CAUSE, from llama.cpp's own source. `-sm tensor` splits EVENLY when no
+  ratio is given: `llama-model.cpp:707` falls back to `ne_s * (j+1)/n_devices`.
+
+  These two cards are not even. 12 GB against 16 GB -- and THE 12 GB CARD IS
+  THE DISPLAY GPU. explorer.exe, Windows Terminal, the browser and the NVIDIA
+  overlay all live on it; measured idle, they hold about 1,600 MiB.
+
+  The arithmetic straight off that boot log. The Meta buffers are PER CARD:
+  8,065 model + 1,296 KV + 1,024 compute = 10,385 MiB each.
+
+      RTX 4070 SUPER   12,282 total - 1,579 desktop - 10,385 =   +317 MiB
+      RTX 5060 Ti      16,311 total -    49 desktop - 10,385 = +5,876 MiB
+
+  317 MiB is not headroom. One browser tab put it over, the driver paged to
+  host memory, and everything went through PCIe.
+
+  WHY --fit DID NOT SAVE IT, AND WHY THIS FILE USED TO BE WRONG ABOUT THAT:
 
       W common_fit_params: failed to fit params to free device memory:
         llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort
 
-  So `--fit on --fit-target 768` does NOTHING under -sm tensor. `-ngl auto`
-  still offloads -- the same boot reports 66/66 layers on the Meta device and
-  none on the CPU -- but there is no automatic adjustment behind it.
+  `--fit on --fit-target 768` does NOTHING under -sm tensor. This header
+  previously said that made an over-large context "a hard load failure ... the
+  better failure of the two". THAT WAS WRONG, and it was measured wrong on
+  2026-08-26: it is a SILENT SPILL that returns a working server at 0.38 tok/s.
+  That is exactly the believable-wrong-number failure CLAUDE.md's north star
+  names, and this profile shipped it.
 
-  THE FLAGS STAY because every measured row in docs/results/ carries them, and
-  an argv that differs from the benchmarked one is not the benchmarked
-  configuration. What changes is that this is written down: a flag implying a
-  safety net it does not provide is precisely the shape CLAUDE.md's north star
-  names.
+  THE FIX IS NOT A HARDCODED RATIO. The desktop's appetite is not constant, so
+  a ratio tuned today is a gamble tomorrow. The split is computed at launch
+  from what nvidia-smi says is actually free, minus a reserve on whichever card
+  already holds memory -- that card is the display GPU and it will want more.
 
-  THE PRACTICAL CONSEQUENCE. On the single-card profile an over-large context
-  SPILLS -- --fit trims until it fits, and the layer count is the only field
-  that says so. Here it is a hard load failure instead. That is the better
-  failure of the two, and it is a DIFFERENT one: at 262,144 `layer` spills a
-  layer and `tensor` refuses to start.
+  Proportional-to-budget is what makes it safe: each card gets a share of the
+  model in proportion to what it can afford, so they run out together instead
+  of one spilling while the other has 6 GB idle.
+
+  MEASURED after the fix, same machine, desktop running:
+
+      -ts (even, the default)   0.38 tok/s   4070 at +317 MiB
+      -ts 2,3                   31-33 tok/s  4070 at 1,511 MiB free
+      -ts 1,2                   28-30 tok/s  4070 at 2,792 MiB free
+
+  The computed ratio lands near 1:2 on this machine and buys the headroom.
+
+  The --fit flags stay: every measured row carries them, and an argv that
+  differs from the benchmarked one is not the benchmarked configuration.
 
 WHY THE CARDS ARE NAMED BY UUID
 
@@ -195,6 +228,15 @@ param(
     # comma-separated list to override. Order is the CUDA enumeration order and
     # is what any -ts ratio would be indexed by.
     [string]$Device = '',
+    # MiB left alone on whichever card already holds memory at launch -- that
+    # card is driving the display, and the desktop grows while the server runs.
+    # 2,500 comes from the incident: the desktop held 1,579 MiB at boot and the
+    # spill happened with 317 MiB of slack, so the reserve has to cover the
+    # desktop's growth and not merely its resting size.
+    [int]$DisplayReserveMiB = 2500,
+    # MiB left alone on a card that is holding nothing -- enough for the
+    # driver's own allocations and nothing more.
+    [int]$IdleReserveMiB = 512,
     [string]$Exe = "C:\AI\llama.cpp-blackwell\llama-server.exe",
     [string]$Model = "C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF\snapshots\f1bfb127c64f7072bdd2cad55f258b9c8b2910fe\Qwen3.8-27B-UD-Q4_K_XL.gguf",
     [switch]$IKnowTheBuildIsWrong
@@ -274,19 +316,74 @@ if ($wanted.Count -lt 2) {
 }
 $env:CUDA_VISIBLE_DEVICES = $Device
 
+# ---- the split ---------------------------------------------------------------
+# Computed here rather than left to llama.cpp, which splits EVENLY when given no
+# ratio (llama-model.cpp:707). Even is wrong on two unequal cards and disastrous
+# when the smaller one is also the display GPU -- see the header.
+$budgets = @()
+$report  = @()
+foreach ($uuid in $wanted) {
+    $g = Get-GpuVram -Uuid $uuid
+    if (-not $g) {
+        Write-Host "FATAL: cannot read VRAM for $uuid; refusing to guess a split." -ForegroundColor Red
+        exit 1
+    }
+    # A card already holding memory is the one drawing the desktop. Which card
+    # that is cannot be assumed -- it is whichever the monitor is plugged into.
+    $isDisplay = $g.Used -gt 500
+    $reserve   = if ($isDisplay) { $DisplayReserveMiB } else { $IdleReserveMiB }
+    $budget    = $g.Free - $reserve
+    $budgets  += $budget
+    $report   += [pscustomobject]@{
+        Uuid = $uuid; Free = $g.Free; Reserve = $reserve
+        Budget = $budget; Display = $isDisplay
+    }
+}
+
+# UD-Q4_K_XL needs about 16,130 MiB of weights whatever the split, plus KV and
+# compute. Refusing below that is the only thing standing between the developer
+# and another silent spill: --fit is inert here and llama.cpp will not refuse.
+$WEIGHTS_MIB = 16130
+$total = ($budgets | Measure-Object -Sum).Sum
+if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $WEIGHTS_MIB) {
+    Write-Host "FATAL: not enough free VRAM to hold UD-Q4_K_XL without spilling." -ForegroundColor Red
+    foreach ($r in $report) {
+        Write-Host ("    {0}  free {1,6:N0} MiB  reserve {2,5:N0}  budget {3,6:N0}{4}" -f `
+                    $r.Uuid.Substring(0,12), $r.Free, $r.Reserve, $r.Budget,
+                    $(if ($r.Display) { "   <- drawing the desktop" } else { "" })) -ForegroundColor Yellow
+    }
+    Write-Host ("    budget {0:N0} MiB against about {1:N0} MiB of weights alone." -f $total, $WEIGHTS_MIB) -ForegroundColor Yellow
+    Write-Host "  --fit cannot rescue this: it is not implemented for SPLIT_MODE_TENSOR." -ForegroundColor Yellow
+    Write-Host "  A spill here is silent and costs ~85x -- 0.38 tok/s was measured." -ForegroundColor Yellow
+    Write-Host "  Close what is using the display card, or run worker-q2kxl-mtp.ps1." -ForegroundColor Yellow
+    exit 1
+}
+
+$tsArg = @('-ts', ($budgets -join ','))
+Write-Host ""
+Write-Host "  split     -ts $($budgets -join ',')  (MiB of budget per card)" -ForegroundColor Cyan
+foreach ($r in $report) {
+    Write-Host ("            {0}  free {1,6:N0}  reserve {2,5:N0}{3}" -f `
+                $r.Uuid.Substring(0,12), $r.Free, $r.Reserve,
+                $(if ($r.Display) { "   <- drawing the desktop" } else { "" })) -ForegroundColor DarkGray
+}
+Write-Host ""
+
 # An ARRAY, empty when no log was asked for. An inline `$(if ...)` would pass an
 # empty string as a real argument and llama-server would see a flag it cannot
 # parse -- the kind of failure that only shows up on the default path.
 $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 
 # ---- serve -------------------------------------------------------------------
-# -sm tensor: +59.5 % over the default layer split at the same residency
-# ceiling, three paired rounds. EXPERIMENTAL in llama.cpp's own help.
-# -ts is NOT set: the ratio measured +1.8 %, inside the floor. See the header.
+# -sm tensor: +59.5 % over the default layer split at ctx 16,384 and +65.4 % at
+# 147,456, same residency ceiling. EXPERIMENTAL in llama.cpp's own help.
+# -ts is COMPUTED above. Leaving it unset makes llama.cpp split evenly across a
+# 12 GB card and a 16 GB one, which is what produced 0.38 tok/s.
 & $Exe -m $Model `
     --alias qwen38 -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
     -sm tensor `
+    @tsArg `
     -t 18 -b 2048 -ub 1024 --no-mmproj-auto -lv $Verbosity `
     --log-colors $LogColors `
     @logFileArg `

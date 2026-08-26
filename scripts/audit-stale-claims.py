@@ -195,6 +195,19 @@ RULES = [
      "[+1.1, +2.1]",
      "CORRECTIONS.md 32"),
 
+    ("ts-is-not-a-lever",
+     r"tensor-split \*?ratio\*? is not a lever|`?-ts`? is not a lever|"
+     r"hard load failure",
+     "both halves are wrong and both were retracted the day they were written. "
+     "-ts measured inert under -sm LAYER, where llama.cpp already splits by "
+     "free VRAM; under -sm tensor the default is an EVEN split "
+     "(llama-model.cpp:707, ne_s * (j+1)/n_devices) which on a 12 GB display "
+     "card left +317 MiB and produced 0.38 tok/s. And --fit being inert does "
+     "NOT give a hard load failure -- it gives a SILENT SPILL to host memory "
+     "that returns a working server 85x slow. The profile now computes -ts from "
+     "measured free VRAM and refuses when the budget cannot hold the weights",
+     "CORRECTIONS.md 33"),
+
     ("fa-all-quants-decided",
      r"FA_ALL_QUANTS`? rebuild for Q8 KV\?\s*\|\s*\*\*not needed|"
      r"Is `?FA_ALL_QUANTS`? needed for Q8 KV\?\s*\|\s*\*\*No|"

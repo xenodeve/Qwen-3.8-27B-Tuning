@@ -1199,6 +1199,107 @@ speculation off, or accept that the number is about both.
 
 ---
 
+## 33. "`-ts` is not a lever" and "`--fit` being inert makes it a hard load failure" — both wrong, and together they shipped a server that ran 85× slow
+
+**Where they were published.** [`09-hardware.md`](../results/09-hardware.md) and
+`qwen38-tuning/scripts/worker-q4-dual.ps1`, both written 2026-08-26, both
+retracted the same day by the developer running the thing.
+
+**What happened.** `serve-dual-lan.bat` decoded at **0.38 tok/s** — against the
+**32.4** the profile advertises. Task Manager showed the **RTX 5060 Ti at 0 %
+and 45 °C** while the **RTX 4070 SUPER ran at 88 %**, holding **11.6 of its
+12.0 GB** with **0.7 GB spilled into shared host memory**. Prefill collapsed
+too: **16.4 tok/s on a 330-token prompt** where the tuned figure is 973.
+
+### The first wrong claim: "`-ts` is not a lever"
+
+Measured, and true — **in `-sm layer`**, where llama.cpp already splits by free
+VRAM. The register generalised it to the two-card configuration as a whole.
+
+Under `-sm tensor` it is the opposite. `llama-model.cpp:707`:
+
+```c
+int64_t high = tensor_split_scan.back() == 0.0f ?
+    ne_s * (j+1)/ud->n_devices : ne_s * tensor_split_scan[j]/tensor_split_scan.back();
+```
+
+**With no ratio given, tensor mode splits EVENLY** — `ne_s * (j+1)/n_devices`,
+capacity ignored entirely.
+
+These cards are not even. **12 GB against 16 GB, and the 12 GB card is the
+display GPU** — `explorer.exe`, Windows Terminal, the browser and the NVIDIA
+overlay all live on it, about **1,600 MiB** at rest. From the incident's own
+boot log, the Meta buffers are **per card**: 8,065 model + 1,296 KV + 1,024
+compute = **10,385 MiB each**.
+
+| | total | desktop | demand | left |
+|---|---:|---:|---:|---:|
+| RTX 4070 SUPER | 12,282 | 1,579 | 10,385 | **+317 MiB** |
+| RTX 5060 Ti | 16,311 | 49 | 10,385 | +5,876 MiB |
+
+**317 MiB is not headroom.** One browser tab put it over, the driver paged to
+host memory, and every token went through PCIe.
+
+### The second wrong claim: "an over-large context is a hard load failure"
+
+`--fit` really is inert here — the log says so on every boot:
+
+```
+W common_fit_params: failed to fit params to free device memory:
+  llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort
+```
+
+The profile's header then reasoned that this made an over-large context *"a
+hard load failure … the better failure of the two"*. **It does not.** It is a
+**silent spill** that returns a working server, correct output, and 0.38 tok/s.
+That is the believable-wrong-number failure `CLAUDE.md`'s north star names,
+reasoned into a header **from a mechanism rather than measured**, and shipped.
+
+### Why no benchmark caught it
+
+**The instrument recorded the sum.** `free_for_env` reports free VRAM across
+the arm's cards, and `gpu_device.total_vram` says in its own docstring that the
+sum is a ceiling because a layer cannot straddle two cards. **The per-card
+headroom on the smaller card was never in any row.** With 5,876 MiB spare on
+one card and 317 on the other, the sum looks comfortable.
+
+And the sweeps ran with the desktop quiet. The configuration fit by ~300 MiB on
+a machine nobody was using, and did not on the machine it was built for.
+
+### The fix, and why it is not a ratio
+
+A hardcoded ratio is a bandaid: the desktop's appetite is not constant. The
+profile now **computes `-ts` at launch** from what `nvidia-smi` reports free,
+minus a reserve on whichever card already holds memory — that card is drawing
+the display and it will want more. Proportional-to-budget is what makes it
+safe: both cards run out together instead of one spilling while the other idles.
+
+It **refuses** when the budget cannot hold the weights, because `--fit` will
+not and llama.cpp will not.
+
+**Measured after the fix, same machine, desktop running:**
+
+| `-ts` | decode | 4070 free |
+|---|---|---|
+| even (the default) | **0.38 tok/s** | +317 MiB |
+| `2,3` | 31–33 tok/s | 1,511 MiB |
+| `1,2` | 28–30 tok/s | 2,792 MiB |
+| **computed — `7819,15490`** | **25.8 / 42.7 / 78.3 tok/s** | **2,921 MiB** |
+
+Both cards at **95 %**, 111 W and 119 W — against 88 % / 0 % before.
+
+### The general form
+
+**A verdict about a flag carries the configuration it was measured in.** `-ts`
+was measured inert under one split mode and recorded as inert, full stop. And
+**a failure mode reasoned from a log line is a hypothesis** — *"abort"* in
+`common_fit_params` was read as *"the load will abort"* when it means *"the
+fitting step gave up"*. The thing that settled it was a person running it.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":
