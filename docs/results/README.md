@@ -51,7 +51,22 @@ know *why*, follow the link; if you only need to know *whether*, stop here.
 | [`06-prompt-and-quality.md`](06-prompt-and-quality.md) | corpus arms, grammar, reasoning effort, prompt cache |
 | [`07-telemetry-inventory.md`](07-telemetry-inventory.md) | **every value a run can yield**, which source it comes from, and what a restart would add |
 | [`08-rtx3090-transfer.md`](08-rtx3090-transfer.md) | **what transferred from the RTX 3090 scan** — 434 techniques, which were tried here and what happened |
-| [`09-hardware.md`](09-hardware.md) | **which card produced which numbers.** The GPU changed on 2026-08-23; read this before quoting any rate from 01–08 |
+| [`09-hardware.md`](09-hardware.md) | **which card produced which numbers.** The GPU changed on 2026-08-23 and a **second card was added 2026-08-26**; read this before quoting any rate from 01–08 |
+
+**Answered 2026-08-26, two cards — all in [`09-hardware.md`](09-hardware.md):**
+
+| question | verdict | raw |
+|---|---|---|
+| Does `--fit` work across two devices? | **yes** — *no changes needed*, splits by free VRAM 41:59 | boot log |
+| Is the 5060 Ti's slot really x4? | **yes** — gen4 **x4** under load. The *generation* downtrains at idle; the width never does | 49 samples, 34 busy |
+| Does `-sm row` work on this pair? | **no** — `device CUDA0 does not support split buffers`, fails at model load | `logs/dflash2-both-row-*.log` |
+| Does the second card speed up `UD-Q2_K_XL`? | **prefill +57.4 %** [+56.0, +60.0]. **Decode +1.5 %** [+1.1, +2.1] with speculation off | `dual-gpu-16384.jsonl`, `dual-gpu-nospec-16384.jsonl` |
+| Is the −78.3 % speculative decode figure a hardware result? | **no** — it measures how much the model repeated itself ([CORRECTIONS 32](../reports/CORRECTIONS.md)) | same |
+| Does 28 GB make `UD-Q4_K_XL` resident? | **yes, to 229,376** — `66+0` at every rung including the served 147,456; one layer spills at 262,144 | `bench/ctx-ceiling-dual-q4*.jsonl` |
+| What does the second card buy `UD-Q4_K_XL`? | **+79.9 %** [+77.3, +82.2] — it is the residency cliff: `55+11` becomes `66+0` | `dual-gpu-q4-nospec-16384.jsonl` |
+| Noise floor, two-card machine, ctx 16,384 | **under 0.8 %** per arm across three boots. Not transferable to depth ([CORRECTIONS 23](../reports/CORRECTIONS.md)) | all of the above |
+| Should the served profile move to Q4? | **UNDECIDED — the developer's call.** Costs about a third of raw decode; quality has never been measured here | — |
+
 
 ---
 

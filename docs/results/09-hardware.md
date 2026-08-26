@@ -496,6 +496,102 @@ measured below rather than inferred from a layer table.
 > apart. It was a probe for `--fit` behaviour and the link reading, neither of
 > which depends on the artifact. **No rate was taken from it.**
 
+### What the second card is worth — measured 2026-08-26, ctx 16,384
+
+All of it on `llama.cpp-blackwell` (`sm_120a` + `sm_89`), KV `q4_0`, corpus
+`real-code`, greedy sampler, arms paired within a round and rotated between
+rounds. **`-sm row` is not one of the arms because it cannot load** — see below.
+
+**The noise floor on this machine, re-derived rather than inherited.** Every arm
+below reproduced itself to within **0.8 %** across three boots, several with
+byte-identical speculation counters. The retired **13.6 %** was Ada at this
+depth and describes nothing here. **This floor is for ctx 16,384; §23's warning
+that it moves with depth still stands.**
+
+#### `UD-Q2_K_XL` — the artifact we serve
+
+| | one card | two cards | delta |
+|---|---:|---:|---|
+| **prefill**, identical 6,621-token prompt | 801.97 / 813.52 / 811.45 | **1252.36 / 1269.06 / 1298.27** | **+57.4 %** [+56.0, +60.0] |
+| **decode, speculation off** | 32.1 / 32.0 / 32.0 | 32.5 / 32.7 / 32.5 | **+1.5 %** [+1.1, +2.1] |
+| decode, `ngram-mod` | 165.1 / 164.6 / 163.9 | 35.9 / 35.8 / 35.6 | **not a hardware number** — [§32](../reports/CORRECTIONS.md) |
+
+**Prefill parallelises; decode does not.** That is coherent: prefill is one large
+batched matmul both cards chew at once, while decode at batch 1 is a chain of
+small ops that gains nothing from a second device and pays a boundary crossing
+per token. **+1.5 % is a real effect that clears this machine's floor, and it is
+also nearly nothing.**
+
+**The third row is in the table only so nobody re-derives it.** Those two arms
+decoded *different text* — the single-card output has 24 distinct lines out of
+47 against the split's 30 — and `ngram-mod` turns repetition into throughput.
+Read [`CORRECTIONS.md` §32](../reports/CORRECTIONS.md) before quoting any
+speculative rate across these two configurations.
+
+#### `UD-Q4_K_XL` — the artifact that never fit
+
+**16.69 GiB. Refused on one 16 GB card, at every depth, since the card arrived.**
+
+Fully resident (`66+0`) across both cards at every rung of the ladder:
+
+| ctx | 16,384 | 65,536 | 131,072 | **147,456** | 196,608 | **229,376** | 262,144 |
+|---|---|---|---|---|---|---|---|
+| split | 66+0 | 66+0 | 66+0 | **66+0** | 66+0 | **66+0** | **65+1** |
+
+**The ceiling is 229,376.** It spills one layer at 262,144, which is
+`n_ctx_train` — so for this artifact the limit is again the model, not the
+memory. **147,456 — the depth `worker-q2kxl-mtp.ps1` serves — is resident with
+room to spare.**
+
+And the second card is worth far more here than it is to the Q2, because on one
+card this artifact *spills*:
+
+| | one card | two cards | delta |
+|---|---:|---:|---|
+| layer split | **55+11** | **66+0** | eleven layers off the CPU |
+| decode, speculation off | 11.7 / 11.3 / 11.8 | **21.1 / 20.7 / 20.9** | **+79.9 %** [+77.3, +82.2] |
+
+**+79.9 % is the residency cliff, not the silicon.** The Q2, which was already
+resident on one card, gained 1.5 % from the same change.
+
+#### The trade this puts in front of the developer
+
+| | `UD-Q2_K_XL`, one card | `UD-Q4_K_XL`, two cards |
+|---|---:|---:|
+| decode, speculation off, ctx 16,384 | **32.0 tok/s** | **20.9 tok/s** |
+| deepest fully-resident context | 147,456 *(as served)* | **229,376** |
+| bits per weight | ~2.6 | ~4.5 |
+
+**About a third of raw decode, for a much better artifact at a greater depth.**
+
+> ⚠️ **That last comparison is across sweeps, and therefore across boots.** It
+> rests on the <0.8 % per-arm floor measured above, at this depth only, and the
+> two arms load different files so nothing else about them is paired. It is a
+> **sizing figure, not a verdict.** The decision is the developer's, and nothing
+> in `worker-q2kxl-mtp.ps1` changed
+> ([#51](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/51)).
+>
+> **What has not been measured:** any of this at the served depth of 147,456,
+> where §23 says the spread can be several times wider; Q4 with the served
+> decoder; and quality, which is the entire reason a Q4 would be worth 34 % of
+> the rate and which this project has never measured on its own artifacts.
+
+#### `-sm row` cannot load on this pair
+
+```
+error loading model: device CUDA0 does not support split buffers
+```
+
+Fails in about one second, at model load, on every attempt. **Not a measurement
+failure — a capability the driver does not offer for these two cards**, which
+sit at `PXB` with no NVLink. The arm is left in the set so the failure is
+recorded rather than rediscovered.
+
+*Raw: `results/dual-gpu-16384.jsonl`, `results/dual-gpu-nospec-16384.jsonl`,
+`results/dual-gpu-q4-nospec-16384.jsonl`, `bench/ctx-ceiling-dual-q4.jsonl`,
+`bench/ctx-ceiling-dual-q4-deep.jsonl`, and the `logs/dflash2-*-c16384-r*.log`
+each row names.*
+
 ### Every instrument here had to be repaired first
 
 `nvidia-smi --query-gpu=…` answers per card, so on 2026-08-26 eleven call sites
