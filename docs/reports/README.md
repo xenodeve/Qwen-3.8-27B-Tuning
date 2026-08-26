@@ -96,6 +96,15 @@ reviews an external RTX 3090 stack against our own files;
 [29](29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) is the DFlash2 result and
 the prompt that hid it.
 
+[36](36-DUAL-GPU-FINDINGS.md) is the **dual-GPU report**, written 2026-08-27 to
+be handed to an outside model: hardware, build identity, exact command lines and
+error strings, every number with the run that produced it, and **five open
+questions about mechanism** we could not answer from the source -- why `-sm row`
+cannot load on this pair, why `-sm tensor` cannot host an external drafter, why
+DFlash2 loads at 16,384 and not at 147,456, why `llama_params_fit` is
+unimplemented for tensor parallelism, and why the tensor split defaults to even
+rather than capacity-weighted.
+
 [32](32-BENCHMARK-STATUS-BRIEF.md) is the **standalone hand-off** — the whole
 state of the benchmark with every number traced to its file, written to be read
 cold by someone with no context. Start there if you are not resuming a session.

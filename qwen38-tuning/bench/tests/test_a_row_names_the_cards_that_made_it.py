@@ -192,3 +192,49 @@ def test_the_depth_baseline_is_the_configuration_being_challenged():
     assert "tensor" not in A.arm_parts(base)[1], (
         f"the depth baseline already applies the split under test: "
         f"{A.arm_parts(base)[1]}")
+
+
+# ---- an arm that cannot load is not a slow arm, it is a dead one ------------
+
+def test_a_dead_arm_is_recorded_once_per_round_but_only_tried_once():
+    """WHY (developer, 2026-08-27): "ทำไมเราต้องรอให้ run เสร็จด้วยในเมื่อ
+    decoder ใช้ไม่ได้ ทำให้เรารอโดยไร้เหตุผล".
+
+    `layer-dflash-ngram` failed at model load in about a second -- `dflash
+    requires ctx_other to be set` -- and the sweep then tried it again in round
+    2 and again in round 3, with a full VRAM-release wait between each. The
+    boot cost is small; the waiting around it is not, and nothing about the
+    second attempt could differ from the first: the argv is byte-identical and
+    the failure is a capability, not a resource.
+
+    So the arm is tried ONCE. Rounds 2 and 3 still get a row -- a missing row
+    would make the arm look unpaired rather than impossible -- and the row says
+    it was not retried rather than pretending to be a fresh attempt.
+    """
+    dead = {}
+    assert A.should_skip_arm("x", dead) is False, "nothing is dead yet"
+    A.mark_arm_dead("x", dead, "server failed to start")
+    assert A.should_skip_arm("x", dead) is True
+    assert A.should_skip_arm("y", dead) is False, "one dead arm killed another"
+
+
+def test_a_skipped_row_says_it_was_not_retried():
+    """A row that just repeats "server failed to start" is indistinguishable
+    from a second real attempt, and the JSONL is what anyone reads later."""
+    dead = {}
+    A.mark_arm_dead("x", dead, "dflash requires ctx_other to be set")
+    row = A.skipped_row(16384, "x", 2, "real-code", [], {}, dead)
+    assert row["loaded"] is False
+    assert row["measurable"] is False
+    assert "not retried" in row["note"]
+    assert "ctx_other" in row["note"], (
+        "the skipped row drops the reason the arm died, so the JSONL cannot "
+        "say WHY without opening the log")
+
+
+def test_a_dead_arm_keeps_its_round_number():
+    """Pairing is by round. A row with the wrong round would misalign every
+    delta computed against it."""
+    dead = {}
+    A.mark_arm_dead("x", dead, "boom")
+    assert A.skipped_row(16384, "x", 3, "real-code", [], {}, dead)["round"] == 3

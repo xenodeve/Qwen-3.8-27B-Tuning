@@ -449,6 +449,34 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- issue #52: the one comparison the tensor split leaves open ---------
+    #
+    # No external drafter loads under -sm tensor -- draft-mtp and draft-dflash
+    # both abort at ggml-backend-meta.cpp:1522, because the Meta backend cannot
+    # host a second model. So the choice is not "which decoder" but a PAIR:
+    #
+    #     -sm tensor + ngram-mod   (fast split, only the weightless decoder)
+    #     -sm layer  + dflash2     (slower split, every decoder available)
+    #
+    # Bare, layer was 17.4 tok/s against tensor's 28.7 -- but dflash2+ngram was
+    # the FASTEST arm on one card at 98,304 (ledger, issue #40), so the drafter
+    # could in principle close a 65 % gap. Nothing here says whether it does.
+    #
+    # -ts on the tensor arm is the ratio the profile computes on this machine,
+    # so the arm is the served configuration rather than an idealised one.
+    "dual-drafter": [
+        ("tensor-ngram-base",
+         ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"] + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("layer-dflash-ngram",
+         ["-ub", "1024", "--spec-type", "draft-dflash,ngram-mod",
+          "-md", DRAFTER, "--spec-draft-n-max", "4", "-ngld", "99"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("layer-ngram",
+         ["-ub", "1024"] + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
@@ -1027,6 +1055,56 @@ def new_row(ctx, arm, rnd, regime, extra, env, free_before, ignore_eos=False,
         loaded=loaded)
 
 
+def mark_arm_dead(label, dead, reason):
+    """Record that an arm cannot load, and why.
+
+    `dead` is a plain dict the sweep owns, not module state: two sweeps in one
+    process must not inherit each other's failures.
+    """
+    dead[label] = reason
+
+
+def should_skip_arm(label, dead):
+    return label in dead
+
+
+def first_line_of_failure(log_path):
+    """The llama.cpp line that explains a refusal, or None.
+
+    An arm that will not load says why -- "dflash requires ctx_other to be
+    set", "device CUDA0 does not support split buffers", a GGML_ASSERT. Reading
+    it here puts the reason in the JSONL instead of leaving it in a log file
+    nobody opens.
+    """
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    wanted = ("GGML_ASSERT", "error loading", "failed to initialize",
+              "does not support", "requires ", "out of memory",
+              "not implemented")
+    for line in text.splitlines():
+        if any(w in line for w in wanted):
+            return line.strip()[-200:]
+    return None
+
+
+def skipped_row(ctx, label, rnd, regime, extra, env, dead, ignore_eos=False):
+    """A row for a round an arm was NOT tried in.
+
+    Recorded rather than omitted. A missing row makes an impossible arm look
+    unpaired -- report() prints "NOT PAIRED (1 vs 3 rounds)" and the reader
+    concludes the sweep was interrupted, when in fact the arm cannot exist.
+    """
+    row = new_row(ctx, label, rnd, regime, extra, env, 0,
+                  ignore_eos=ignore_eos, loaded=False)
+    row["measurable"] = False
+    row["note"] = ("not retried -- failed to load in an earlier round: %s"
+                   % dead.get(label, "reason not captured"))
+    return row
+
+
 def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None,
             ignore_eos=False):
     env = env or {}
@@ -1036,8 +1114,11 @@ def run_arm(ctx, label, extra, rnd, regime="synthetic", env=None,
     row = new_row(ctx, label, rnd, regime, extra, env, free_before,
                   ignore_eos=ignore_eos, loaded=p is not None)
     if p is None:
-        row["note"] = "server failed to start"
-        print("    %-15s FAILED TO LOAD" % label, flush=True)
+        why = first_line_of_failure(log)
+        row["note"] = ("server failed to start"
+                       + (" -- " + why if why else ""))
+        print("    %-15s FAILED TO LOAD%s"
+              % (label, ("  " + why) if why else ""), flush=True)
         return row
 
     try:
@@ -1217,6 +1298,10 @@ def main():
     with out.open("a", encoding="utf-8") as fh:
         for ctx in a.ctx:
           for regime in a.regime:
+            # Per ctx and regime, not global: an arm that cannot load at
+            # 262,144 may load fine at 16,384, and inheriting the verdict
+            # across depths would skip a measurement that was available.
+            dead = {}
             for rnd in range(1, a.rounds + 1):
                 # Rotate so no arm always runs first: within a boot the earlier
                 # arm sees a cleaner GPU, and a fixed order hands that advantage
@@ -1229,8 +1314,22 @@ def main():
                          " -> ".join(arm_parts(a)[0] for a in order)), flush=True)
                 for arm in order:
                     label, extra, env = arm_parts(arm)
-                    row = run_arm(ctx, label, extra, rnd, regime, env,
-                                  ignore_eos=a.ignore_eos)
+                    # An arm that could not load will not load. The argv is
+                    # byte-identical between rounds and the failure is a
+                    # capability, not a resource -- `dflash requires ctx_other
+                    # to be set` does not become true on the second try. Each
+                    # retry cost a boot plus a full VRAM-release wait for a
+                    # result already known (developer, 2026-08-27).
+                    if should_skip_arm(label, dead):
+                        row = skipped_row(ctx, label, rnd, regime, extra, env,
+                                          dead, ignore_eos=a.ignore_eos)
+                        print("    %-15s SKIPPED -- %s"
+                              % (label, dead[label]), flush=True)
+                    else:
+                        row = run_arm(ctx, label, extra, rnd, regime, env,
+                                      ignore_eos=a.ignore_eos)
+                        if not row.get("loaded", True):
+                            mark_arm_dead(label, dead, row.get("note", "failed to load"))
                     rows.append(row)
                     fh.write(json.dumps(row) + "\n")
                     fh.flush()
