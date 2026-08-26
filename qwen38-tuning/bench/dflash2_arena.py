@@ -310,6 +310,26 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- issue #51 stage 2, the clean half ----------------------------------
+    #
+    # The `dual-gpu` set above measured -78.3 % decode with a spread of 0.8 %
+    # per arm -- and the two arms DECODED DIFFERENT TEXT. ngram-mod accepted
+    # 93.3 % on one card and 58.5 % on two. That is not sampling noise to be
+    # averaged out: SAMPLER is already greedy, and the text differs because
+    # splitting the model changes the order of the reductions and therefore the
+    # logits. On a split model you cannot decode the same tokens as on one card,
+    # ever, so a speculative decode rate can never be a clean hardware
+    # comparison between these two configurations.
+    #
+    # With speculation OFF every token costs exactly one forward pass whatever
+    # the token is. The rate stops depending on the text -- the same property
+    # that already makes prefill comparable, and prefill on the identical 6,621
+    # token prompt says two cards are 57 % FASTER, the opposite sign.
+    "dual-gpu-nospec": [
+        ("solo-nospec-base", [], {"CUDA_VISIBLE_DEVICES": TI_5060}),
+        ("both-nospec", [], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
@@ -528,6 +548,23 @@ def vram():
     """[used, free] on the served card -- see `gpu_device` (issue #50)."""
     used, free = gpu_device.vram()
     return [used, free]
+
+
+def free_for_env(env):
+    """Free MiB across the cards THIS ARM will actually use.
+
+    `vram()` answers for the served card. Writing that into a two-card row
+    produced `free_before: 15983` on an arm spread over 28 GB -- a believable
+    number describing half the hardware. It is not a throughput field, which is
+    why it survived a whole sweep before anyone looked at it.
+
+    The sum is a CEILING, not a promise: a layer cannot straddle two cards, so
+    free memory does not really add up. Residency is still read from the layer
+    split in llama.cpp's own log.
+    """
+    uuids = [u.strip() for u in
+             launch_env(env)["CUDA_VISIBLE_DEVICES"].split(",") if u.strip()]
+    return gpu_device.total_vram(uuids)[1]
 
 
 def port_owner():
@@ -761,7 +798,7 @@ def server_argv(ctx, extra):
 
 def start(ctx, extra, tag, boot_s=240, env=None):
     stop_server()
-    free_before = vram()[1]
+    free_before = free_for_env(env or {})
     log = ROOT / "logs" / ("dflash2-" + tag + ".log")
     args = server_argv(ctx, extra)
     fh = log.open("w", encoding="utf-8", errors="replace")

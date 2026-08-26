@@ -73,3 +73,50 @@ def test_every_dual_gpu_arm_holds_the_decoder_fixed():
         specs.add(tuple(extra[extra.index("--spec-type") + 1:][:1])
                   if "--spec-type" in extra else ())
     assert len(specs) == 1, f"the dual-gpu arms use different decoders: {specs}"
+
+
+def test_the_nospec_set_removes_the_confound_the_dual_gpu_set_has():
+    """Why a second set exists.
+
+    At ctx 16,384 the `dual-gpu` arms decoded DIFFERENT TEXT -- ngram-mod
+    accepted 93.3 % on one card and 58.5 % on two. That is not a sampling
+    artifact to be averaged away: `SAMPLER` is already greedy (temperature 0,
+    top_k 1, seed 42), and the text still differs because splitting a model
+    across devices changes the reduction order, so the logits differ. On a
+    split model you CANNOT decode the same tokens as on one card.
+
+    With speculation off, every token costs exactly one forward pass whatever
+    the token is, so the rate stops depending on the text -- the same property
+    that makes prefill comparable.
+    """
+    arms = A.ARM_SETS["dual-gpu-nospec"]
+    for arm in arms:
+        extra = A.arm_parts(arm)[1]
+        assert "--spec-type" not in extra, (
+            f"{A.arm_parts(arm)[0]} still speculates; its decode rate would "
+            f"depend on what it generated, which is the confound this set exists "
+            f"to remove")
+    devs = [A.arm_parts(a)[2].get("CUDA_VISIBLE_DEVICES", "") for a in arms]
+    assert any("," in d for d in devs) and any("," not in d for d in devs), \
+        "the set needs both a one-card control and a two-card arm"
+
+
+def test_free_vram_is_summed_over_the_cards_the_arm_actually_uses():
+    """`start()` recorded `vram()[1]` -- free memory on the SERVED card -- and
+    wrote it into every row including the two-card ones. At ctx 16,384 that
+    produced `free_before: 15983` on an arm running across 28 GB: a believable
+    number describing hardware the arm was only half using.
+
+    It is not a throughput field, which is why it survived a whole sweep
+    unnoticed. It is still the shape CLAUDE.md's north star names.
+    """
+    one = A.free_for_env({"CUDA_VISIBLE_DEVICES": gpu_device.SERVED_GPU_UUID})
+    both = A.free_for_env({"CUDA_VISIBLE_DEVICES":
+                           OTHER + "," + gpu_device.SERVED_GPU_UUID})
+    assert both > one, (
+        f"two cards report no more free VRAM than one ({both} vs {one}); "
+        f"the sum is not being taken")
+
+
+def test_free_vram_with_no_arm_env_describes_the_served_card():
+    assert A.free_for_env({}) == gpu_device.free_vram()
