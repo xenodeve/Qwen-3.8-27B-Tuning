@@ -448,7 +448,7 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 # -ts is COMPUTED above. Leaving it unset makes llama.cpp split evenly across a
 # 12 GB card and a 16 GB one, which is what produced 0.38 tok/s.
 & $Exe -m $Model `
-    --alias qwen38 -c $Ctx `
+    --alias Qwen3.8-27B-Q4_K_XL -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
     -sm tensor `
     @tsArg `

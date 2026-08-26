@@ -47,13 +47,21 @@ decision, which is why none of the four implies another.
 [Issue #52](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/52),
 [`docs/results/09-hardware.md`](docs/results/09-hardware.md).
 
-From a terminal, the same four with flags:
+**The model announces which artifact it is.** `serve.bat` serves it as
+`Qwen3.8-27B-Q2_K_XL`, the `dual` pair as `Qwen3.8-27B-Q4_K_XL`. It used to be
+`qwen38` for both, which told a client nothing and left a saved transcript
+unable to say afterwards which one had answered. **A client configured with the
+old name needs updating** — that string is all this rename changes; no file on
+disk moved and no measured row means anything different.
+
+From a terminal, the same six with flags:
 
 ```powershell
 .\serve.ps1                          # one card, loopback
 .\serve.ps1 -Lan -AllowFirewall      # one card, exposed
 .\serve.ps1 -Dual                    # both cards, loopback
 .\serve.ps1 -Dual -Lan -AllowFirewall
+.\serve.ps1 -Dual -Mtp               # both cards + draft-mtp, rate unmeasured
 .\serve.ps1 -Dual -WhatIf            # print what it would run, touch nothing
 ```
 

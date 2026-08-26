@@ -212,7 +212,7 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 # --ctx-checkpoints is NOT set: the default 32 is what carries prefix reuse when
 # n_rs_seq is 0, and it is right.
 & $Exe -m $Model `
-    --alias qwen38 -c $Ctx `
+    --alias Qwen3.8-27B-Q2_K_XL -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
     -t 18 -b 2048 -ub 256 --no-mmproj-auto -lv $Verbosity `
     --log-colors $LogColors `

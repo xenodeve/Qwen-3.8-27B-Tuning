@@ -965,7 +965,7 @@ def server_argv(ctx, extra):
     setters) decides which value is used. An arm set that got that backwards
     would run every arm at the hardcoded value and report a flat sweep.
     """
-    return [EXE, "-m", TARGET, "--alias", "qwen38", "-c", str(ctx),
+    return [EXE, "-m", TARGET, "--alias", "Qwen3.8-27B-arena", "-c", str(ctx),
             "-ngl", "auto", "--fit", "on", "--fit-target", "768", "-fa", "on",
             "-np", "1", "-t", "18", "-b", "2048", "-ub", "256",
             "-ctk", "q4_0", "-ctv", "q4_0",
