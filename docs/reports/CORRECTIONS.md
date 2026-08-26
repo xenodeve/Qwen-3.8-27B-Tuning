@@ -1097,6 +1097,108 @@ not. **Do not put an unverified boundary in one.**
 
 ---
 
+## 31. "RTX 5060 Ti — PCIe gen5 x8" — the card can; this machine gives it gen4 **x4**
+
+**Where it was published.** [`09-hardware.md`](../results/09-hardware.md), the
+two-card comparison table at the top, from 2026-08-23 until 2026-08-26.
+
+**What it was.** A specification, copied from the card. It was never measured on
+this machine, and nothing on the page said so — it sat in a table beside rows
+that *were* measurements (`11,069 MiB in all 552 logs`, the byte-identical
+buffer sizes), which is what made it read as one.
+
+**What the machine actually does.** Sampled once a second through a real
+generation, 49 samples, 34 with the GPU busy:
+
+| | idle | **peak under load** | driver's `link.width.max` |
+|---|---|---|---|
+| RTX 5060 Ti | gen1 x4 | **gen4 x4** | 16 |
+| RTX 4070 SUPER | gen4 x16 | **gen4 x16** | 16 |
+
+**The generation recovered under load and the width never did.** gen1 → gen4 is
+the driver's power state, which is why an idle reading proves nothing either
+way. **x4 is the slot.** The card that carries the model has about
+**7.9 GB/s** where the other has **31.5 GB/s**.
+
+**Why it matters and where it does not.** It bounds anything that moves data
+between host and device or between the cards: model load time, and any
+configuration that splits a model. It does **not** explain decode on one card,
+which never touches the link — and the measurement below says so directly:
+splitting the model across both cards changed raw decode by **+1.5 %**
+[+1.1, +2.1], which a starved link would not permit.
+
+**The general form.** A specification and a measurement do not belong in the
+same table without a column saying which is which. This page now labels that
+row *as measured under load on this machine*, and the two-card section states
+the idle reading beside the loaded one so nobody re-derives the wrong
+conclusion from `nvidia-smi` at rest.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `pcie-gen5-x8`.
+
+---
+
+## 32. "`solo` decodes at 165 tok/s and splitting costs 78 %" — that figure is a measure of how much the model repeated itself
+
+**Where it nearly went.** Nowhere — it was caught inside the session that
+produced it, 2026-08-26, before any doc quoted it. It is recorded because the
+number was **stable to 0.8 % across three rotated rounds** and looked exactly
+like a resolved result.
+
+**What was measured.** `dual-gpu` arm set, ctx 16,384, `UD-Q2_K_XL`,
+`ngram-mod`, three paired rounds:
+
+```
+solo-5060ti-base   [165.1, 164.6, 163.9] tok/s
+both-layer         [ 35.9,  35.8,  35.6] tok/s    -78.3 %  [-78.3, -78.3]  "RESOLVED"
+```
+
+**Why it is not a hardware number.** The two arms **decoded different text.**
+`ngram-mod` accepted **93.3 %** on one card and **58.5 %** on two. Counting
+distinct lines in what each actually produced:
+
+| | distinct lines / total | most-repeated line |
+|---|---|---|
+| `solo` | **24 / 47** | ×13 |
+| `both-layer` | **30 / 47** | ×6 |
+
+**The single-card arm fell into a tighter repetition loop, and `ngram-mod`
+converted that repetition into throughput.** 165 tok/s is the model producing
+degenerate output quickly.
+
+**This is not a sampling artifact that more rounds would average away.**
+`SAMPLER` is already greedy — `temperature 0.0, top_k 1, seed 42` — and each
+arm reproduced itself across boots to within 0.8 %, with byte-identical
+speculation counters. The text differs because **splitting a model across
+devices changes the order of the reductions and therefore the logits.** On a
+split model you cannot decode the same tokens as on one card. **No speculative
+decode rate will ever be a clean comparison between these two configurations.**
+
+**The existing guard did not catch it, and was not built to.**
+`copied_window_fraction` reported `[0.0, 0.0, 0.0]` — correctly. It compares the
+output against the **prompt**, and this output copies *itself*. Self-repetition
+is a different failure with the same consequence for a speculative rate.
+
+**What the clean measurements say.** Two of them, both content-independent:
+
+| | one card | two cards | |
+|---|---:|---:|---|
+| prefill, identical 6,621-token prompt | 801.97 / 813.52 / 811.45 | **1252.36 / 1269.06 / 1298.27** | **+57.4 %** [+56.0, +60.0] |
+| decode, speculation **off** | 32.1 / 32.0 / 32.0 | 32.5 / 32.7 / 32.5 | **+1.5 %** [+1.1, +2.1] |
+
+Prefill is the same tokens either way. With speculation off every token costs
+exactly one forward pass whatever the token is. Neither can be moved by what
+the model chose to write.
+
+**The general form, and it is the one to carry.** **A speculative decode rate
+is partly a measurement of how predictable the output is.** Any arm comparison
+in which the two arms can produce different text is measuring the text as well
+as the arm — and the more repetitive arm wins. Compare prefill, or compare with
+speculation off, or accept that the number is about both.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `speculative-rate-is-not-hardware`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

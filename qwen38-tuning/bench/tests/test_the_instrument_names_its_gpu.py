@@ -98,3 +98,31 @@ def test_pinning_hides_the_other_card_from_a_child_process():
     assert env["CUDA_VISIBLE_DEVICES"] == gpu_device.SERVED_GPU_UUID
     assert gpu_device.SERVED_GPU_UUID in out, (
         "the pinned UUID is not among the installed cards")
+
+
+def test_visible_uuids_follows_the_pin_the_process_was_given(monkeypatch):
+    """`ctx_ceiling` and friends have no arm-env concept -- they are launched
+    with CUDA_VISIBLE_DEVICES already set in the shell. Reporting the served
+    card's free VRAM there understates a two-card run: the Q4 ladder on
+    2026-08-26 printed `free 4130` at ctx 131,072 while the run actually had
+    both cards' headroom.
+    """
+    other = "GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4"
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES",
+                       other + "," + gpu_device.SERVED_GPU_UUID)
+    assert gpu_device.visible_uuids() == [other, gpu_device.SERVED_GPU_UUID]
+
+
+def test_visible_uuids_falls_back_to_the_served_card(monkeypatch):
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    assert gpu_device.visible_uuids() == [gpu_device.SERVED_GPU_UUID]
+
+
+def test_visible_uuids_ignores_an_index_style_pin(monkeypatch):
+    """`CUDA_VISIBLE_DEVICES=0,1` is legal and this module cannot turn it into
+    silicon. Returning ["0", "1"] would make every nvidia-smi query below it
+    fail in a way that reads like an absent card, so say what is wrong instead.
+    """
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,1")
+    with pytest.raises(gpu_device.GpuNotPresent):
+        gpu_device.visible_uuids()

@@ -52,10 +52,18 @@ def kill():
 
 
 def vram():
-    """[used, free] on the served card. Routed through `gpu_device` because a
-    machine with two cards answers this query per card, and a positional parse
-    of that answer reads whichever the driver listed first (issue #50)."""
-    used, free = gpu_device.vram()
+    """[used, free] summed over the cards this process was pinned to.
+
+    Not the served card alone. This script is launched with
+    CUDA_VISIBLE_DEVICES already exported, so on a two-card run the served
+    card's free memory is a fraction of the headroom the run actually had --
+    which is what made the Q4 ladder print `free 4130` at ctx 131,072 when
+    there was more (issue #50, #51).
+
+    The sum is a CEILING: a layer cannot straddle two cards, so free memory
+    does not really add. Residency comes from the layer split, not from here.
+    """
+    used, free = gpu_device.visible_vram()
     return [used, free]
 
 

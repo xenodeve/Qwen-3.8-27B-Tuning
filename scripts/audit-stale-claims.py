@@ -170,6 +170,31 @@ RULES = [
      "tokens. The claim was published in a commit message, which nothing scans",
      "CORRECTIONS.md 30"),
 
+    ("pcie-gen5-x8",
+     r"gen5\s*x8|PCIe[^\n]{0,10}5\.0[^\n]{0,10}x8",
+     "that is the CARD's specification, not this machine's. Sampled once a "
+     "second through a real generation, 49 samples, 34 with the GPU busy: the "
+     "5060 Ti peaks at gen4 x4 and the 4070 SUPER at gen4 x16. The link "
+     "downtrains at idle and the GENERATION recovers under load; the WIDTH "
+     "never does, so x4 is the slot. It bounds model load and any split "
+     "configuration -- it does not explain decode on one card, which never "
+     "touches the link",
+     "CORRECTIONS.md 31"),
+
+    ("speculative-rate-is-not-hardware",
+     r"splitting[^\n]{0,40}costs? 78|"
+     r"-78\.3\s*%[^\n]{0,40}(?:hardware|GPU|card|slower)|"
+     r"165\.1[^\n]{0,60}(?:one card|solo|single card)",
+     "that figure measures how much the model REPEATED ITSELF, not the "
+     "hardware. The two arms decoded different text -- ngram-mod accepted "
+     "93.3 % on one card and 58.5 % on two, and the single-card output has 24 "
+     "distinct lines of 47 against 30. SAMPLER is already greedy, and the text "
+     "still differs because splitting changes the reduction order and so the "
+     "logits. The clean pair: prefill on the identical 6,621-token prompt is "
+     "+57.4 % for two cards, and decode with speculation OFF is +1.5 % "
+     "[+1.1, +2.1]",
+     "CORRECTIONS.md 32"),
+
     ("fa-all-quants-decided",
      r"FA_ALL_QUANTS`? rebuild for Q8 KV\?\s*\|\s*\*\*not needed|"
      r"Is `?FA_ALL_QUANTS`? needed for Q8 KV\?\s*\|\s*\*\*No|"

@@ -27,6 +27,7 @@ Verified 2026-08-26 that `nvidia-smi -i <uuid>` resolves and exits 6 with
 "No devices were found" on an absent one, and that
 `CUDA_VISIBLE_DEVICES=GPU-<uuid>` leaves llama-server seeing exactly one device.
 """
+import os
 import subprocess
 
 # The RTX 5060 Ti 16 GB (sm_120). Every number in `docs/results/` from
@@ -145,6 +146,39 @@ def link(uuid=SERVED_GPU_UUID):
     """
     gen, width = query(["pcie.link.gen.current", "pcie.link.width.current"], uuid)
     return int(gen), int(width)
+
+
+def visible_uuids():
+    """The cards THIS PROCESS was pinned to, from `CUDA_VISIBLE_DEVICES`.
+
+    `launch_env` covers a launcher that builds the child's environment. This
+    covers the other shape: a script started with the pin already exported in
+    the shell, which is how `ctx_ceiling.py` and the sweeps are run. Those have
+    no arm-env to consult, and asking about the served card alone understates a
+    two-card run -- the Q4 ladder on 2026-08-26 printed `free 4130` at ctx
+    131,072 while the run had both cards' headroom.
+
+    An index-style pin (`CUDA_VISIBLE_DEVICES=0,1`) is legal for CUDA and
+    useless here, so it raises. Returning ["0", "1"] would send an index to
+    `nvidia-smi -i`, which answers for a POSITION -- reintroducing exactly the
+    ambiguity this module exists to remove, one layer further down.
+    """
+    raw = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if not raw:
+        return [SERVED_GPU_UUID]
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    bad = [p for p in parts if not p.startswith("GPU-")]
+    if bad:
+        raise GpuNotPresent(
+            f"CUDA_VISIBLE_DEVICES names {bad!r} by index, not by UUID. An "
+            f"index is a position in an enumeration and cannot identify a card "
+            f"here. Installed: {installed()}")
+    return parts
+
+
+def visible_vram():
+    """(used, free) summed over the cards this process can see."""
+    return total_vram(visible_uuids())
 
 
 def pin_env(uuid=SERVED_GPU_UUID):

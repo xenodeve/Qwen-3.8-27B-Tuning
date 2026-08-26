@@ -37,7 +37,7 @@ can tell a stale figure from a current one without checking a date.
 | VRAM, **as llama.cpp reports to the process** | **11,069 MiB**, in all 552 logs | **15,172 MiB** |
 | compute capability | 8.9 (Ada) | **12.0 (Blackwell)** |
 | memory bandwidth | ~504 GB/s | ~448 GB/s *(spec, not measured here)* |
-| PCIe | gen4 x16 | gen5 x8 |
+| PCIe, **as measured under load on this machine** | gen4 **x16** | gen4 **x4** — see *The second card* below |
 
 **The two VRAM rows are different measurements and only the second one matters
 for `--fit`** — [`CORRECTIONS.md` §27](../reports/CORRECTIONS.md). The new card
@@ -425,6 +425,97 @@ power             174.5 W   (TDP ~180 W)
 signature — 100 % / **4 %** / 76 W — was a card spinning, not a card working,
 which [`CORRECTIONS.md` §26](../reports/CORRECTIONS.md) argued from mechanism and
 this now supports from a control.
+
+---
+
+## The second card, from 2026-08-26 — two GPUs, and the slot that carries one
+
+**The 4070 SUPER was put back in beside the 5060 Ti.** The machine now
+enumerates two cards, 28 GB of VRAM between them, and **nothing above this line
+was measured on that configuration.**
+
+```
+CUDA0: NVIDIA GeForce RTX 4070 SUPER (12281 MiB, 11069 MiB free)  sm_89   0000:01:00.0
+CUDA1: NVIDIA GeForce RTX 5060 Ti    (16310 MiB, 15172 MiB free)  sm_120  0000:06:00.0
+```
+
+Two facts about that listing are load-bearing. The card every number in files
+01–09 came from is now **index 1**, and `--main-gpu` defaults to **0**. And the
+4070's free figure is **11,069 MiB** — the exact constant
+[`CORRECTIONS.md` §27](../reports/CORRECTIONS.md) found in all 552 logs, which
+confirms that constant belongs to the old card and not to some property of
+llama.cpp.
+
+`nvidia-smi topo -m` reports **PXB** between them: several PCIe bridges, no
+NVLink. There is no peer link.
+
+### The slot is x4, and that is measured under load, not guessed
+
+At idle the 5060 Ti reads **PCIe gen1 x4** against a maximum of gen4 x16, which
+proves nothing — the driver downtrains an idle card. So it was sampled once a
+second through a real generation, 49 samples, 34 of them with the GPU busy:
+
+| card | idle | **peak under load** | link maximum |
+|---|---|---|---|
+| RTX 5060 Ti | gen1 x4 | **gen4 x4** | gen4 x16 |
+| RTX 4070 SUPER | gen4 x16 | **gen4 x16** | gen4 x16 |
+
+**The generation downtrained and recovered; the width never did.** gen1 → gen4
+is the power state. **x4 is the slot.** The 16 GB card — the one that carries
+the model — is on roughly **7.9 GB/s** where the 12 GB card has **31.5 GB/s**.
+
+Under load both cards sat at **~50 % utilisation**, drawing **107–114 W** and
+**133–135 W**. Both were working; this is not one card idling.
+
+*Raw: sampled through `bench/gpu_device.py:link`, generation on port 8099,
+2026-08-26.*
+
+### `--fit` works across two devices, and splits by free memory
+
+One boot of `UD-Q2_K_XL` at ctx 16,384 with both cards visible:
+
+```
+projected to use 10339 MiB of device memory vs. 26089 MiB of free device memory
+targets for free memory can be met on all devices, no changes needed
+offloaded 66/66 layers to GPU
+CUDA0 model buffer size =  3958.01 MiB      CUDA1 model buffer size =  5609.88 MiB
+CUDA0 KV buffer size    =   126.00 MiB      CUDA1 KV buffer size    =   162.00 MiB
+```
+
+The split tracks free VRAM: 11,069 : 15,172 is 42 : 58, and the model buffers
+land at 41 : 59. **`--fit` said "no changes needed"** here too, which is its
+148-of-150 behaviour on one card as well — the two-device case did not change
+what it does.
+
+**This is one boot, and it is not a rate.** What splitting costs or buys is
+issue [#51](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/51) and is
+measured below rather than inferred from a layer table.
+
+> ⚠️ That boot used the `f1bfb127c6…` copy of `UD-Q2_K_XL`, not the
+> `27af057ecb…` copy the profile serves — two files with the same name, 808 MiB
+> apart. It was a probe for `--fit` behaviour and the link reading, neither of
+> which depends on the artifact. **No rate was taken from it.**
+
+### Every instrument here had to be repaired first
+
+`nvidia-smi --query-gpu=…` answers per card, so on 2026-08-26 eleven call sites
+began reading something other than what they claimed — and the two languages
+failed differently:
+
+- **Python raised.** `[int(x) for x in o.split(",")]` on a two-line answer gives
+  `ValueError`. The sweep stopped. That is the good failure.
+- **PowerShell did not.** `-split` returned four elements and `[0]`/`[1]` became
+  the **4070's** `used=1481 free=10517`. `Show-ServerStatus.ps1` would have
+  reported the model resident on a card with nothing loaded on it, silently.
+
+One chokepoint per language now — `bench/gpu_device.py` and
+`scripts/Get-GpuVram.ps1` — pinned by UUID rather than index, because an index
+survives a reordering while meaning a different card. The launch is pinned too:
+the `ggml-cuda.dll` in use carries **sm_89 beside sm_120a**, so the wrong card
+is not merely reachable, it is fully supported, and the existing build guard
+cannot catch it — that guard asks whether Blackwell SASS is in the *file*, and
+it is. Issue
+[#50](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/50).
 
 ---
 
