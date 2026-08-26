@@ -1175,3 +1175,51 @@ def test_a_meta_device_still_reports_a_spill():
     """The whole point of reading this at all. If Meta made the parser stop
     distinguishing, `-sm tensor` would report 66+0 whatever happened."""
     assert parse_layer_split(TENSOR_SPLIT_SPILLED) == (3, 1)
+
+
+# ------------------------------------------------- the floor a verdict used
+
+import pytest
+from harness import observed_spread_pct, classify_against_floors
+
+def test_observed_spread_is_reported_per_arm():
+    """A verdict is only as good as the floor it was compared against.
+
+    On 2026-08-26 at ctx 147,456 the arena printed
+
+        none  [28.1, 28.1, 28.7]  -13.3% [-13.8, -13.1]  within noise
+
+    for an effect whose three rounds agree to 2 % and whose sign never moves.
+    It was called noise because `NOISE_FLOOR_PCT` is 13.6 -- an Ada figure
+    measured at ctx 16,384, which `CLAUDE.md` already says does not transfer to
+    depth. The same run had just measured the real floor here at under 2 %.
+
+    Changing the constant would silently re-interpret every historic verdict, so
+    the fix is to make the comparison legible instead: report what each arm's
+    own rounds actually spread, beside the floor that was applied.
+    """
+    assert observed_spread_pct([28.1, 28.1, 28.7]) == pytest.approx(2.135, abs=0.01)
+    assert observed_spread_pct([32.4, 32.6, 33.1]) == pytest.approx(2.160, abs=0.01)
+
+
+def test_observed_spread_of_a_single_round_is_unknown_not_zero():
+    """One reading has no spread. Returning 0.0 would read as 'perfectly
+    stable', which is the strongest possible claim from the weakest evidence."""
+    assert observed_spread_pct([31.4]) is None
+    assert observed_spread_pct([]) is None
+
+
+def test_an_effect_can_beat_its_own_run_and_still_miss_the_applied_floor():
+    """The state the report has to be able to describe, rather than collapsing
+    it to 'within noise'."""
+    verdict = classify_against_floors(delta_pct=-13.3, observed_spread_pct=2.1,
+                                      floor_pct=13.6)
+    assert verdict == "clears this run's spread, not the applied floor"
+
+
+def test_an_effect_below_both_is_plainly_noise():
+    assert classify_against_floors(-1.5, 2.1, 13.6) == "within noise"
+
+
+def test_an_effect_above_both_is_resolved():
+    assert classify_against_floors(65.4, 2.1, 13.6) == "resolved"

@@ -44,7 +44,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import gpu_device
-from harness import (median, parse_layer_split, target_layer_count,
+from harness import (observed_spread_pct, classify_against_floors,
+                     NOISE_FLOOR_PCT,
+                     median, parse_layer_split, target_layer_count,
                      generation_is_original, copied_window_fraction,
                      draft_acceptance,
                      paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
@@ -419,6 +421,31 @@ ARM_SETS = {
     "dual-depth": [
         ("layer-1024-base", ["-ub", "1024"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
         ("tensor-1024", ["-sm", "tensor", "-ub", "1024"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- issue #52, the last lever: the decoder on the tuned dual config ----
+    #
+    # Measured at the SERVED depth on the configuration the profile actually
+    # runs -- -sm tensor, -ub 1024, both cards -- because a decoder verdict
+    # taken on a different split is a verdict about that split.
+    #
+    # CORRECTIONS 32 applies but is weaker here than in the dual-gpu set: all
+    # three arms share one hardware configuration, so the text differs by
+    # DECODER rather than by device placement. That is issue #44's confound,
+    # not #51's, and it is the reason `none` is included -- it is the only arm
+    # whose rate cannot be moved by what the model chose to write.
+    #
+    # draft-mtp carries NO -md: UD-Q4_K_XL reports the nextn head in the main
+    # file, and adding -md brings back a 1,393.90 MiB sidecar for nothing
+    # (worker-q2kxl-mtp.ps1 says why at length).
+    "dual-decoder": [
+        ("ngram-mod-base", ["-sm", "tensor", "-ub", "1024"] + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("draft-mtp+ngram", ["-sm", "tensor", "-ub", "1024",
+                             "--spec-type", "draft-mtp,ngram-mod"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("none", ["-sm", "tensor", "-ub", "1024"],
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
@@ -1120,20 +1147,43 @@ def report(rows):
             continue
         base = series[base_name]
         print("  baseline: %s" % base_name)
+
+        # The floor a verdict was reached against, printed rather than assumed.
+        # NOISE_FLOOR_PCT is 13.6 -- Ada, at ctx 16,384 -- and CLAUDE.md says it
+        # does not transfer. At 147,456 on two cards this run's own arms spread
+        # under 2 %, and the report called a tight, sign-consistent -13.3 %
+        # "within noise" purely because of the imported constant.
+        base_spread = observed_spread_pct(base)
+        print("  floor applied: %.1f %% (NOISE_FLOOR_PCT, Ada @ ctx 16,384)"
+              % NOISE_FLOOR_PCT)
+        print("  this run's baseline spread: %s"
+              % ("%.1f %% over %d rounds" % (base_spread, len(base))
+                 if base_spread is not None else "unknown (one round)"))
+
         for label, vals in series.items():
             shown = [round(v, 1) for v in vals]
+            spread = observed_spread_pct(vals)
+            spread_s = ("%.1f %%" % spread) if spread is not None else "n/a"
             if label == base_name:
-                print("  %-15s %s  (baseline)" % (label, shown))
+                print("  %-15s %s  spread %s  (baseline)"
+                      % (label, shown, spread_s))
                 continue
             if len(vals) != len(base):
                 print("  %-15s %s  NOT PAIRED (%d vs %d rounds) -- no verdict"
                       % (label, shown, len(vals), len(base)))
                 continue
             d = paired_deltas(base, vals)
-            verdict = "RESOLVED" if d["resolved"] else "within noise / inconsistent"
-            print("  %-15s %s  %+.1f%% [%+.1f, %+.1f]  %s"
-                  % (label, shown, d["mean_pct"], d["min_pct"], d["max_pct"],
-                     verdict))
+            if not d["resolved"] and d["min_pct"] * d["max_pct"] <= 0:
+                # sign changes across rounds -- no amount of floor helps
+                verdict = "inconsistent in sign"
+            else:
+                verdict = classify_against_floors(
+                    d["mean_pct"], max(spread or 0.0, base_spread or 0.0))
+                if verdict == "resolved":
+                    verdict = "RESOLVED"
+            print("  %-15s %s  spread %s  %+.1f%% [%+.1f, %+.1f]  %s"
+                  % (label, shown, spread_s, d["mean_pct"],
+                     d["min_pct"], d["max_pct"], verdict))
 
 
 def main():

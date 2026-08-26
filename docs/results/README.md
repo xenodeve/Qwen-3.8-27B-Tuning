@@ -81,6 +81,8 @@ know *why*, follow the link; if you only need to know *whether*, stop here.
 | Noise floor at **147,456** | **under 2 %** per arm across three boots | `dual-depth-147456.jsonl` |
 | Tuned Q4 on two cards vs served Q2 on one | **parity.** 32.4/33.9/32.3 against 32.1/32.0/32.0, ranges overlap. Before the split was tuned the same comparison said −34 % | both |
 | Can the tuned profile actually be started? | **yes** — `.\serve.ps1 -Dual`, booted end to end, 66/66 on the Meta device, `/health` ok, a real completion answered | `logs/dual-profile-boot-verify.log` |
+| decoder on the tuned dual config, ctx 147,456 | **`ngram-mod`, and it is the only one that works.** `none` is -13.3 % [-13.8, -13.1] with each arm spreading 2.1 %; **`draft-mtp` CANNOT LOAD under `-sm tensor`** -- `GGML_ASSERT(bufs.back() != nullptr)` in `ggml-backend-meta.cpp:1522` | `dual-decoder-147456.jsonl` |
+| the floor a verdict was compared against | **now printed.** `NOISE_FLOOR_PCT` is 13.6 -- Ada at ctx 16,384 -- and it called that tight -13.3 % "within noise". The constant is unchanged; the report states it and each arm's own spread, and names the third state | `harness.observed_spread_pct` |
 | Is `UD-Q4_K_XL` better than `UD-Q2_K_XL`? | **UNMEASURED HERE.** The only remaining argument for the switch, and it rests on an external ladder | — |
 
 

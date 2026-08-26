@@ -680,6 +680,53 @@ the benchmarked one is not the benchmarked configuration.
 over-large context *spills* and only the layer count says so. Here it is a hard
 load failure: at 262,144 `layer` spills one layer and `tensor` refuses to start.
 
+#### The decoder, on the tuned configuration at the served depth
+
+Measured on what the profile actually runs — `-sm tensor`, `-ub 1024`, both
+cards, ctx 147,456, `real-code-vendor`, three paired rounds rotated:
+
+| arm | tok/s | own spread | vs baseline |
+|---|---|---|---|
+| **`ngram-mod`** *(what the profile serves)* | [32.4, 32.6, 33.1] | 2.1 % | baseline |
+| `none` | [28.1, 28.1, 28.7] | 2.1 % | **−13.3 %** [−13.8, −13.1] |
+| `draft-mtp,ngram-mod` | — | — | **CANNOT LOAD** |
+
+**`draft-mtp` is incompatible with `-sm tensor`.** It aborts inside the
+aggregating backend, on every round:
+
+```
+C:\AI\llama.cpp\ggml\src\ggml-backend-meta.cpp:1522:
+GGML_ASSERT(bufs.back() != nullptr) failed
+```
+
+So the decoder question that [#44](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/44)
+holds open for the single-card profile **does not arise here**: on this split
+there is one speculative decoder that works, and it is worth 13 %.
+
+#### The verdict on that 13 % is where the reporting had to change
+
+The arena first printed it as *"within noise / inconsistent"* — for three
+rounds that agree to **2.1 %** with a sign that never moves. The cause is
+`NOISE_FLOOR_PCT = 13.6`, an **Ada figure from ctx 16,384**, and this very run
+had just measured the floor here at under 2 %.
+
+**The constant was not changed.** Every verdict in this folder was reached
+against 13.6, and moving it would silently re-interpret all of them. What
+changed is that the report now prints **the floor it applied and what each
+arm's own rounds actually spread**, and names the third state instead of
+collapsing it:
+
+```
+  floor applied: 13.6 % (NOISE_FLOOR_PCT, Ada @ ctx 16,384)
+  this run's baseline spread: 2.1 % over 3 rounds
+  none  [28.1, 28.1, 28.7]  spread 2.1 %  -13.3% [-13.8, -13.1]
+        clears this run's spread, not the applied floor
+```
+
+**An effect larger than anything this run's own arms did, and smaller than a
+floor imported from different hardware at a different depth, is neither noise
+nor resolved.** Calling it either is a claim the evidence does not support.
+
 #### `-mg` was not swept, and here is why
 
 `--main-gpu` selects the card "with split-mode = none, or for intermediate

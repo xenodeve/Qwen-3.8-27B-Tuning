@@ -110,6 +110,26 @@ WHY -ub 1024 AND NOT THE 256 THE SINGLE-CARD PROFILE SERVES
   -b stays at 2048. -ub above -b is silently clamped, so moving both together
   would make some arms identical to their neighbours with nothing saying which.
 
+WHY ngram-mod AND WHY draft-mtp IS NOT AN OPTION HERE
+
+  MEASURED on this exact configuration at ctx 147,456, three paired rounds:
+
+      ngram-mod            [32.4, 32.6, 33.1] tok/s   own spread 2.1 %
+      none                 [28.1, 28.1, 28.7]         -13.3 % [-13.8, -13.1]
+      draft-mtp,ngram-mod  CANNOT LOAD
+
+  draft-mtp aborts inside the aggregating backend on every attempt:
+
+      ggml-backend-meta.cpp:1522: GGML_ASSERT(bufs.back() != nullptr) failed
+
+  So the decoder question issue #44 holds open for the single-card profile does
+  not arise here: on this split there is one speculative decoder that works.
+
+  The -13.3 % was first reported as "within noise" because NOISE_FLOOR_PCT is
+  13.6 -- an Ada figure from ctx 16,384 -- while this run's own arms spread
+  2.1 %. The constant was not changed; the arena now prints the floor it
+  applied beside each arm's observed spread, and names that third state.
+
 --fit IS INERT HERE, AND THE FLAGS ARE STILL PASSED
 
   Boot log at verbosity 5, 2026-08-26:

@@ -459,6 +459,52 @@ def cache_reuse_pct(timings):
 
 
 NOISE_FLOOR_PCT = 13.6   # measured restart-to-restart peak-to-peak; report 04 s0
+#
+# THAT CONSTANT IS ADA, AT CTX 16,384, AND IT DOES NOT TRANSFER.
+# CLAUDE.md says so and CORRECTIONS 23 measured 48.9 % at 65,536 on the same
+# card. On 2026-08-26 the two-card machine measured UNDER 2 % at 147,456, and
+# the arena consequently printed
+#
+#     none  [28.1, 28.1, 28.7]  -13.3% [-13.8, -13.1]  within noise
+#
+# for an effect whose rounds agree to 2 % and whose sign never moves.
+#
+# The constant is NOT changed here. Every verdict in docs/results/ was reached
+# against 13.6, and moving it would silently re-interpret all of them. What is
+# added instead is the ability to SAY what a run's own arms actually spread, so
+# a reader can see when the applied floor is the thing doing the rejecting.
+
+
+def observed_spread_pct(rounds):
+    """Peak-to-peak spread of one arm's own rounds, as a percentage of its
+    minimum. None when there are fewer than two rounds.
+
+    None rather than 0.0 on purpose: one reading has no spread, and 0.0 reads
+    as "perfectly stable" -- the strongest possible claim from the weakest
+    evidence, which is the shape this project keeps catching.
+    """
+    vals = [v for v in (rounds or []) if v]
+    if len(vals) < 2:
+        return None
+    lo, hi = min(vals), max(vals)
+    return (hi - lo) / lo * 100.0
+
+
+def classify_against_floors(delta_pct, observed_spread_pct, floor_pct=NOISE_FLOOR_PCT):
+    """Which of the three states an effect is in, named rather than collapsed.
+
+    `paired_deltas` answers resolved / not-resolved against ONE floor. That
+    hides the case the two-card work ran into: an effect larger than anything
+    this run's own arms did, and smaller than a floor imported from different
+    hardware at a different depth. It is neither "noise" nor "resolved", and
+    calling it either is a claim the evidence does not support.
+    """
+    mag = abs(delta_pct)
+    if mag >= floor_pct:
+        return "resolved"
+    if observed_spread_pct is not None and mag > observed_spread_pct:
+        return "clears this run's spread, not the applied floor"
+    return "within noise"
 
 
 def paired_deltas(baseline_rounds, candidate_rounds, floor_pct=NOISE_FLOOR_PCT):
