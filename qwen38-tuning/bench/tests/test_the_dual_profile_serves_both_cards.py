@@ -637,3 +637,45 @@ def test_the_refusal_names_the_deepest_context_that_would_fit():
     t = read(DUAL)
     assert "deepest" in t.lower(), (
         "the refusal does not tell the developer what context would fit")
+
+
+def test_the_refusal_offers_the_micro_batch_as_well_as_a_smaller_context():
+    """MEASURED 2026-08-27. A ~135,000-token request through each depth:
+
+        ctx 147,456  ub 1024  SURVIVED  free after 2,100/2,097 -> 1,998/2,040
+        ctx 196,608  ub 1024  SURVIVED         1,436/1,258 -> 1,248/1,208
+        ctx 229,376  ub 1024  SURVIVED         1,156/  550 -> 1,071/  500
+        ctx 262,144  ub 1024  refused at load
+        ctx 229,376  ub  512  SURVIVED         1,312/1,010 -> 1,249/  974
+        ctx 262,144  ub  512  SURVIVED           919/  488 ->   821/  452
+
+    So n_ctx_train IS reachable -- by spending the compute buffer instead of
+    the context. Each card's compute buffer is about one -ub of MiB, so 1024 ->
+    512 hands back roughly 1,024 MiB across the pair, which is more than the
+    ~390 that 262,144 was short by.
+
+    Telling the developer only to cut the context hides the cheaper trade. The
+    prefill cost of ub 512 is about 3.5 % (938 against 971 tok/s, measured);
+    the context cost of dropping 262,144 to 237,568 is 24,576 tokens.
+    """
+    t = read(DUAL)
+    i = t.index("does not fit without spilling")
+    refusal = t[i:i + 2500]
+    assert "-UBatch" in refusal, (
+        "the refusal offers only a smaller -Ctx; halving -UBatch frees about "
+        "1,024 MiB across the pair and costs ~3.5 % of prefill")
+
+
+def test_the_profile_records_that_loading_is_not_surviving():
+    """262,144 with -ub 512 loaded, reported 66+0, answered /health -- and died
+    with `CUDA error: out of memory ... cuMemSetAccess` when a real request
+    arrived, because llama.cpp allocates more once there is work. A later run
+    of the same configuration survived with 488 MiB free on the second card
+    against the 336 of the one that died.
+
+    A guard that models load-time demand cannot promise a run. The file has to
+    say that, or the next reader reads a successful boot as a verdict."""
+    t = read(DUAL)
+    assert "cuMemSetAccess" in t or "loading is not surviving" in t.lower(), (
+        "the profile does not record that a successful load is not a "
+        "successful run")

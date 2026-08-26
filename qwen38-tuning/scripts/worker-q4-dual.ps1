@@ -271,6 +271,38 @@ WHY --sse-ping-interval IS 5 AND NOT llama.cpp's 30
   second SHORTER than the first, so the prefix had changed and nothing could be
   reused.
 
+LOADING IS NOT SURVIVING -- THE LADDER THAT SETTLED THE DEPTH
+
+  262,144 with -ub 512 loaded, reported 66+0, answered /health, and then died
+  the moment a real request arrived:
+
+      CUDA error: out of memory
+        current device: 1, in function alloc at ggml-cuda.cu:648
+        cuMemSetAccess(start_ptr, reserve_size, &access, 1)
+
+  llama.cpp allocates more once there is work to do, so a budget check that
+  models LOAD-TIME demand cannot promise a run. This one does not claim to.
+
+  So each depth was re-tested by pushing a ~135,000-token request through it,
+  and only a depth that ANSWERED counts. Measured 2026-08-27, free MiB shown as
+  display-card/other, after load then after the request:
+
+      ctx 147,456  ub 1024  SURVIVED   2,100/2,097 -> 1,998/2,040
+      ctx 196,608  ub 1024  SURVIVED   1,436/1,258 -> 1,248/1,208
+      ctx 229,376  ub 1024  SURVIVED   1,156/  550 -> 1,071/  500
+      ctx 262,144  ub 1024  refused at load
+      ctx 229,376  ub  512  SURVIVED   1,312/1,010 -> 1,249/  974
+      ctx 262,144  ub  512  SURVIVED     919/  488 ->   821/  452
+
+  n_ctx_train IS reachable, by spending the compute buffer instead of the
+  context. And note the run that died had 336 MiB free on the second card while
+  the one that survived had 488 -- the line is somewhere around there, and it
+  is close enough that the desktop decides which side of it you land on.
+
+  -Ctx 262144 -UBatch 512 is therefore possible, NOT comfortable. 147,456 at
+  -ub 1024 finishes a request with about 2,000 MiB on each card, and that is
+  the difference between a configuration that works and one that works today.
+
 HOW DEEP THE CONTEXT CAN GO, AND WHY THE ANSWER MOVES
 
   n_ctx_train is 262,144 and a ladder measured it fully resident. It is still
@@ -510,10 +542,23 @@ if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $demand
     Write-Host "FATAL: ctx $Ctx does not fit without spilling." -ForegroundColor Red
     Write-Host ("    needs {0:N0} MiB  =  {1:N0} weights + {2:N0} KV + {3:N0} compute" -f `
                 $demandMib, $WEIGHTS_MIB, $kvMib, $COMPUTE_MIB) -ForegroundColor Yellow
+    # Two ways out, and the cheaper one is usually the micro-batch. Each card's
+    # compute buffer is about one -ub of MiB, so halving it hands back roughly
+    # $UBatch MiB across the pair -- and prefill only loses about 3.5 % going
+    # from 1024 to 512, against 24,576 tokens of context for the other route.
+    $halfUb = [Math]::Max(256, [int]($UBatch / 2))
+    $freedByUb = $COMPUTE_MIB - (2 * $halfUb)
+    if ($halfUb -lt $UBatch -and ($total - ($demandMib - $freedByUb)) -ge 0) {
+        Write-Host ("    -UBatch {0} frees {1:N0} MiB and keeps ctx {2:N0}." -f `
+                    $halfUb, $freedByUb, $Ctx) -ForegroundColor Cyan
+        Write-Host ("    try:  -Ctx {0} -UBatch {1}" -f $Ctx, $halfUb) -ForegroundColor Cyan
+        Write-Host "    (prefill costs about 3.5 % per halving; measured 971 -> 938 tok/s)" -ForegroundColor DarkGray
+    }
     if ($fitsCtx -ge 4096) {
-        Write-Host ("    the deepest context this budget holds is about {0:N0}" -f $fitsCtx) -ForegroundColor Cyan
+        Write-Host ("    or keep -UBatch {0} and drop to about {1:N0} tokens" -f `
+                    $UBatch, $fitsCtx) -ForegroundColor Cyan
         Write-Host ("    try:  -Ctx {0}" -f $fitsCtx) -ForegroundColor Cyan
-    } else {
+    } elseif ($halfUb -ge $UBatch) {
         Write-Host "    the weights alone do not fit; close what is using the display card." -ForegroundColor Yellow
     }
     foreach ($r in $report) {
