@@ -592,6 +592,133 @@ recorded rather than rediscovered.
 `bench/ctx-ceiling-dual-q4-deep.jsonl`, and the `logs/dflash2-*-c16384-r*.log`
 each row names.*
 
+### Tuning the two-card configuration — measured 2026-08-26, issue [#52](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/52)
+
+Everything above ran llama.cpp's **defaults** for a multi-GPU machine. Not one
+multi-GPU lever had been swept. Four were, on `UD-Q4_K_XL`, three paired rounds
+each with the arms rotated and speculation off.
+
+#### The split — and it is the whole result
+
+| arm | ctx 16,384 | **ctx 147,456** |
+|---|---|---|
+| `layer` (llama.cpp default) | [21.1, 21.0, 19.9] | [17.1, 17.4, 17.4] |
+| **`-sm tensor`** | **[32.4, 33.9, 32.3]** | **[28.7, 28.7, 28.6]** |
+| | **+59.5 %** [+53.9, +62.9] | **+65.4 %** [+64.2, +67.3] |
+| `-ts 1,1` | [21.2, 21.9, 20.0] — **+1.8 %, noise** | not run |
+
+**The default split was leaving about 60 % on the table, and the effect is
+larger at the depth we serve, not smaller.** It also leaves more memory:
+**5,313 MiB free against `layer`'s 2,827** at 147,456.
+
+**The tensor-split *ratio* is not a lever here.** `-ts 1,1` against the
+free-VRAM default of 41:59 measured +1.8 % [+0.6, +4.1] — inside the floor,
+despite the cards being asymmetric in speed as well as size.
+
+**Noise floor at 147,456 on this machine: under 2 %** — 1.8 % for `layer`, 0.3 %
+for `tensor`, three boots each. That is the floor this depth needed;
+[§23](../reports/CORRECTIONS.md)'s 48.9 % was one card, a different corpus, and
+speculation on.
+
+> ⚠️ **`-sm tensor` is marked EXPERIMENTAL** in llama.cpp's own help: *"split
+> weights and KV across GPUs (parallelized, EXPERIMENTAL)"*. It is served here
+> on a measured +65 % with that status stated rather than hidden.
+
+**It was nearly thrown away.** `-sm tensor` aggregates the cards into a virtual
+device — *"creating a Meta device for tensor parallelism from 2 devices … 26241
+MiB free"* — and `parse_layer_split` did not know that token, so the first run
+voided **every** tensor row. The parser refusing rather than guessing is the
+only reason the number was ever seen. A parser that had counted `Meta` as CPU
+would have reported the fastest arm as spilled.
+
+#### The micro-batch — a prefill knob, and it is worth taking
+
+Decode does not move: 256 / 512 / 1024 measured **−1.1 %** and **−0.6 %**, both
+inside the floor. Prefill is a staircase, on the identical 6,621-token prompt:
+
+| `-ub` | 128 | **256** *(the single-card default)* | 512 | **1024** |
+|---|---|---|---|---|
+| tok/s | 820.4 / 822.9 | 870.9 / 892.3 / 884.4 | 920.5 / 937.1 / 956.9 | **973.0 / 968.9 / 972.5** |
+
+**+10.1 % for `-ub 1024`, and the ranges do not overlap.** 256 was chosen
+against one card; `-sm tensor` moves activations between the cards *inside*
+every layer rather than once per boundary, and the link carrying that is gen4
+**x4** on the 5060 Ti. A wider micro-batch amortises each transfer over more
+tokens.
+
+#### The KV type — free at 16,384, impossible at 147,456
+
+`q4_0` was never a preference; it bought residency. With 28 GB, `q8_0` looked
+affordable for the first time — and at ctx 16,384 it **cost nothing**:
+[35.0, 35.2, 36.0] against [34.9, 35.8, 35.9], **−0.3 %** [−1.7, +0.5], for
+128 MiB.
+
+At **147,456 it cannot load**:
+
+```
+ggml_backend_cuda_buffer_type_alloc_buffer: allocating 1024.30 MiB on
+device 0: cudaMalloc failed: out of memory
+```
+
+Device 0 is the 12 GB card. **`q4_0` stays.** This is the cleanest example in
+the project of a verdict not transferring across depth: not a smaller effect,
+not a reversed sign — **the configuration does not exist there.**
+
+#### `--fit` is inert under `-sm tensor`, and the flags are still passed
+
+```
+W common_fit_params: failed to fit params to free device memory:
+  llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort
+```
+
+`-ngl auto` still offloads — the same boot reports **66/66** on the Meta device
+and none on the CPU — but there is no automatic adjustment behind it. The flags
+remain because every measured row carries them, and an argv that differs from
+the benchmarked one is not the benchmarked configuration.
+
+**The consequence is a different failure mode, not a worse one.** On one card an
+over-large context *spills* and only the layer count says so. Here it is a hard
+load failure: at 262,144 `layer` spills one layer and `tensor` refuses to start.
+
+#### `-mg` was not swept, and here is why
+
+`--main-gpu` selects the card "with split-mode = none, or for intermediate
+results and KV with split-mode = row" — llama.cpp's own help. Neither applies:
+`none` is one card and `row` cannot load on this pair. **Not measured, not
+applicable, said rather than left blank.**
+
+#### What the profile serves, and what it was verified against
+
+`qwen38-tuning/scripts/worker-q4-dual.ps1`, reachable as `.\serve.ps1 -Dual`.
+
+**Booted end to end 2026-08-26**: 66/66 layers on the Meta device, none on the
+CPU, `/health` ok, and a real `/completion` answered in 58 tokens.
+
+| | value | why |
+|---|---|---|
+| artifact | `UD-Q4_K_XL` | 16.69 GiB; one 16 GB card spills 11 layers |
+| cards | both, by UUID | index 0 is the retired 4070 and `--main-gpu` defaults to it |
+| split | **`-sm tensor`** | +65.4 % at the served depth |
+| `-ub` | **1024** | +10.1 % prefill, no decode cost |
+| KV | `q4_0` | `q8_0` cannot load at 147,456 |
+| ctx | 147,456 | 66+0; the ceiling for this artifact is 229,376 |
+| decoder | `ngram-mod` | `draft-mtp`'s head is weights, and on a split model llama.cpp places them |
+
+**Against the single-card profile, at ctx 16,384 with speculation off: 32.4 /
+33.9 / 32.3 against `UD-Q2_K_XL`'s 32.1 / 32.0 / 32.0.** The ranges overlap.
+**A better artifact at the same rate**, which is not what the same comparison
+said before the split was tuned — see the retraction in the profile header.
+
+**Still not measured, and it is now the only thing left:** quality, on this
+project's own artifacts. Every argument for `UD-Q4_K_XL` over `UD-Q2_K_XL` rests
+on a bits-per-weight ladder and an external campaign, neither of which is our
+number.
+
+*Raw: `results/dual-split-16384.jsonl`, `results/dual-ubatch-16384.jsonl`,
+`results/dual-kv-16384.jsonl`, `results/dual-depth-147456.jsonl`,
+`bench/ctx-ceiling-dual-q4-tensor.jsonl`, and
+`logs/dual-profile-boot-verify.log` for the boot.*
+
 ### Every instrument here had to be repaired first
 
 `nvidia-smi --query-gpu=…` answers per card, so on 2026-08-26 eleven call sites

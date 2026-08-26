@@ -110,6 +110,29 @@ WHY -ub 1024 AND NOT THE 256 THE SINGLE-CARD PROFILE SERVES
   -b stays at 2048. -ub above -b is silently clamped, so moving both together
   would make some arms identical to their neighbours with nothing saying which.
 
+--fit IS INERT HERE, AND THE FLAGS ARE STILL PASSED
+
+  Boot log at verbosity 5, 2026-08-26:
+
+      W common_fit_params: failed to fit params to free device memory:
+        llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort
+
+  So `--fit on --fit-target 768` does NOTHING under -sm tensor. `-ngl auto`
+  still offloads -- the same boot reports 66/66 layers on the Meta device and
+  none on the CPU -- but there is no automatic adjustment behind it.
+
+  THE FLAGS STAY because every measured row in docs/results/ carries them, and
+  an argv that differs from the benchmarked one is not the benchmarked
+  configuration. What changes is that this is written down: a flag implying a
+  safety net it does not provide is precisely the shape CLAUDE.md's north star
+  names.
+
+  THE PRACTICAL CONSEQUENCE. On the single-card profile an over-large context
+  SPILLS -- --fit trims until it fits, and the layer count is the only field
+  that says so. Here it is a hard load failure instead. That is the better
+  failure of the two, and it is a DIFFERENT one: at 262,144 `layer` spills a
+  layer and `tensor` refuses to start.
+
 WHY THE CARDS ARE NAMED BY UUID
 
   `--main-gpu` defaults to 0, which on this machine is the RETIRED 4070 SUPER,

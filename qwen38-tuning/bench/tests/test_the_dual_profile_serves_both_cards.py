@@ -292,3 +292,34 @@ def test_the_two_profiles_may_disagree_on_ub_and_the_dual_says_why():
     assert "-ub 1024" in header and "10.1" in header, (
         "the dual profile diverges from the single-card -ub without stating "
         "the measurement that justifies it")
+
+
+def test_the_profile_says_fit_is_inert_under_tensor_split():
+    """`--fit on --fit-target 768` DOES NOTHING here, and the profile carries it.
+
+    Boot log, 2026-08-26, verbosity 5:
+
+        W common_fit_params: failed to fit params to free device memory:
+          llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort
+
+    The flags stay, because every measured row carries them and removing them
+    would make the argv differ from what was benchmarked. But a flag that
+    implies a safety net it does not provide is the exact shape this repo
+    exists to catch, so the file has to say so out loud: under -sm tensor there
+    is no automatic adjustment, and an over-large context is a hard load
+    failure rather than a quiet spill.
+
+    That is arguably the better failure -- CLAUDE.md's north star prefers a
+    crash to a plausible number -- but it is a DIFFERENT failure from the one
+    the single-card profile has, and the next reader must not assume otherwise.
+    """
+    t = read(DUAL)
+    assert "SPLIT_MODE_TENSOR" in t, (
+        "the profile carries --fit but never says llama.cpp aborts the fitting "
+        "step under -sm tensor")
+
+
+@needs_pwsh
+def test_the_dual_banner_does_not_promise_fit_will_adjust():
+    out = banner("-Dual")
+    assert "UD-Q4_K_XL" in out

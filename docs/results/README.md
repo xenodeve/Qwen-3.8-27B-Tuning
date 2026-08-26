@@ -67,6 +67,22 @@ know *why*, follow the link; if you only need to know *whether*, stop here.
 | Noise floor, two-card machine, ctx 16,384 | **under 0.8 %** per arm across three boots. Not transferable to depth ([CORRECTIONS 23](../reports/CORRECTIONS.md)) | all of the above |
 | Should the served profile move to Q4? | **UNDECIDED — the developer's call.** Costs about a third of raw decode; quality has never been measured here | — |
 
+**Tuned 2026-08-26, issue #52 — the two-card configuration, `UD-Q4_K_XL`:**
+
+| lever | verdict | raw |
+|---|---|---|
+| `-sm layer` vs **`-sm tensor`** | **tensor, +59.5 % at 16,384 and +65.4 % at 147,456** [+64.2, +67.3]. Also leaves 5,313 MiB free against 2,827. **EXPERIMENTAL in llama.cpp's own help** | `dual-split-16384.jsonl`, `dual-depth-147456.jsonl` |
+| `-ts` ratio | **no lever.** `-ts 1,1` against the free-VRAM default of 41:59 is +1.8 % [+0.6, +4.1], inside the floor | `dual-split-16384.jsonl` |
+| `-sm row` | **cannot load.** `device CUDA0 does not support split buffers` | `logs/dflash2-both-row-*.log` |
+| `-ub` 128 / 256 / 512 / **1024** | **1024.** Decode flat; **prefill +10.1 %**, ranges do not overlap | `dual-ubatch-16384.jsonl` |
+| KV `q4_0` vs `q8_0` | **q4_0 stays.** q8_0 is free at 16,384 (−0.3 %) and **cannot load at 147,456** — `cudaMalloc failed: out of memory` on the 12 GB card | `dual-kv-16384.jsonl` |
+| `-mg` | **not applicable.** It selects a card for `-sm none` or `-sm row`; neither is in play | llama.cpp `--help` |
+| `--fit` under `-sm tensor` | **inert.** `llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort`. `-ngl auto` still gives 66/66 | `logs/dual-profile-boot-verify.log` |
+| Noise floor at **147,456** | **under 2 %** per arm across three boots | `dual-depth-147456.jsonl` |
+| Tuned Q4 on two cards vs served Q2 on one | **parity.** 32.4/33.9/32.3 against 32.1/32.0/32.0, ranges overlap. Before the split was tuned the same comparison said −34 % | both |
+| Can the tuned profile actually be started? | **yes** — `.\serve.ps1 -Dual`, booted end to end, 66/66 on the Meta device, `/health` ok, a real completion answered | `logs/dual-profile-boot-verify.log` |
+| Is `UD-Q4_K_XL` better than `UD-Q2_K_XL`? | **UNMEASURED HERE.** The only remaining argument for the switch, and it rests on an external ladder | — |
+
 
 ---
 
