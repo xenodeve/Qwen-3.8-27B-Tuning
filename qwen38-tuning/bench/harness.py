@@ -96,7 +96,13 @@ def parse_layer_split(log_text, total=None, expect_layers=None):
     used; a size no pass has raises rather than falling back to another pass.
 
     (\w+) rather than (\S+) because the device token carries a trailing comma
-    ("CUDA0,"), which made an exact == "CPU" comparison match nothing.
+    ("CUDA0,"), which made an exact == "CPU" comparison match nothing. The same
+    pattern is why `Meta()` arrives as `Meta`.
+
+    THREE device tokens are possible, not two. `-sm tensor` aggregates the cards
+    into a virtual `Meta` device and assigns every layer to it; a layer there is
+    resident. Anything else still raises, which is how this function reported
+    `-sm tensor` as unreadable rather than guessing at it.
     """
     passes = _assignment_passes(log_text)
     devices = [d for p in passes for d in p]
@@ -111,7 +117,14 @@ def parse_layer_split(log_text, total=None, expect_layers=None):
         last = matching[-1]
     else:
         last = passes[-1] if total is None else devices[-total:]
-    gpu = sum(1 for d in last if d.startswith("CUDA"))
+    # "Meta" is `-sm tensor`: llama.cpp logs "creating a Meta device for tensor
+    # parallelism from 2 devices" and assigns every layer to `Meta()`, which is
+    # the two cards aggregated. A layer there is ON the GPUs. The parser refused
+    # such a log on 2026-08-26 -- "unexpected devices: ['Meta']" -- and that was
+    # the right refusal: it did not know what the token meant and said so rather
+    # than counting it as CPU, which would have reported a fully resident model
+    # as spilled (issue #52).
+    gpu = sum(1 for d in last if d.startswith("CUDA") or d.startswith("Meta"))
     cpu = sum(1 for d in last if d == "CPU")
     if gpu + cpu != len(last):
         raise ValueError(

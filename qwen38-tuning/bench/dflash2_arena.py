@@ -330,6 +330,35 @@ ARM_SETS = {
         ("both-nospec", [], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- issue #52 stage 1: how should the model be divided? ----------------
+    #
+    # #51 ran llama.cpp's DEFAULTS and stopped there. The default splits by free
+    # VRAM -- measured 41:59 -- and these two cards are asymmetric in SPEED as
+    # well as size: the 4070 SUPER does 0.798 ms per prefill token against the
+    # 5060 Ti's 1.517 (results/09-hardware.md). A capacity-proportional split
+    # therefore hands MORE work to the SLOWER card, which is not obviously right
+    # and has never been tested.
+    #
+    # `-ts 1,1` is the smallest honest alternative: an even split moves ~8.35
+    # GiB of a 16.69 GiB artifact onto each card, which the 4070's 11,069 MiB
+    # free accommodates, and it shifts work toward the faster chip.
+    #
+    # `-sm tensor` is a mode this project has never run at all. The help calls
+    # it "split weights and KV across GPUs (parallelized, EXPERIMENTAL)" -- a
+    # different trade from `layer`'s pipeline. `-sm row` is NOT here: it cannot
+    # load on this pair ("device CUDA0 does not support split buffers").
+    #
+    # Speculation is off in all three for the reason CORRECTIONS 32 gives at
+    # length: the split changes the reduction order, which changes the logits,
+    # which changes the text -- and a speculative rate is partly a measure of
+    # how predictable the text is. Prefill is read separately from the log,
+    # where the prompt is identical across arms and the confound cannot reach.
+    "dual-split": [
+        ("layer-default-base", [], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("split-tensor", ["-sm", "tensor"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ts-even", ["-ts", "1,1"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),

@@ -120,3 +120,42 @@ def test_free_vram_is_summed_over_the_cards_the_arm_actually_uses():
 
 def test_free_vram_with_no_arm_env_describes_the_served_card():
     assert A.free_for_env({}) == gpu_device.free_vram()
+
+
+def test_the_split_set_compares_modes_and_ratios_without_speculation():
+    """Issue #52 stage 1.
+
+    Every arm runs on BOTH cards and differs only in how the model is divided
+    between them. Speculation stays off for the reason CORRECTIONS 32 gives:
+    on a split model the generated text changes with the split, so a
+    speculative rate measures the text as well as the arm.
+    """
+    arms = A.ARM_SETS["dual-split"]
+    both = OTHER + "," + gpu_device.SERVED_GPU_UUID
+    for arm in arms:
+        label, extra, env = A.arm_parts(arm)
+        assert env.get("CUDA_VISIBLE_DEVICES") == both, \
+            f"{label} is not running on both cards; it cannot be a split arm"
+        assert "--spec-type" not in extra, \
+            f"{label} speculates; see CORRECTIONS 32"
+    modes = {tuple(A.arm_parts(a)[1]) for a in arms}
+    assert len(modes) == len(arms), "two arms in the split set are identical"
+
+
+def test_the_split_set_names_a_baseline_report_will_actually_pick():
+    """report() selects by the '-base' suffix and otherwise takes the first arm
+    ALPHABETICALLY, which silently decides what every delta is measured from."""
+    labels = [A.arm_parts(a)[0] for a in A.ARM_SETS["dual-split"]]
+    assert sum(l.endswith("-base") for l in labels) == 1, \
+        f"exactly one arm must carry '-base'; got {labels}"
+
+
+def test_the_split_baseline_is_the_llama_cpp_default():
+    """The question is what to change FROM. If the baseline were one of the
+    overrides, a null result would read as 'the default is fine' while never
+    having run it."""
+    base = next(a for a in A.ARM_SETS["dual-split"]
+                if A.arm_parts(a)[0].endswith("-base"))
+    extra = A.arm_parts(base)[1]
+    assert "-ts" not in extra and "-sm" not in extra, \
+        f"the baseline overrides the split it is supposed to be a control for: {extra}"

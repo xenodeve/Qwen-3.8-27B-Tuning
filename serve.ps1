@@ -41,6 +41,10 @@
 .PARAMETER AllowFirewall
     Add the inbound rule, through a UAC prompt. Separate from -Lan on purpose.
 
+.PARAMETER Dual
+    Serve UD-Q4_K_XL across both cards instead of UD-Q2_K_XL on one. Costs about
+    a third of raw decode and ~130 W for an artifact one card cannot hold.
+
 .PARAMETER Device
     Which GPU, as a UUID. Empty means "whatever the profile serves", which is
     where the default lives -- this script holds no serving configuration.
@@ -69,6 +73,15 @@ param(
     # subnet -- because those are what was asked for, and a rule wider than the
     # request is a rule nobody granted.
     [switch]$AllowFirewall,
+    # Serve UD-Q4_K_XL across BOTH cards instead of UD-Q2_K_XL on one.
+    # OFF by default and it is not a performance switch: it trades about a third
+    # of raw decode (20.9 vs 32.0 tok/s, ctx 16,384, speculation off) for an
+    # artifact 16.69 GiB in size that one 16 GB card cannot hold at any depth,
+    # and it draws roughly 130 W more. Quality is the whole reason to pay that
+    # and this project has never measured it on its own artifacts.
+    # Which profile is the default is the developer's call, so neither is
+    # implied by the other. Issue #52.
+    [switch]$Dual,
     # WHICH CARD, when you want one other than the served default. Deliberately
     # EMPTY here rather than carrying the UUID: this script holds no serving
     # flag, so that a measured row and a served session cannot diverge by
@@ -89,7 +102,11 @@ $ErrorActionPreference = 'Stop'
 # being removed by the thing forwarding them.
 if ($PSStyle) { $PSStyle.OutputRendering = 'Ansi' }
 
-$profileScript = Join-Path $PSScriptRoot 'qwen38-tuning\scripts\worker-q2kxl-mtp.ps1'
+# The launcher SELECTS a profile; it never carries one's flags. Both files hold
+# their own defaults, so a measured row and a served session cannot diverge by
+# someone editing this script (pinned by bench/tests/test_serve_entrypoint.py).
+$profileName   = if ($Dual) { 'worker-q4-dual.ps1' } else { 'worker-q2kxl-mtp.ps1' }
+$profileScript = Join-Path $PSScriptRoot "qwen38-tuning\scripts\$profileName"
 $logDir        = Join-Path $PSScriptRoot 'qwen38-tuning\logs'
 $base          = "http://127.0.0.1:$Port"
 
@@ -158,17 +175,42 @@ public static class KillOnClose {
 
 # ---- what this is, and what is still open ------------------------------------
 Write-Host ""
-Write-Host "Qwen3.8-27B on RTX 5060 Ti 16 GB -- the configuration the evidence supports" -ForegroundColor Cyan
+if ($Dual) {
+    Write-Host "Qwen3.8-27B UD-Q4_K_XL across BOTH cards -- 16.69 GiB, resident to 229,376" -ForegroundColor Cyan
+} else {
+    Write-Host "Qwen3.8-27B on RTX 5060 Ti 16 GB -- the configuration the evidence supports" -ForegroundColor Cyan
+}
 Write-Host "  profile   $profileScript"
 Write-Host ""
-Write-Host "  artifact  UD-Q2_K_XL. An external ladder puts a 10-point cliff between this"
-Write-Host "            and UD-IQ2_XXS. OUR OWN quality number for it does not exist."
-Write-Host "  window    147,456, boot-verified fully resident. Real use has reached 85,923."
-Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
-Write-Host "            low costs six. NEVER MEASURED on any artifact here."
-Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
-Write-Host "            and q8_0 for flash attention (issue #43)."
-Write-Host "  draft     3, the default. 7 was measured at -56 % on the MTP head."
+
+# The description branches with the profile. It used to be one unconditional
+# block, and `-Dual -WhatIf` printed "artifact UD-Q2_K_XL" underneath a line
+# that had just selected worker-q4-dual.ps1 -- a launcher stating something
+# false about the run it was introducing, which is the failure shipped once
+# already (commit b55699c: it printed that closing the window stops the server,
+# and it did not). Pinned by test_the_dual_profile_serves_both_cards.py.
+if ($Dual) {
+    Write-Host "  artifact  UD-Q4_K_XL, 16.69 GiB. ONE 16 GB card cannot hold it at any"
+    Write-Host "            depth -- it spills 11 layers and decodes 11.7 tok/s against 20.9."
+    Write-Host "            OUR OWN quality number for it does not exist either."
+    Write-Host "  window    147,456, boot-verified 66+0 across both cards."
+    Write-Host "            The residency ceiling for this artifact is 229,376."
+    Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
+    Write-Host "            low costs six. NEVER MEASURED on any artifact here."
+    Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
+    Write-Host "            and q8_0 for flash attention (issue #43)."
+    Write-Host "  decoder   ngram-mod. draft-mtp is NOT set here: its head is weights, and on"
+    Write-Host "            a split model llama.cpp decides which card holds them."
+} else {
+    Write-Host "  artifact  UD-Q2_K_XL. An external ladder puts a 10-point cliff between this"
+    Write-Host "            and UD-IQ2_XXS. OUR OWN quality number for it does not exist."
+    Write-Host "  window    147,456, boot-verified fully resident. Real use has reached 85,923."
+    Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
+    Write-Host "            low costs six. NEVER MEASURED on any artifact here."
+    Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
+    Write-Host "            and q8_0 for flash attention (issue #43)."
+    Write-Host "  draft     3, the default. 7 was measured at -56 % on the MTP head."
+}
 
 # WHICH CARD, read from the driver rather than asserted. Two GPUs have been
 # installed since 2026-08-26 and the retired 4070 SUPER enumerates FIRST, so a
@@ -177,18 +219,28 @@ Write-Host "  draft     3, the default. 7 was measured at -56 % on the MTP head.
 . (Join-Path $PSScriptRoot 'qwen38-tuning\scripts\Get-GpuVram.ps1')
 $installed = @(Get-InstalledGpu)
 if ($installed.Count -gt 1) {
-    Write-Host ("  gpu       {0} cards installed; this uses one of them" -f `
-                $installed.Count) -ForegroundColor Cyan
+    $using = if ($Dual) { "this uses both" } else { "this uses one of them" }
+    Write-Host ("  gpu       {0} cards installed; {1}" -f `
+                $installed.Count, $using) -ForegroundColor Cyan
     foreach ($card in $installed) {
-        $mark = if ($card.Uuid -eq $script:ServedGpuUuid) { '->' } else { '  ' }
+        $inUse = $Dual -or ($card.Uuid -eq $script:ServedGpuUuid)
+        $mark  = if ($inUse) { '->' } else { '  ' }
         Write-Host ("            {0} {1}" -f $mark, $card.Name) -ForegroundColor DarkGray
     }
 }
 Write-Host ""
+if ($Dual) {
+Write-Host "  OPEN: nothing here was measured at 147,456." -ForegroundColor Yellow
+Write-Host "        Every dual-GPU figure is ctx 16,384, and CORRECTIONS 23 says the" -ForegroundColor Yellow
+Write-Host "        spread can be several times wider at depth. Issue #52." -ForegroundColor Yellow
+Write-Host "        This trades about a third of raw decode for quality nobody" -ForegroundColor Yellow
+Write-Host "        has measured on this project's own artifacts." -ForegroundColor Yellow
+} else {
 Write-Host "  OPEN: the draft-mtp half of the decoder is under question." -ForegroundColor Yellow
 Write-Host "        Forced at 147,456, removing it is worth +15.6 % and 1,490 MiB." -ForegroundColor Yellow
 Write-Host "        The one natural round, at 98,304, says keeping it is worth +127 %." -ForegroundColor Yellow
 Write-Host "        Two variables moved between those numbers. Issues #44 and #47." -ForegroundColor Yellow
+}
 Write-Host ""
 
 # Both asked of the PROFILE, not declared here. LogColors='on' because this

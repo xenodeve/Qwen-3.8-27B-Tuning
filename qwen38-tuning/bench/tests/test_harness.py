@@ -1139,3 +1139,39 @@ def test_a_trace_stuck_on_one_thought_scores_high():
     # What looping would actually look like, for contrast.
     stuck = ("Wait, let me reconsider.\nActually that is wrong.\n") * 6
     assert line_repetition_pct(stuck) > 80.0
+
+
+# --------------------------------------------------------------- -sm tensor
+
+TENSOR_SPLIT_LOG = """
+0.00.367.151 I llama_prepare_model_devices: creating a Meta device for tensor parallelism from 2 devices:
+0.00.367.578 I llama_prepare_model_devices: using device Meta() (Meta()) (unknown id) - 26241 MiB free
+0.00.567.440 D load_tensors: layer   0 assigned to device Meta(), is_swa = 0
+0.00.567.441 D load_tensors: layer   1 assigned to device Meta(), is_swa = 0
+0.00.567.442 D load_tensors: layer   2 assigned to device Meta(), is_swa = 0
+"""
+
+TENSOR_SPLIT_SPILLED = TENSOR_SPLIT_LOG + (
+    "0.00.567.443 D load_tensors: layer   3 assigned to device CPU, is_swa = 0\n")
+
+
+def test_a_meta_device_counts_as_resident():
+    """`-sm tensor` aggregates the cards into one virtual device.
+
+    llama.cpp logs `creating a Meta device for tensor parallelism from 2
+    devices` and then assigns every layer to `Meta()`. On 2026-08-26 the parser
+    refused the row -- "layer split 0+0 does not account for 66 lines;
+    unexpected devices: ['Meta']" -- which was the RIGHT failure: it did not
+    know what Meta meant and said so instead of guessing.
+
+    A layer on the Meta device is on the GPUs. It is not on the CPU, and
+    counting it as CPU would report a fully resident model as spilled, which is
+    the same wrong verdict in the other direction.
+    """
+    assert parse_layer_split(TENSOR_SPLIT_LOG) == (3, 0)
+
+
+def test_a_meta_device_still_reports_a_spill():
+    """The whole point of reading this at all. If Meta made the parser stop
+    distinguishing, `-sm tensor` would report 66+0 whatever happened."""
+    assert parse_layer_split(TENSOR_SPLIT_SPILLED) == (3, 1)
