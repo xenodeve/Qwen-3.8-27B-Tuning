@@ -56,6 +56,14 @@ disk moved and no measured row means anything different.
 
 From a terminal, the same six with flags:
 
+**To reach the model's full 262,144 native context**, which no launcher does by
+default, call the profile directly — it costs about 3.5 % of prefill and leaves
+only ~450 MiB spare against ~2,000 at the default depth:
+
+```powershell
+& .\qwen38-tuning\scripts\worker-q4-dual.ps1 -Ctx 262144 -UBatch 512
+```
+
 ```powershell
 .\serve.ps1                          # one card, loopback
 .\serve.ps1 -Lan -AllowFirewall      # one card, exposed

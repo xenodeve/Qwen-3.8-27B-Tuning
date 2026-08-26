@@ -67,6 +67,26 @@ know *why*, follow the link; if you only need to know *whether*, stop here.
 | Noise floor, two-card machine, ctx 16,384 | **under 0.8 %** per arm across three boots. Not transferable to depth ([CORRECTIONS 23](../reports/CORRECTIONS.md)) | all of the above |
 | Should the served profile move to Q4? | **UNDECIDED — the developer's call.** Costs about a third of raw decode; quality has never been measured here | — |
 
+**Arm sets in `bench/dflash2_arena.py` added for the two-card work.** Named here
+so nobody rebuilds one that exists — `--arms <name>`:
+
+| set | what it compares | answered |
+|---|---|---|
+| `dual-gpu` | one card vs both, `ngram-mod`, layer split | yes — and its decode figure is [retracted](../reports/CORRECTIONS.md) §32 |
+| `dual-gpu-nospec` | the same with speculation **off**, so the rate cannot follow the text | yes, **+1.5 %** |
+| `dual-split` | `layer` vs `-sm tensor` vs `-ts 1,1` | yes, **tensor +59.5 %** |
+| `dual-ubatch` | `-ub` 128 / 256 / 512 / 1024 on the tensor split | yes, **1024, +10.1 % prefill** |
+| `dual-kv` | `q4_0` vs `q8_0` KV on the tensor split | yes, **q4_0 — q8_0 cannot load at depth** |
+| `dual-depth` | the split, at the served 147,456 | yes, **tensor +65.4 %** |
+| `dual-decoder` | `ngram-mod` vs none vs `draft-mtp` at depth | yes, **ngram-mod; MTP needed the computed `-ts`** |
+| `dual-drafter` | tensor+`ngram` vs layer+`DFlash2` vs layer+`ngram` | yes, **tensor −29.2 % over layer; DFlash2 fails at depth** |
+| `dual-mtp` | `ngram-mod` vs `draft-mtp,ngram-mod` vs none, on the served config | **partly — MTP voided, it copies the prompt** |
+
+**Instrument added the same week:** `bench/gpu_device.py` and
+`scripts/Get-GpuVram.ps1` are the only two places that ask the driver about a
+GPU, pinned by UUID; a test forbids `--query-gpu` anywhere else. See
+[CORRECTIONS §33](../reports/CORRECTIONS.md).
+
 **Tuned 2026-08-26, issue #52 — the two-card configuration, `UD-Q4_K_XL`:**
 
 | lever | verdict | raw |

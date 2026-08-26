@@ -23,7 +23,7 @@ session can recover state without re-deriving it.
    and later contradicted with its own data. **Read it before quoting any number.**
 3. **`docs/agents/traps.md`** — the ways of WORKING that failed here. Corrections
    tells you which figures to distrust; this tells you which of your own
-   instincts to. **Thirteen of its fifteen traps produced a plausible number rather
+   instincts to. **Fifteen of its nineteen traps produced a plausible number rather
    than an error.**
 4. **`docs/results/README.md`** — the register: has X been tried, what happened.
 5. **`docs/reports/START-HERE.md`** — the narrative, if you need the why.
@@ -177,7 +177,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 30 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
    ด้วยข้อมูลตัวเอง **อ่านก่อนยกตัวเลขไหนไปใช้**
 3. **`docs/agents/traps.md`** — *วิธีทำงาน* ที่เคยพลาดที่นี่ CORRECTIONS บอกว่าตัวเลขไหน
-   ห้ามเชื่อ ส่วนอันนี้บอกว่าสัญชาตญาณข้อไหนของตัวเองห้ามเชื่อ **สิบสามจากสิบห้ากับดักในนั้น
+   ห้ามเชื่อ ส่วนอันนี้บอกว่าสัญชาตญาณข้อไหนของตัวเองห้ามเชื่อ **สิบห้าจากสิบเก้ากับดักในนั้น
    คืนตัวเลขที่ดูสมเหตุสมผลออกมา ไม่ได้แจ้งความผิดพลาด**
 4. **`docs/results/README.md`** — ทะเบียนว่าอะไรถูกทดสอบแล้ว ผลเป็นอะไร
 5. **`docs/reports/START-HERE.md`** — เรื่องเล่าทั้งหมด ถ้าต้องการรู้ว่าทำไม

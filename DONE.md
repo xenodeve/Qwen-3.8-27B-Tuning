@@ -9,6 +9,128 @@ hundred lines.
 
 ---
 
+## 2026-08-25 → 27 — a second GPU, a profile that ran 85× slow, and the four times a launcher lied
+
+**Shipped on `build/blackwell-sm120`, ~20 commits, all pushed, nothing merged.**
+Issues [#50](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/50),
+[#51](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/51),
+[#52](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/52) — all left open.
+Tests **507 → 734**.
+
+### The launcher, before any of it
+
+`serve.ps1` plus **six** double-click launchers, on two independent axes: one
+card or two, loopback or exposed, and now a `mtp` pair. Each holds **no serving
+flag** — the profile owns them all. One window means one server: a Win32 job
+object with `KILL_ON_JOB_CLOSE`, verified by killing the launcher and watching
+the server go with it. Nothing stands between llama.cpp and the console, which
+is why colour survives.
+
+### A second card arrived, and every instrument was wrong
+
+The retired **RTX 4070 SUPER 12 GB** went back in beside the 5060 Ti.
+`nvidia-smi --query-gpu` answers **per card**, so eleven call sites began
+reading something other than what they claimed — and the two languages failed
+differently. **Python raised** (`ValueError` on a two-line answer, loud, safe).
+**PowerShell did not**: `-split` returned four elements and `[0]`/`[1]` became
+the *4070's* numbers, so `Show-ServerStatus.ps1` would have reported the model
+resident on a card with nothing loaded on it.
+
+One chokepoint per language — `bench/gpu_device.py`, `scripts/Get-GpuVram.ps1` —
+pinned by **UUID, not index**, and a test forbids `--query-gpu` anywhere else.
+[CORRECTIONS §33](docs/reports/CORRECTIONS.md).
+
+### What two cards bought
+
+`UD-Q4_K_XL` is 16.69 GiB and had been refused on one 16 GB card at every depth.
+Across two it is resident to **262,144 — `n_ctx_train`**. The second card is
+worth **+79.9 %** to it, because on one card it spills eleven layers.
+
+Then the levers, none of which had ever been swept:
+
+| lever | verdict |
+|---|---|
+| `-sm tensor` | **+59.5 %** at 16,384 and **+65.4 %** at 147,456 over the default `layer` |
+| `-ts` ratio | **not a lever in `layer`, decisive in `tensor`** — see below |
+| `-ub` | **1024**, +10.1 % prefill, decode flat |
+| KV `q8_0` | free at 16,384, **cannot load at 147,456** |
+| `-sm row` | cannot load: `device CUDA0 does not support split buffers` |
+| `-mg` | not applicable — it scopes to `none`/`row` |
+
+### The profile shipped, and then ran at 0.38 tok/s
+
+`serve-dual-lan.bat` decoded at **0.38 tok/s** against the 32.4 it advertised.
+**`-sm tensor` splits EVENLY when given no ratio** (`llama-model.cpp:707`), the
+cards are 12 GB against 16, and **the 12 GB card draws the display** — leaving
+**+317 MiB**. The driver paged to host memory and every token went through PCIe.
+
+**Two of this project's own claims caused it**, both retracted the day they were
+written ([CORRECTIONS §33](docs/reports/CORRECTIONS.md)): *"`-ts` is not a
+lever"* (measured under `layer`, generalised) and *"`--fit` being inert makes it
+a hard load failure"* (**reasoned from the word `abort` in a log line** — it is
+a silent spill).
+
+**Fixed by computing `-ts` at launch** from measured free VRAM minus a reserve
+on whichever card holds memory, and by **refusing** when the budget cannot hold
+the run. After: **25.8 / 42.7 / 78.3 tok/s, both cards at 95 %**.
+
+### Then the guard was wrong twice more
+
+It compared the budget against the **weights alone**, so it approved every
+context — including 262,144, which OOM'd. Fixed to count KV(ctx) and
+compute(ub), and to name what *would* fit.
+
+And a **successful load is not a successful run**: 262,144 at `-ub 512` loaded,
+reported `66+0`, answered `/health`, then died on the first real request with
+`cuMemSetAccess ... out of memory`. Every depth was re-tested with a **135,233
+token** request, counting only depths that answered.
+**`-Ctx 262144 -UBatch 512` survives** — with 452 MiB spare, against 2,000 at
+147,456. [`traps.md`](docs/agents/traps.md) 18.
+
+### Speculative decoders, and one claim that was too strong
+
+`draft-mtp` **does** run under `-sm tensor` — this project recorded otherwise
+and an outside review prompted the probe that disproved it. Only a drafter
+loaded from a separate file fails, and **the two failures raise different
+assertions**: `ggml-backend-meta.cpp:1522` (buffer alloc, OOM-shaped) against
+`:543` (graph split axis, at negligible memory pressure).
+
+`DFlash2` on the **layer** split at 16,384 is **42.26 / 43.65 tok/s — the
+fastest configuration measured anywhere in this work** — and unavailable at the
+depth we serve. MTP has **no usable rate**: every paired round was voided
+because the generations copy the prompt.
+
+### Serving, as the developer met it
+
+- **The model announces itself** as `Qwen3.8-27B-Q4_K_XL` / `-Q2_K_XL`, not
+  `qwen38`. The survey found `bench/edit_canary.py` — the only client naming a
+  model — would have broken.
+- **`Waiting for API response` is prefill, not thinking.** `stream:false` shows
+  nothing for 59.4 s; `return_progress` streams a percentage from 1.4 s but is a
+  **request** field the client must send. `--sse-ping-interval` 30 → **5**.
+- **The firewall is wider than the rule we wrote**: two `Query User` popup rules
+  allow any port from any remote on Public, and every adapter here is Public.
+  **Nothing narrowed — the developer's call.**
+  [`05-OPERATING-GUIDE`](docs/reports/05-OPERATING-GUIDE.md) §3b.
+
+### What this cost in method
+
+**Four launcher lies, all found by running it, none by reading it**
+([`traps.md`](docs/agents/traps.md) 17). **Eight assertions that measured the
+shape of a file**, two of them green for the wrong reason — one for days
+([`traps.md`](docs/agents/traps.md) 16). And the arena **retried an impossible
+arm three times per sweep** until the developer asked why
+([`traps.md`](docs/agents/traps.md) 19).
+
+### Left open on purpose
+
+**Quality.** Every argument for `UD-Q4_K_XL` over `UD-Q2_K_XL` rests on a
+bits-per-weight ladder and an external campaign; **neither is our number**, and
+this project has never measured quality on its own artifacts. No default
+changed — both profiles ship.
+
+---
+
 ## 2026-08-24 (second half) — two forum posts, a compile flag nobody could reach, and a measurement that still will not resolve
 
 **Shipped on `build/blackwell-sm120`, 7 commits, PR #42, none merged.** Issues

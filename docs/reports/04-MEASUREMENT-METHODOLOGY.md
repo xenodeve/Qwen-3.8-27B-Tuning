@@ -293,3 +293,81 @@ The principle: **a constant that does not scale with the thing it bounds is not
 a bound, it is a coincidence.** `3600` was never chosen against a measured
 prefill rate, and `5` was never chosen against a measured release time. Both
 held for weeks because no arm had yet been slow enough to test them.
+
+---
+
+## 9. The floor a verdict was compared against — 2026-08-27
+
+`harness.paired_deltas` calls an effect **resolved** when it clears
+`NOISE_FLOOR_PCT` and keeps its sign. That constant is **13.6**, and it is
+**Ada, at ctx 16,384** — a figure `CLAUDE.md` already says does not transfer,
+and which `CORRECTIONS.md` §23 measured at **48.9 %** at 65,536 on the same
+card.
+
+**On the two-card machine at 147,456 the real floor is under 2 %.** So the
+arena printed this, for three rounds agreeing to 2.1 % with a sign that never
+moves:
+
+```
+none  [28.1, 28.1, 28.7]  -13.3% [-13.8, -13.1]  within noise / inconsistent
+```
+
+**That is a real effect being rejected by an imported constant.**
+
+### What changed, and what deliberately did not
+
+**`NOISE_FLOOR_PCT` was not moved.** Every verdict in `docs/results/` was
+reached against 13.6, and changing it would silently re-interpret all of them —
+the same failure as editing an artifact path instead of adding an override.
+
+What was added is the ability to *see* the comparison. `report()` now prints the
+floor it applied and what each arm's own rounds actually spread:
+
+```
+floor applied: 13.6 % (NOISE_FLOOR_PCT, Ada @ ctx 16,384)
+this run's baseline spread: 2.1 % over 3 rounds
+none  [28.1, 28.1, 28.7]  spread 2.1 %  -13.3% [-13.8, -13.1]
+      clears this run's spread, not the applied floor
+```
+
+**`classify_against_floors` names a third state.** An effect larger than
+anything this run's own arms did, and smaller than a floor imported from other
+hardware at another depth, is **neither noise nor resolved**. Calling it either
+is a claim the evidence does not support.
+
+A sign that flips across rounds is still called out separately, because no floor
+helps that.
+
+**`observed_spread_pct` returns `None` for a single round, not `0.0`.** One
+reading has no spread, and `0.0` reads as *perfectly stable* — the strongest
+claim available from the weakest evidence, which is the shape this project keeps
+catching.
+
+### The rule for the next measurement
+
+**Report the floor you used beside the spread you observed.** A verdict is only
+as good as what it was compared against, and a floor carried in from another
+machine is a premise, not a measurement.
+
+---
+
+## 10. An arm that cannot load is tried once — 2026-08-27
+
+A sweep booted a failing arm again in every round. `layer-dflash-ngram` died in
+about a second with `dflash requires ctx_other to be set`, and each retry cost a
+boot plus a full VRAM-release wait for an outcome fixed by the argv.
+
+**The dead set is per depth and per regime, never global.** A failure that is a
+*capability* does not change between identical rounds; one that is a *resource*
+can, and this project has both — `draft-dflash` under `-sm tensor` fails at a
+graph-split assertion at any memory pressure, while `draft-mtp` at 147,456
+failed on the even split and loads on the computed one. Inheriting a verdict
+across depths would have skipped `draft-dflash` on the layer split at 16,384,
+which is the fastest configuration measured anywhere in this work.
+
+**A skipped round still writes a row**, carrying the reason llama.cpp gave.
+Omitting it makes an impossible arm look *unpaired* — `report()` prints
+`NOT PAIRED (1 vs 3 rounds)` and the reader concludes the sweep was interrupted.
+
+*See also [`traps.md`](../agents/traps.md) 19.*
+
