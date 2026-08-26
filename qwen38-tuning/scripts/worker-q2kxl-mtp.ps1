@@ -18,6 +18,43 @@ WHY THIS ARTIFACT
   UNMEASURED HERE: this artifact has no task-success number on this machine. One
   real task was run on it and did not finish; so did one on IQ2_XXS.
 
+WHY --sse-ping-interval IS 5 AND NOT llama.cpp's 30
+
+  2026-08-27. Claude Code against this server showed
+
+      Waiting for API response - will retry in 2m 24s - check your network
+
+  and the network was fine. The server log for that session:
+
+      prompt eval time = 88556.74 ms / 62408 tokens (704.72 tokens per second)
+      prompt eval time = 53008.27 ms / 39747 tokens (749.83 tokens per second)
+
+  THE WAIT IS PREFILL, NOT THINKING. Before the first token exists there is
+  nothing to stream, and a 40-60k token prompt at ~750 tok/s is a minute.
+
+  Measured here on a cold prompt of ~45,000 tokens, prefill 59.4 s:
+
+      stream:false               nothing at all until 59.4 s
+      stream:true, defaults      first byte 31.5 s (one 30 s ping), content 59.4 s
+      stream + return_progress   progress from 1.4 s: 0%, 4%, 9%, 13%, 18% ...
+
+  `return_progress` is what actually fixes the appearance -- it streams
+  `prompt_progress` with processed/total while the prefill runs, which is
+  exactly the live counter the developer asked for. IT IS A REQUEST FIELD.
+  The client has to send it and Claude Code does not, so the server cannot turn
+  it on from here.
+
+  What the server does own is the keep-alive. 30 s of silence on a working
+  connection is what a client reads as a dead one. 5 s costs nothing and keeps
+  the connection observable throughout.
+
+  THIS DOES NOT MAKE THE WAIT SHORTER. It makes it visible. The wait itself is
+  prefill, and the lever for that is prompt REUSE: measured the same day, a
+  repeated prompt reused 45,013 of 45,017 tokens and answered in under a
+  second. The two slow turns in that log were 62,408 tokens then 39,747 -- the
+  second SHORTER than the first, so the prefix had changed and nothing could be
+  reused.
+
 WHY draft-mtp AND NO -md
 
   UD-Q2_K_XL reports n_layer_all = 65 and offloads 66/66: blk.64.nextn.* loads
@@ -126,6 +163,10 @@ param(
     # reach. The default does not move; exposure is `serve.ps1 -Lan`, an act.
     # Pinned by bench/tests/test_bind_is_opt_in.py (issue #49).
     [string]$BindAddress = '127.0.0.1',
+    # Seconds between SSE keep-alive pings. llama.cpp's default is 30, which is
+    # most of a minute of silence on a connection that is working -- see the
+    # header. This does not shorten a wait, it makes one visible.
+    [int]$SsePingIntervalSec = 5,
     # WHICH CARD. Empty means the served default, which is resolved below from
     # Get-GpuVram.ps1 rather than repeated here -- the same UUID written in two
     # files is two files that can disagree, and the one that gets edited is
@@ -222,4 +263,5 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
     --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `
     --reasoning-effort medium `
+    --sse-ping-interval $SsePingIntervalSec `
     --host $BindAddress --port $Port

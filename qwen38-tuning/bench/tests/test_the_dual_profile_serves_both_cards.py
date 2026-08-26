@@ -533,3 +533,54 @@ def test_the_banner_does_not_print_two_decoders():
     if decoder_lines:
         assert "NOT set" not in decoder_lines[0], (
             "the -Mtp banner says draft-mtp is not set")
+
+
+# ---- the client that thinks the server is dead ------------------------------
+
+def test_both_profiles_ping_more_often_than_the_client_gives_up():
+    """MEASURED 2026-08-27, cold prefill of ~45,000 tokens, which takes 59.4 s:
+
+        stream:false                nothing at all until 59.4 s
+        stream:true, defaults       first byte 31.5 s (one 30 s ping), content 59.4 s
+        stream + return_progress    progress from 1.4 s: 0%, 4%, 9%, 13%, 18% ...
+
+    Claude Code showed `Waiting for API response - will retry in 2m 24s - check
+    your network`. That is a client with an open connection carrying nothing.
+
+    `return_progress` is the thing that fixes it properly and it is a REQUEST
+    field -- the client has to ask, and this one does not. What the server owns
+    is the keep-alive interval, and llama.cpp's default of 30 s is most of a
+    minute of silence on a connection that is working perfectly.
+
+    This does not make the wait shorter. It makes it visible.
+    """
+    import re as _re
+    for path in (SOLO, DUAL):
+        t = read(path)
+        inv = t[t.index("& $Exe -m $Model"):]
+        m = _re.search(r"--sse-ping-interval\s+\$?(\S+)", inv)
+        assert m, ("%s does not set --sse-ping-interval, so a streaming client "
+                   "sees one byte every 30 s during a 59 s prefill"
+                   % os.path.basename(path))
+
+
+def test_the_ping_default_is_well_under_the_prefill_it_covers():
+    """A ping slower than the wait it is covering is not a keep-alive."""
+    import re as _re
+    for path in (SOLO, DUAL):
+        t = read(path)
+        m = _re.search(r"\[int\]\$SsePingIntervalSec\s*=\s*(\d+)", t)
+        assert m, "%s has no ping parameter" % os.path.basename(path)
+        assert 1 <= int(m.group(1)) <= 10, (
+            "%s pings every %s s; the prefill it has to cover is 59 s"
+            % (os.path.basename(path), m.group(1)))
+
+
+def test_the_profile_says_progress_is_the_real_fix_and_the_client_must_ask():
+    """Recording it so the next reader does not re-derive it: the server cannot
+    turn `return_progress` on for a client that never sends it."""
+    for path in (SOLO, DUAL):
+        t = read(path)
+        assert "return_progress" in t, (
+            "%s changes the ping without saying what would actually fix the "
+            "wait, or why we cannot do it from here" % os.path.basename(path))
