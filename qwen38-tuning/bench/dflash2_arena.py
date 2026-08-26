@@ -83,6 +83,14 @@ DFLASH = ["-md", DRAFTER, "--spec-draft-n-max", "4", "-ngld", "99"]
 # by being retyped. `arm_parts` copies it, so sharing the object is safe.
 SERVED_NGRAM = ["--spec-type", "ngram-mod"] + NGRAM
 
+# The two cards, by UUID. Indexes are a position in an enumeration the driver
+# can reorder; after a reorder an index keeps working and means a different
+# card (issue #50). SUPER_4070 is the RETIRED 12 GB card -- it is named here
+# only so issue #51 can measure what adding it does, never as a default.
+TI_5060 = gpu_device.SERVED_GPU_UUID
+SUPER_4070 = "GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4"
+BOTH_CARDS = SUPER_4070 + "," + TI_5060
+
 ARMS = [
     ("none", []),
     ("ngram-mod", SERVED_NGRAM),
@@ -267,6 +275,39 @@ ARM_SETS = {
         ("draft-mtp+ngram", ["--spec-type", "draft-mtp,ngram-mod"] + NGRAM, {}),
         ("ngram-mod", SERVED_NGRAM, {}),
         ("none", [], {}),
+    ],
+
+    # ---- issue #51 stage 2: what does the second card buy? ------------------
+    #
+    # A second GPU was connected on 2026-08-26: RTX 5060 Ti 16 GB (sm_120)
+    # beside the retired RTX 4070 SUPER 12 GB (sm_89). 28 GB total, PXB
+    # topology, no NVLink. Nothing in the register describes a two-card run.
+    #
+    # WHY `ngram-mod` AND NOT THE SERVED DECODER. draft-mtp's head is weights,
+    # and weights get PLACED -- on a split model llama.cpp decides which card
+    # holds them. That makes the drafter's location a second variable moving
+    # with the first, and a delta with two causes is what CORRECTIONS 26 and 28
+    # both are. `ngram-mod` costs 0 MiB and has nothing to place, so the only
+    # thing differing between these arms is where the target model lives.
+    #
+    # WHY `solo` IS FIRST AND ALSO THE FLOOR. Its round-to-round spread IS the
+    # noise floor for this machine, which has to be re-derived rather than
+    # inherited: the second card draws power and shares the bus, so this is a
+    # new configuration, and CORRECTIONS 23 already showed the floor moving
+    # from 13.6 % at 16,384 to 48.9 % at 65,536 on one card alone.
+    #
+    # `-sm row` is included because it is the mode that trades PCIe traffic for
+    # parallelism, and the link here is the open question -- the 5060 Ti reads
+    # x4 of a possible x16 at idle and nobody has yet looked under load.
+    "dual-gpu": [
+        # "-base" is not decoration: report() picks the baseline by that suffix,
+        # and without it the first arm ALPHABETICALLY becomes the thing every
+        # delta is measured from -- here that would be `both-layer`, silently
+        # inverting the question.
+        ("solo-5060ti-base", SERVED_NGRAM, {"CUDA_VISIBLE_DEVICES": TI_5060}),
+        ("both-layer", SERVED_NGRAM, {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("both-row", SERVED_NGRAM + ["-sm", "row"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
     "graph-opt": [
@@ -803,6 +844,12 @@ def new_row(ctx, arm, rnd, regime, extra, env, free_before, ignore_eos=False,
         # the same version string and differ 2x in prefill; without these two
         # fields the JSONL cannot tell them apart afterwards.
         exe=EXE, cuda_archs=cuda_archs(EXE),
+        # WHICH CARDS. Resolved from the environment a launch would actually
+        # get, not from what the arm asked for -- the control arm asks for
+        # nothing, and a silent column reads like "the usual card" right up
+        # until the usual card changes, which here it did when a second GPU was
+        # installed on 2026-08-26 (issue #50).
+        devices=launch_env(env)["CUDA_VISIBLE_DEVICES"],
         # Which MODEL, with its size: two files on this machine share the name
         # UD-Q2_K_XL and differ by 808 MiB, so the path alone is not an identity
         # if the cache ever moves.
