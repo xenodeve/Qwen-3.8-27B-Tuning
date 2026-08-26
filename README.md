@@ -56,12 +56,24 @@ disk moved and no measured row means anything different.
 
 From a terminal, the same six with flags:
 
-**To reach the model's full 262,144 native context**, which no launcher does by
-default, call the profile directly — it costs about 3.5 % of prefill and leaves
-only ~450 MiB spare against ~2,000 at the default depth:
+**The four `dual` launchers now serve the deepest window that fits**, capped at
+the model's own `n_ctx_train` of 262,144. It is **computed at launch, not
+fixed** — 262,144 loaded on this machine when the desktop held ~1,600 MiB and
+ran out of memory at 2,575, so the number moves with what you have open. Two
+real boots minutes apart settled on **249,856** and **245,760**; the window it
+chose is printed when it starts.
+
+They spend the micro-batch before the context: halving `-ub` frees about a
+gigabyte across the pair for roughly **3.5 %** of prefill, where the same memory
+bought with context costs tens of thousands of tokens.
+
+**Deep is measured, not comfortable.** At full depth a large request finishes
+with a few hundred MiB spare against about **2,000** at the 147,456 default — a
+run with **336 MiB** free died on its first request, one with **488** survived
+135,233 tokens. To pin a shallower, roomier window, call the profile directly:
 
 ```powershell
-& .\qwen38-tuning\scripts\worker-q4-dual.ps1 -Ctx 262144 -UBatch 512
+& .\qwen38-tuning\scripts\worker-q4-dual.ps1 -Ctx 147456
 ```
 
 ```powershell

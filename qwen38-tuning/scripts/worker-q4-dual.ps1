@@ -271,6 +271,39 @@ WHY --sse-ping-interval IS 5 AND NOT llama.cpp's 30
   second SHORTER than the first, so the prefix had changed and nothing could be
   reused.
 
+-MaxCtx: THE DEEPEST WINDOW THAT FITS, COMPUTED AT LAUNCH
+
+  n_ctx_train is 262,144 and this machine can reach it -- but not always, and a
+  hardcoded 262144 would be wrong in a way that only shows up under load.
+  Measured hours apart on the same machine:
+
+      desktop 1,600 MiB  ->  262,144 loaded
+      desktop 2,575 MiB  ->  262,144 OOM'd, 1,696 MiB on device 1
+
+  So -MaxCtx asks for the deepest context the CURRENT budget supports, capped at
+  n_ctx_train, and it spends the micro-batch before it spends the context:
+
+      1. 262,144 at the requested -ub
+      2. 262,144 at half the -ub        (frees ~$UBatch MiB across the pair for
+                                         about 3.5 % of prefill -- 971 -> 938)
+      3. the deepest ctx that fits at the halved -ub
+
+  RESERVING FOR WHAT HAPPENS AFTER LOAD. The budget arithmetic covers weights,
+  KV and compute -- the allocations llama.cpp makes while STARTING. It makes
+  more once there is work, and the difference is not theoretical:
+
+      262,144 -ub 512, 336 MiB free on card 2  ->  DIED on the first request
+      262,144 -ub 512, 488 MiB free on card 2  ->  survived 135,233 tokens
+
+  $RUNTIME_RESERVE_MIB holds that back before choosing a depth. It is set from
+  those two numbers and nothing more principled; it is a measured line, not a
+  model of the allocator.
+
+  WHAT -MaxCtx COSTS. At full depth the run finishes a large request with a few
+  hundred MiB spare against about 2,000 at the 147,456 default. It is the depth
+  bought with the margin, and the margin is what keeps a spill from happening
+  silently at 0.38 tok/s.
+
 LOADING IS NOT SURVIVING -- THE LADDER THAT SETTLED THE DEPTH
 
   262,144 with -ub 512 loaded, reported 66+0, answered /health, and then died
@@ -391,6 +424,11 @@ param(
     # Serve draft-mtp beside ngram-mod. OFF by default: it loads and runs here,
     # and its rate could not be measured -- the guard voided every round
     # because the generations copy the prompt. See the header.
+    # Serve the deepest context the current free VRAM supports, capped at the
+    # model's own n_ctx_train. Not a fixed 262,144: the budget moves with what
+    # the desktop is holding, and 262,144 loaded at one moment and OOM'd at
+    # another on this machine. See the header.
+    [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
     # MiB left alone on a card that is holding nothing -- enough for the
@@ -529,6 +567,49 @@ $COMPUTE_MIB = 2 * [Math]::Max(256, $UBatch)
 $MTP_HEAD_MIB = 2750
 if ($Mtp) { $WEIGHTS_MIB += $MTP_HEAD_MIB }
 
+# Held back before choosing a depth, for the allocations llama.cpp makes once a
+# request arrives. Measured, not modelled: 336 MiB free on the second card died
+# on the first request, 488 survived 135,233 tokens.
+$RUNTIME_RESERVE_MIB = 768
+$N_CTX_TRAIN = 262144
+
+if ($MaxCtx) {
+    # Spend the micro-batch before the context: halving -ub frees about $UBatch
+    # MiB across the pair for ~3.5 % of prefill, where the same MiB bought with
+    # context costs tens of thousands of tokens.
+    $totalBudget = ($budgets | Measure-Object -Sum).Sum - $RUNTIME_RESERVE_MIB
+    $chosenCtx = 0
+    foreach ($ub in @($UBatch, [Math]::Max(256, [int]($UBatch / 2)))) {
+        $comp  = 2 * [Math]::Max(256, $ub)
+        $spare = $totalBudget - $WEIGHTS_MIB - $comp
+        if ($Mtp) { $spare -= $MTP_HEAD_MIB }
+        if ($spare -le 0) { continue }
+        $fits = [int]([Math]::Floor((($spare * 1024) / $KV_KIB_PER_TOKEN) / 4096) * 4096)
+        if ($fits -ge $N_CTX_TRAIN) { $chosenCtx = $N_CTX_TRAIN; $UBatch = $ub; break }
+        if ($fits -gt $chosenCtx)   { $chosenCtx = $fits;        $UBatch = $ub }
+    }
+    if ($chosenCtx -lt 4096) {
+        Write-Host "FATAL: -MaxCtx found no context that fits with a runtime reserve." -ForegroundColor Red
+        Write-Host "  Close what is using the display card, or run worker-q2kxl-mtp.ps1." -ForegroundColor Yellow
+        exit 1
+    }
+    $Ctx = $chosenCtx
+    $capped = if ($Ctx -ge $N_CTX_TRAIN) { " -- n_ctx_train, the model's own ceiling" } else { "" }
+    Write-Host ""
+    Write-Host ("  window    {0:N0} tokens at -ub {1}{2}" -f $Ctx, $UBatch, $capped) -ForegroundColor Cyan
+    Write-Host ("            chosen from {0:N0} MiB of budget less {1:N0} reserved for" -f `
+                (($budgets | Measure-Object -Sum).Sum), $RUNTIME_RESERVE_MIB) -ForegroundColor DarkGray
+    Write-Host "            the allocations that happen after load. It moves with the desktop." -ForegroundColor DarkGray
+}
+
+$COMPUTE_MIB = 2 * [Math]::Max(256, $UBatch)
+if (-not $MaxCtx) {
+    # Stated whether or not it was computed, because the launcher no longer
+    # states it -- and a window nobody prints is one nobody can check against
+    # what the boot log says.
+    Write-Host ""
+    Write-Host ("  window    {0:N0} tokens at -ub {1}" -f $Ctx, $UBatch) -ForegroundColor Cyan
+}
 $kvMib     = [int](($Ctx * $KV_KIB_PER_TOKEN) / 1024)
 $demandMib = $WEIGHTS_MIB + $kvMib + $COMPUTE_MIB
 $total = ($budgets | Measure-Object -Sum).Sum

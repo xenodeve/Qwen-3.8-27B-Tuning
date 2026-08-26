@@ -679,3 +679,133 @@ def test_the_profile_records_that_loading_is_not_surviving():
     assert "cuMemSetAccess" in t or "loading is not surviving" in t.lower(), (
         "the profile does not record that a successful load is not a "
         "successful run")
+
+
+# ---- full native context, without pretending the margin is not there --------
+
+MAXCTX_BATS = [os.path.normpath(os.path.join(ROOT, "..", n)) for n in
+               ("serve-dual.bat", "serve-dual-lan.bat",
+                "serve-dual-mtp.bat", "serve-dual-mtp-lan.bat")]
+
+
+def test_the_profile_can_be_asked_for_the_deepest_context_that_fits():
+    """The developer asked for the launchers to serve the full native window.
+
+    A hardcoded 262,144 would be wrong on this machine, and measurably so: the
+    budget moves with what the desktop is holding. 262,144 loaded when the
+    desktop held ~1,600 MiB and OOM'd at 2,575. So the switch asks for the
+    DEEPEST CONTEXT THAT FITS RIGHT NOW, capped at n_ctx_train.
+    """
+    t = read(DUAL)
+    assert re.search(r"\[switch\]\$MaxCtx", t), (
+        "the profile has no way to ask for the deepest fitting context")
+    assert "262144" in t, "the cap is not the model's own n_ctx_train"
+
+
+def test_max_ctx_keeps_a_runtime_reserve_beyond_the_load_time_budget():
+    """MEASURED: 262,144 at -ub 512 with 336 MiB free on the second card DIED on
+    the first real request; with 488 MiB it survived a 135,233-token prompt.
+    llama.cpp allocates more once there is work, so a context sized to the
+    load-time budget alone sits on that line.
+    """
+    t = read(DUAL)
+    m = re.search(r"\$RUNTIME_RESERVE_MIB\s*=\s*(\d+)", t)
+    assert m, "nothing reserves headroom for the allocations that happen after load"
+    assert int(m.group(1)) >= 512, (
+        "the runtime reserve is %s MiB; the run that died had 336 free and the "
+        "one that survived had 488" % m.group(1))
+
+
+def test_max_ctx_spends_the_micro_batch_before_it_spends_the_context():
+    """-ub 1024 -> 512 frees about 1,024 MiB across the pair for ~3.5 % of
+    prefill; the same MiB bought with context costs tens of thousands of
+    tokens. The cheaper trade goes first.
+
+        Anchored on the RESOLUTION BLOCK, not a byte offset. The first draft took
+    4,000 characters from the first `$MaxCtx` in the file -- which is now the
+    header comment -- and never reached the code. Trap 16, written this session,
+    committed the same day.
+    """
+    t = read(DUAL)
+    start = t.index("if ($MaxCtx) {")
+    block = t[start:t.index("$COMPUTE_MIB = 2 *", start)]
+    assert "$UBatch" in block, (
+        "-MaxCtx reduces the context without first trying the micro-batch")
+    assert "N_CTX_TRAIN" in block, (
+        "-MaxCtx does not cap at the model's own ceiling")
+
+
+@pytest.mark.parametrize("path", MAXCTX_BATS)
+def test_every_dual_launcher_asks_for_the_full_window(path):
+    assert "-MaxCtx" in read(path), (
+        "%s does not ask for the deepest fitting context" % os.path.basename(path))
+
+
+@pytest.mark.parametrize("path", MAXCTX_BATS)
+def test_the_launchers_say_the_window_is_not_fixed(path):
+    """An icon that says "full context" and quietly serves less is worse than
+    one that says what it does. The window depends on the desktop."""
+    t = read(path).lower()
+    assert "deepest" in t or "depends" in t or "fits" in t, (
+        "%s offers a full window without saying it is computed at launch"
+        % os.path.basename(path))
+
+
+@needs_pwsh
+def test_the_banner_reports_the_window_it_resolved():
+    """A number the developer can act on. Without it the only way to learn the
+    served depth is to read the boot log."""
+    out = banner("-Dual", "-MaxCtx")
+    assert "WhatIf: would run" in out
+    assert "-MaxCtx" in out or "Ctx" in out
+
+
+@needs_pwsh
+def test_the_banner_does_not_print_two_windows():
+    """`serve-dual.bat` printed both of these:
+
+        window    147,456, boot-verified 66+0 across both cards.
+        window    249,856 tokens at -ub 512
+
+    The first is a static line in serve.ps1's -Dual branch; the second comes
+    from the profile, which is the thing that resolved it. Only one can be
+    true.
+
+    Trap 17 for the FIFTH time -- the launcher describing configuration it does
+    not own. It was written into traps.md the same day and reproduced within
+    the hour, which is the argument for the guard rather than the note.
+
+    WHAT THIS TEST CANNOT SEE, said rather than implied: `-WhatIf` exits before
+    the profile runs, so only the launcher's own lines reach it. The
+    duplication lived across that boundary and this check would not have caught
+    it. `test_the_launcher_states_no_window_because_it_resolves_none` is the
+    one carrying the property; this is a cheap upper bound on top of it.
+
+    And a second window line is not automatically wrong: after the fix a real
+    boot prints the profile's resolved window and then
+    `Show-ServerStatus.ps1` reading the RUNNING server's n_ctx back. Those two
+    agreeing is the point. Describing without resolving is the fault.
+    """
+    out = banner("-Dual", "-MaxCtx")
+    windows = [l for l in out.splitlines() if l.strip().startswith("window")]
+    assert len(windows) <= 1, (
+        "the banner prints %d window lines: %r" % (len(windows), windows))
+
+
+def test_the_launcher_states_no_window_because_it_resolves_none():
+    """Scoped to the -Dual branch. With -MaxCtx the window is computed from free
+    VRAM at launch, so any number serve.ps1 prints is a guess about the profile's
+    arithmetic -- and it printed 147,456 while the profile served 249,856."""
+    t = read(SERVE)
+    start = t.index("if ($Dual) {")
+    branch = t[start:t.index("} else {", start)]
+    assert not re.search(r'Write-Host\s+"\s*window', branch), (
+        "serve.ps1's -Dual branch still prints a window line")
+
+
+def test_the_profile_states_the_window_on_every_path():
+    """Both paths, or a run with -MaxCtx off says nothing about its depth."""
+    t = read(DUAL)
+    assert t.count('"  window    {0:N0} tokens at -ub {1}') >= 1
+    assert "if (-not $MaxCtx) {" in t, (
+        "the window is announced only when it is computed")

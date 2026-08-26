@@ -36,6 +36,22 @@ REM  It holds no configuration. The flags live in
 REM  qwen38-tuning\scripts\worker-q4-dual.ps1 and only there; a copy here
 REM  would be a third place to drift.
 REM
+REM
+REM  THE WINDOW IS COMPUTED AT LAUNCH, NOT FIXED. This asks for the deepest
+REM  context the free VRAM supports, capped at the model's own 262,144. It is
+REM  not a constant: 262,144 loaded on this machine when the desktop held about
+REM  1,600 MiB and ran out of memory at 2,575, so the number moves with what
+REM  you have open. The window it settled on is printed when it starts.
+REM
+REM  It also spends the micro-batch before the context -- halving -ub frees
+REM  about a gigabyte across the pair for roughly 3.5 percent of prefill, where
+REM  the same memory bought with context costs tens of thousands of tokens.
+REM
+REM  AND IT LEAVES LESS ROOM. At full depth a large request finishes with a few
+REM  hundred MiB spare, against about 2,000 at the 147,456 default. A run with
+REM  336 MiB free died on its first request; one with 488 survived 135,233
+REM  tokens. Deep is measured, not comfortable.
+REM
 REM  %~dp0 is this file's own folder. %CD% is not it when the file is opened
 REM  from a shortcut or from a shell that started somewhere else.
 REM ============================================================================
@@ -53,7 +69,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Dual -Lan -AllowFirewall
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Dual -MaxCtx -Lan -AllowFirewall
 set RC=%ERRORLEVEL%
 
 if not "%RC%"=="0" (

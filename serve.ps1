@@ -45,6 +45,10 @@
     Serve UD-Q4_K_XL across both cards instead of UD-Q2_K_XL on one. Costs about
     a third of raw decode and ~130 W for an artifact one card cannot hold.
 
+.PARAMETER MaxCtx
+    With -Dual, serve the deepest context the current free VRAM supports, capped
+    at the model's n_ctx_train of 262,144. Computed at launch, not fixed.
+
 .PARAMETER Mtp
     With -Dual, add draft-mtp beside ngram-mod. It runs, and its rate could not
     be measured here -- every paired round was voided because the generations
@@ -91,6 +95,10 @@ param(
     # -- measured 2026-08-27, after this project wrongly recorded that it could
     # not -- and its rate could NOT be measured: every paired round was voided
     # because the generations copy the prompt. Issue #52.
+    # With -Dual, serve the deepest context the current free VRAM supports,
+    # capped at the model's n_ctx_train of 262,144. The window is computed at
+    # launch because the budget moves with what the desktop is holding.
+    [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
     # EMPTY here rather than carrying the UUID: this script holds no serving
@@ -203,8 +211,10 @@ if ($Dual) {
     Write-Host "  artifact  UD-Q4_K_XL, 16.69 GiB. ONE 16 GB card cannot hold it at any"
     Write-Host "            depth -- it spills 11 layers and decodes 11.7 tok/s."
     Write-Host "            OUR OWN quality number for it does not exist either."
-    Write-Host "  window    147,456, boot-verified 66+0 across both cards."
-    Write-Host "            The residency ceiling for this artifact is 229,376."
+    # No window line here. The PROFILE resolves it -- with -MaxCtx it is
+    # computed from free VRAM at launch -- and printing a static 147,456 beside
+    # the profile's own line gave two contradictory windows four rows apart.
+    # Fifth instance of trap 17: the launcher describing what it does not own.
     Write-Host "  split     -sm tensor, +29.2 % over -sm layer at this depth." -ForegroundColor Green
     Write-Host "            EXPERIMENTAL in llama.cpp's own help. The ratio is computed"
     Write-Host "            at launch from free VRAM -- an even split gave 0.38 tok/s."
@@ -291,6 +301,13 @@ $log   = Join-Path $logDir "serve-$stamp.log"
 $profileArgs = @{ Verbosity = 4; LogColors = 'on'; LogFile = $log }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
 if ($Device) { $profileArgs['Device'] = $Device }
+if ($MaxCtx) {
+    if (-not $Dual) {
+        Write-Host "FATAL: -MaxCtx applies to the two-card profile; pass -Dual too." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['MaxCtx'] = $true
+}
 if ($Mtp) {
     if (-not $Dual) {
         Write-Host "FATAL: -Mtp applies to the two-card profile; pass -Dual too." -ForegroundColor Red
