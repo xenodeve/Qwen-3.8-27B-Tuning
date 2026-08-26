@@ -45,6 +45,11 @@
     Serve UD-Q4_K_XL across both cards instead of UD-Q2_K_XL on one. Costs about
     a third of raw decode and ~130 W for an artifact one card cannot hold.
 
+.PARAMETER Mtp
+    With -Dual, add draft-mtp beside ngram-mod. It runs, and its rate could not
+    be measured here -- every paired round was voided because the generations
+    copy the prompt.
+
 .PARAMETER Device
     Which GPU, as a UUID. Empty means "whatever the profile serves", which is
     where the default lives -- this script holds no serving configuration.
@@ -82,6 +87,11 @@ param(
     # Which profile is the default is the developer's call, so neither is
     # implied by the other. Issue #52.
     [switch]$Dual,
+    # With -Dual, serve draft-mtp beside ngram-mod. It runs on the tensor split
+    # -- measured 2026-08-27, after this project wrongly recorded that it could
+    # not -- and its rate could NOT be measured: every paired round was voided
+    # because the generations copy the prompt. Issue #52.
+    [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
     # EMPTY here rather than carrying the UUID: this script holds no serving
     # flag, so that a measured row and a served session cannot diverge by
@@ -195,17 +205,23 @@ if ($Dual) {
     Write-Host "            OUR OWN quality number for it does not exist either."
     Write-Host "  window    147,456, boot-verified 66+0 across both cards."
     Write-Host "            The residency ceiling for this artifact is 229,376."
-    Write-Host "  split     -sm tensor, +65.4 % over the default at this depth." -ForegroundColor Green
-    Write-Host "            EXPERIMENTAL in llama.cpp's own help. draft-mtp cannot"
-    Write-Host "            load on it; ngram-mod is worth 13 % over none."
-    Write-Host "  rate      32.4 / 32.6 / 33.1 tok/s at 147,456, spread 2.1 %."
-    Write-Host "            PARITY with UD-Q2_K_XL on one card, which is 32.1 / 32.0 / 32.0."
+    Write-Host "  split     -sm tensor, +29.2 % over -sm layer at this depth." -ForegroundColor Green
+    Write-Host "            EXPERIMENTAL in llama.cpp's own help. The ratio is computed"
+    Write-Host "            at launch from free VRAM -- an even split gave 0.38 tok/s."
+    Write-Host "  rate      25.5 / 25.4 / 26.4 tok/s at 147,456, spread 3.7 %,"
+    Write-Host "            against 21.8 with no speculation at all."
+    Write-Host "            -Mtp adds draft-mtp: it RUNS, and every paired round of it"
+    Write-Host "            was voided because the generations copy the prompt."
     Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
     Write-Host "            low costs six. NEVER MEASURED on any artifact here."
     Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
     Write-Host "            and q8_0 for flash attention (issue #43)."
-    Write-Host "  decoder   ngram-mod. draft-mtp is NOT set here: its head is weights, and on"
-    Write-Host "            a split model llama.cpp decides which card holds them."
+    # The decoder line is the PROFILE's to print -- it is the thing that knows
+    # what it was asked for. This branch printed a static "draft-mtp is NOT set
+    # here" that contradicted the profile's own line four rows below it whenever
+    # -Mtp was passed. A launcher describing configuration it does not own is
+    # how it ends up lying; that is now three times.
+    # Pinned by bench/tests/test_the_dual_profile_serves_both_cards.py.
 } else {
     Write-Host "  artifact  UD-Q2_K_XL. An external ladder puts a 10-point cliff between this"
     Write-Host "            and UD-IQ2_XXS. OUR OWN quality number for it does not exist."
@@ -275,6 +291,14 @@ $log   = Join-Path $logDir "serve-$stamp.log"
 $profileArgs = @{ Verbosity = 4; LogColors = 'on'; LogFile = $log }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
 if ($Device) { $profileArgs['Device'] = $Device }
+if ($Mtp) {
+    if (-not $Dual) {
+        Write-Host "FATAL: -Mtp applies to the two-card profile; pass -Dual too." -ForegroundColor Red
+        Write-Host "  worker-q2kxl-mtp.ps1 already serves draft-mtp on one card." -ForegroundColor Yellow
+        exit 1
+    }
+    $profileArgs['Mtp'] = $true
+}
 
 # Flattened for the -WhatIf preview only; nothing launches a separate process.
 $profileArgv = @($profileArgs.GetEnumerator() |

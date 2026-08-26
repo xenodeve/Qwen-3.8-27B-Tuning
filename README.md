@@ -17,10 +17,18 @@ window — there is one process, not a server beside a log-watcher.
 
 **Four icons, two independent choices.**
 
-| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** |
-|---|---|---|
-| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) |
-| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) |
+| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** |
+|---|---|---|---|
+| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) |
+| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) |
+
+**The `mtp` pair has no measured speed.** `draft-mtp` does run on the two-card
+split — verified 2026-08-27, after this project had wrongly recorded that it
+could not — but **every paired measurement of it was voided by our own output
+guard, because the generations copy the prompt instead of answering it.** Three
+unpaired manual readings looked excellent and are exactly what that guard exists
+to reject: a speculative decoder gets faster the more predictable the text is.
+Click it to try it; `serve-dual.bat` is the one with a number behind it.
 
 The `lan` files are separate rather than a prompt because `--host` is the **only
 access control this server has** — no API key, CORS `*` — so exposure should

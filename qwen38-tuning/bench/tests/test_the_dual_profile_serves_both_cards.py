@@ -400,3 +400,136 @@ def test_the_header_retracts_the_hard_failure_claim_rather_than_deleting_it():
         "the header does not say what actually happens instead")
     assert "0.38" in t, (
         "the retraction does not carry the number that disproved it")
+
+
+# ---- MTP as an option, after the probe showed it runs here ------------------
+
+MTP_BATS = [os.path.join(ROOT, "..", "serve-dual-mtp.bat"),
+            os.path.join(ROOT, "..", "serve-dual-mtp-lan.bat")]
+MTP_BATS = [os.path.normpath(p) for p in MTP_BATS]
+
+
+def test_the_profile_can_be_asked_for_mtp():
+    """MEASURED 2026-08-27. `draft-mtp` was believed impossible under
+    `-sm tensor`; it is not. At ctx 16,384 with `-ub 128` it loads, and at
+    147,456 on the computed `-ts` it loads too -- 66+0, CUDA0 1,571 MiB free
+    and CUDA1 861. The earlier failure was on the EVEN split and its assertion
+    was a null buffer, which is what running out of memory looks like.
+
+    It is a SWITCH, not the default, because we have no trustworthy rate for
+    it: all three paired rounds at 147,456 were voided by the output guard --
+    the generations copy the prompt.
+    """
+    t = read(DUAL)
+    assert "$Mtp" in t, "worker-q4-dual.ps1 has no way to ask for MTP"
+    invocation = t[t.index("& $Exe -m $Model"):]
+    assert "specArg" in invocation or "draft-mtp" in invocation, (
+        "the decoder is hardcoded, so -Mtp cannot reach llama-server")
+
+
+def test_mtp_is_not_the_default():
+    """No usable rate exists for it. A default is a claim that it is better."""
+    t = read(DUAL)
+    m = re.search(r"\[switch\]\$Mtp", t)
+    assert m, "-Mtp is not a switch, so it may be defaulting on"
+
+
+def test_asking_for_mtp_reserves_room_for_its_head():
+    """The head is not free: with it the same configuration used about 2,750 MiB
+    more across the two cards, and CUDA1 finished with 861 MiB free. The refusal
+    check has to know that, or it approves a budget that then spills -- which is
+    the whole failure this profile was fixed for."""
+    t = read(DUAL)
+    assert "MTP_HEAD_MIB" in t, (
+        "the budget check does not account for the MTP head")
+
+
+def test_the_profile_says_mtp_has_no_measured_rate():
+    """Three unpaired manual readings gave 44.5 / 54.3 / 92.7 tok/s and they are
+    exactly the numbers CORRECTIONS 32 says not to trust: a speculative rate
+    rises with how predictable the text is, and copying the prompt is maximally
+    predictable. Quoting them in a header would launder a voided measurement."""
+    t = read(DUAL)
+    assert "copies the prompt" in t or "copy the prompt" in t, (
+        "the header offers MTP without saying its rate could not be measured")
+
+
+@pytest.mark.parametrize("path", MTP_BATS)
+def test_the_mtp_launchers_exist_and_ask_for_it(path):
+    assert os.path.isfile(path), path
+    t = read(path)
+    assert "-Dual" in t and "-Mtp" in t
+    assert "%~dp0" in t and "ExecutionPolicy Bypass" in t and "pause" in t.lower()
+
+
+@pytest.mark.parametrize("path", MTP_BATS)
+def test_the_mtp_launchers_say_the_rate_is_unmeasured(path):
+    t = read(path).lower()
+    assert "not measured" in t or "unmeasured" in t or "voided" in t, (
+        "%s offers MTP as if its speed were known" % path)
+
+
+@pytest.mark.parametrize("path", MTP_BATS)
+def test_the_mtp_launchers_are_readable_by_cmd(path):
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    assert not raw.startswith(b"\xef\xbb\xbf")
+    raw.decode("ascii")
+
+
+def test_only_the_lan_named_mtp_launcher_exposes():
+    plain = next(p for p in MTP_BATS if "lan" not in os.path.basename(p))
+    lan = next(p for p in MTP_BATS if "lan" in os.path.basename(p))
+    assert "-Lan" not in read(plain)
+    assert "-Lan" in read(lan)
+
+
+@needs_pwsh
+def test_the_dual_banner_quotes_the_rate_of_the_configuration_it_runs():
+    """Twice now the banner has advertised a number from a configuration that
+    was later replaced. First "20.9 tok/s", measured on the default layer split
+    before -sm tensor. Then "32.4 / 32.6 / 33.1", measured on the EVEN tensor
+    split -- the one that collapses to 0.38 under desktop load.
+
+    The configuration it actually runs measures 25.5 / 25.4 / 26.4 at ctx
+    147,456. A banner is the only place most people will ever read a number
+    from this project, so a stale one there is worse than a stale one in a doc.
+    """
+    out = banner("-Dual")
+    assert "25.5" in out or "25.4" in out or "26.4" in out, (
+        "the -Dual banner does not quote the rate of the split it runs")
+    assert "32.4 / 32.6 / 33.1" not in out, (
+        "the banner still quotes the even-split rate, which is the "
+        "configuration that produced 0.38 tok/s under load")
+
+
+@needs_pwsh
+def test_the_dual_banner_no_longer_says_mtp_cannot_load():
+    """It can. Measured 2026-08-27 at both ctx 16,384 and 147,456."""
+    out = banner("-Dual")
+    assert "draft-mtp cannot" not in out, (
+        "the banner repeats a claim this project disproved on its own machine")
+
+
+@needs_pwsh
+def test_the_banner_does_not_print_two_decoders():
+    """`serve-dual-mtp.bat` printed both of these, four lines apart:
+
+        decoder   ngram-mod. draft-mtp is NOT set here: ...
+        decoder   draft-mtp + ngram-mod -- LOADS HERE, RATE NOT MEASURED.
+
+    The first is a static line in serve.ps1's -Dual branch; the second comes
+    from the profile, which knows what it was actually asked for. Only one of
+    them can be true, and the reader has no way to tell which.
+
+    Third time the banner has stated something false about the run underneath
+    it -- after "closing this window stops the server" and two stale rates. The
+    pattern is a launcher describing a configuration it does not own.
+    """
+    out = banner("-Dual", "-Mtp")
+    decoder_lines = [l for l in out.splitlines() if l.strip().startswith("decoder")]
+    assert len(decoder_lines) <= 1, (
+        "the banner prints %d decoder lines: %r" % (len(decoder_lines), decoder_lines))
+    if decoder_lines:
+        assert "NOT set" not in decoder_lines[0], (
+            "the -Mtp banner says draft-mtp is not set")

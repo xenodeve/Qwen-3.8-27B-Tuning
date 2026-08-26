@@ -187,6 +187,53 @@ WHY THE SPLIT IS COMPUTED AT LAUNCH -- THE 0.38 tok/s INCIDENT
   The --fit flags stay: every measured row carries them, and an argv that
   differs from the benchmarked one is not the benchmarked configuration.
 
+-Mtp: draft-mtp RUNS HERE, AND ITS RATE COULD NOT BE MEASURED
+
+  This file previously said no external drafter loads under -sm tensor. That
+  was too strong, and an outside review is what prompted the probe that showed
+  it. Measured 2026-08-27 at ctx 16,384 with -ub 128, where memory pressure is
+  as low as this configuration goes:
+
+      -sm tensor + ngram-mod  (control)          LOADED
+      -sm tensor + draft-mtp  (baked-in head)    LOADED
+      -sm tensor + draft-dflash (external -md)   FAILED, meta.cpp:543
+      ... + -devd CUDA1                          FAILED, same
+      ... + --no-spec-draft-backend-sampling     FAILED, same
+      -sm layer  + draft-dflash                  LOADED
+
+  draft-mtp uses the nextn head inside UD-Q4_K_XL and loads no second file, so
+  it never reaches the graph-split assertion that stops draft-dflash. At
+  147,456 on the computed -ts it loads as well: 66+0, CUDA0 with 1,571 MiB free
+  and CUDA1 with 861.
+
+  ITS EARLIER FAILURE WAS THE SAME BUG AS THE 0.38 tok/s INCIDENT. On the even
+  split at 147,456 it died at ggml-backend-meta.cpp:1522,
+  GGML_ASSERT(bufs.back() != nullptr) -- a buffer allocation returning null,
+  which is what running out of memory looks like at that call site.
+
+  IT IS A SWITCH AND NOT THE DEFAULT, BECAUSE WE HAVE NO RATE FOR IT.
+  All three paired rounds at 147,456 were VOIDED by the output guard:
+
+      generations copy the prompt rather than answer it:
+      12-word windows found verbatim in the prompt = [0.519, 0.0, 0.23]
+
+  identical across rounds, so deterministic. Three unpaired manual readings
+  before the guard ran gave 44.5 / 54.3 / 92.7 tok/s and they are exactly the
+  numbers CORRECTIONS 32 says not to trust: a speculative rate rises with how
+  predictable the text is, and copying the prompt is maximally predictable.
+
+  What IS measured on this configuration, three rounds rotated at 147,456:
+
+      ngram-mod        [25.5, 25.4, 26.4]  spread 3.7 %
+      no speculation   [21.8, 21.9, 21.8]  spread 0.6 %   -15.3 %
+
+  THE HEAD COSTS MEMORY. With it the same configuration used about 2,750 MiB
+  more across the two cards and CUDA1 finished with 861 MiB free, so the budget
+  check below adds MTP_HEAD_MIB before deciding whether to start.
+
+  NO -md, ever. The head is in the main file; -md would add a 1.4 GB sidecar
+  for nothing (worker-q2kxl-mtp.ps1 says why at length).
+
 WHY THE CARDS ARE NAMED BY UUID
 
   `--main-gpu` defaults to 0, which on this machine is the RETIRED 4070 SUPER,
@@ -233,6 +280,10 @@ param(
     # 2,500 comes from the incident: the desktop held 1,579 MiB at boot and the
     # spill happened with 317 MiB of slack, so the reserve has to cover the
     # desktop's growth and not merely its resting size.
+    # Serve draft-mtp beside ngram-mod. OFF by default: it loads and runs here,
+    # and its rate could not be measured -- the guard voided every round
+    # because the generations copy the prompt. See the header.
+    [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
     # MiB left alone on a card that is holding nothing -- enough for the
     # driver's own allocations and nothing more.
@@ -344,6 +395,11 @@ foreach ($uuid in $wanted) {
 # compute. Refusing below that is the only thing standing between the developer
 # and another silent spill: --fit is inert here and llama.cpp will not refuse.
 $WEIGHTS_MIB = 16130
+# The nextn head is not free. Measured 2026-08-27: the same configuration used
+# about 2,750 MiB more across the two cards with -Mtp on, and CUDA1 finished
+# with 861 MiB free. Approving a budget that ignores it is how a spill happens.
+$MTP_HEAD_MIB = 2750
+if ($Mtp) { $WEIGHTS_MIB += $MTP_HEAD_MIB }
 $total = ($budgets | Measure-Object -Sum).Sum
 if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $WEIGHTS_MIB) {
     Write-Host "FATAL: not enough free VRAM to hold UD-Q4_K_XL without spilling." -ForegroundColor Red
@@ -360,6 +416,18 @@ if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $WEIGHT
 }
 
 $tsArg = @('-ts', ($budgets -join ','))
+
+# The decoder. ngram-mod alone is what has a measured rate here; -Mtp adds the
+# baked-in head beside it, which runs but whose rate the guard would not accept.
+$specArg = if ($Mtp) {
+    @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', '3')
+} else {
+    @('--spec-type', 'ngram-mod')
+}
+if ($Mtp) {
+    Write-Host "  decoder   draft-mtp + ngram-mod -- LOADS HERE, RATE NOT MEASURED." -ForegroundColor Yellow
+    Write-Host "            Every paired round was voided: the generations copy the prompt." -ForegroundColor Yellow
+}
 Write-Host ""
 Write-Host "  split     -ts $($budgets -join ',')  (MiB of budget per card)" -ForegroundColor Cyan
 foreach ($r in $report) {
@@ -388,7 +456,7 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
     --log-colors $LogColors `
     @logFileArg `
     -ctk q4_0 -ctv q4_0 `
-    --spec-type ngram-mod `
+    @specArg `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
     --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `
     --reasoning-effort medium `
