@@ -205,8 +205,14 @@ def test_the_dual_banner_describes_the_two_card_profile():
     out = banner("-Dual")
     assert "worker-q4-dual.ps1" in out
     assert "UD-Q4_K_XL" in out
-    assert "UD-Q2_K_XL" not in out, (
-        "the -Dual banner names the artifact it did NOT select")
+    # Scoped to the ARTIFACT LINE. The first version forbade the string
+    # "UD-Q2_K_XL" anywhere in the output, and went red when the banner started
+    # quoting it as the thing this configuration is at PARITY with -- naming
+    # the comparison is the opposite of the defect. What must not happen is the
+    # banner saying it SERVES the other artifact.
+    artifact_line = next(l for l in out.splitlines() if "artifact" in l)
+    assert "UD-Q4_K_XL" in artifact_line and "UD-Q2_K_XL" not in artifact_line, (
+        f"the -Dual banner's artifact line is wrong: {artifact_line!r}")
 
 
 @needs_pwsh

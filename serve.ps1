@@ -191,10 +191,15 @@ Write-Host ""
 # and it did not). Pinned by test_the_dual_profile_serves_both_cards.py.
 if ($Dual) {
     Write-Host "  artifact  UD-Q4_K_XL, 16.69 GiB. ONE 16 GB card cannot hold it at any"
-    Write-Host "            depth -- it spills 11 layers and decodes 11.7 tok/s against 20.9."
+    Write-Host "            depth -- it spills 11 layers and decodes 11.7 tok/s."
     Write-Host "            OUR OWN quality number for it does not exist either."
     Write-Host "  window    147,456, boot-verified 66+0 across both cards."
     Write-Host "            The residency ceiling for this artifact is 229,376."
+    Write-Host "  split     -sm tensor, +65.4 % over the default at this depth." -ForegroundColor Green
+    Write-Host "            EXPERIMENTAL in llama.cpp's own help. draft-mtp cannot"
+    Write-Host "            load on it; ngram-mod is worth 13 % over none."
+    Write-Host "  rate      32.4 / 32.6 / 33.1 tok/s at 147,456, spread 2.1 %."
+    Write-Host "            PARITY with UD-Q2_K_XL on one card, which is 32.1 / 32.0 / 32.0."
     Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
     Write-Host "            low costs six. NEVER MEASURED on any artifact here."
     Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"

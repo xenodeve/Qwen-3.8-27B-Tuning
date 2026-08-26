@@ -14,7 +14,8 @@ WHY THIS PROFILE EXISTS AT ALL
   serves, and spills a single layer only at 262,144, which is n_ctx_train.
 
   The second card is worth +79.9 % [+77.3, +82.2] to this artifact, and the
-  layer split says why: 55+11 becomes 66+0. That is the residency cliff, not
+  layer split says why: 55+11 becomes 66+0. (That figure is the DEFAULT split;
+  with -sm tensor the gap is larger still -- see below.) That is the residency cliff, not
   the silicon -- UD-Q2_K_XL, which was already resident on one card, gained
   1.5 % from the identical change.
 
