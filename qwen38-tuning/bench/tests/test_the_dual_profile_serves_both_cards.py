@@ -261,3 +261,34 @@ def test_the_profile_says_the_mode_is_experimental():
     """llama.cpp's own help calls `tensor` EXPERIMENTAL. A profile that ships it
     without saying so hands the next reader a number and hides its status."""
     assert "EXPERIMENTAL" in read(DUAL).upper()
+
+
+def test_the_dual_profile_uses_the_micro_batch_that_won():
+    """MEASURED 2026-08-26 on -sm tensor, three paired rounds, prefill on the
+    identical 6,621-token prompt:
+
+        -ub 256   870.9 / 892.3 / 884.4  (the single-card default)
+        -ub 1024  973.0 / 968.9 / 972.5  +10.1 %, ranges do not overlap
+
+    Decode was flat across 128/256/512/1024 -- a micro-batch is a prefill knob.
+
+    Scoped to the invocation, for the reason the -sm test above records.
+    """
+    t = read(DUAL)
+    invocation = t[t.index("& $Exe -m $Model"):]
+    assert re.search(r"-ub\s+1024", invocation), (
+        "the dual profile does not pass -ub 1024, which measured +10.1 % "
+        "prefill at no decode cost on the split it serves")
+
+
+def test_the_two_profiles_may_disagree_on_ub_and_the_dual_says_why():
+    """They now differ: 256 on one card, 1024 on two. That is a deliberate
+    divergence and the header has to carry its evidence, or the next reader
+    reads it as drift."""
+    dual, solo = read(DUAL), read(SOLO)
+    assert re.search(r"-ub\s+1024", dual[dual.index("& $Exe -m $Model"):])
+    assert re.search(r"-ub\s+256", solo[solo.index("& $Exe -m $Model"):])
+    header = dual[:dual.index("param(")]
+    assert "-ub 1024" in header and "10.1" in header, (
+        "the dual profile diverges from the single-card -ub without stating "
+        "the measurement that justifies it")

@@ -159,3 +159,36 @@ def test_the_split_baseline_is_the_llama_cpp_default():
     extra = A.arm_parts(base)[1]
     assert "-ts" not in extra and "-sm" not in extra, \
         f"the baseline overrides the split it is supposed to be a control for: {extra}"
+
+
+def test_the_depth_set_holds_everything_but_the_split_fixed():
+    """Issue #52 stage 4.
+
+    The question at 147,456 is whether -sm tensor's +59.5 % from ctx 16,384
+    survives depth -- CORRECTIONS 23 says a verdict at one depth does not
+    transfer, and this project has watched draft-mtp change SIGN between 16K
+    and 131,072. So the two arms differ in the split and in nothing else, and
+    both carry the -ub 1024 that stage 2 won.
+    """
+    arms = A.ARM_SETS["dual-depth"]
+    both = OTHER + "," + gpu_device.SERVED_GPU_UUID
+    seen = []
+    for arm in arms:
+        label, extra, env = A.arm_parts(arm)
+        assert env.get("CUDA_VISIBLE_DEVICES") == both, label
+        assert "--spec-type" not in extra, f"{label} speculates; see CORRECTIONS 32"
+        assert "-ub" in extra and extra[extra.index("-ub") + 1] == "1024", (
+            f"{label} does not carry the micro-batch stage 2 won")
+        seen.append([x for x in extra if x not in ("-ub", "1024")])
+    assert seen[0] != seen[1], "the two depth arms are identical"
+
+
+def test_the_depth_baseline_is_the_configuration_being_challenged():
+    """The profile serves -sm tensor. If IT were the baseline, a null result
+    would read as "the change is safe" while the thing under test is whether
+    the change was right at all. The default split is what to measure from."""
+    base = next(a for a in A.ARM_SETS["dual-depth"]
+                if A.arm_parts(a)[0].endswith("-base"))
+    assert "tensor" not in A.arm_parts(base)[1], (
+        f"the depth baseline already applies the split under test: "
+        f"{A.arm_parts(base)[1]}")

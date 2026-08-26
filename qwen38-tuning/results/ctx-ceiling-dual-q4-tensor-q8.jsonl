@@ -1,0 +1,2 @@
+{"quant": "q4", "kv": "q8_0", "extra": "-sm tensor -ub 1024", "tag": "dual-tensor-q8", "ctx": 147456, "loaded": false, "free_before": 26293}
+{"quant": "q4", "kv": "q8_0", "extra": "-sm tensor -ub 1024", "tag": "dual-tensor-q8", "kind": "SUMMARY", "deepest_resident_ctx": null, "ladder": [147456, 196608, 229376]}

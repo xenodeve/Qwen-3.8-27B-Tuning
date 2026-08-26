@@ -391,9 +391,34 @@ ARM_SETS = {
     #
     # Residency is the gate, not throughput: q8_0 doubles the KV bytes per
     # token, and an arm that spills is not a faster arm, it is a different one.
+    # Both arms carry `-ub 1024` because that is what stage 2 won and what the
+    # profile now serves. Sweeping the KV type on a micro-batch nobody runs
+    # would measure a machine that does not exist.
     "dual-kv": [
-        ("kv-q4-0-base", ["-sm", "tensor"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
-        ("kv-q8-0", ["-sm", "tensor", "-ctk", "q8_0", "-ctv", "q8_0"],
+        ("kv-q4-0-base", ["-sm", "tensor", "-ub", "1024"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("kv-q8-0", ["-sm", "tensor", "-ub", "1024", "-ctk", "q8_0", "-ctv", "q8_0"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- issue #52 stage 4: does any of it survive the depth we serve? ------
+    #
+    # Everything in stages 1-3 is ctx 16,384. CORRECTIONS 23 says a verdict at
+    # one depth does not transfer, and this project has watched `draft-mtp` go
+    # from +81 % at 16K to -71 % at 131,072 on one artifact. So -sm tensor's
+    # +59.5 % is a hypothesis at 147,456 until it is measured there.
+    #
+    # Both arms carry -ub 1024, the stage 2 winner, so the split is the only
+    # thing moving. The BASELINE is the default split -- if the profile's own
+    # configuration were the baseline, a null would read as "the change is
+    # safe" when the question is whether the change was right.
+    #
+    # This also re-derives the noise floor AT DEPTH, which is the acceptance
+    # criterion stages 1-3 cannot satisfy: per-arm spread here, not the under
+    # 0.8 % measured at 16,384.
+    "dual-depth": [
+        ("layer-1024-base", ["-ub", "1024"], {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("tensor-1024", ["-sm", "tensor", "-ub", "1024"],
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 

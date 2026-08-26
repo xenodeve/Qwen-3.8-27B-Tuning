@@ -82,6 +82,34 @@ WHY -sm tensor, AND IT IS MARKED EXPERIMENTAL
   buffers", at model load, in about a second, every attempt. The cards sit at
   PXB with no NVLink.
 
+WHY -ub 1024 AND NOT THE 256 THE SINGLE-CARD PROFILE SERVES
+
+  MEASURED 2026-08-26, ctx 16,384, three paired rounds on -sm tensor.
+
+  DECODE does not care. 256 / 512 / 1024 measured [34.3, 35.0, 35.0],
+  [34.7, 34.7, 33.7] and [34.6, 34.5, 34.5] -- -1.1 % and -0.6 %, both inside
+  the floor. Expected: a micro-batch is a prefill knob.
+
+  PREFILL is a clean staircase, on the identical 6,621-token prompt:
+
+      -ub 128    820.4 / 822.9              tok/s
+      -ub 256    870.9 / 892.3 / 884.4      (the single-card default)
+      -ub 512    920.5 / 937.1 / 956.9
+      -ub 1024   973.0 / 968.9 / 972.5      +10.1 %, ranges do not overlap
+
+  256 was chosen against ONE card (results/05-runtime-flags.md). Two cards
+  change the arithmetic twice: -sm tensor moves activations between the cards
+  inside every layer rather than once per boundary, and the link carrying that
+  traffic is gen4 x4 on the 5060 Ti -- a quarter of the other card's width
+  (CORRECTIONS 31). A wider micro-batch amortises each transfer over more
+  tokens, which is the shape of a narrow link.
+
+  It costs about 180 MiB of compute buffer. Residency at 147,456 was confirmed
+  with this value set, not assumed from the 16,384 rows.
+
+  -b stays at 2048. -ub above -b is silently clamped, so moving both together
+  would make some arms identical to their neighbours with nothing saying which.
+
 WHY THE CARDS ARE NAMED BY UUID
 
   `--main-gpu` defaults to 0, which on this machine is the RETIRED 4070 SUPER,
@@ -215,7 +243,7 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
     --alias qwen38 -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
     -sm tensor `
-    -t 18 -b 2048 -ub 256 --no-mmproj-auto -lv $Verbosity `
+    -t 18 -b 2048 -ub 1024 --no-mmproj-auto -lv $Verbosity `
     --log-colors $LogColors `
     @logFileArg `
     -ctk q4_0 -ctv q4_0 `
