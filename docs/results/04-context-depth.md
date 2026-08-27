@@ -411,3 +411,73 @@ the number.
 The fit result above stands — loading and surviving are not rate measurements.
 The rate is being re-taken through the arena with the `dual-dflash-tensor` arm
 set, paired and rotated, at this depth.
+
+## The ceiling for DFlash2 + ngram-mod, with the memory knobs spent — 2026-08-27
+
+**131,072.** Not the ~200,000 that was asked for, and every term in the shortfall
+is now measured rather than estimated.
+
+`-sm tensor`, computed `-ts`, **`-ub 512`** and **`--spec-draft-n-max 2`**, the
+two knobs that return memory without touching the window:
+
+| ctx | result |
+|---:|---|
+| 200,704 | **no** — at `-ub 1024/n-max 4`, `-ub 512/n-max 2` and `-ub 256/n-max 1` alike |
+| 163,840 | **no** |
+| 147,456 | **loads, then DIES on the first real request** |
+| **131,072** | **loads and answers a 53,592-token request.** prefill 692.6 tok/s, free **634 / 530 MiB** |
+
+**147,456 is the exact trap this project documented.** It answers `/health`, it
+reports a healthy split, and it dies when a real request arrives. A ladder that
+checked liveness rather than work would have published it as the ceiling.
+
+### The budget, with every term measured
+
+| term | MiB |
+|---|---:|
+| weights | 16,130 |
+| KV at 200,704, 18.00 KiB/token | 3,528 |
+| compute, 2 × ubatch at 1024 | 2,048 |
+| DFlash2 drafter, resident | 1,936 |
+| **the mirror patch** | **1,080** |
+| runtime reserve | 768 |
+| **total** | **25,490** |
+| budget measured that hour | ~22,830 |
+
+**The mirror costs 1,080 MiB** — measured 2026-08-27, served binary against
+patched, same ctx, same `-ub`, no drafter: 6,964 MiB free against 5,884. That is
+**3.75 rungs of 16,384 tokens**, so the entry fee for DFlash2 on the tensor split
+is about sixty thousand tokens of context before the drafter itself is counted.
+
+**And the shortfall is not total memory, it is one card.** All three
+configurations at 200,704 failed on the same allocation — **786.35 MiB on
+device 1**, which is the drafter's own Meta buffer. Under the computed `-ts` the
+5060 Ti carries about 70 % of the weights, so it is the card with no room left.
+Lowering `-ub` and `n-max` returns memory to both cards and not enough to that
+one.
+
+### 634 / 530 MiB is not a comfortable place to sit
+
+The measured line in this project is that **336 MiB free on the second card died
+on its first request and 488 survived**. 530 clears it by 42 MiB. The served
+`ngram-mod` configuration at 147,456 finishes with about **2,210 MiB**.
+
+### 🔴 The `decode 0 tok/s` in that ladder is an instrument gap, not a result
+
+The generation ended immediately and the script reported the zero as a rate.
+`harness.generation_is_measurable` exists for exactly this and the ad-hoc script
+did not call it — **the second time in one day** that a guard already in the
+repository was skipped by a script written beside it. The fit result stands;
+there is no decode figure at 131,072.
+
+### What would actually reach 200,000
+
+1. **Move the display to the iGPU.** It frees 1,600–2,600 MiB on device 0, and
+   under a proportional `-ts` that shifts roughly 970 MiB of weights off
+   device 1 — about half the shortfall. Necessary, probably not sufficient.
+2. **Make the mirror cheaper.** The patch mirrors the output projection for
+   every architecture because `TOP_K` cannot take axis-0 logits. Teaching
+   `handle_per_row` to gather instead would return the whole 1,080 MiB, but that
+   is a change inside ggml rather than a mapping choice.
+3. **Accept that 200,000 and DFlash2 do not fit on this hardware** and choose
+   between the window and the rate.
