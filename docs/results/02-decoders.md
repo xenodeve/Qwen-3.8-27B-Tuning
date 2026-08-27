@@ -710,3 +710,72 @@ rescued a decoder.
 
 Raw: `qwen38-tuning/results/mtp-recheck.jsonl`,
 `qwen38-tuning/results/step-w-long-generation.jsonl`.
+
+---
+
+## 🟢 The n-gram family on TWO cards at the served depth — measured 2026-08-27
+
+**Nothing in the family beats what we already ship.** `ngram-mod` at
+`--spec-ngram-mod-n-match 12` is the best arm at ctx 147,456, and this closes the
+two questions that had been open since the single-card sweep.
+
+`UD-Q4_K_XL`, `-sm tensor -ts 7819,15490 -ub 1024`, `q4_0` KV, corpus
+`real-code-vendor`, three paired rounds with arms rotated, greedy. Every arm
+`66+0` resident. Raw: `results/dual-ngram-family-147456.jsonl`.
+
+| arm | rounds (tok/s) | own spread | vs ours | verdict |
+|---|---|---:|---:|---|
+| **`ngram-mod` `n-match 12`** | **25.8 / 25.5 / 26.1** | 2.3 % | baseline | **shipped, and it wins** |
+| `n-match 16` | 20.5 / 20.7 / 21.4 | 4.5 % | **−19.2 %** [−20.7, −18.1] | RESOLVED loss |
+| `n-match 24` | 24.0 / 23.7 / 24.6 | 3.7 % | −6.7 % [−7.2, −5.8] | clears this run's spread, not the applied floor |
+| `ngram-map-k` (defaults) | 21.9 / 22.8 / 22.7 | 4.3 % | −12.9 % [−15.2, −10.6] | clears this run's spread, not the applied floor |
+| `ngram-map-k4v` (defaults) | 21.8 / 22.7 / 22.3 | 4.0 % | **−13.8 %** [−15.5, −11.2] | RESOLVED loss |
+
+**Two of these verdicts are the third state**, named for the first time in a
+real sweep: larger than anything this run's own arms did, smaller than a floor
+imported from other hardware at another depth. Neither noise nor resolved.
+
+### The counters say why, and they contradict the intuition
+
+**Better drafting did not become throughput.** `n-match 24` accepted **65.9 %**
+of its drafts at a mean accepted length of **22.45**, against our 12's **55.4 %**
+and **18.11** — better on both axes, and slower in every round. At this depth the
+**verify** cost dominates, and a longer draft that is more often right still
+loses.
+
+That matters beyond this table: it is the same wall any better-drafting
+speculator has to clear, including DFlash2 if it is ever made to load on this
+split.
+
+**`ngram-map-k` and `ngram-map-k4v` declined 100.0 % of their drafts** in all
+three rounds — acceptance is not low, it is **empty**. They pay the draft cost
+and keep nothing. Both won at 16,384 on the old single card; at 147,456 they are
+dead.
+
+### `ngram-cache` was excluded, not measured
+
+Its greedy hash `3EFE93950A8A980E` differs from a same-depth baseline of
+`04E5CAB1D14525C0` — **it changes the answer**, so it is not draft-and-verify
+whatever rate it would post.
+
+### 🔴 The first run of this sweep was VOID, and the reason is worth carrying
+
+It ran on `llama.cpp-dflash2`, built `CMAKE_CUDA_ARCHITECTURES=89` — **141
+`sm_89` cubins, no `sm_120a`, no PTX** — while a compute capability 12.0 card was
+visible and in use. Fifteen rows came back with `66+0` residency and plausible
+rates; every log read `CUDA : ARCHS = 890`. The arena's default binary was never
+updated when the second card arrived.
+
+Kept at `results/dual-ngram-family-147456-VOID-sm89-only-binary.jsonl` with its
+diagnosis. The hole is closed by `harness.archs_missing_for_gpus`, which now
+stops the arena on the **first** boot.
+
+**The voided run's baseline spread was 8.1 % and declining monotonically; the
+correct binary's is 2.3 %.** Not offered as a measurement of anything — the two
+are different binaries and each arm ran once per round — but it is why the first
+result should not have been trusted even before the cause was known.
+
+*Arm set `dual-ngram-family` in `bench/dflash2_arena.py`. It carries `-ts` via
+the `DUAL_TENSOR` constant, unlike `dual-decoder`, whose 147,456 rows ran the
+even split.*
+
