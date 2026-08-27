@@ -45,7 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import gpu_device
 from harness import (observed_spread_pct, classify_against_floors,
-                     residency_note,
+                     residency_note, archs_missing_for_gpus,
                      NOISE_FLOOR_PCT,
                      median, parse_layer_split, target_layer_count,
                      generation_is_original, copied_window_fraction,
@@ -797,6 +797,18 @@ def free_for_env(env):
     return gpu_device.total_vram(uuids)[1]
 
 
+
+def caps_for_env(env):
+    """Compute capabilities of the cards THIS ARM will actually use.
+
+    Mirrors `free_for_env`, and for the same reason: the ambient
+    CUDA_VISIBLE_DEVICES is not the arm's, so asking the module-level helper
+    would answer for the wrong set of cards.
+    """
+    uuids = [u.strip() for u in
+             launch_env(env)["CUDA_VISIBLE_DEVICES"].split(",") if u.strip()]
+    return [gpu_device.query(["compute_cap"], u)[0] for u in uuids]
+
 def port_owner():
     """PID listening on the arena port, or None. Reads only, never stops it."""
     r = subprocess.run(
@@ -1043,6 +1055,27 @@ def start(ctx, extra, tag, boot_s=240, env=None):
             urllib.request.urlopen(BASE + "/health", timeout=3).read()
             time.sleep(2)
             fh.flush()
+            # The binary must carry kernels for every card this arm can see.
+            # Checked HERE, on the first boot, because the alternative is
+            # fifteen plausible rows: on 2026-08-27 a sweep ran at ctx 147,456
+            # with 66+0 residency on a build whose CMAKE_CUDA_ARCHITECTURES was
+            # 89, while a capability 12.0 card was visible and in use. Read from
+            # the run's own `system_info` line rather than predicted from the
+            # DLL -- see harness.archs_missing_for_gpus.
+            missing = archs_missing_for_gpus(
+                log.read_text(encoding="utf-8", errors="replace"),
+                caps_for_env(env or {}))
+            if missing:
+                stop_server()
+                fh.close()
+                raise SystemExit(
+                    "FATAL: %s has no CUDA kernels for compute capability %s, "
+                    "which is visible to this arm.\n"
+                    "  Every row from this binary would be a plausible number "
+                    "measured on the wrong machine.\n"
+                    "  Set QWEN38_EXE to a build whose "
+                    "CMAKE_CUDA_ARCHITECTURES covers every installed card."
+                    % (EXE, ", ".join(missing)))
             return p, fh, log, free_before
         except Exception:
             pass

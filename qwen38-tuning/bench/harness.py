@@ -953,6 +953,57 @@ WINDOW_SATURATION = 0.98
 
 
 
+
+def archs_missing_for_gpus(log_text, compute_caps):
+    """Which visible GPUs the loaded CUDA backend carries no cubin for.
+
+    `log_text` is a boot log, or any slice of one containing llama.cpp's
+    `system_info` line -- it prints `CUDA : ARCHS = 890,1200`, the architectures
+    the ggml-cuda actually loaded was compiled for. `compute_caps` are the
+    capabilities the driver reports, in the form "8.9", "12.0", and they are
+    PASSED IN. This module never asks the driver anything and a test forbids it;
+    `gpu_device.visible_compute_caps` is the one place allowed to.
+
+    Returns the capabilities with no matching architecture, empty when covered.
+
+    THE INCIDENT. On 2026-08-27 a sweep ran on a binary built with
+    CMAKE_CUDA_ARCHITECTURES=89 while an RTX 5060 Ti of capability 12.0 was
+    visible and in use. cuobjdump lists 141 sm_89 cubins in that DLL, no
+    sm_120a, and no PTX to fall back on. Fifteen rows came back at ctx 147,456
+    with 66+0 residency and plausible rates. The serving profiles carry a
+    build guard; the arena did not, and its default exe was never updated when
+    the second card arrived.
+
+    OBSERVATION, NOT PREDICTION. Reading cubins out of a DLL needs cuobjdump at
+    a hardcoded CUDA path and describes what a process WOULD load. This reads
+    what it DID load, from the run's own log, and costs one regex.
+
+    A log with no ARCHS line RAISES. Returning "nothing missing" for a log that
+    never said what it carried would report clean on precisely the evidence
+    that is absent -- the shape this project keeps catching.
+    """
+    import re
+
+    m = re.search(r"ARCHS\s*=\s*([0-9,]+)", log_text)
+    if not m:
+        raise ValueError(
+            "no `CUDA : ARCHS = ...` line in this log -- cannot tell which "
+            "architectures the backend was compiled for, so coverage is "
+            "unknown rather than clean")
+    if not compute_caps:
+        raise ValueError("no visible GPUs given -- nothing to check coverage against")
+
+    # 890 is capability 8.9, 1200 is 12.0: major*100 + minor*10.
+    present = {int(x) for x in m.group(1).split(",") if x}
+
+    missing = []
+    for cap in compute_caps:
+        major, _, minor = str(cap).partition(".")
+        code = int(major) * 100 + int(minor or 0) * 10
+        if code not in present:
+            missing.append(str(cap))
+    return missing
+
 def residency_note(base_splits, arm_splits):
     """None when an arm is comparable to the baseline on residency, else why not.
 

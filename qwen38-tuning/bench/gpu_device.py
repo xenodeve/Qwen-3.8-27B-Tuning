@@ -181,6 +181,22 @@ def visible_vram():
     return total_vram(visible_uuids())
 
 
+
+def visible_compute_caps():
+    """The compute capability of every GPU this process can see, in order.
+
+    Returned as nvidia-smi gives them -- "8.9", "12.0" -- so they can be
+    compared against the architectures llama.cpp prints in its `system_info`
+    line (`harness.archs_missing_for_gpus`).
+
+    Added 2026-08-27 after a sweep ran fifteen rows on a binary built with
+    CMAKE_CUDA_ARCHITECTURES=89 while a capability 12.0 card was visible and in
+    use. It lives here rather than at the call site because this module is the
+    only place in the Python half allowed to ask the driver anything; a test
+    forbids `--query-gpu` everywhere else.
+    """
+    return [query(["compute_cap"], u)[0] for u in visible_uuids()]
+
 def pin_env(uuid=SERVED_GPU_UUID):
     """Environment that makes a child process see this card and no other.
 
