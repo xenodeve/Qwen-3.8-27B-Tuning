@@ -952,6 +952,47 @@ def assert_deletable(path, scratch_root):
 WINDOW_SATURATION = 0.98
 
 
+
+def residency_note(base_splits, arm_splits):
+    """None when an arm is comparable to the baseline on residency, else why not.
+
+    Both arguments are the layer splits each side actually ran at, one per
+    round, as `parse_layer_split` read them from llama.cpp's own load report --
+    "66+0" for fully resident, "55+11" for eleven layers on the CPU.
+
+    WHY A REPORT NEEDS THIS. `dflash2_arena.run_arm` has always recorded
+    `row["split"]` and printed it live, and `report()` never read it. An arm
+    that spilled was paired against a resident baseline and the difference was
+    handed to whatever the arm varied. That is a believable number produced by
+    a broken comparison, which is the one thing this project refuses.
+
+    Observation beats prediction here. A launch-time budget check has to model
+    the allocator, and this project has twice found its model wrong -- once
+    counting weights alone, once ignoring the allocations that happen after
+    load. A split is measured, so it catches a spill from any cause.
+
+    ABSENCE IS NOT A SPILL. Rows predating the field, and fault rows, carry
+    None. Two unknowns compare as equal, so old sweeps are not retro-voided; a
+    known against an unknown does not, because that is a real difference in
+    what was verified rather than a matching pair.
+    """
+    def distinct(xs):
+        return sorted({(s or "unknown") for s in xs})
+
+    base = distinct(base_splits)
+    arm  = distinct(arm_splits)
+
+    # An arm whose own rounds disagree cannot be averaged: the mean hides the
+    # round that spilled. Checked before the comparison, because "which split"
+    # has no answer for it.
+    if len(arm) > 1:
+        return "residency moved between rounds: %s" % "/".join(arm)
+    if len(base) > 1:
+        return "baseline residency moved between rounds: %s" % "/".join(base)
+    if arm != base:
+        return "split %s vs baseline %s" % (arm[0], base[0])
+    return None
+
 def classify_outcome(verify_exit, changed_files, ctx_high_water, n_ctx,
                      saturation=WINDOW_SATURATION):
     """PASS / FAIL / WINDOW_BOUND for one real-task attempt.

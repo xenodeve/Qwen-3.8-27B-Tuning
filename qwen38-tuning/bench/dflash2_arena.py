@@ -45,6 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import gpu_device
 from harness import (observed_spread_pct, classify_against_floors,
+                     residency_note,
                      NOISE_FLOOR_PCT,
                      median, parse_layer_split, target_layer_count,
                      generation_is_original, copied_window_fraction,
@@ -84,6 +85,12 @@ DFLASH = ["-md", DRAFTER, "--spec-draft-n-max", "4", "-ngld", "99"]
 # means "the incumbent, with one thing changed" cannot drift from the incumbent
 # by being retyped. `arm_parts` copies it, so sharing the object is safe.
 SERVED_NGRAM = ["--spec-type", "ngram-mod"] + NGRAM
+
+# The two-card serving shape, held constant wherever the arm varies
+# something else. `-sm tensor` WITHOUT a ratio is the even split, and on
+# this pair that is the 0.38 tok/s configuration (CORRECTIONS 33) -- so the
+# ratio travels with the split mode, never separately.
+DUAL_TENSOR = ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"]
 
 # The two cards, by UUID. Indexes are a position in an enumeration the driver
 # can reorder; after a reorder an index keeps working and means a different
@@ -505,6 +512,51 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
         ("none",
          ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- 2026-08-27: the n-gram family, on two cards, at the served depth ---
+    #
+    # WHY THIS SET EXISTS. `--spec-type` takes eleven values and FIVE of them
+    # are weightless n-gram variants. None needs the Meta backend to host a
+    # second model, which is what kills `draft-dflash` and `draft-mtp` under
+    # `-sm tensor`, so all of them are available here and only one has ever
+    # been run on this machine.
+    #
+    # The family WAS swept -- on the old single 12 GB card. `ngram-map-k` led
+    # at 16,384 (+135.89 % against ngram-mod's +112.55 %) and lost at 131,072
+    # (+120.54 % against +200.22 %). Those magnitudes are UPPER BOUNDS: the
+    # prompt was 84.5 % duplicate lines (instrument fault 8), and every
+    # elimination was decided on 160-token generations (CORRECTIONS 8). Run
+    # this on a real-code regime, not the synthetic one.
+    #
+    # `n-match` rides along because it is the same question at a finer grain
+    # and shares the baseline: 24 wins at 16,384, 16 wins at 65,536, and we
+    # ship 12, which is the second-worst arm at the deeper of the two. It moves
+    # no allocation, so the only cost is the boot it shares with the variants.
+    #
+    # `ngram-cache` IS EXCLUDED. Its greedy hash 3EFE93950A8A980E differs from
+    # the same-depth baseline 04E5CAB1D14525C0 -- it changes the answer, so it
+    # is not draft-and-verify, whatever rate it posts.
+    #
+    # EVERY ARM CARRIES `-ts`. `dual-decoder` does not, so its 147,456 rows ran
+    # the EVEN split -- the configuration that decoded at 0.38 tok/s, which
+    # report 36 section 4 records and tells the reader not to quote. The value
+    # here is the same one `dual-drafter` and `dual-mtp` use, held constant
+    # across arms so the split is not a variable.
+    "dual-ngram-family": [
+        ("ngram-mod-base", DUAL_TENSOR + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nm-16", DUAL_TENSOR + ["--spec-type", "ngram-mod"] + _ngram(16, 16),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nm-24", DUAL_TENSOR + ["--spec-type", "ngram-mod"] + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        # The variants run at THEIR OWN defaults. Tuning a loser is wasted
+        # boots, and each carries a different parameter family
+        # (--spec-ngram-map-k-size-n/-m/-min-hits) that only matters if it wins.
+        ("map-k", DUAL_TENSOR + ["--spec-type", "ngram-map-k"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("map-k4v", DUAL_TENSOR + ["--spec-type", "ngram-map-k4v"],
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
@@ -1244,9 +1296,14 @@ def report(rows):
         # has different arm names, and reading ARMS here reported an empty
         # series for every sweep that was not the decoder comparison.
         series = {}
+        # The residency each arm actually ran at, collected in the same pass.
+        # `run_arm` has recorded this since the two-card work and the report
+        # never read it -- see harness.residency_note.
+        splits = {}
         for r in rs:
             if r.get("tg_med"):
                 series.setdefault(r["arm"], []).append(r["tg_med"])
+                splits.setdefault(r["arm"], []).append(r.get("split"))
 
         # The baseline is the arm the sweep varies FROM. Name it "*-base" or
         # call it ngram-mod; otherwise the first arm seen is used, and an
@@ -1283,6 +1340,13 @@ def report(rows):
             if len(vals) != len(base):
                 print("  %-15s %s  NOT PAIRED (%d vs %d rounds) -- no verdict"
                       % (label, shown, len(vals), len(base)))
+                continue
+            # Residency before arithmetic. A spilled arm and a resident one are
+            # different machines, and a delta between them describes the spill.
+            note = residency_note(splits[base_name], splits[label])
+            if note:
+                print("  %-15s %s  spread %s  NOT COMPARABLE (%s) -- no verdict"
+                      % (label, shown, spread_s, note))
                 continue
             d = paired_deltas(base, vals)
             if not d["resolved"] and d["min_pct"] * d["max_pct"] <= 0:

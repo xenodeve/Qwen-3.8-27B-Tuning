@@ -95,7 +95,7 @@ GPU, pinned by UUID; a test forbids `--query-gpu` anywhere else. See
 | `-ts` ratio | **no lever.** `-ts 1,1` against the free-VRAM default of 41:59 is +1.8 % [+0.6, +4.1], inside the floor | `dual-split-16384.jsonl` |
 | `-sm row` | **cannot load.** `device CUDA0 does not support split buffers` | `logs/dflash2-both-row-*.log` |
 | `-ub` 128 / 256 / 512 / **1024** | **1024.** Decode flat; **prefill +10.1 %**, ranges do not overlap | `dual-ubatch-16384.jsonl` |
-| KV `q4_0` vs `q8_0` | **q4_0 stays.** q8_0 is free at 16,384 (−0.3 %) and **cannot load at 147,456** — `cudaMalloc failed: out of memory` on the 12 GB card | `dual-kv-16384.jsonl` |
+| KV `q4_0` vs `q8_0` | **q4_0 stays** on speed — q8_0 is −0.3 % at 16,384, inside any floor. 🟡 **The "cannot load at 147,456" half is CONFOUNDED, flagged 2026-08-27:** that run's `Meta() model buffer size` is 8,065.29 MiB, exactly half the model, so it used the EVEN split — the configuration retracted in [CORRECTIONS 33](../reports/CORRECTIONS.md). The arithmetic says it would probably fit with the computed `-ts`. Not re-run — [results 03](03-memory-and-kv.md) | `dual-kv-16384.jsonl` |
 | `-mg` | **not applicable.** It selects a card for `-sm none` or `-sm row`; neither is in play | llama.cpp `--help` |
 | `--fit` under `-sm tensor` | **inert.** `llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort`. `-ngl auto` still gives 66/66 | `logs/dual-profile-boot-verify.log` |
 | Noise floor at **147,456** | **under 2 %** per arm across three boots | `dual-depth-147456.jsonl` |

@@ -371,3 +371,67 @@ Omitting it makes an impossible arm look *unpaired* — `report()` prints
 
 *See also [`traps.md`](../agents/traps.md) 19.*
 
+
+---
+
+## 11. Residency before arithmetic — 2026-08-27
+
+**A spilled arm and a resident arm are different machines, and a delta between
+them describes the spill.**
+
+`dflash2_arena.run_arm` has recorded `row["split"]` since the two-card work —
+`66+0` for fully resident, `55+11` for eleven layers on the CPU — and printed it
+in the live line for every arm. **`report()` never read it.** The output that
+becomes a row in `docs/results/` computed a paired delta between arms that were
+not running the same model placement, and attributed the difference to whatever
+the arm was varying.
+
+Nothing crashed. `9.2 tok/s against 26.2` is a believable number, and it would
+have been published as a decoder verdict.
+
+### What changed
+
+`harness.residency_note(base_splits, arm_splits)` returns `None` when an arm is
+comparable and a reason when it is not. `report()` calls it **before**
+`paired_deltas`, and prints a refusal that names both splits instead of a
+percentage:
+
+```
+  dflash2         [9.1, 9.4, 9.2]  spread 3.3 %  NOT COMPARABLE (split 55+11 vs baseline 66+0) -- no verdict
+```
+
+Three cases are refused: **the arm spilled**, **the arm's own rounds disagree**
+(the mean hides the round that spilled), and **the baseline's rounds disagree**,
+which voids every delta in the block because they are all computed against it.
+
+**Absence is not a spill.** Rows predating the field, and fault rows, carry
+`None`. Two unknowns compare as equal so old sweeps are not retro-voided; a
+known against an unknown is refused, because that is a real difference in what
+was verified.
+
+### Why this and not a launch-time budget guard
+
+The open item this closes was written as *"the `-sm layer` budget is
+unguarded"*, and the obvious fix was to give `layer` the pre-launch arithmetic
+that `-sm tensor` has. **That was deliberately not built.**
+
+**Observation beats prediction here.** A launch guard has to model the
+allocator, and this project has found its model wrong twice — once counting the
+weights alone and approving a context that OOM'd, once ignoring the allocations
+that happen after load and approving a run that died on its first request. A
+split is *measured*, from llama.cpp's own load report, so it catches a spill
+from any cause including one no arithmetic anticipated.
+
+**And `--fit` is not inert in `layer` mode.** The 0.38 tok/s collapse happened
+because `llama_params_fit` is not implemented for `SPLIT_MODE_TENSOR`. Under
+`layer` it works and reduces `-ngl` to fit, so the failure there is not a load
+that dies — it is a load that quietly succeeds smaller. That is precisely what a
+residency check sees and a budget check cannot.
+
+**What is left unbought:** the boot. A doomed arm still runs before it is
+refused. That is cost, not correctness, and it stays open.
+
+*Tests: `bench/tests/test_a_spilled_arm_gets_no_verdict.py`, six on the
+function and two on the printed report. The first draft asserted `"%" not in
+line` and would have tripped on the words `spread 3.3 %` — see
+[`traps.md`](../agents/traps.md) 16.*
