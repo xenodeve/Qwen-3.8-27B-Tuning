@@ -560,6 +560,41 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- 2026-08-27: DFlash2 on the tensor split, PATCHED BINARY ONLY -------
+    #
+    # A local patch mirrors the target's output projection so `result_output` is
+    # not axis 0, which is what TOP_K could not take. draft-dflash loads under
+    # -sm tensor for the first time. This set measures what it buys against the
+    # decoder the profile actually serves.
+    #
+    # REQUIRES QWEN38_LLAMA_EXE pointing at C:\AI\llama.cpp-mirror. On the
+    # served binary every drafter arm aborts at ggml-backend-meta.cpp:543, which
+    # is a loud failure and therefore an acceptable way to find out.
+    #
+    # NOT COMPARABLE TO ANY EXISTING ROW. The patch changes the target's split,
+    # so both arms here are on a machine no other row was taken on. Read it as
+    # "how much does DFlash2 buy on the tensor split", never as a rate beside
+    # docs/results/.
+    #
+    # DEPTH IS THE WHOLE QUESTION. 147,456 and 98,304 OOM with the drafter
+    # resident; 65,536 loads and answers a 34,278-token request. Run this at
+    # 65,536 or below.
+    "dual-dflash-tensor": [
+        ("ngram-mod-base", DUAL_TENSOR + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("dflash+ngram", DUAL_TENSOR + ["--spec-type", "draft-dflash,ngram-mod",
+                                        "-md", DRAFTER, "-ngld", "99",
+                                        "--spec-draft-n-max", "4"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        # The solo drafter, because the pair and the drafter alone measured
+        # +48.5 % and +34.7 % at 16,384 -- different arms, and on the tensor
+        # split nobody knows which one leads.
+        ("dflash", DUAL_TENSOR + ["--spec-type", "draft-dflash",
+                                  "-md", DRAFTER, "-ngld", "99",
+                                  "--spec-draft-n-max", "4"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),

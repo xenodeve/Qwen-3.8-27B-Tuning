@@ -364,3 +364,50 @@ Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
 | Then why is it fast? | **Prefill throughput.** 54,478 tokens at 4.97 s to first byte is ~11,000 tok/s against our 900; the second big call reuses the prefix and drops to 1.41 s | report 26 |
 | End to end for the same `hi` | **19.4 s on the gateway against ~171 s of local prefill** | report 26 |
 
+
+## 🟢 How far the context must come down for DFlash2 on the tensor split — 2026-08-27
+
+**65,536.** With the mirrored build (`patches/dflash-mirror-output-1deefcca3.patch`),
+`-sm tensor` + `draft-dflash,ngram-mod` + `-ub 1024`, `-ts` computed at each rung
+from what was actually free:
+
+| ctx | budget | loads | survives a real request | free after, per card |
+|---:|---:|---|---|---|
+| 147,456 | 22,162 MiB | **no** | — | — |
+| 98,304 | 22,722 MiB | **no** | — | — |
+| **65,536** | **22,727 MiB** | **yes** | **yes — 34,278 tokens** | **692 / 600 MiB** |
+
+**The failure changed shape, and that is the result.** Both refusals are
+`ggml-backend-meta.cpp:1544`, `GGML_ASSERT(bufs.back() != nullptr)`, preceded by
+`cudaMalloc failed: out of memory` allocating 1,077.43 MiB on device 1. That is
+the **buffer-allocation** assertion — plain OOM. The old block was
+`ggml-backend-meta.cpp:543`, a **graph-split axis** assertion that no amount of
+freeing could move. **DFlash2 under `-sm tensor` is now a memory question.**
+
+The arithmetic agrees. At 147,456 the demand is 16,130 weights + 2,592 KV +
+2,048 compute + ~1,936 for the drafter = **22,706 MiB against a 22,162 budget**,
+before counting the duplicated vocabulary head the patch adds.
+
+**692 and 600 MiB is not a comfortable place to sit.** The profile's own
+measured line is that 336 MiB free on the second card died on its first request
+and 488 survived. 600 clears it, and the served 147,456 configuration finishes
+with about **2,000 MiB** on each card. Depth is bought with the margin that
+keeps a spill from happening silently.
+
+### 🔴 The 167.51 tok/s from that ladder is VOID, and it was my own instrument
+
+The ladder's rate came from an ad-hoc script whose prompt was **one code block
+repeated to fill the window** — close to 100 % duplicate lines — with
+`ngram-mod` in the arm. `ngram-mod` turns repetition into throughput, and this
+project has retracted a figure for exactly that reason twice
+([CORRECTIONS 2](../reports/CORRECTIONS.md), [32](../reports/CORRECTIONS.md)).
+
+`bench/harness.py` already contains `generation_is_original` and
+`copied_window_fraction`, and `dflash2_arena.py` already carries the real-code
+corpus. **The script used none of them.** A guard that exists and is not called
+is worse than one that does not exist, because its absence leaves no trace in
+the number.
+
+The fit result above stands — loading and surviving are not rate measurements.
+The rate is being re-taken through the arena with the `dual-dflash-tensor` arm
+set, paired and rotated, at this depth.

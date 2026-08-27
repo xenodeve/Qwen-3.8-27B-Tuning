@@ -880,3 +880,33 @@ same depth.
   than the served 1024.
 - **The patch is not upstream** and has not been reviewed by anyone but this
   project.
+
+### The paired figure, real code, ctx 65,536 — measured 2026-08-27
+
+Patched binary, `-sm tensor -ts 7819,15490 -ub 1024`, corpus `real-code-vendor`,
+three paired rounds with arms rotated, greedy. Raw:
+`results/dual-dflash-tensor-65536.jsonl`.
+
+| arm | rounds (tok/s) | own spread | vs served | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| `ngram-mod` **(what we serve)** | 27.7 / 29.0 / 29.0 | 4.5 % | baseline | 48.8 | 3,256 MiB |
+| **`draft-dflash,ngram-mod`** | **57.8 / 58.3 / 66.7** | 15.6 % | **+113.1 %** [+101.0, +130.2] **RESOLVED** | 61.8 | 662 MiB |
+| `draft-dflash` alone | 33.2 / 33.6 / 35.6 | 7.2 % | **+19.4 %** [+15.9, +22.7] **RESOLVED** | 34.7 | 668 MiB |
+
+**The pairing more than doubles decode.** It is also the pairing, not the
+drafter, that does it: DFlash2 alone is worth +19.4 %, and the two together
++113.1 %. The counters say why — with both, `draft-dflash` is declined 0.0 % of
+the time at a mean accepted length of 2.39, and `ngram-mod` then carries long
+runs at a mean accepted length of **24.5** against 16.42 when it works alone.
+They are not redundant: the drafter keeps the sequence on a track the n-gram can
+then extend.
+
+**Two caveats that belong beside the number.** `dflash+ngram` spreads **15.6 %**
+across its own rounds — round three returned 66.75 against 57.8 and 58.3 — which
+is wider than any arm in the n-gram sweep and wider than the baseline here. And
+it finishes with **662 MiB** free against the baseline's 3,256: the speed is
+bought with almost all of the headroom.
+
+**Comparable to nothing else in this folder.** Both arms ran on the mirrored
+binary, which changes the target's split. The comparison inside this table is
+sound; a comparison from this table to any other row is not.
