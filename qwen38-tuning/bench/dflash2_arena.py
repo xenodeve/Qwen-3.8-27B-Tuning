@@ -595,6 +595,44 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- 2026-08-27: WHICH PAIRING DO WE SERVE ------------------------------
+    #
+    # The deployment question, which `dual-dflash-tensor` did not ask. That set
+    # compared the drafter against nothing and against the incumbent, and told
+    # us the gain is the PAIRING (+113.1 %) rather than the drafter (+19.4 %).
+    # It never contained the obvious rival.
+    #
+    # draft-mtp carries no second file -- the head is inside UD-Q4_K_XL -- and
+    # it LOADS at ctx 147,456 on the SERVED, UNPATCHED binary: 66+0, CUDA0 with
+    # 1,571 MiB free and CUDA1 with 861, costing about 2,750 MiB. draft-dflash
+    # cannot reach that depth at all; the ladder put its ceiling at 65,536. So
+    # if MTP is anywhere near on rate it wins outright, because it costs neither
+    # the patch nor three quarters of the window.
+    #
+    # ITS RATE IS UNKNOWN, NOT BAD. Three paired rounds at 147,456 were VOIDED:
+    # copied_window_fraction [0.519, 0.0, 0.23], identical across rounds and so
+    # deterministic. The middle round is 0.0 -- one round did not copy -- which
+    # is why this is worth running again at another depth rather than closed.
+    # The unpaired 44.5 / 54.3 / 92.7 tok/s read before the guard ran are
+    # exactly what CORRECTIONS 32 says not to trust.
+    #
+    # Run at 65,536, where all three can load, so the comparison is a decoder
+    # comparison and not a depth comparison. Requires the patched binary for the
+    # dflash arm; on the served one that arm aborts loudly.
+    "dual-pairings": [
+        ("ngram-mod-base", DUAL_TENSOR + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        # NO -md. The head is in the main file; a sidecar would add 1.4 GB for
+        # nothing and quietly make this a different experiment.
+        ("mtp+ngram", DUAL_TENSOR + ["--spec-type", "draft-mtp,ngram-mod",
+                                     "--spec-draft-n-max", "3"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("dflash+ngram", DUAL_TENSOR + ["--spec-type", "draft-dflash,ngram-mod",
+                                        "-md", DRAFTER, "-ngld", "99",
+                                        "--spec-draft-n-max", "4"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
