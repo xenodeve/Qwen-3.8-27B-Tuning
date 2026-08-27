@@ -386,6 +386,7 @@ WHAT IS NOT MEASURED
     splitting changes the reduction order, so the logits, so the text -- and a
     speculative rate is partly a measure of how predictable the text is.
 #>
+[CmdletBinding(SupportsShouldProcess)]
 param(
     # 147,456 is boot-verified 66+0 across both cards. The residency ceiling for
     # this artifact is 229,376; this matches the one-card profile so the two are
@@ -428,6 +429,21 @@ param(
     # model's own n_ctx_train. Not a fixed 262,144: the budget moves with what
     # the desktop is holding, and 262,144 loaded at one moment and OOM'd at
     # another on this machine. See the header.
+    # Serve draft-dflash beside ngram-mod, on the PATCHED binary. Measured
+    # +123.8 % [+121.9, +125.1] over ngram-mod at ctx 65,536 -- more than double
+    # the decode -- and it costs three things at once, which is why it is a
+    # switch and its own pair of launchers rather than a default:
+    #
+    #   1. a DIFFERENT BINARY, llama.cpp-mirror, carrying a local patch nobody
+    #      outside this project has reviewed. Unpatched, the arm aborts at
+    #      ggml-backend-meta.cpp:543 -- TOP_K cannot take axis-0 logits.
+    #   2. a SHALLOWER WINDOW. The measured ceiling is 131,072. 147,456 LOADS
+    #      AND THEN DIES on the first real request, so -MaxCtx must not be used
+    #      with it: "the deepest that fits" is the wrong question when the rung
+    #      above the answer passes a health check.
+    #   3. almost all the HEADROOM. 634/530 MiB free at 131,072 against about
+    #      2,210 for the served configuration.
+    [switch]$Dflash,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -439,6 +455,33 @@ param(
     [switch]$IKnowTheBuildIsWrong
 )
 $ErrorActionPreference = 'Stop'
+
+# ---- -Dflash: choose the binary BEFORE the build guard runs ------------------
+# The guard below reads ggml-cuda.dll beside $Exe and refuses a binary without
+# both architectures. Swapping $Exe after it would check one file and run
+# another -- the exact shape of the fault that put fifteen rows on a build with
+# no Blackwell kernels earlier today.
+$DFLASH_MAX_CTX     = 131072
+$DFLASH_EXE = "C:\AI\llama.cpp-mirror\build-mirror\bin\llama-server.exe"
+$DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
+    "\models--z-lab--Qwen3.8-27B-DFlash2-GGUF" +
+    "\snapshots\57ab3265056d4024870b0621cfc2c127537020ed" +
+    "\Qwen3.8-27B-DFlash2-Q4_K_M.gguf"
+if ($Dflash) {
+    if ($Mtp) {
+        Write-Host "FATAL: -Dflash and -Mtp are two different drafters; pick one." -ForegroundColor Red
+        exit 1
+    }
+    if ($MaxCtx) {
+        Write-Host "FATAL: -MaxCtx cannot be used with -Dflash." -ForegroundColor Red
+        Write-Host "  The ceiling here is $DFLASH_MAX_CTX, and it is not a budget question:" -ForegroundColor Yellow
+        Write-Host "  147,456 LOADS, answers /health, and dies on the first real request." -ForegroundColor Yellow
+        exit 1
+    }
+    if ($Ctx -gt $DFLASH_MAX_CTX) { $Ctx = $DFLASH_MAX_CTX }
+    if ($UBatch -gt 512)          { $UBatch = 512 }
+    $Exe = $DFLASH_EXE
+}
 
 # ---- the build ---------------------------------------------------------------
 # A binary without Blackwell SASS runs here through PTX JIT at 2.20x the prefill
@@ -557,7 +600,22 @@ foreach ($uuid in $wanted) {
 # So the demand is weights + KV(ctx) + compute(ub), and the KV rate is measured:
 # at ctx 147,456 llama.cpp reports 1,296.00 MiB per card, which is 2,592 MiB
 # over 147,456 tokens = 18.00 KiB per token at -ctk q4_0 -ctv q4_0.
+# -Dflash: a different binary, a hard ceiling, a halved micro-batch, and two
+# extra tenants in the budget. All four are measured, none is a preference.
+#
+#   the drafter                 1,936 MiB resident
+#   the mirror patch            1,080 MiB -- measured 2026-08-27 by loading the
+#                               served and patched binaries at the same ctx with
+#                               no drafter: 6,964 MiB free against 5,884
+#   ceiling                     131,072. 147,456 loads and dies on the first
+#                               real request; 163,840 does not load
+#   -ub                         512, which returns about 1,024 MiB for ~3.5 % of
+#                               prefill and nothing of decode
+$DFLASH_DRAFTER_MIB = 1936
+$DFLASH_MIRROR_MIB  = 1080
+
 $WEIGHTS_MIB = 16130
+if ($Dflash) { $WEIGHTS_MIB += $DFLASH_DRAFTER_MIB + $DFLASH_MIRROR_MIB }
 $KV_KIB_PER_TOKEN = 18.0
 # One compute buffer per card, and it tracks -ub. 1,024.30 MiB each at -ub 1024,
 # read from the boot log.
@@ -660,8 +718,20 @@ $tsArg = @('-ts', ($budgets -join ','))
 # baked-in head beside it, which runs but whose rate the guard would not accept.
 $specArg = if ($Mtp) {
     @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', '3')
+} elseif ($Dflash) {
+    # n-max 2, not the 4 the arena measured with: the recurrent-state buffer is
+    # 149.62 MiB x (1 + n_max), so 4 -> 2 returns 299 MiB, and at 131,072 the
+    # run finishes with 634/530 MiB. Every one of those MiB was needed.
+    @('--spec-type', 'draft-dflash,ngram-mod',
+      '-md', $DFLASH_MODEL, '-ngld', '99', '--spec-draft-n-max', '2')
 } else {
     @('--spec-type', 'ngram-mod')
+}
+if ($Dflash) {
+    Write-Host "  decoder   draft-dflash + ngram-mod -- +123.8 % over ngram-mod at ctx 65,536." -ForegroundColor Green
+    Write-Host "            PATCHED BINARY, reviewed by nobody outside this project." -ForegroundColor Yellow
+    Write-Host "            Window capped at ${DFLASH_MAX_CTX} -- 147,456 loads and then dies." -ForegroundColor Yellow
+    Write-Host "            It finishes with about 600 MiB per card against ~2,210 served." -ForegroundColor Yellow
 }
 if ($Mtp) {
     Write-Host "  decoder   draft-mtp + ngram-mod -- LOADS HERE, RATE NOT MEASURED." -ForegroundColor Yellow
@@ -686,18 +756,33 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 # 147,456, same residency ceiling. EXPERIMENTAL in llama.cpp's own help.
 # -ts is COMPUTED above. Leaving it unset makes llama.cpp split evenly across a
 # 12 GB card and a 16 GB one, which is what produced 0.38 tok/s.
-& $Exe -m $Model `
-    --alias Qwen3.8-27B-Q4_K_XL -c $Ctx `
-    -ngl auto --fit on --fit-target 768 -fa on -np 1 `
-    -sm tensor `
-    @tsArg `
-    -t 18 -b 2048 -ub $UBatch --no-mmproj-auto -lv $Verbosity `
-    --log-colors $LogColors `
-    @logFileArg `
-    -ctk q4_0 -ctv q4_0 `
-    @specArg `
-    --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
-    --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `
-    --reasoning-effort medium `
-    --sse-ping-interval $SsePingIntervalSec `
-    --host $BindAddress --port $Port
+# Assembled as an ARRAY so -WhatIf can print exactly what would run. Built once
+# and either printed or splatted -- a preview that reconstructs the argv
+# separately is how the two stop agreeing, which this repository already says
+# about serve.ps1 in its own -WhatIf block.
+$argv = @(
+    '-m', $Model,
+    '--alias', 'Qwen3.8-27B-Q4_K_XL', '-c', "$Ctx",
+    '-ngl', 'auto', '--fit', 'on', '--fit-target', '768', '-fa', 'on', '-np', '1',
+    '-sm', 'tensor'
+) + $tsArg + @(
+    '-t', '18', '-b', '2048', '-ub', "$UBatch", '--no-mmproj-auto', '-lv', "$Verbosity",
+    '--log-colors', $LogColors
+) + $logFileArg + @(
+    '-ctk', 'q4_0', '-ctv', 'q4_0'
+) + $specArg + @(
+    '--spec-ngram-mod-n-match', '12', '--spec-ngram-mod-n-min', '16', '--spec-ngram-mod-n-max', '32',
+    '--chat-template-file', 'C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja',
+    '--reasoning-effort', 'medium',
+    '--sse-ping-interval', "$SsePingIntervalSec",
+    '--host', $BindAddress, '--port', "$Port"
+)
+
+if ($WhatIfPreference) {
+    Write-Host ""
+    Write-Host "WhatIf: would run" -ForegroundColor Green
+    Write-Host "  $Exe $($argv -join ' ')"
+    exit 0
+}
+
+& $Exe @argv

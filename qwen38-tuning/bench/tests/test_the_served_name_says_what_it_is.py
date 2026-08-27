@@ -22,6 +22,8 @@ model -- is checked here too.
 """
 import os
 import re
+
+from _invocation import from_source
 import sys
 
 import pytest
@@ -42,8 +44,8 @@ def read(p):
 def alias_of(path):
     """The alias as it reaches llama-server, read from the invocation."""
     t = read(path)
-    inv = t[t.index("& $Exe -m $Model"):]
-    m = re.search(r"--alias\s+(\S+)", inv)
+    inv = from_source(path)
+    m = re.search(r"--alias['\\\"]?\s*,?\s*['\\\"]?([^\s',\\\"]+)", inv)
     return m.group(1) if m else None
 
 

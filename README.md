@@ -15,12 +15,33 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 its output is that window's output. `Ctrl+C` stops it, and so does closing the
 window — there is one process, not a server beside a log-watcher.
 
-**Four icons, two independent choices.**
+**Eight icons, and the columns are the real choice.**
 
-| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** |
-|---|---|---|---|
-| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) |
-| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) |
+| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** | both cards **+ DFlash2** |
+|---|---|---|---|---|
+| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) |
+| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) |
+
+**The `dflash` pair is more than twice as fast and gives up half the window.**
+Measured 2026-08-27, three paired rounds on real vendor code at ctx 65,536:
+**65.1 / 64.3 / 63.8 tok/s against 29.0 / 29.0 / 28.4** for the `ngram-mod` the
+other dual launchers serve — **+123.8 %** [+121.9, +125.1].
+
+It costs three things, which is why it is its own icon and not a default:
+
+- **A patched llama.cpp.** Unpatched, the drafter aborts — `TOP_K` cannot read
+  logits the tensor split scatters across two cards. The patch mirrors the
+  output projection, costs **1,080 MiB** measured, and **has been reviewed by
+  nobody outside this project**.
+- **A window capped at 131,072**, against about 250,000 from `serve-dual.bat`.
+  That cap is not a budget the launcher can stretch: **147,456 loads, answers a
+  health check, and dies on the first real request.**
+- **Almost all the headroom** — roughly 600 MiB per card after a large request,
+  against about 2,210. A run here died with 336 MiB free and survived with 488.
+
+**And its rate at 131,072 has never been measured.** The +123.8 % is at 65,536,
+and a verdict at one depth does not transfer here: at 147,456 a *better* drafter
+measured *slower*, because verify cost dominates at depth. Expect less.
 
 **The `mtp` pair has no measured speed.** `draft-mtp` does run on the two-card
 split — verified 2026-08-27, after this project had wrongly recorded that it

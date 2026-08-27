@@ -45,6 +45,10 @@
     Serve UD-Q4_K_XL across both cards instead of UD-Q2_K_XL on one. Costs about
     a third of raw decode and ~130 W for an artifact one card cannot hold.
 
+.PARAMETER Dflash
+    With -Dual, serve draft-dflash beside ngram-mod on the patched binary.
+    Window capped at 131,072; cannot be combined with -MaxCtx or -Mtp.
+
 .PARAMETER MaxCtx
     With -Dual, serve the deepest context the current free VRAM supports, capped
     at the model's n_ctx_train of 262,144. Computed at launch, not fixed.
@@ -98,6 +102,11 @@ param(
     # With -Dual, serve the deepest context the current free VRAM supports,
     # capped at the model's n_ctx_train of 262,144. The window is computed at
     # launch because the budget moves with what the desktop is holding.
+    # With -Dual, serve draft-dflash beside ngram-mod on the PATCHED binary.
+    # +123.8 % over ngram-mod at ctx 65,536, and it costs a window capped at
+    # 131,072, a binary nobody outside this project has reviewed, and almost all
+    # the headroom. Its own pair of launchers; never a default.
+    [switch]$Dflash,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -218,10 +227,28 @@ if ($Dual) {
     Write-Host "  split     -sm tensor, +29.2 % over -sm layer at this depth." -ForegroundColor Green
     Write-Host "            EXPERIMENTAL in llama.cpp's own help. The ratio is computed"
     Write-Host "            at launch from free VRAM -- an even split gave 0.38 tok/s."
-    Write-Host "  rate      25.5 / 25.4 / 26.4 tok/s at 147,456, spread 3.7 %,"
-    Write-Host "            against 21.8 with no speculation at all."
-    Write-Host "            -Mtp adds draft-mtp: it RUNS, and every paired round of it"
-    Write-Host "            was voided because the generations copy the prompt."
+    if ($Dflash) {
+        # A different decoder, a different binary and a different window. Saying
+        # the ngram-mod story here would be the fifth launcher lie this project
+        # has caught by RUNNING the launcher rather than reading it.
+        Write-Host "  rate      65.1 / 64.3 / 63.8 tok/s at 65,536, spread 2.0 %," -ForegroundColor Green
+        Write-Host "            +123.8 % [+121.9, +125.1] over the ngram-mod the other" -ForegroundColor Green
+        Write-Host "            dual launchers serve. Three paired rounds, real vendor code."
+        Write-Host "  window    131,072 -- CAPPED, and not by a budget." -ForegroundColor Yellow
+        Write-Host "            147,456 LOADS, answers /health, and dies on the first real"
+        Write-Host "            request. 163,840 does not load at all."
+        Write-Host "  binary    llama.cpp-mirror -- a LOCAL PATCH mirroring the output" -ForegroundColor Yellow
+        Write-Host "            projection, so TOP_K can read logits the split would"
+        Write-Host "            otherwise scatter across both cards. Reviewed by nobody"
+        Write-Host "            outside this project. It costs 1,080 MiB, measured."
+        Write-Host "  headroom  about 600 MiB per card after a large request, against" -ForegroundColor Yellow
+        Write-Host "            ~2,210 for the served configuration. 336 died here; 488 lived."
+    } else {
+        Write-Host "  rate      25.5 / 25.4 / 26.4 tok/s at 147,456, spread 3.7 %,"
+        Write-Host "            against 21.8 with no speculation at all."
+        Write-Host "            -Mtp adds draft-mtp: it RUNS, and every paired round of it"
+        Write-Host "            was voided because the generations copy the prompt."
+    }
     Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
     Write-Host "            low costs six. NEVER MEASURED on any artifact here."
     Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
@@ -261,11 +288,18 @@ if ($installed.Count -gt 1) {
 }
 Write-Host ""
 if ($Dual) {
-Write-Host "  OPEN: nothing here was measured at 147,456." -ForegroundColor Yellow
-Write-Host "        Every dual-GPU figure is ctx 16,384, and CORRECTIONS 23 says the" -ForegroundColor Yellow
-Write-Host "        spread can be several times wider at depth. Issue #52." -ForegroundColor Yellow
-Write-Host "        This trades about a third of raw decode for quality nobody" -ForegroundColor Yellow
-Write-Host "        has measured on this project's own artifacts." -ForegroundColor Yellow
+if ($Dflash) {
+Write-Host "  OPEN: the DECODE RATE at 131,072 has never been measured." -ForegroundColor Yellow
+Write-Host "        The +123.8 % is at 65,536. A verdict at one depth does not" -ForegroundColor Yellow
+Write-Host "        transfer here -- at 147,456 a BETTER drafter measured SLOWER," -ForegroundColor Yellow
+Write-Host "        because verify cost dominates there. Expect less. Issue #52." -ForegroundColor Yellow
+} else {
+Write-Host "  OPEN: measured at 147,456 on 2026-08-27 -- 27.6 / 27.6 / 27.6 tok/s," -ForegroundColor Yellow
+Write-Host "        spread 0.1 %. ngram-mod is the ONLY decoder that produces a" -ForegroundColor Yellow
+Write-Host "        number at this depth: draft-mtp copies the prompt and" -ForegroundColor Yellow
+Write-Host "        draft-dflash cannot load. Issue #52." -ForegroundColor Yellow
+Write-Host "        Quality has still never been measured on our own artifacts." -ForegroundColor Yellow
+}
 } else {
 Write-Host "  OPEN: the draft-mtp half of the decoder is under question." -ForegroundColor Yellow
 Write-Host "        Forced at 147,456, removing it is worth +15.6 % and 1,490 MiB." -ForegroundColor Yellow
@@ -301,6 +335,13 @@ $log   = Join-Path $logDir "serve-$stamp.log"
 $profileArgs = @{ Verbosity = 4; LogColors = 'on'; LogFile = $log }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
 if ($Device) { $profileArgs['Device'] = $Device }
+if ($Dflash) {
+    if (-not $Dual) {
+        Write-Host "FATAL: -Dflash is a two-card configuration; pass -Dual too." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['Dflash'] = $true
+}
 if ($MaxCtx) {
     if (-not $Dual) {
         Write-Host "FATAL: -MaxCtx applies to the two-card profile; pass -Dual too." -ForegroundColor Red

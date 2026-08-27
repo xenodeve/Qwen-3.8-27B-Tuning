@@ -43,6 +43,8 @@ should read that back, the way `run-arm-pair` reads `n_max`.
 """
 import os
 import re
+
+from _invocation import from_source
 import sys
 
 import pytest
@@ -124,7 +126,7 @@ def test_there_are_worker_profiles_to_check():
 def test_every_worker_profile_sets_the_effort(name):
     text = open(os.path.join(PROFILES, name), encoding="utf-8",
                 errors="replace").read()
-    m = re.search(r"--reasoning-effort\s+(\S+)", text)
+    m = re.search(r"--reasoning-effort['\\\"]?\s*,?\s*['\\\"]?([^\s',\\\"]+)", text)
     assert m, (f"{name} sets no --reasoning-effort, so it serves at the "
                f"template's xhigh default -- the condition this change exists "
                f"to end")

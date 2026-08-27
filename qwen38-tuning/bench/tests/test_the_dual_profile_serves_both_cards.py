@@ -23,6 +23,8 @@ green for the wrong reason for days, so it is stated rather than assumed.
 import os
 import re
 
+from _invocation import from_source
+
 import pytest
 
 BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -127,9 +129,7 @@ def test_it_does_not_pipe_llama_cpps_output_anywhere():
     A test that cannot tell those two apart is testing punctuation.
     """
     t = read(DUAL)
-    marker = "& $Exe -m $Model"
-    assert marker in t, "cannot find the invocation; this test is not looking at it"
-    invocation = t[t.index(marker):]
+    invocation = from_source(DUAL)
     assert "|" not in invocation, (
         "something stands between llama.cpp and the console: "
         + next(l for l in invocation.splitlines() if "|" in l))
@@ -255,10 +255,8 @@ def test_the_dual_profile_uses_the_split_that_won():
     the wrong reason.
     """
     t = read(DUAL)
-    marker = "& $Exe -m $Model"
-    assert marker in t, "cannot find the invocation; this test is not looking at it"
-    invocation = t[t.index(marker):]
-    assert re.search(r"-sm\s+tensor", invocation), (
+    invocation = from_source(DUAL)
+    assert re.search(r"-sm['\"]?\s*,?\s*['\"]?tensor", invocation), (
         "the dual profile does not PASS -sm tensor, which measured +59.5 % over "
         "the default layer split at the same residency ceiling")
 
@@ -287,8 +285,12 @@ def test_the_dual_profile_uses_the_micro_batch_that_won():
     IS rather than how it is written.
     """
     t = read(DUAL)
-    invocation = t[t.index("& $Exe -m $Model"):]
-    m = re.search(r"-ub\s+(\S+)", invocation)
+    invocation = from_source(DUAL)
+    # The argv is assembled as an array, so the value arrives as '"$UBatch"'
+    # rather than bare. Read the NAME and resolve it to its default below --
+    # asserting on the spelling would have gone red while the profile served the
+    # identical command line.
+    m = re.search(r"-ub['\"]?\s*,?\s*['\"]?(\$?\{?\w+)", invocation)
     assert m, "the dual profile passes no -ub at all"
     val = m.group(1)
     if val.startswith("$"):
@@ -307,7 +309,7 @@ def test_the_two_profiles_may_disagree_on_ub_and_the_dual_says_why():
     dual, solo = read(DUAL), read(SOLO)
     assert re.search(r"\[int\]\$UBatch\s*=\s*1024", dual), (
         "the dual profile's micro-batch default is not 1024")
-    assert re.search(r"-ub\s+256", solo[solo.index("& $Exe -m $Model"):])
+    assert re.search(r"-ub\s+256", from_source(SOLO))
     header = dual[:dual.index("param(")]
     assert "-ub 1024" in header and "10.1" in header, (
         "the dual profile diverges from the single-card -ub without stating "
@@ -367,7 +369,7 @@ def test_it_computes_the_split_from_measured_free_vram():
     lives on.
     """
     t = read(DUAL)
-    invocation = t[t.index("& $Exe -m $Model"):]
+    invocation = from_source(DUAL)
     assert "-ts" in invocation or "tsArg" in invocation, (
         "the dual profile does not pass a tensor-split ratio, so llama.cpp "
         "splits EVENLY across a 12 GB card and a 16 GB card")
@@ -436,7 +438,7 @@ def test_the_profile_can_be_asked_for_mtp():
     """
     t = read(DUAL)
     assert "$Mtp" in t, "worker-q4-dual.ps1 has no way to ask for MTP"
-    invocation = t[t.index("& $Exe -m $Model"):]
+    invocation = from_source(DUAL)
     assert "specArg" in invocation or "draft-mtp" in invocation, (
         "the decoder is hardcoded, so -Mtp cannot reach llama-server")
 
@@ -571,8 +573,8 @@ def test_both_profiles_ping_more_often_than_the_client_gives_up():
     import re as _re
     for path in (SOLO, DUAL):
         t = read(path)
-        inv = t[t.index("& $Exe -m $Model"):]
-        m = _re.search(r"--sse-ping-interval\s+\$?(\S+)", inv)
+        inv = from_source(path)
+        m = _re.search(r"--sse-ping-interval['\"]?\s*,?\s*['\"]?\$?\{?(\w+)", inv)
         assert m, ("%s does not set --sse-ping-interval, so a streaming client "
                    "sees one byte every 30 s during a 59 s prefill"
                    % os.path.basename(path))
@@ -727,7 +729,9 @@ def test_max_ctx_spends_the_micro_batch_before_it_spends_the_context():
     committed the same day.
     """
     t = read(DUAL)
-    start = t.index("if ($MaxCtx) {")
+    # NOT the first occurrence: -Dflash refuses -MaxCtx earlier in the
+    # file, and that guard is a different block with different contents.
+    start = t.index("if ($MaxCtx) {", t.index("$N_CTX_TRAIN ="))
     block = t[start:t.index("$COMPUTE_MIB = 2 *", start)]
     assert "$UBatch" in block, (
         "-MaxCtx reduces the context without first trying the micro-batch")
