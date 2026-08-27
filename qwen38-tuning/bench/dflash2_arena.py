@@ -1073,7 +1073,7 @@ def start(ctx, extra, tag, boot_s=240, env=None):
                     "which is visible to this arm.\n"
                     "  Every row from this binary would be a plausible number "
                     "measured on the wrong machine.\n"
-                    "  Set QWEN38_EXE to a build whose "
+                    "  Set QWEN38_LLAMA_EXE to a build whose "
                     "CMAKE_CUDA_ARCHITECTURES covers every installed card."
                     % (EXE, ", ".join(missing)))
             return p, fh, log, free_before
