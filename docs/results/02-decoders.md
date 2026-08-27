@@ -779,3 +779,104 @@ result should not have been trusted even before the cause was known.
 the `DUAL_TENSOR` constant, unlike `dual-decoder`, whose 147,456 rows ran the
 even split.*
 
+
+---
+
+## 🟢 DFlash2 LOADS under `-sm tensor` with a patched llama.cpp — 2026-08-27
+
+**The structural block described everywhere in this project is removed.** A
+local patch to `llama.cpp` at `1deefcca3` lets `draft-dflash` load beside the
+target on the tensor split, and the first unpaired figure is **57.46 tok/s**
+against **26.64** for the same binary with no speculation.
+
+**Every number in this section is ONE run of ONE prompt at ctx 16,384 with
+`-ub 128`. It is not a verdict.** The paired sweep has not been run.
+
+### What was actually wrong, found by instrumenting the assertion
+
+The failure was `ggml-backend-meta.cpp:543`,
+`GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0)` in `handle_per_row`,
+which names no tensor. Guessing which one cost a rebuild per guess, so the
+assertion was made to print first:
+
+```
+PER-ROW OP GOT AN AXIS-0 SOURCE
+  op      = TOP_K
+  tensor  = node_770
+  src[0]  = result_output   axis 0
+```
+
+**`result_output` is the logits.** They are axis 0 because `output.weight` is
+mapped to `SPLIT_AXIS_1` (`llama-model.cpp:517-519`), and a matmul against a
+weight split on axis 1 **distributes the vocabulary across the devices**.
+`TOP_K` needs a whole row to find a maximum, and each card holds a fraction of
+it.
+
+`--no-spec-draft-backend-sampling` does **not** avoid it. DFlash2 logs
+`sample_from_anchor=true` and puts its own selection into the graph regardless.
+
+### The patch, and why the narrow version failed
+
+Mirroring the output projection is the fix. **Scoping it to `LLM_ARCH_DFLASH`
+did nothing** — the drafter's `Meta()` buffer stayed at 786.35 MiB byte for byte
+across both builds, because **the failing logits belong to the target, not the
+drafter**. The condition was dropped:
+
+```cpp
+if (std::regex_match(tensor_name, pattern_output_weight)) {
+    return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+}
+```
+
+`qwen38-tuning/patches/dflash-mirror-output-1deefcca3.patch`. It duplicates the
+full vocabulary head on both cards.
+
+### Is it lossless? Four comparisons, greedy, same prompt
+
+| comparison | result | what it rules out |
+|---|---|---|
+| patched vs served, tensor, **no speculation** | **IDENTICAL** | mirroring does not change the model |
+| **patched**, layer, nospec vs DFlash2 | **IDENTICAL** | the patch does not break speculation |
+| served, layer, nospec vs DFlash2 | **IDENTICAL** | speculation is lossless on this machine |
+| **patched, tensor, nospec vs DFlash2** | **DIFFERENT** | — |
+
+The only diverging configuration is speculation **under `-sm tensor`**, and the
+first three rows clear the patch of causing it.
+
+**Then the decisive control: the SHIPPED configuration already diverges the same
+way.** `-sm tensor` + `ngram-mod`, the unpatched served binary, against
+`-sm tensor` with no speculation: **DIFFERENT**, 831 chars against 871.
+
+**So this is the standard we already ship, not a new defect.** `-sm tensor`
+changes the reduction order when the target verifies a batch of k draft tokens
+instead of one, which moves the logits in their last bits and flips an argmax at
+a near-tie. [CORRECTIONS 32](../reports/CORRECTIONS.md) already records that
+splitting changes the text.
+
+### The rates, unpaired, one prompt, ctx 16,384, `-ub 128`
+
+| arm | tok/s |
+|---|---:|
+| **`-sm tensor` + `draft-dflash`** *(patched)* | **57.46** |
+| `-sm layer` + `draft-dflash` | 52.11 / 52.00 |
+| `-sm tensor`, no speculation | 26.64 / 28.58 |
+| `-sm tensor` + `ngram-mod` **(what we serve)** | 27.21 |
+| `-sm layer`, no speculation | 22.18 / 22.51 |
+
+**57.46 is the highest single figure this project has recorded**, against the
+previous best of 42.26 / 43.65 for `-sm layer` + `draft-dflash,ngram-mod` at the
+same depth.
+
+### What is NOT established
+
+- **Any of this at the served depth.** Everything here is 16,384. `draft-mtp` is
+  +81 % at 16K and −71 % at 131,072 on this same artifact, and the n-gram sweep
+  the same day showed better drafting **losing** at 147,456 because verify cost
+  dominates. **Expect this to shrink or invert with depth.**
+- **Whether it fits at depth.** DFlash2 costs 1,936 MiB resident and the
+  mirrored head duplicates the vocabulary projection; at 147,456 the served
+  configuration finishes with about 2,210 MiB free per card.
+- **Any paired number at all.** One run per arm, one prompt, `-ub 128` rather
+  than the served 1024.
+- **The patch is not upstream** and has not been reviewed by anyone but this
+  project.

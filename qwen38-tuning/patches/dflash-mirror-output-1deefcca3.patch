@@ -1,8 +1,41 @@
+diff --git a/ggml/src/ggml-backend-meta.cpp b/ggml/src/ggml-backend-meta.cpp
+index 7654ea1f3..4aa3d280b 100644
+--- a/ggml/src/ggml-backend-meta.cpp
++++ b/ggml/src/ggml-backend-meta.cpp
+@@ -540,6 +540,28 @@ static struct ggml_backend_meta_split_state ggml_backend_meta_get_split_state(
+ 
+     // Some ops process data on a per-row bases:
+     auto handle_per_row = [&](const std::vector<ggml_backend_meta_split_state> & src_ss) -> ggml_backend_meta_split_state {
++        // DIAGNOSTIC (local, not upstream). This assertion is what stops
++        // draft-dflash from loading beside a target under -sm tensor, and it
++        // says only that SOME per-row op received an axis-0 source. Which op,
++        // and which tensor, is the whole question -- output.weight,
++        // attn_output.weight, ffn_down.weight, ssm_out.weight and the KV cache
++        // are all mapped to axis 0, so guessing costs a rebuild per guess.
++        if (src_ss[0].axis == GGML_BACKEND_SPLIT_AXIS_0) {
++            // Straight to stderr and flushed, NOT through GGML_LOG_ERROR.
++            // llama.cpp's logger is buffered and GGML_ASSERT aborts at once:
++            // the first run of this diagnostic printed, the second was cut off
++            // mid-line by the abort. A diagnostic that only sometimes survives
++            // is worse than none, because its silence reads as "did not fire".
++            fprintf(stderr, "PER-ROW OP GOT AN AXIS-0 SOURCE\n");
++            fprintf(stderr, "  op      = %s\n", ggml_op_name(tensor->op));
++            fprintf(stderr, "  tensor  = %s\n", tensor->name);
++            for (int i = 0; i < GGML_MAX_SRC && tensor->src[i]; i++) {
++                fprintf(stderr, "  src[%d]  = %s   axis %d\n",
++                        i, tensor->src[i]->name,
++                        i < (int) src_ss.size() ? (int) src_ss[i].axis : -1);
++            }
++            fflush(stderr);
++        }
+         GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0);
+         return src_ss[0];
+     };
 diff --git a/src/llama-model.cpp b/src/llama-model.cpp
-index e31f38ea4..5c9e653ed 100644
+index e31f38ea4..9b18b512f 100644
 --- a/src/llama-model.cpp
 +++ b/src/llama-model.cpp
-@@ -515,10 +515,38 @@ struct ggml_backend_meta_split_state llama_meta_device_get_split_state(const str
+@@ -515,13 +515,56 @@ struct ggml_backend_meta_split_state llama_meta_device_get_split_state(const str
          }
  
          // output
@@ -28,16 +61,38 @@ index e31f38ea4..5c9e653ed 100644
 +        // MIRRORED duplicates the tensor on both devices, so the drafter's
 +        // output projection is paid twice. That cost has to show up in the
 +        // per-card free VRAM after load, and the probe records it.
++        // WIDENED 2026-08-27, after the narrow version had NO EFFECT and the
++        // instrumented assertion said why:
++        //
++        //     op      = TOP_K
++        //     tensor  = node_770
++        //     src[0]  = result_output   axis 0
++        //
++        // `result_output` is the LOGITS, and they are axis 0 because
++        // `output.weight` is axis 1: a matmul against a weight split on axis 1
++        // distributes the vocabulary across the devices. TOP_K needs a whole
++        // row to find a maximum and each device holds a fraction of it.
++        //
++        // The logits that fail belong to the TARGET, not the drafter -- which
++        // is why scoping the change to LLM_ARCH_DFLASH changed nothing, and why
++        // the drafter's Meta buffer stayed at 786.35 MiB byte for byte across
++        // both builds. So the arch condition is gone.
++        //
++        // THIS IS NOT FREE AND IT IS NOT SAFE FOR COMPARISON. Mirroring the
++        // target's output projection duplicates the full vocabulary head on
++        // both cards, and it changes the split of the model every rate in this
++        // project was measured on. A binary carrying this may be used to answer
++        // "does DFlash2 load and is it lossless"; it may NOT be used to produce
++        // a rate compared against an existing row.
          if (std::regex_match(tensor_name, pattern_output_weight)) {
-+            if (ud->model->arch == LLM_ARCH_DFLASH) {
-+                return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
-+            }
-             return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_1);
+-            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_1);
++            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
          }
          if (std::regex_match(tensor_name, pattern_output_bias)) {
-+            if (ud->model->arch == LLM_ARCH_DFLASH) {
-+                return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
-+            }
-             const ggml_tensor * output_weight = ud->model->get_tensor("output.weight");
-             GGML_ASSERT(output_weight != nullptr);
-             return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_0);
+-            const ggml_tensor * output_weight = ud->model->get_tensor("output.weight");
+-            GGML_ASSERT(output_weight != nullptr);
+-            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_0);
++            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+         }
+ 
+         // everything else
