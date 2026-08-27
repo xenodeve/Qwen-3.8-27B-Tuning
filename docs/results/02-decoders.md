@@ -910,3 +910,38 @@ bought with almost all of the headroom.
 **Comparable to nothing else in this folder.** Both arms ran on the mirrored
 binary, which changes the target's split. The comparison inside this table is
 sound; a comparison from this table to any other row is not.
+
+### Which pairing to serve — three-way at ctx 65,536, 2026-08-27
+
+The comparison the previous table could not make: the incumbent against **both**
+rivals, all three loading at the same depth so it is a decoder comparison and not
+a depth comparison. Patched binary, `-sm tensor -ts 7819,15490 -ub 1024`,
+`real-code-vendor`, three paired rounds rotated. Raw:
+`results/dual-pairings-65536.jsonl`.
+
+| arm | rounds (tok/s) | spread | vs served | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| `ngram-mod` **(served today)** | 29.0 / 29.0 / 28.4 | 2.3 % | baseline | 48.8 | **3,256 MiB** |
+| `draft-mtp,ngram-mod` | 40.2 / 40.4 / 39.3 | 3.0 % | **+38.9 %** [+38.5, +39.6] | 54.6 | 2,220 MiB |
+| **`draft-dflash,ngram-mod`** | **65.1 / 64.3 / 63.8** | 2.0 % | **+123.8 %** [+121.9, +125.1] | 61.8 | 668 MiB |
+
+Both RESOLVED, both intervals barely more than a point wide, every arm spreading
+under 3 %. **DFlash2 beats MTP by a wide margin at this depth** — 64 against 40.
+
+**🟢 MTP did NOT copy the prompt this time.** At 147,456 every round of the
+`dual-mtp` set was voided with `copied_window_fraction [0.519, 0.0, 0.23]`. Here
+it reports `draft-mtp decline 0.0 %` at a mean accepted length of 2.58 and a
+clean rate in all three rounds. **Whether that is the depth or the corpus is not
+established** — the earlier void was at a different depth *and* through a
+different arm set.
+
+**The counters show two different machines.** With MTP, `ngram-mod` is declined
+98.5 % of the time and extends to a mean of 20.78 when it fires. With DFlash2 it
+is declined only 90.4 % and reaches **24.5**. The drafter that keeps the
+sequence on a more predictable track is the one that lets the n-gram do more
+work, and that is where the difference lives — not in the drafter's own accepted
+length, which is 2.58 against 2.39, essentially the same.
+
+**Read the free-VRAM column as part of the result.** 3,256 → 2,220 → 668 MiB.
+The ranking on speed is the exact reverse of the ranking on headroom, and
+headroom is what keeps a spill from happening silently.
