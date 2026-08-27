@@ -1,0 +1,43 @@
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index e31f38ea4..5c9e653ed 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -515,10 +515,38 @@ struct ggml_backend_meta_split_state llama_meta_device_get_split_state(const str
+         }
+ 
+         // output
++        //
++        // PATCH (local, not upstream): mirror the output projection for the
++        // DFlash2 drafter so it can be loaded beside a target under -sm tensor.
++        //
++        // Unpatched, output.bias maps to SPLIT_AXIS_0 and a per-row op then
++        // receives it as src[0], which trips
++        //     ggml-backend-meta.cpp:543
++        //     GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0)
++        // in handle_per_row. Observed on this machine at ctx 16,384 with
++        // -ub 128 -- the lowest memory pressure this configuration reaches --
++        // and unchanged by -devd CUDA1 or --no-spec-draft-backend-sampling,
++        // so it is structural rather than an allocation failure.
++        //
++        // SCOPED TO LLM_ARCH_DFLASH ON PURPOSE. The reporter whose workaround
++        // this follows changed the mapping for every architecture. Narrowing it
++        // to the drafter's own arch leaves the target model's split byte-for-
++        // byte as it was, so every rate this project has measured on
++        // UD-Q4_K_XL remains comparable against a run of this binary.
++        //
++        // MIRRORED duplicates the tensor on both devices, so the drafter's
++        // output projection is paid twice. That cost has to show up in the
++        // per-card free VRAM after load, and the probe records it.
+         if (std::regex_match(tensor_name, pattern_output_weight)) {
++            if (ud->model->arch == LLM_ARCH_DFLASH) {
++                return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
++            }
+             return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_1);
+         }
+         if (std::regex_match(tensor_name, pattern_output_bias)) {
++            if (ud->model->arch == LLM_ARCH_DFLASH) {
++                return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
++            }
+             const ggml_tensor * output_weight = ud->model->get_tensor("output.weight");
+             GGML_ASSERT(output_weight != nullptr);
+             return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_0);

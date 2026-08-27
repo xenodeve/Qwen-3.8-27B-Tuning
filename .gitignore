@@ -31,6 +31,9 @@ llama.cpp-cuda/
 llama.cpp/
 # PR #27342 build, staged beside 10472 so neither replaces the other (issue #17)
 llama.cpp-dflash2/
+# 1deefcca3 + the DFlash mirror patch, in a git worktree of llama.cpp/ so the
+# unpatched tree and its binaries stay untouched (issue #52, task #47)
+llama.cpp-mirror/
 *.zip
 *.dll
 *.exe
