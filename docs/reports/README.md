@@ -96,6 +96,16 @@ reviews an external RTX 3090 stack against our own files;
 [29](29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) is the DFlash2 result and
 the prompt that hid it.
 
+[37](37-DUAL-GPU-PROFILE-REFERENCE.md) is the **complete reference for the
+dual-GPU profile**, written 2026-08-27 to be read with no prior context: the
+hardware and its three biases, the build and the trap of a second one, every
+flag in the served invocation with the measurement behind it, the two arguments
+computed at launch (`-ts` and `-MaxCtx`) with the incidents that forced them,
+the eight guards that refuse to start, what is **structurally** blocked as
+against merely untuned, the two register verdicts that are weaker than they
+read, and a ranked list of what to fix next. **Start here** if you want to know
+what this configuration is; report 36 is the narrative of how it was found.
+
 [36](36-DUAL-GPU-FINDINGS.md) is the **dual-GPU report**, written 2026-08-27 to
 be handed to an outside model: hardware, build identity, exact command lines and
 error strings, every number with the run that produced it, and **five open
