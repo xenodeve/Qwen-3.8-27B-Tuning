@@ -945,3 +945,41 @@ length, which is 2.58 against 2.39, essentially the same.
 **Read the free-VRAM column as part of the result.** 3,256 → 2,220 → 668 MiB.
 The ranking on speed is the exact reverse of the ranking on headroom, and
 headroom is what keeps a spill from happening silently.
+
+### The same three arms at the SERVED depth, 147,456 — 2026-08-27
+
+Unpatched, served binary. Same arm set, same corpus, three rounds rotated. Raw:
+`results/dual-pairings-147456.jsonl`.
+
+| arm | result |
+|---|---|
+| `ngram-mod` **(served today)** | **27.6 / 27.6 / 27.6 tok/s**, spread **0.1 %** |
+| `draft-mtp,ngram-mod` | **NOT MEASURABLE, all three rounds** — copies the prompt |
+| `draft-dflash,ngram-mod` | **cannot load**, tried once and skipped thereafter |
+
+**At the depth this project actually serves, `ngram-mod` is the only decoder
+that produces a usable number.** There is nothing to switch to.
+
+**MTP's copying is DEPTH-DEPENDENT, and that is new.** The void reproduces
+byte-for-byte — `copied_window_fraction [0.519, 0.0, 0.23]`, the identical
+triple recorded weeks earlier through a different arm set — while the same arm,
+same corpus and same rounds at **65,536 report `decline 0.0 %` and a clean rate
+in all three**. Previously the void was confounded with the arm set that
+produced it; it no longer is. **Whether it is the depth itself or something that
+scales with it is not established.**
+
+**The baseline's 0.1 % spread is worth noticing on its own.** Three rounds at
+27.57 / 27.55 / 27.58 on a 147,456-token window is the tightest series in this
+register, and it is the same configuration whose first (voided) measurement
+today spread 8.1 % on a binary with no Blackwell kernels.
+
+### What this means for what to serve
+
+| you want | your options |
+|---|---|
+| the deepest window (~250,000 via `-MaxCtx`) | `ngram-mod`, ~27–29 tok/s. **Nothing else runs.** |
+| 65,536 | `draft-dflash,ngram-mod` at **+123.8 %**, or `draft-mtp,ngram-mod` at +38.9 % without a patch |
+
+**Any speculative gain beyond `ngram-mod` costs the context window**, and the
+only lever that could change that is freeing VRAM: KV is 18.00 KiB/token, so
+every 16,384 tokens is 288 MiB, and the display card holds 1,600–2,600 MiB.
