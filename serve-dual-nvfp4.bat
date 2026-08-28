@@ -45,6 +45,28 @@ REM  for the deepest window that fits, the way the deep launchers do: that
 REM  is the wrong question at an edge where the rung above the answer can
 REM  still pass a health check before dying on the first real request.
 REM
+REM  IMAGES WORK HERE. The vision tower is loaded, so pasting a screenshot to
+REM  an agent does what you expect. Without it the server answers HTTP 500 to
+REM  every image -- "image input is not supported" -- which is what a real
+REM  Claude Code session hit five times on 2026-08-29. The model was never the
+REM  limitation: it is a native vision-language model and its own chat template
+REM  handles images. The tower is just a separate 888 MiB file.
+REM
+REM  It was expected to fail. The tower is a second model and this split had
+REM  never hosted one -- the DFlash2 drafter aborts inside llama.cpp for exactly
+REM  that reason. It does not fail: measured on this same unpatched binary, it
+REM  loaded and answered a real 512x512 picture correctly.
+REM
+REM  IT COSTS HEADROOM, NOT WINDOW. The context is 147,456 either way. A large
+REM  request finishes with about 1,205 and 2,450 MiB free, against roughly 2,395
+REM  without the tower. The profile counts it before starting and refuses rather
+REM  than spilling, so a busy desktop stops it instead of costing you 85x.
+REM
+REM  serve-dual-nvfp4-deep.bat does NOT carry it, on purpose: 200,704 answered a
+REM  SMALL picture and finished with 614 MiB free, and this project has measured
+REM  a run dying with 336 and surviving with 488. Images beside a large text
+REM  prompt have not been measured at any depth.
+REM
 REM  It holds no configuration. The flags live in
 REM  qwen38-tuning\scripts\worker-q4-dual.ps1 and only there.
 REM
@@ -67,7 +89,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Dual -Nvfp4
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Dual -Nvfp4 -Vision
 set RC=%ERRORLEVEL%
 
 if not "%RC%"=="0" (
