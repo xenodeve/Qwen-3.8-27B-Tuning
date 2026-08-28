@@ -73,9 +73,24 @@ def test_exe_is_routed_through_the_resolver(name, text):
                          ids=[n for n, _ in scripts_defining_exe()])
 def test_the_default_is_still_a_real_path(name, text):
     """Routing must not have silently emptied a default. Every script keeps the
-    binary it always used until the environment says otherwise."""
-    m = re.search(r"^EXE\s*=\s*resolve_exe\(\s*r?[\"']([^\"']+)[\"']", text,
-                  re.MULTILINE)
-    assert m, f"{name}: resolve_exe() call has no literal default to fall back on"
-    assert m.group(1).lower().endswith("llama-server.exe"), (
-        f"{name}: default is {m.group(1)!r}, which is not a llama-server binary")
+    binary it always used until the environment says otherwise.
+
+    THE DEFAULT MAY BE A NAMED CONSTANT. This matched only the inline form
+    `EXE = resolve_exe(r"...")` until 2026-08-29, and went red when
+    `dflash2_arena` lifted its default to `DEFAULT_EXE` so a test could assert
+    on the VALUE rather than on the text -- the default was still a real path
+    the whole time. Fourth time in one session that a source-shape assertion
+    called a refactor a regression.
+    """
+    m = re.search(r"^EXE\s*=\s*resolve_exe\(\s*(?:r?[\"']([^\"']+)[\"']"
+                  r"|([A-Za-z_][A-Za-z0-9_]*))\s*\)", text, re.MULTILINE)
+    assert m, f"{name}: resolve_exe() call has neither a literal nor a name"
+    default = m.group(1)
+    if default is None:                      # a named constant -- follow it
+        name_ = m.group(2)
+        d = re.search(r"^%s\s*=\s*r?[\"']([^\"']+)[\"']" % re.escape(name_),
+                      text, re.MULTILINE)
+        assert d, f"{name}: {name_} is passed to resolve_exe but never assigned"
+        default = d.group(1)
+    assert default.lower().endswith("llama-server.exe"), (
+        f"{name}: default is {default!r}, which is not a llama-server binary")

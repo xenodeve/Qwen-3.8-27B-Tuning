@@ -68,27 +68,28 @@ def test_vision_changes_nothing_else():
     assert re.search(r"--spec-ngram-mod-n-match\s+24", out), out
 
 
+def _weights_term(text):
+    """The weights figure from the profile's demand line, which it prints on
+    EVERY launch and not only when it refuses.
+
+    That was not true until 2026-08-29. This test passed while the developer's
+    server held both cards -- the profile refused, and the refusal carried the
+    arithmetic -- and went red the moment the cards were free and it started
+    normally. A test whose subject is only visible on the failure path is a test
+    of the machine's mood. The profile now prints the demand either way, which
+    is the better behaviour anyway: the run that clears by 200 MiB and the one
+    that clears by 6,000 used to look identical.
+    """
+    m = re.search(r"([\d,]+) weights", text)
+    return int(m.group(1).replace(",", "")) if m else None
+
+
 def test_the_projector_is_in_the_budget():
     """888 MiB the guard cannot see is 888 MiB it will hand to a spill."""
-    plain = _whatif(PROFILE, "-Nvfp4")
-    vision = _whatif(PROFILE, "-Nvfp4", "-Vision")
-
-    def needs(t):
-        m = re.search(r"needs\s+([\d,]+) MiB", t)
-        return int(m.group(1).replace(",", "")) if m else None
-
-    def budget_line(t):
-        m = re.search(r"weights.*?(\d[\d,]*) weights", t)
-        return m.group(1) if m else None
-    # Either the run is refused with a bigger demand, or it starts and the
-    # weights term grew. Both are the guard seeing the tower.
-    a, b = needs(plain), needs(vision)
-    if a is not None and b is not None:
-        assert b > a, (a, b)
-    else:
-        assert budget_line(vision) != budget_line(plain), (
-            "the weights term did not move: %r vs %r"
-            % (budget_line(plain), budget_line(vision)))
+    plain = _weights_term(_whatif(PROFILE, "-Nvfp4"))
+    vision = _weights_term(_whatif(PROFILE, "-Nvfp4", "-Vision"))
+    assert plain is not None and vision is not None, (plain, vision)
+    assert vision - plain == 888, (plain, vision)
 
 
 def test_the_switch_reaches_the_profile_through_serve():

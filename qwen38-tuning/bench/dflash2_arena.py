@@ -56,7 +56,19 @@ from provenance import (resolve_exe, resolve_target, resolve_effort,
                         cuda_archs, model_size_mib)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
-EXE = resolve_exe(r"C:\AI\llama.cpp-dflash2\llama-server.exe")
+# THE SERVED BINARY, so the arena measures what we serve unless told otherwise.
+# This defaulted to C:\AI\llama.cpp-dflash2 -- CMAKE_CUDA_ARCHITECTURES=89, 141
+# sm_89 cubins, no sm_120a, no PTX -- long after a compute-capability-12.0 card
+# was installed. That produced fifteen published rows on the wrong machine
+# (2026-08-27) and the boot-time guard has stopped four launches since, the last
+# on 2026-08-29 while starting the split-mode sweep. A guard firing that often
+# is a guard working around a wrong default.
+#
+# QWEN38_LLAMA_EXE still overrides it -- that is how the patched mirror build
+# gets measured -- and the boot-time architecture check still runs, because a
+# default cannot know what card comes next.
+DEFAULT_EXE = r"C:\AI\llama.cpp-blackwell\llama-server.exe"
+EXE = resolve_exe(DEFAULT_EXE)
 TARGET = resolve_target(
     r"C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF"
     r"\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed"

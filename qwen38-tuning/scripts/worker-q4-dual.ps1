@@ -788,6 +788,15 @@ if (-not $MaxCtx) {
 $kvMib     = [int](($Ctx * $KV_KIB_PER_TOKEN) / 1024)
 $demandMib = $WEIGHTS_MIB + $kvMib + $COMPUTE_MIB
 $total = ($budgets | Measure-Object -Sum).Sum
+# PRINT THE ARITHMETIC EVEN WHEN IT FITS. It used to appear only inside the
+# FATAL block, which is backwards: the moment you want to know how close this
+# is to the edge is the moment it succeeds. A run that clears by 200 MiB and one
+# that clears by 6,000 looked identical, and this machine has measured 336 MiB
+# free dying on a first request against 488 surviving.
+Write-Host ("  demand    {0:N0} MiB  =  {1:N0} weights + {2:N0} KV + {3:N0} compute" -f `
+            $demandMib, $WEIGHTS_MIB, $kvMib, $COMPUTE_MIB) -ForegroundColor Cyan
+Write-Host ("            budget {0:N0} MiB, spare {1:N0}" -f $total, ($total - $demandMib)) `
+           -ForegroundColor $(if (($total - $demandMib) -lt 1024) { "Yellow" } else { "DarkGray" })
 if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $demandMib) {
     # The deepest context this budget WOULD hold, so the developer is not left
     # bisecting -Ctx by hand. Rounded down to a multiple of 4,096.
