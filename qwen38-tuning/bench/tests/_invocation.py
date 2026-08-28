@@ -62,6 +62,20 @@ def resolved(path, *args, timeout=180):
 
 
 def flag(text, name):
-    """The value following `name`, tolerating the quoted array form."""
-    m = re.search(re.escape(name) + r"['\"]?\s*,?\s*['\"]?([^\s',\"]+)", text)
+    """The value following `name`, tolerating the quoted array form.
+
+    THE NAME MUST STAND ALONE. This searched for the bare substring until
+    2026-08-29, so `flag(out, "-m")` matched inside `worker-q2kxl-mtp.ps1` and
+    returned `tp.ps1.` as the model path, and would have matched inside
+    `--no-mmproj-auto` too. It only surfaced when a vision switch put a `-mm`
+    on the command line -- before that the real `-m` happened to come first and
+    `re.search` stops at the first hit, so the bug was invisible and the test
+    was green for the wrong reason.
+
+    A short flag is a prefix of many longer ones. Guarding both sides is the
+    whole fix: `-m` must not be preceded or followed by a word character or a
+    dash.
+    """
+    m = re.search(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])"
+                  r"['\"]?\s*,?\s*['\"]?([^\s',\"]+)", text)
     return m.group(1) if m else None

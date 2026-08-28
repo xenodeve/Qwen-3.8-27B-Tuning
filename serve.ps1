@@ -109,6 +109,7 @@ param(
     [switch]$Dflash,
     [switch]$Nvfp4,
     [switch]$Deep,
+    [switch]$Vision,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -284,6 +285,13 @@ if ($Dual) {
         Write-Host "            -Mtp adds draft-mtp: it RUNS, and every paired round of it"
         Write-Host "            was voided because the generations copy the prompt."
     }
+    if ($Vision) {
+        Write-Host "  images    ON. The vision tower is a SECOND MODEL of 888 MiB and it" -ForegroundColor Yellow
+        Write-Host "            lands on a card -- --mmproj-offload defaults to enabled."
+        Write-Host "            Without it the server answers HTTP 500 to any image:"
+        Write-Host "            'image input is not supported'. The model itself was"
+        Write-Host "            never the limitation; its chat template handles images."
+    }
     Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
     Write-Host "            low costs six. NEVER MEASURED on any artifact here."
     Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
@@ -387,6 +395,13 @@ if ($Dflash) {
         exit 1
     }
     $profileArgs['Dflash'] = $true
+}
+if ($Vision) {
+    if (-not $Dual) {
+        Write-Host "FATAL: -Vision applies to the two-card profile; pass -Dual too." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['Vision'] = $true
 }
 if ($Deep) {
     if (-not ($Dual -and $Nvfp4)) {

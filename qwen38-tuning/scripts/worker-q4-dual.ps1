@@ -480,6 +480,19 @@ param(
     # rung sits above that line but not far above it, and the budget check below
     # is what decides on the day -- if the desktop has grown, it refuses.
     [switch]$Deep,
+    # Load the vision tower so the server accepts images. OFF by default: the
+    # benchmark work here is text and the tower costs 888 MiB with GPU offload,
+    # which is llama.cpp's default.
+    #
+    # WHY IT WAS OFF AT ALL. This project recorded the whole --mmproj family as
+    # "not applicable -- text only" (16-OPTIMIZATION-SURFACE.md). True of a
+    # harness; false of a coding agent that pastes screenshots. On 2026-08-29
+    # Claude Code sent five images through the LAN launcher and got five HTTP
+    # 500s -- "image input is not supported ... you may need to provide the
+    # mmproj" -- while the model's own chat template, read out of the GGUF at
+    # load, begins `{%- set image_count = namespace(value...`. The model was
+    # never the limitation.
+    [switch]$Vision,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -517,6 +530,19 @@ $DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
 # A window is not a place to put one small prompt: a session that needs this
 # depth will fill it.
 $NVFP4_MAX_CTX = 200704
+# The vision tower. Shipped BY THE NVFP4 REPO ITSELF -- esatapedico publishes
+# mmproj-BF16.gguf beside the weights, 931,146,432 bytes, the same size as
+# unsloth's mmproj-BF16.gguf, which is what a shared tower looks like. It is a
+# property of the base model, not of the quantisation, so one file covers both
+# artifacts. Only this copy has been run here.
+$MMPROJ = "C:\Users\xenod\.cache\huggingface\hub" +
+    "\models--esatapedico--Qwen3.8-27B-NVFP4-MTP-GGUF" +
+    "\snapshots\bcd7a7d3e251d4ec0fd15c72584b5eb9e0981383" +
+    "\mmproj-BF16.gguf"
+# Measured from the file: 931,146,432 bytes = 888 MiB, and --mmproj-offload
+# defaults to ENABLED, so it lands on a card unless told otherwise.
+$VISION_MIB = 888
+
 $NVFP4_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
     "\models--esatapedico--Qwen3.8-27B-NVFP4-MTP-GGUF" +
     "\snapshots\bcd7a7d3e251d4ec0fd15c72584b5eb9e0981383" +
@@ -705,6 +731,7 @@ $NVFP4_WEIGHTS_MIB = 14173
 
 $WEIGHTS_MIB = 16130
 if ($Nvfp4)  { $WEIGHTS_MIB  = $NVFP4_WEIGHTS_MIB }
+if ($Vision) { $WEIGHTS_MIB += $VISION_MIB }
 if ($Dflash) { $WEIGHTS_MIB += $DFLASH_DRAFTER_MIB + $DFLASH_MIRROR_MIB }
 $KV_KIB_PER_TOKEN = 18.0
 # One compute buffer per card, and it tracks -ub. 1,024.30 MiB each at -ub 1024,
@@ -867,6 +894,9 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 # value that LOST on UD-Q4_K_XL at this exact depth. Two artifacts, two answers,
 # both measured at 147,456.
 $nMatch = if ($Nvfp4) { '24' } else { '12' }
+# Images or not. `--no-mmproj-auto` and `-mm` together is a contradiction for
+# whoever reads the command line next, so it is one or the other.
+$visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 # --alias is the model name every caller sees on /v1/models and in each
 # response. Left hardcoded it would announce Q4_K_XL while serving the NVFP4
 # file -- the same fault as CORRECTIONS 34 one layer out, and visible to clients
@@ -881,12 +911,12 @@ $argv = @(
     '-ngl', 'auto', '--fit', 'on', '--fit-target', '768', '-fa', 'on', '-np', '1',
     '-sm', 'tensor'
 ) + $tsArg + @(
-    '-t', '18', '-b', '2048', '-ub', "$UBatch", '--no-mmproj-auto', '-lv', "$Verbosity",
+    '-t', '18', '-b', '2048', '-ub', "$UBatch", '-lv', "$Verbosity",
     '--log-colors', $LogColors
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0'
 ) + $specArg + @(
-) + $ngramArg + @(
+) + $ngramArg + $visionArg + @(
     '--chat-template-file', 'C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja',
     '--reasoning-effort', 'medium',
     '--sse-ping-interval', "$SsePingIntervalSec",
