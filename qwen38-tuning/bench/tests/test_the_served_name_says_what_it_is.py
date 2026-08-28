@@ -23,7 +23,7 @@ model -- is checked here too.
 import os
 import re
 
-from _invocation import from_source
+from _invocation import flag, from_source, resolved
 import sys
 
 import pytest
@@ -41,12 +41,18 @@ def read(p):
     return open(p, encoding="utf-8", errors="replace").read()
 
 
-def alias_of(path):
-    """The alias as it reaches llama-server, read from the invocation."""
-    t = read(path)
-    inv = from_source(path)
-    m = re.search(r"--alias['\\\"]?\s*,?\s*['\\\"]?([^\s',\\\"]+)", inv)
-    return m.group(1) if m else None
+def alias_of(path, *args):
+    """The alias as it reaches llama-server.
+
+    THROUGH THE DRY RUN, not the source slice. This read the source until
+    2026-08-29, when the dual profile's alias became a value chosen at runtime
+    (`$alias = if ($Nvfp4) ...`) so that it could follow the artifact -- and the
+    slice returned the literal `$alias`. `_invocation` warns about exactly this:
+    "what the fallback cannot see: a value computed at runtime". A test that
+    reads the shape of a line stops working the moment the line stops being the
+    answer.
+    """
+    return flag(resolved(path, *args), "--alias")
 
 
 def test_neither_profile_still_answers_to_qwen38():
@@ -61,6 +67,17 @@ def test_each_profile_names_its_own_quantisation():
     assert alias_of(DUAL) == "Qwen3.8-27B-Q4_K_XL"
 
 
+def test_the_dual_profile_renames_itself_when_it_swaps_artifacts():
+    """`-Nvfp4` loads a different file; the name a client sees must follow it.
+
+    A profile that announced Q4_K_XL while serving NVFP4 would be confidently
+    wrong to every caller of /v1/models -- and this one did, until the dry run
+    was read by eye on 2026-08-29.
+    """
+    assert alias_of(DUAL, "-Nvfp4") == "Qwen3.8-27B-NVFP4-MTP"
+    assert alias_of(DUAL, "-Nvfp4") != alias_of(DUAL)
+
+
 def test_the_two_names_differ():
     """The whole point. Two profiles sharing a name is what made a client
     unable to tell which one it reached."""
@@ -71,13 +88,19 @@ def test_the_two_names_differ():
 def test_the_name_matches_the_file_the_profile_loads(path):
     """A name that says Q4 while loading Q2 is worse than `qwen38` was -- it is
     confidently wrong rather than merely uninformative."""
-    quant = alias_of(path).rsplit("-", 1)[-1]          # Q2_K_XL / Q4_K_XL
-    inv = read(path)
-    model_line = next(l for l in inv.splitlines()
-                      if "$Model =" in l and ".gguf" in l)
-    assert quant in model_line, (
+    out = resolved(path)
+    alias, model = flag(out, "--alias"), flag(out, "-m")
+    if model.startswith("$"):
+        # No dry run on this profile yet, so `resolved` gave the source slice
+        # and `-m` is still the variable. Follow it to its default -- and note
+        # that this branch cannot see a model chosen at runtime, which is
+        # precisely why the dual profile needed one.
+        model = next(l for l in read(path).splitlines()
+                     if "$Model =" in l and ".gguf" in l)
+    quant = alias.rsplit("-", 1)[-1]                   # Q2_K_XL / Q4_K_XL
+    assert quant in model, (
         "%s announces %r but loads %s"
-        % (os.path.basename(path), alias_of(path), model_line.strip()[-60:]))
+        % (os.path.basename(path), alias, model[-60:]))
 
 
 def test_the_only_client_that_names_a_model_was_updated():

@@ -15,12 +15,37 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 its output is that window's output. `Ctrl+C` stops it, and so does closing the
 window — there is one process, not a server beside a log-watcher.
 
-**Eight icons, and the columns are the real choice.**
+**Ten icons, and the columns are the real choice.**
 
-| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** | both cards **+ DFlash2** |
-|---|---|---|---|---|
-| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) |
-| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) |
+| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** | both cards **+ DFlash2** | **both cards, NVFP4** |
+|---|---|---|---|---|---|
+| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) | [`serve-dual-nvfp4.bat`](serve-dual-nvfp4.bat) |
+| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) | [`serve-dual-nvfp4-lan.bat`](serve-dual-nvfp4-lan.bat) |
+
+**The `nvfp4` pair is the fastest thing measured here, and it is the cheapest to
+reach.** At ctx 147,456, three paired rounds rotated on real vendor code:
+**39.4 / 42.6 / 42.6 tok/s against 24.9 / 25.7 / 25.7** for `serve-dual.bat`
+measured in the same rounds — **+63.1 %** [+58.3, +65.6], baseline spread 3.3 %.
+
+Unlike the `dflash` pair it costs **no patch, no second model and no unreviewed
+binary**: the speculative head is inside the model file and it runs on the same
+`llama.cpp-blackwell` every other icon uses. It even finishes a large request
+with **more** room than the default — about 2,395 MiB against 2,010.
+
+Two numbers in it are not preferences. The n-gram runs at **`n-match 24`, not
+the `12` every other profile serves**: `12` won on `UD-Q4_K_XL` and is worth a
+third less here, and `24` is the value that *lost* on the Q4 at this same depth.
+The tuning belongs to the file, not to the depth. And the window is 147,456
+against a measured ceiling of **229,376** — verified by pushing a 65,643-token
+request through it, which finished with 846 and 526 MiB free. 262,144 does not
+come up, so this pair does not ask for the deepest window that fits.
+
+**What it changes is the model file, and that is why it is an icon and not the
+default: quality has not been measured.** Not here and not on any artifact this
+project serves. What *is* measured is that the n-gram decoder's acceptance falls
+from **55.4 to 22.1** on this file — it writes text the predictor cannot
+anticipate, which is evidence it writes *differently*. Whether differently is
+worse is exactly what nobody knows.
 
 **The `dflash` pair is more than twice as fast and gives up half the window.**
 Measured 2026-08-27, three paired rounds on real vendor code at ctx 65,536:
@@ -69,7 +94,8 @@ decision, which is why none of the four implies another.
 [`docs/results/09-hardware.md`](docs/results/09-hardware.md).
 
 **The model announces which artifact it is.** `serve.bat` serves it as
-`Qwen3.8-27B-Q2_K_XL`, the `dual` pair as `Qwen3.8-27B-Q4_K_XL`. It used to be
+`Qwen3.8-27B-Q2_K_XL`, the `dual` pair as `Qwen3.8-27B-Q4_K_XL`, and the `nvfp4`
+pair as `Qwen3.8-27B-NVFP4-MTP`. It used to be
 `qwen38` for both, which told a client nothing and left a saved transcript
 unable to say afterwards which one had answered. **A client configured with the
 old name needs updating** — that string is all this rename changes; no file on

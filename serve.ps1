@@ -107,6 +107,7 @@ param(
     # 131,072, a binary nobody outside this project has reviewed, and almost all
     # the headroom. Its own pair of launchers; never a default.
     [switch]$Dflash,
+    [switch]$Nvfp4,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -202,7 +203,9 @@ public static class KillOnClose {
 
 # ---- what this is, and what is still open ------------------------------------
 Write-Host ""
-if ($Dual) {
+if ($Dual -and $Nvfp4) {
+    Write-Host "Qwen3.8-27B NVFP4 + baked-in MTP across BOTH cards -- 13.84 GiB, ceiling 229,376" -ForegroundColor Cyan
+} elseif ($Dual) {
     Write-Host "Qwen3.8-27B UD-Q4_K_XL across BOTH cards -- 16.69 GiB, resident to 229,376" -ForegroundColor Cyan
 } else {
     Write-Host "Qwen3.8-27B on RTX 5060 Ti 16 GB -- the configuration the evidence supports" -ForegroundColor Cyan
@@ -217,9 +220,17 @@ Write-Host ""
 # already (commit b55699c: it printed that closing the window stops the server,
 # and it did not). Pinned by test_the_dual_profile_serves_both_cards.py.
 if ($Dual) {
-    Write-Host "  artifact  UD-Q4_K_XL, 16.69 GiB. ONE 16 GB card cannot hold it at any"
-    Write-Host "            depth -- it spills 11 layers and decodes 11.7 tok/s."
-    Write-Host "            OUR OWN quality number for it does not exist either."
+    if ($Nvfp4) {
+        Write-Host "  artifact  NVFP4 VERY-LOW, 13.84 GiB, with the nextn head INSIDE the file."
+        Write-Host "            448 NVFP4 tensors -- the only weight format that reaches this"
+        Write-Host "            build's Blackwell path, and the 4070 runs it too."
+        Write-Host "            OUR OWN quality number for it does not exist. Nor for any"
+        Write-Host "            other artifact here -- but this one is a FILE change." -ForegroundColor Yellow
+    } else {
+        Write-Host "  artifact  UD-Q4_K_XL, 16.69 GiB. ONE 16 GB card cannot hold it at any"
+        Write-Host "            depth -- it spills 11 layers and decodes 11.7 tok/s."
+        Write-Host "            OUR OWN quality number for it does not exist either."
+    }
     # No window line here. The PROFILE resolves it -- with -MaxCtx it is
     # computed from free VRAM at launch -- and printing a static 147,456 beside
     # the profile's own line gave two contradictory windows four rows apart.
@@ -243,6 +254,18 @@ if ($Dual) {
         Write-Host "            outside this project. It costs 1,080 MiB, measured."
         Write-Host "  headroom  about 600 MiB per card after a large request, against" -ForegroundColor Yellow
         Write-Host "            ~2,210 for the served configuration. 336 died here; 488 lived."
+    } elseif ($Nvfp4) {
+        Write-Host "  rate      39.4 / 42.6 / 42.6 tok/s at 147,456, spread 8.1 %," -ForegroundColor Green
+        Write-Host "            +63.1 % [+58.3, +65.6] over the incumbent measured in the" -ForegroundColor Green
+        Write-Host "            SAME rounds, whose own spread was 3.3 %. Three paired"
+        Write-Host "            rounds rotated, real vendor code, this binary."
+        Write-Host "  decoder   draft-mtp from inside the file, beside ngram-mod at" -ForegroundColor Green
+        Write-Host "            n-match 24 -- NOT the 12 every other profile serves. 12"
+        Write-Host "            won on the Q4 and gives away a third of the gain here."
+        Write-Host "  window    147,456; the ceiling is 229,376, which survived a 65,643-"
+        Write-Host "            token request with 846 and 526 MiB free. 262,144 does not."
+        Write-Host "  headroom  MORE than the incumbent: about 2,395 MiB free after a large" -ForegroundColor Green
+        Write-Host "            request against about 2,010. The smaller file is real."
     } else {
         Write-Host "  rate      25.5 / 25.4 / 26.4 tok/s at 147,456, spread 3.7 %,"
         Write-Host "            against 21.8 with no speculation at all."
@@ -288,7 +311,18 @@ if ($installed.Count -gt 1) {
 }
 Write-Host ""
 if ($Dual) {
-if ($Dflash) {
+if ($Nvfp4) {
+# The rate block above already carries the measurement. This section is for what
+# is NOT known, and repeating the number here made the two say the same thing
+# twice -- which is how a launcher's two halves start drifting apart.
+Write-Host "  OPEN: QUALITY, and it is the only thing keeping this an icon." -ForegroundColor Yellow
+Write-Host "        This changes the MODEL FILE, not a flag. ngram-mod acceptance" -ForegroundColor Yellow
+Write-Host "        falls 55.4 -> 22.1 on this artifact, which is direct evidence" -ForegroundColor Yellow
+Write-Host "        it writes DIFFERENTLY rather than merely faster. Whether" -ForegroundColor Yellow
+Write-Host "        differently is worse is exactly what nobody here knows." -ForegroundColor Yellow
+Write-Host "        Also open: MID-HIGH has no rate, and nothing has run at" -ForegroundColor Yellow
+Write-Host "        229,376 with this n-gram. Issue #50." -ForegroundColor Yellow
+} elseif ($Dflash) {
 Write-Host "  OPEN: the DECODE RATE at 131,072 has never been measured." -ForegroundColor Yellow
 Write-Host "        The +123.8 % is at 65,536. A verdict at one depth does not" -ForegroundColor Yellow
 Write-Host "        transfer here -- at 147,456 a BETTER drafter measured SLOWER," -ForegroundColor Yellow
@@ -341,6 +375,14 @@ if ($Dflash) {
         exit 1
     }
     $profileArgs['Dflash'] = $true
+}
+if ($Nvfp4) {
+    if (-not $Dual) {
+        Write-Host "FATAL: -Nvfp4 is a two-card configuration; pass -Dual too." -ForegroundColor Red
+        Write-Host "  14,173 MiB of weights do not fit on either card alone." -ForegroundColor Yellow
+        exit 1
+    }
+    $profileArgs['Nvfp4'] = $true
 }
 if ($MaxCtx) {
     if (-not $Dual) {

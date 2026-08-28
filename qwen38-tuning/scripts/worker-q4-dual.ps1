@@ -444,6 +444,29 @@ param(
     #   3. almost all the HEADROOM. 634/530 MiB free at 131,072 against about
     #      2,210 for the served configuration.
     [switch]$Dflash,
+    # Serve the NVFP4 artifact with the MTP head BAKED INTO IT, and the n-gram
+    # retuned for that artifact. Measured +63.1 % [+58.3, +65.6] RESOLVED over
+    # this profile's default at ctx 147,456 -- 39.4 / 42.6 / 42.6 against
+    # 24.9 / 25.7 / 25.7, three paired rounds rotated, baseline spread 3.3 %
+    # (results/nvfp4-final-147456.jsonl). The fastest thing measured here.
+    #
+    # It costs NONE of what -Dflash costs: no patch, no sidecar drafter, the
+    # SERVED binary, and MORE headroom than the default (2,393-2,400 MiB free
+    # against 1,998-2,026). What it changes is the MODEL FILE, which is why it
+    # is a switch and not the default:
+    #
+    #   QUALITY IS UNMEASURED. ngram-mod acceptance falls 55.4 -> 22.1 on this
+    #   artifact -- direct evidence it writes DIFFERENTLY, not merely faster --
+    #   and this project has never measured quality on its own artifacts at all.
+    #
+    # Two measured facts the switch carries, and neither is a preference:
+    #   the n-gram is n-match 24, not the 12 every other profile serves. 12 won
+    #     on UD-Q4_K_XL and is worth 32.4-36.5 tok/s here against 42.9-43.1 for
+    #     24 -- +27.1 % RESOLVED -- and 24 LOST on the other artifact at this
+    #     exact depth. A verdict does not transfer across artifacts.
+    #   the ceiling is 229,376, which survived a 65,643-token request with
+    #     846/526 MiB free. 262,144 does not come up.
+    [switch]$Nvfp4,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -467,6 +490,28 @@ $DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
     "\models--z-lab--Qwen3.8-27B-DFlash2-GGUF" +
     "\snapshots\57ab3265056d4024870b0621cfc2c127537020ed" +
     "\Qwen3.8-27B-DFlash2-Q4_K_M.gguf"
+$NVFP4_MAX_CTX = 229376
+$NVFP4_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
+    "\models--esatapedico--Qwen3.8-27B-NVFP4-MTP-GGUF" +
+    "\snapshots\bcd7a7d3e251d4ec0fd15c72584b5eb9e0981383" +
+    "\Qwen3.8-27B-NVFP4-MTP-VERY-LOW.gguf"
+if ($Nvfp4) {
+    if ($Dflash -or $Mtp) {
+        Write-Host "FATAL: -Nvfp4 already carries a drafter; -Dflash and -Mtp are others." -ForegroundColor Red
+        Write-Host "  The MTP head is INSIDE this model file. -Dflash would also need" -ForegroundColor Yellow
+        Write-Host "  the patched binary, which this configuration does not use." -ForegroundColor Yellow
+        exit 1
+    }
+    if ($MaxCtx) {
+        Write-Host "FATAL: -MaxCtx cannot be used with -Nvfp4." -ForegroundColor Red
+        Write-Host "  The ceiling here is $NVFP4_MAX_CTX, measured with a real request:" -ForegroundColor Yellow
+        Write-Host "  229,376 survived 65,643 tokens with 846/526 MiB free; 262,144 does not" -ForegroundColor Yellow
+        Write-Host "  come up. 'The deepest that fits' is the wrong question at this edge." -ForegroundColor Yellow
+        exit 1
+    }
+    if ($Ctx -gt $NVFP4_MAX_CTX) { $Ctx = $NVFP4_MAX_CTX }
+    $Model = $NVFP4_MODEL
+}
 if ($Dflash) {
     if ($Mtp) {
         Write-Host "FATAL: -Dflash and -Mtp are two different drafters; pick one." -ForegroundColor Red
@@ -614,7 +659,14 @@ foreach ($uuid in $wanted) {
 $DFLASH_DRAFTER_MIB = 1936
 $DFLASH_MIRROR_MIB  = 1080
 
+# -Nvfp4: 14,173 MiB on disk against UD-Q4_K_XL's 17,092, and the nextn head is
+# inside that figure rather than added to it -- which is why $MTP_HEAD_MIB does
+# NOT apply here. Measured at ctx 147,456 it finishes with 2,393-2,400 MiB free
+# against 1,998-2,026 for the default, so the smaller file is real.
+$NVFP4_WEIGHTS_MIB = 14173
+
 $WEIGHTS_MIB = 16130
+if ($Nvfp4)  { $WEIGHTS_MIB  = $NVFP4_WEIGHTS_MIB }
 if ($Dflash) { $WEIGHTS_MIB += $DFLASH_DRAFTER_MIB + $DFLASH_MIRROR_MIB }
 $KV_KIB_PER_TOKEN = 18.0
 # One compute buffer per card, and it tracks -ub. 1,024.30 MiB each at -ub 1024,
@@ -725,7 +777,10 @@ $tsArg = @('-ts', ($budgets -join ','))
 
 # The decoder. ngram-mod alone is what has a measured rate here; -Mtp adds the
 # baked-in head beside it, which runs but whose rate the guard would not accept.
-$specArg = if ($Mtp) {
+$specArg = if ($Nvfp4) {
+    # The head is in the file; no -md, no second model on any device.
+    @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', '3')
+} elseif ($Mtp) {
     @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', '3')
 } elseif ($Dflash) {
     # n-max 2, not the 4 the arena measured with: the recurrent-state buffer is
@@ -769,9 +824,22 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 # and either printed or splatted -- a preview that reconstructs the argv
 # separately is how the two stop agreeing, which this repository already says
 # about serve.ps1 in its own -WhatIf block.
+# n-match is a property of the ARTIFACT, not of the depth. 12 won on
+# UD-Q4_K_XL; on the NVFP4 file 24 is +27.1 % RESOLVED over it, and 24 is the
+# value that LOST on UD-Q4_K_XL at this exact depth. Two artifacts, two answers,
+# both measured at 147,456.
+$nMatch = if ($Nvfp4) { '24' } else { '12' }
+# --alias is the model name every caller sees on /v1/models and in each
+# response. Left hardcoded it would announce Q4_K_XL while serving the NVFP4
+# file -- the same fault as CORRECTIONS 34 one layer out, and visible to clients
+# rather than only to a reader of the raw results.
+$alias = if ($Nvfp4) { 'Qwen3.8-27B-NVFP4-MTP' } else { 'Qwen3.8-27B-Q4_K_XL' }
+$ngramArg = @('--spec-ngram-mod-n-match', $nMatch,
+              '--spec-ngram-mod-n-min', '16', '--spec-ngram-mod-n-max', '32')
+
 $argv = @(
     '-m', $Model,
-    '--alias', 'Qwen3.8-27B-Q4_K_XL', '-c', "$Ctx",
+    '--alias', $alias, '-c', "$Ctx",
     '-ngl', 'auto', '--fit', 'on', '--fit-target', '768', '-fa', 'on', '-np', '1',
     '-sm', 'tensor'
 ) + $tsArg + @(
@@ -780,7 +848,7 @@ $argv = @(
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0'
 ) + $specArg + @(
-    '--spec-ngram-mod-n-match', '12', '--spec-ngram-mod-n-min', '16', '--spec-ngram-mod-n-max', '32',
+) + $ngramArg + @(
     '--chat-template-file', 'C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja',
     '--reasoning-effort', 'medium',
     '--sse-ping-interval', "$SsePingIntervalSec",
