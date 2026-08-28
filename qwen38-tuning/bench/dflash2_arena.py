@@ -108,6 +108,13 @@ SERVED_NGRAM = ["--spec-type", "ngram-mod"] + NGRAM
 # ratio travels with the split mode, never separately.
 DUAL_TENSOR = ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"]
 
+# The other split mode, as it is MEANT to be used: no `-ts`. Under `-sm layer`
+# llama.cpp already divides by free VRAM, and a ratio there measured +1.8 %
+# [+0.6, +4.1] -- inside any floor. Passing one would vary two things at once.
+# `-ub` is held at the tensor arm's value so the micro-batch is not a second
+# variable either.
+DUAL_LAYER = ["-sm", "layer", "-ub", "1024"]
+
 # The two cards, by UUID. Indexes are a position in an enumeration the driver
 # can reorder; after a reorder an index keeps working and means a different
 # card (issue #50). SUPER_4070 is the RETIRED 12 GB card -- it is named here
@@ -781,6 +788,32 @@ ARM_SETS = {
     #
     # NEITHER ARM NEEDS THE PATCH. The MTP head is in the file, so no -md and no
     # mirrored output projection: both run the SERVED binary.
+    # ---- 2026-08-29: the split mode, ON NVFP4 --------------------------------
+    #
+    # `-sm tensor` beat `-sm layer` by +65.4 % at this depth -- measured on
+    # UD-Q4_K_XL, on 2026-08-26, with SPECULATION OFF ON BOTH SIDES. This
+    # session established twice over that a verdict does not survive an artifact
+    # change, and the split verdict is the last big one still being quoted
+    # across one.
+    #
+    # There is also a mechanism, not only a caution. Every boot prints
+    # `set_sampler: backend sampling not supported with SPLIT_MODE_TENSOR; using
+    # CPU`, and draft-mtp announces `backend_sampling=1` immediately before it
+    # is disabled. A comparison with speculation off could not have seen that.
+    # `-sm layer` + draft-dflash is already on record loading and running at
+    # 52.11 tok/s, so layer can host what tensor cannot.
+    #
+    # The residency guard does not block this pair: it reads CPU spill from the
+    # load report ("66+0" vs "55+11"), and both modes report 66+0 when resident.
+    # If one of them spills, the report SHOULD refuse the delta -- that is the
+    # guard working, not a problem with the arm set.
+    "nvfp4-split": [
+        ("tensor-base", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("layer", DUAL_LAYER + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "nvfp4-final": [
         ("q4-ngram-base", DUAL_TENSOR + SERVED_NGRAM,
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
