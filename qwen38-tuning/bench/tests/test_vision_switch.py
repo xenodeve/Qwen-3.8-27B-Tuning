@@ -105,3 +105,54 @@ def test_the_banner_says_images_are_on_and_what_they_cost():
 def test_the_banner_is_silent_about_vision_when_it_is_off():
     out = _whatif(SERVE, "-Dual", "-Nvfp4")
     assert "mmproj" not in out.lower(), out
+
+
+# ------------------------------------------------ the launchers, once it was proven
+
+VIS = os.path.join(ROOT, "serve-dual-nvfp4-vision.bat")
+VIS_LAN = os.path.join(ROOT, "serve-dual-nvfp4-vision-lan.bat")
+BOTH_VIS = [VIS, VIS_LAN]
+
+
+def read(path):
+    with open(path, "rb") as fh:
+        return fh.read().decode("ascii")
+
+
+@pytest.mark.parametrize("path", BOTH_VIS)
+def test_the_vision_launcher_exists(path):
+    """Written only AFTER the tower was measured loading and answering a real
+    image at this depth. A launcher for an unproven capability is a promise."""
+    assert os.path.exists(path), path + " is missing"
+
+
+@pytest.mark.parametrize("path", BOTH_VIS)
+def test_it_asks_for_the_artifact_and_the_tower(path):
+    t = read(path)
+    assert "-Dual" in t, path
+    assert "-Nvfp4" in t, path
+    assert "-Vision" in t, path
+
+
+@pytest.mark.parametrize("path", BOTH_VIS)
+def test_it_stays_at_the_served_depth(path):
+    """Vision loaded and answered at 200,704 too, but that rung finished a TINY
+    image request with 614 MiB free -- between the 488 this project measured
+    surviving and the 336 dying -- and vision beside a large text prompt is
+    untested at any depth. The deep switch does not belong on this pair yet."""
+    t = read(path)
+    assert "-Deep" not in t, path
+    assert "-MaxCtx" not in t, path
+
+
+def test_only_the_lan_vision_one_exposes():
+    assert "-Lan" not in read(VIS)
+    assert "-Lan" in read(VIS_LAN)
+
+
+@pytest.mark.parametrize("path", BOTH_VIS)
+def test_it_is_readable_by_cmd(path):
+    raw = open(path, "rb").read()
+    raw.decode("ascii")
+    assert not raw.startswith(b"\xef\xbb\xbf"), "a BOM makes cmd choke"
+    assert b"\r\n" in raw

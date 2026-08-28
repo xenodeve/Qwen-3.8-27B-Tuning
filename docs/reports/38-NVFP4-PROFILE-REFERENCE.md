@@ -240,12 +240,14 @@ it is not earning either.
   been downloaded and looks like the obvious first thing to try against
   `VERY-LOW`.
 - **No depth above 147,456 has a paired rate.**
-- **Vision has never loaded.** The projector is downloaded and a `-Vision`
-  switch is wired, but the tower is a **second model**, and on this machine
-  `-sm tensor` has never loaded one — `draft-dflash` aborts in
-  `ggml-backend-meta.cpp` for exactly that reason. Arithmetic also says 888 MiB
-  will not fit at 200,704, which finishes with 692 MiB free. **Both statements
-  are predictions, not results.**
+- ~~**Vision has never loaded.**~~ **MEASURED 2026-08-29 and both predictions
+  were wrong.** The tower loads under `-sm tensor` on the unpatched served
+  binary and answers a real image correctly at 65,536, **147,456 and 200,704** —
+  the `ggml-backend-meta` wall that blocks a sidecar drafter does not apply to
+  `mmproj`, and 888 MiB does fit at the deep rung. What remains untested is
+  vision **beside a large text prompt**: the deep rung finished a tiny image
+  request with **614 MiB** free, against a measured line of 488 surviving and
+  336 dying.
 - **`--spec-draft-n-max 3` was never swept on this artifact.** Position 3 still
   accepts 28.4 % in real use, and the publisher runs `spec_n_max 6` with
   `spec_p_min 0.75`; we set no `p_min` at all.
@@ -279,7 +281,12 @@ it is not earning either.
 5. **`ngram-mod` fires 5 times in 4,653 calls on real traffic.** Is a lower
    `n-match` worth trying, or is a prompt-lookup decoder simply the wrong tool
    for agent output and the slot better spent elsewhere?
-6. **Can a vision projector load under `-sm tensor` at all** in llama.cpp at
-   this commit, or is it the same `ggml-backend-meta` limitation that blocks a
-   sidecar drafter? If it cannot, is running the tower on CPU
-   (`--no-mmproj-offload`) a workable answer for occasional screenshots?
+6. ~~Can a vision projector load under `-sm tensor` at all?~~ **Answered:
+   yes**, at every depth we serve, on the unpatched binary. The open part is
+   narrower — **is 614 MiB of headroom at 200,704 enough for vision beside a
+   real 100k-token prompt**, or does vision belong only at 147,456?
+7. **`-sm layer` is −31.0 % on NVFP4** (measured, three paired rounds, both arms
+   `66+0`) — so the tensor split's verdict *did* transfer across the artifact,
+   unlike every other verdict tested this session. **Is there a reason to expect
+   split-mode verdicts to be more portable than decoder verdicts**, or is that a
+   coincidence of this pair of cards?

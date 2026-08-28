@@ -15,12 +15,23 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 its output is that window's output. `Ctrl+C` stops it, and so does closing the
 window — there is one process, not a server beside a log-watcher.
 
-**Twelve icons, and the columns are the real choice.**
+**Fourteen icons.** Two families, because the choice is really *which artifact*
+first and *which window* second.
 
-| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** | both cards **+ DFlash2** | **both cards, NVFP4** | **NVFP4, deep** |
-|---|---|---|---|---|---|---|
-| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) | [`serve-dual-nvfp4.bat`](serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](serve-dual-nvfp4-deep.bat) |
-| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) | [`serve-dual-nvfp4-lan.bat`](serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](serve-dual-nvfp4-deep-lan.bat) |
+**The `UD-Q4_K_XL` family — what has been served all along.**
+
+| | one card, `UD-Q2_K_XL` | both cards | both cards **+ `draft-mtp`** | both cards **+ DFlash2** |
+|---|---|---|---|---|
+| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) |
+| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) |
+
+**The NVFP4 family — faster, both cards, same everything except the window and
+whether images work.**
+
+| | 147,456 | **200,704**, deepest measured | 147,456 **+ images** |
+|---|---|---|---|
+| loopback only | [`serve-dual-nvfp4.bat`](serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](serve-dual-nvfp4-deep.bat) | [`serve-dual-nvfp4-vision.bat`](serve-dual-nvfp4-vision.bat) |
+| reachable from other machines | [`serve-dual-nvfp4-lan.bat`](serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](serve-dual-nvfp4-deep-lan.bat) | [`serve-dual-nvfp4-vision-lan.bat`](serve-dual-nvfp4-vision-lan.bat) |
 
 **The `nvfp4` pair is the fastest thing measured here, and it is the cheapest to
 reach.** At ctx 147,456, three paired rounds rotated on real vendor code:
@@ -50,6 +61,21 @@ run dying with 336 MiB free and one surviving with 488, so 654 is above the line
 but not far above it. The profile re-checks the budget every launch and
 **refuses rather than spilling**, so a busy desktop stops it instead of quietly
 costing you 85×.
+
+**The `vision` pair is the 147,456 one plus the projector, and nothing else.**
+Without it every image is an HTTP 500 — `image input is not supported` — which
+is what a real Claude Code session hit five times. The model was never the
+limitation: it is a native vision-language model and its own chat template
+handles images; the tower is simply a separate 888 MiB file this project had
+switched off because the benchmark work is text.
+
+It was expected to fail — the tower is a second model and this split has never
+hosted one — and it does not. Measured on the ordinary unpatched binary, it
+loaded and answered a real 512×512 picture correctly at 65,536, 147,456 and
+200,704. **There is deliberately no deep+vision icon:** 200,704 answered a
+*small* picture and finished with 614 MiB free on one card, this project has
+measured 336 dying and 488 surviving, and images beside a large text prompt have
+not been measured at any depth.
 
 **What it changes is the model file, and that is why it is an icon and not the
 default: quality has not been measured.** Not here and not on any artifact this

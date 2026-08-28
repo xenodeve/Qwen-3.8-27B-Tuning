@@ -1095,3 +1095,65 @@ it survives. [CORRECTIONS 35](../reports/CORRECTIONS.md).
 
 **200,704 is what `serve-dual-nvfp4-deep.bat` serves**, verified by booting that
 launcher: `n_ctx 200704`, a 101,029-token request answered, 1,009 / 692 MiB free.
+
+### The split mode, ON NVFP4 — tensor still wins, by 31 % — 2026-08-29
+
+The `+65.4 %` for `-sm tensor` was measured on `UD-Q4_K_XL`, on 2026-08-26,
+**with speculation off on both sides**. This session had already shown twice that
+a verdict does not survive an artifact change, so it was re-run on the artifact
+and the decoder we would actually serve. Raw: `results/dflash2-arena.jsonl`,
+ctx 147,456, three paired rounds rotated, real vendor code.
+
+| arm | tok/s | spread | residency | free after |
+|---|---|---|---|---|
+| `-sm tensor -ts <computed>` **(baseline)** | 44.5 / 45.2 / 44.9 | **1.6 %** | `66+0` | 2,403–2,404 MiB |
+| `-sm layer` (no `-ts`) | 31.3 / 31.4 / 30.1 | 4.2 % | `66+0` | 1,610 MiB |
+
+**`-sm layer` is −31.0 % [−32.9, −29.6] RESOLVED.** Both arms fully resident, so
+this is the split and not a spill. **The verdict transfers.**
+
+**And the mechanism that made it worth asking is now answered too.** Every
+tensor-split boot prints `set_sampler: backend sampling not supported with
+SPLIT_MODE_TENSOR; using CPU`, one line after `draft-mtp` announces
+`backend_sampling=1`. **That line is ABSENT from every layer log** — backend
+sampling is live on that side — **and layer is still 31 % slower.** Whatever the
+CPU sampler fallback costs, it is smaller than what the tensor split buys.
+
+Two other differences worth recording, neither of them the headline:
+
+- **draft acceptance is 58.8 on tensor against 45.4 on layer**, and `ngram-mod`'s
+  accepted length is **17.54 against 5.88**. The two splits produce different
+  logits — [CORRECTIONS 32](../reports/CORRECTIONS.md) already records that
+  splitting changes the text — so they are not decoding the same tokens.
+- tensor leaves **~790 MiB more free**, matching the direction found on
+  `UD-Q4_K_XL` (5,313 against 2,827 there).
+
+`-sm row` remains unavailable: `device CUDA0 does not support split buffers`,
+about one second, every attempt. Not re-run.
+
+### Vision LOADS under `-sm tensor` — the prediction was wrong — 2026-08-29
+
+**Predicted to fail and it does not.** The reasoning was that the projector is a
+second model and `-sm tensor` had never hosted one: `draft-dflash` aborts in
+`ggml-backend-meta.cpp`, which is the whole reason DFlash2 needs a patched
+binary. That reasoning does not carry to `mmproj`.
+
+`mmproj-BF16.gguf` (931,146,432 bytes, ships with the NVFP4 repo, byte-identical
+to Unsloth's), passed as `-mm`, on the **served unpatched binary**, one boot per
+depth, each answering a real 512×512 PNG — a blue field with a yellow circle —
+through `/v1/chat/completions`:
+
+| ctx | loaded | answer | free after |
+|---|---|---|---|
+| 65,536 | yes | *"Blue fills most; a yellow circle is in the middle."* | 2,465 / 4,230 MiB |
+| **147,456** | yes | identical, correct | 1,205 / 2,450 MiB |
+| **200,704** | yes | identical, correct | **614** / 1,294 MiB |
+
+⚠️ **The free-VRAM column is after a TINY request.** A 512×512 image and a
+15-word answer is not a working session. **614 MiB at the deep rung is close to
+the 488 that survived and the 336 that died**, and vision has **not** been tested
+alongside a large text prompt at any depth. Treat 147,456 as the depth vision
+belongs at until that is measured.
+
+**Without `-mm` the server returns HTTP 500 to any image** — `image input is not
+supported` — which is what a real Claude Code session hit five times.
