@@ -481,3 +481,41 @@ there is no decode figure at 131,072.
    is a change inside ggml rather than a mapping choice.
 3. **Accept that 200,000 and DFlash2 do not fit on this hardware** and choose
    between the window and the rate.
+
+## A smaller drafter moves the DFlash2 ceiling to 163,840 — measured 2026-08-27
+
+**131,072 → 163,840**, one full rung, and it clears the 147,456 the dual profile
+serves by default. `-sm tensor`, computed `-ts`, `-ub 512`,
+`--spec-draft-n-max 2`, patched binary, a real 53,592-token request through every
+rung that loaded.
+
+| drafter | on disk | 200,704 | 163,840 | free after, per card |
+|---|---:|---|---|---|
+| `z-lab` `Q4_K_M` *(what the launcher ships)* | 1,090 MiB | no — wanted **786.35 MiB** on device 1 | *not run* | — |
+| `andrew-paul` `Q3_K_M` *(imatrix)* | 874 MiB | no | **loads, survives** | 956 / **353** MiB |
+| **`HermiHg` `Q2_K_S-MIX`** *(imatrix, mixed 2–3 bit)* | **535 MiB** | no — wanted **538.42 MiB** | **loads, survives** | **1,080 / 630 MiB** |
+
+**The failing allocation tracks the drafter's file size, measured rather than
+assumed:** 786.35 MiB for `Q4_K_M`, **538.42 MiB** for `Q2_K_S-MIX`. That is the
+buffer this project has been fighting since the 200,704 attempt, and it is a
+straight function of which file you load.
+
+**Prefer the smaller one, and it is not close.** `Q3_K_M` finishes with **353
+MiB** free on the second card — *below* the line this project measured, where
+336 MiB died on its first request and 488 survived. It survived this one.
+`Q2_K_S-MIX` finishes with **630 MiB**, and is 339 MiB lighter besides. The
+larger drafter buys nothing here and spends the margin.
+
+**200,704 is still out of reach** on all three, so the developer's ~200,000 ask
+remains unmet by the drafter alone. What is left is the display card:
+KV is 18.00 KiB/token, every 16,384 tokens is 288 MiB, and freeing 1,600–2,600
+MiB shifts weights off device 1 under a proportional `-ts`.
+
+### 🔴 Still no decode figure at this depth
+
+Both surviving rungs report **one token predicted** — the generation ended
+immediately, so there is no rate. **This time the script said `NOT MEASURABLE`
+instead of printing the zero**, which is the guard that was missing when the same
+thing produced a "0 tok/s" earlier today. The fit stands; the rate does not
+exist. Measuring it needs `ignore_eos` or a prompt that elicits a long answer,
+through the arena rather than an ad-hoc script.

@@ -233,3 +233,78 @@ split, where it is currently stranded.
 **One thing did not change.** Everything above is a mechanism or a report.
 Not one of it is a rate measured on this machine, and the patched binary has not
 been built yet.
+
+---
+
+## 7. The drafter is a separate model by design, and smaller ones exist
+
+**Asked 2026-08-27: is there a DFlash2 model with the head baked in, the way
+`draft-mtp` uses a head inside `UD-Q4_K_XL`?** If there were, it would need no
+`-md` sidecar, no 786.35 MiB buffer on device 1, and possibly no mirror patch.
+
+**No.** [`incoai/Qwen3.8-27B-DFlash2`](https://huggingface.co/incoai/Qwen3.8-27B-DFlash2)
+is the upstream drafter and its card says so outright:
+
+> *"It is not a standalone language model: it runs inside a speculative decoding
+> server and drafts tokens for the target model to verify."*
+
+A 2B BF16 safetensors drafter, paired at run time. The `z-lab` GGUF we load is a
+conversion of it. **The sidecar and its buffer are structural.**
+
+### What the size ladder actually is
+
+Read from the Hub, exact bytes:
+
+| repo | file | on disk |
+|---|---|---:|
+| `z-lab` **(ours)** | `Q4_K_M` | **1,090 MiB** |
+| `z-lab` | `Q8_0` / `BF16` | 1,961 / 3,681 MiB |
+| `andrew-paul` | `Q3_K_M` *(imatrix)* | **874 MiB** |
+| `andrew-paul` | `Q2_K` | 673 MiB |
+| **`HermiHg`** | **`Q2_K_S-MIX`** *(imatrix, mixed 2–3 bit)* | **535 MiB** |
+| `Anbeeld` | the full ladder Q2_K → bf16 | — |
+
+### The external table that makes this worth testing
+
+`HermiHg`'s card carries a measured comparison — `llama-server` with DFlash2 on
+**one 24 GB NVIDIA card**, five replicates, one fixed prompt:
+
+| `n_max` | metric | Q4_K_M | Q3_K_M | Q2_K | Q2_K_S-MIX |
+|---|---|---:|---:|---:|---:|
+| 4 | acceptance | 0.466 | 0.459 | 0.441 | 0.435 |
+| 4 | tok/s | 99.2 | 98.3 | 96.1 | 95.6 |
+| 5 | tok/s | 104.2 | 104.8 | 102.4 | 101.9 |
+
+**Throughput moves by a few percent while the file halves.** And because DFlash2
+is draft-and-verify, a weaker drafter costs **speed, not quality** — the target
+still verifies every token.
+
+**Not our machine, not our target, not our split.** One card rather than a
+tensor split, and `ggml-org/Qwen3.8-27B-GGUF` rather than Unsloth's
+`UD-Q4_K_XL`. Unverified here.
+
+### Why it matters to us specifically
+
+**The allocation that failed at 200,704 was 786.35 MiB on device 1 — the
+drafter's own Meta buffer**, not the total budget. Scaling by file size predicts
+**~630 MiB for Q3_K_M** and **~386 MiB for Q2_K_S-MIX**. If that holds, the
+request that could not be satisfied becomes one that can.
+
+`Q3_K_M` is also an **imatrix** quant and posts *higher* acceptance than our
+`Q4_K_M` at `n_max` 3 (0.543 against 0.539) — smaller and possibly better.
+
+### 🔴 A correction to something said in chat an hour earlier
+
+`deresolution/Qwen3.8-27B-DFlash2-mxfp4` was floated here as interesting because
+this build reports `BLACKWELL_NATIVE_FP4 = 1`. **That was wrong and it is
+checked:** the repo is an **MLX** conversion for Apple Silicon, produced by
+`mlx_vlm.convert`, and its README directs the reader to oMLX settings. It
+mentions llama.cpp nowhere. Our `GGML_TYPE_MXFP4` (`ggml.h:429`) is a GGUF
+tensor type added for gpt-oss — the same three letters, a different thing.
+
+### And DFlash2 is upstream now
+
+`HermiHg`'s card states DFlash 2 support was **merged into llama.cpp main on
+2026-08-27**. Our build is `1deefcca3`, described by `git describe` as
+`b10488-11-g1deefcca3`. **Unverified here**, and worth checking before anyone
+plans another rebuild around PR #27342.
