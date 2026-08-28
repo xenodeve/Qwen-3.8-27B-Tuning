@@ -709,7 +709,16 @@ if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $demand
     Write-Host "  --fit cannot rescue this: it is not implemented for SPLIT_MODE_TENSOR." -ForegroundColor Yellow
     Write-Host "  A spill here is silent and costs ~85x -- 0.38 tok/s was measured." -ForegroundColor Yellow
     Write-Host "  Close what is using the display card, or run worker-q2kxl-mtp.ps1." -ForegroundColor Yellow
-    exit 1
+    # -WhatIf WARNS AND CONTINUES. A dry run exists to answer "what would you
+    # run", and the budget is a fact about this minute's desktop rather than
+    # about the configuration -- refusing to print the argv because a browser
+    # tab is open makes the preview unusable exactly when it is most wanted.
+    # Only a real launch is refused, which is what the guard is for.
+    if ($WhatIfPreference) {
+        Write-Host "  (-WhatIf: previewing anyway; a real launch here would be refused.)" -ForegroundColor DarkGray
+    } else {
+        exit 1
+    }
 }
 
 $tsArg = @('-ts', ($budgets -join ','))

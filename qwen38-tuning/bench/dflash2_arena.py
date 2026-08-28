@@ -65,6 +65,22 @@ DRAFTER = (r"C:\Users\xenod\.cache\huggingface\hub"
            r"\models--z-lab--Qwen3.8-27B-DFlash2-GGUF"
            r"\snapshots\57ab3265056d4024870b0621cfc2c127537020ed"
            r"\Qwen3.8-27B-DFlash2-Q4_K_M.gguf")
+# NVFP4 with the MTP head baked in -- no -md sidecar, no mirror patch, and it
+# runs on the SERVED binary. Verified from the GGUF header: 448 NVFP4 tensors.
+NVFP4_VERY_LOW = (r"C:\Users\xenod\.cache\huggingface\hub"
+                  r"\models--esatapedico--Qwen3.8-27B-NVFP4-MTP-GGUF"
+                  r"\snapshots\bcd7a7d3e251d4ec0fd15c72584b5eb9e0981383"
+                  r"\Qwen3.8-27B-NVFP4-MTP-VERY-LOW.gguf")
+
+# The 535 MiB DFlash2 drafter, not the 1,090 MiB one this project started with.
+# Measured 2026-08-27: its Meta buffer is 538.42 MiB against 786.35, it reaches
+# 163,840 where Q4_K_M does not, and its author's own table puts throughput
+# within a few percent of the larger file at every n_max.
+DFLASH_SMALL = (r"C:\Users\xenod\.cache\huggingface\hub"
+                r"\models--HermiHg--Qwen3.8-27B-DFlash2-Q2_K_S-MIX-GGUF"
+                r"\snapshots\3a802866ab98104e56d2c0b33442004b5b39ab08"
+                r"\Qwen3.8-27B-DFlash2-Q2_K_S-MIX.gguf")
+
 BASE = "http://127.0.0.1:8080"
 
 # Set explicitly from 2026-08-24. Everything before that date ran at the chat
@@ -158,6 +174,17 @@ def _ngram(n_min, n_match=12, n_max=32):
     return ["--spec-ngram-mod-n-match", str(n_match),
             "--spec-ngram-mod-n-min", str(n_min),
             "--spec-ngram-mod-n-max", str(n_max)]
+
+
+def _nvfp4_mtp(ngram="ngram-mod"):
+    """The NVFP4 target with its baked-in MTP head, and one n-gram beside it.
+
+    n-max 3 is draft-mtp's own default (common.h:325) and what the +41.2 %
+    measurement used. The head is in the file, so no -md.
+    """
+    return ["-m", NVFP4_VERY_LOW,
+            "--spec-type", "draft-mtp," + ngram,
+            "--spec-draft-n-max", "3"]
 
 
 def _pair(extra_ngram=None, n_draft=4, extra=()):
@@ -630,6 +657,134 @@ ARM_SETS = {
         ("dflash+ngram", DUAL_TENSOR + ["--spec-type", "draft-dflash,ngram-mod",
                                         "-md", DRAFTER, "-ngld", "99",
                                         "--spec-draft-n-max", "4"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- 2026-08-29: NVFP4 against the artifact we serve ---------------------
+    #
+    # NVFP4 is the ONLY weight format this build has a Blackwell fast path for:
+    # mmq-config-blackwell.cuh covers exactly GGML_TYPE_MXFP4 and
+    # GGML_TYPE_NVFP4 and nothing else, and under the computed -ts the 5060 Ti
+    # carries about 70 % of the weights. It is also not Blackwell-only --
+    # mmq.cuh:129 defines a "Generic NVFP4" SRAM layout, so the 4070 runs it too.
+    #
+    # THE FILE, read from its own header: arch qwen35, 1202 tensors, 448 NVFP4,
+    # 744 F32, 9 Q2_K and 1 Q3_K. The 448-tensor NVFP4 backbone is byte-identical
+    # across every tier of that repo; the tiers differ in about ten tensors, which
+    # is where the 14,173-to-31,599 MiB spread comes from. The FORMAT is not the
+    # variable -- which tensors stay high is.
+    #
+    # THE MODEL IS IN THE ARM. server_argv hardcodes -m TARGET, so an arm that
+    # varies the artifact must append its own; llama.cpp takes the last, the same
+    # plain-setter behaviour the -ub set relies on.
+    #
+    # WHY nvfp4-ngram IS HERE. One unpaired run of NVFP4 + draft-mtp reported
+    # draft acceptance 0.21053, 12 accepted of 57 generated, mean len 1.63 --
+    # against 0.488-0.554 and mean 16-18 for the ngram-mod we serve. Without the
+    # no-MTP arm the sweep could not tell "NVFP4 is slower" from "MTP is slower".
+    #
+    # 147,456 because both artifacts hold it: NVFP4 VERY-LOW loads at 229,376,
+    # UD-Q4_K_XL reaches about 250,000, and comparing at a depth only one can
+    # reach would put depth in the comparison.
+    "nvfp4-vs-q4": [
+        ("q4-ngram-base", DUAL_TENSOR + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-ngram", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW] + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-mtp+ngram", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                           "--spec-type", "draft-mtp,ngram-mod",
+                                           "--spec-draft-n-max", "3"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- 2026-08-29: DFlash2 beside NVFP4, against the head NVFP4 ships with -
+    #
+    # WHERE THIS STARTS. At 147,456, three paired rounds on real vendor code:
+    # q4-ngram-base 24.4/25.6/25.7, nvfp4-ngram -22.4 % RESOLVED, and
+    # nvfp4-mtp+ngram +41.2 % [+39.9, +43.0] RESOLVED. So the MTP head inside
+    # the NVFP4 file is worth more than the artifact change itself, and
+    # ngram-mod ALONE on NVFP4 is a loss -- its acceptance falls 55.4 -> 22.1
+    # because that artifact writes text the n-gram cannot predict.
+    #
+    # WHICH IS EXACTLY DFLASH2'S CASE. It drafts from the model, not from
+    # repetition. On UD-Q4_K_XL at 65,536 the draft-dflash,ngram-mod pairing was
+    # +123.8 % against +38.9 % for draft-mtp,ngram-mod. If that ordering carries
+    # onto NVFP4 at the served depth it beats the current champion.
+    #
+    # REQUIRES THE PATCHED BINARY. DFlash2's selector runs a TopK over the
+    # TARGET's LM head; under -sm tensor those logits are axis 0 and llama.cpp
+    # aborts at ggml-backend-meta.cpp:543. vLLM refuses the same component from
+    # the other side -- "DFlash2 requires an unquantized target LM head for
+    # candidate TopK". The mirror costs 1,080 MiB, measured.
+    #
+    # MEMORY IS THE RISK: nvfp4-ngram finished with 3,797 MiB free, and the
+    # drafter buffer plus the mirror are about 1,618 of it.
+    "nvfp4-dflash": [
+        ("nvfp4-mtp+ngram", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                           "--spec-type", "draft-mtp,ngram-mod",
+                                           "--spec-draft-n-max", "3"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-dflash+ngram", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                              "--spec-type", "draft-dflash,ngram-mod",
+                                              "-md", DFLASH_SMALL, "-ngld", "99",
+                                              "--spec-draft-n-max", "2"] + NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- 2026-08-29: retune the n-gram FOR NVFP4 ----------------------------
+    #
+    # n-match 12 is what every profile serves and it was chosen on UD-Q4_K_XL:
+    # at 147,456 it beat 16 and 24, and both map-k variants declined 100 % of
+    # their drafts. On NVFP4 the same setting collapses -- acceptance 55.4 ->
+    # 22.1, and beside MTP it reports `ngram-mod decline 97.2 %`. It is barely
+    # firing.
+    #
+    # That is not a decoder fault. ngram-mod drafts from repetition in the text
+    # the model is producing, so a different artifact writing differently is a
+    # different problem for it. This project's rule that a verdict at one DEPTH
+    # does not transfer applies to ARTIFACTS too, and nothing had tested it.
+    #
+    # THE DRAFTER IS HELD AT draft-mtp because that is what would be served:
+    # NVFP4 + draft-mtp + ngram-mod is +41.2 % [+39.9, +43.0] over the served
+    # configuration, and DFlash2 beside it added +0.2 % with the sign flipping
+    # while costing 650 MiB of headroom and a patched binary.
+    #
+    # Costs only boots -- none of these settings moves an allocation.
+    "nvfp4-ngram-retune": [
+        ("mtp+nm12-base", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 12),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("mtp+nm16", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 16),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("mtp+nm24", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        # The variants run at their own defaults: tuning a loser is wasted boots,
+        # and each carries a different parameter family.
+        ("mtp+map-k", DUAL_TENSOR + _nvfp4_mtp("ngram-map-k"),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("mtp+map-k4v", DUAL_TENSOR + _nvfp4_mtp("ngram-map-k4v"),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # ---- 2026-08-29: the proposal against the incumbent, in ONE run ----------
+    #
+    # Two verdicts exist and they were taken in different runs: NVFP4+MTP at
+    # n-match 12 was +41.2 % over the served config, and n-match 24 was +27.1 %
+    # over n-match 12 on NVFP4. MULTIPLYING THEM WOULD BE A CROSS-RUN
+    # COMPARISON, which this project forbids -- the spread across boots is
+    # measured and its cause is unknown. This set is the only figure that may be
+    # quoted for the decision.
+    #
+    # 24 is the value that LOST on UD-Q4_K_XL at this same depth, where 12 beat
+    # both 16 and 24 and map-k declined 100 % of its drafts. On NVFP4 map-k
+    # recovers to +15.4 % RESOLVED and 24 wins at spread 0.4 %. n-gram tuning
+    # does not survive an artifact change; nothing had tested that.
+    #
+    # NEITHER ARM NEEDS THE PATCH. The MTP head is in the file, so no -md and no
+    # mirrored output projection: both run the SERVED binary.
+    "nvfp4-final": [
+        ("q4-ngram-base", DUAL_TENSOR + SERVED_NGRAM,
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-mtp+nm24", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
