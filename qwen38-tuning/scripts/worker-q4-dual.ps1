@@ -464,9 +464,22 @@ param(
     #     on UD-Q4_K_XL and is worth 32.4-36.5 tok/s here against 42.9-43.1 for
     #     24 -- +27.1 % RESOLVED -- and 24 LOST on the other artifact at this
     #     exact depth. A verdict does not transfer across artifacts.
-    #   the ceiling is 229,376, which survived a 65,643-token request with
-    #     846/526 MiB free. 262,144 does not come up.
+    #   the ceiling is 200,704, re-derived against a half-window request:
+    #     91,428 tokens through it, finishing 1,133/654 MiB free. 229,376 LOADS
+    #     and then dies (CORRECTIONS 35), which is why -MaxCtx is refused here.
     [switch]$Nvfp4,
+    # Serve the NVFP4 artifact at its MEASURED ceiling, 200,704, instead of this
+    # profile's 147,456 default. Not the same question as -MaxCtx: that one asks
+    # the free VRAM for the deepest window it can afford, and here the answer is
+    # a constant found by pushing a HALF-WINDOW request through each rung --
+    # 229,376 loads, answers /health and then dies (CORRECTIONS 35).
+    #
+    # IT COSTS THE HEADROOM. 200,704 finished a 91,428-token request with 1,133
+    # and 654 MiB free, against about 2,395 at the default. This project has
+    # measured 336 MiB dying on a first request and 488 surviving, so the deep
+    # rung sits above that line but not far above it, and the budget check below
+    # is what decides on the day -- if the desktop has grown, it refuses.
+    [switch]$Deep,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -490,7 +503,20 @@ $DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
     "\models--z-lab--Qwen3.8-27B-DFlash2-GGUF" +
     "\snapshots\57ab3265056d4024870b0621cfc2c127537020ed" +
     "\Qwen3.8-27B-DFlash2-Q4_K_M.gguf"
-$NVFP4_MAX_CTX = 229376
+# 200,704, re-derived 2026-08-29 against a HALF-window request -- the standard
+# every measured row in this project uses. The first figure was 229,376, taken
+# because that rung survived a 65,643-token prompt, which is a QUARTER of its
+# own window. Asked for 114,688 it loads with 680/206 MiB free and dies:
+# `cudaMalloc failed: out of memory` on device 1. 206 MiB is BELOW the 336 this
+# project has already recorded as dying. See CORRECTIONS 35.
+#
+#   229,376  loaded 680/206 free   DIED on the request
+#   200,704  survived 91,428 tokens, finished 1,133/654 free
+#   180,224  survived 83,127 tokens, finished 1,379/1,174 free
+#
+# A window is not a place to put one small prompt: a session that needs this
+# depth will fill it.
+$NVFP4_MAX_CTX = 200704
 $NVFP4_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
     "\models--esatapedico--Qwen3.8-27B-NVFP4-MTP-GGUF" +
     "\snapshots\bcd7a7d3e251d4ec0fd15c72584b5eb9e0981383" +
@@ -503,14 +529,26 @@ if ($Nvfp4) {
         exit 1
     }
     if ($MaxCtx) {
+        if ($Deep) {
+            Write-Host "FATAL: -Deep and -MaxCtx are two answers to one question." -ForegroundColor Red
+            Write-Host "  -Deep is the measured 200,704; -MaxCtx asks the free VRAM." -ForegroundColor Yellow
+            exit 1
+        }
         Write-Host "FATAL: -MaxCtx cannot be used with -Nvfp4." -ForegroundColor Red
         Write-Host "  The ceiling here is $NVFP4_MAX_CTX, measured with a real request:" -ForegroundColor Yellow
-        Write-Host "  229,376 survived 65,643 tokens with 846/526 MiB free; 262,144 does not" -ForegroundColor Yellow
-        Write-Host "  come up. 'The deepest that fits' is the wrong question at this edge." -ForegroundColor Yellow
+        Write-Host "  91,428 tokens through it, finishing 1,133/654 MiB free. 229,376 LOADS," -ForegroundColor Yellow
+        Write-Host "  answers /health and DIES on the request. 'The deepest that fits' is" -ForegroundColor Yellow
+        Write-Host "  the wrong question at an edge where a window can pass a health check." -ForegroundColor Yellow
         exit 1
     }
+    if ($Deep) { $Ctx = $NVFP4_MAX_CTX }
     if ($Ctx -gt $NVFP4_MAX_CTX) { $Ctx = $NVFP4_MAX_CTX }
     $Model = $NVFP4_MODEL
+} elseif ($Deep) {
+    Write-Host "FATAL: -Deep is the NVFP4 ceiling; pass -Nvfp4 too." -ForegroundColor Red
+    Write-Host "  200,704 was measured on THAT artifact and does not transfer." -ForegroundColor Yellow
+    Write-Host "  On UD-Q4_K_XL the deep question is a budget one: use -MaxCtx." -ForegroundColor Yellow
+    exit 1
 }
 if ($Dflash) {
     if ($Mtp) {

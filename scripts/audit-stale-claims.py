@@ -208,6 +208,18 @@ RULES = [
      "measured free VRAM and refuses when the budget cannot hold the weights",
      "CORRECTIONS.md 33"),
 
+    ("nvfp4-ceiling-229376",
+     r"\$NVFP4_MAX_CTX = 229376|NVFP4.{0,80}ceiling.{0,40}229,?376|"
+     r"ceiling.{0,40}229,?376.{0,80}65,?643|65,?643-token request.{0,60}229,?376|"
+     r"NVFP4 ceiling is 229,?376",
+     "229,376 was certified with a 65,643-token request -- a QUARTER of its own "
+     "window. Given the arena's standard int(ctx * 0.5) slice it loads with "
+     "206 MiB free on device 1 and DIES on the request with cudaMalloc failed: "
+     "out of memory. The re-derived ceiling is 200,704, which took a "
+     "101,029-token request and finished with 692 MiB free on that card. A "
+     "depth that loads is not a depth that serves",
+     "CORRECTIONS.md 35"),
+
     ("target-column-is-the-arms",
      r"target=TARGET|target_mib=model_size_mib\(TARGET\)|"
      r"'target=TARGET' in SRC",

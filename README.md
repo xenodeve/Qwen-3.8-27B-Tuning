@@ -15,12 +15,12 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 its output is that window's output. `Ctrl+C` stops it, and so does closing the
 window — there is one process, not a server beside a log-watcher.
 
-**Ten icons, and the columns are the real choice.**
+**Twelve icons, and the columns are the real choice.**
 
-| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** | both cards **+ DFlash2** | **both cards, NVFP4** |
-|---|---|---|---|---|---|
-| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) | [`serve-dual-nvfp4.bat`](serve-dual-nvfp4.bat) |
-| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) | [`serve-dual-nvfp4-lan.bat`](serve-dual-nvfp4-lan.bat) |
+| | one card, `UD-Q2_K_XL` | **both cards, `UD-Q4_K_XL`** | both cards **+ `draft-mtp`** | both cards **+ DFlash2** | **both cards, NVFP4** | **NVFP4, deep** |
+|---|---|---|---|---|---|---|
+| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) | [`serve-dual-nvfp4.bat`](serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](serve-dual-nvfp4-deep.bat) |
+| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) | [`serve-dual-nvfp4-lan.bat`](serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](serve-dual-nvfp4-deep-lan.bat) |
 
 **The `nvfp4` pair is the fastest thing measured here, and it is the cheapest to
 reach.** At ctx 147,456, three paired rounds rotated on real vendor code:
@@ -36,9 +36,20 @@ Two numbers in it are not preferences. The n-gram runs at **`n-match 24`, not
 the `12` every other profile serves**: `12` won on `UD-Q4_K_XL` and is worth a
 third less here, and `24` is the value that *lost* on the Q4 at this same depth.
 The tuning belongs to the file, not to the depth. And the window is 147,456
-against a measured ceiling of **229,376** — verified by pushing a 65,643-token
-request through it, which finished with 846 and 526 MiB free. 262,144 does not
-come up, so this pair does not ask for the deepest window that fits.
+against a measured ceiling of **200,704**, which
+[`serve-dual-nvfp4-deep.bat`](serve-dual-nvfp4-deep.bat) serves — verified by
+booting that launcher and pushing a **101,029-token** request through it,
+finishing with 1,009 and 692 MiB free. **229,376 loads, answers a health check
+and then dies**, so neither pair asks for the deepest window that fits.
+
+**The `deep` pair is the same thing with a bigger window and nothing else
+changed** — same file, same head, same `n-match 24`, 200,704 instead of 147,456.
+The headroom is the whole trade: about **1,133 and 654 MiB** free after a large
+request, against roughly **2,395** at the default. This project has measured a
+run dying with 336 MiB free and one surviving with 488, so 654 is above the line
+but not far above it. The profile re-checks the budget every launch and
+**refuses rather than spilling**, so a busy desktop stops it instead of quietly
+costing you 85×.
 
 **What it changes is the model file, and that is why it is an icon and not the
 default: quality has not been measured.** Not here and not on any artifact this
@@ -103,7 +114,7 @@ disk moved and no measured row means anything different.
 
 From a terminal, the same six with flags:
 
-**The four `dual` launchers now serve the deepest window that fits**, capped at
+**The `dual` and `dual-mtp` launchers serve the deepest window that fits**, capped at
 the model's own `n_ctx_train` of 262,144. It is **computed at launch, not
 fixed** — 262,144 loaded on this machine when the desktop held ~1,600 MiB and
 ran out of memory at 2,575, so the number moves with what you have open. Two

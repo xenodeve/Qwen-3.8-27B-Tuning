@@ -1352,6 +1352,50 @@ PowerShell launcher; this column had its own grep and was not covered.
 
 ---
 
+## 35. "The NVFP4 ceiling is 229,376" — it loads there and dies on a real request
+
+**Retracted 2026-08-29, the same day it was written, by this project's own data.**
+
+The figure came from a depth ladder that pushed a **65,643-token** request
+through each rung. 229,376 answered, so it was recorded as the ceiling and the
+`-Deep` launcher was built on it. **65,643 is a quarter of 229,376.**
+
+Asked instead for the arena's standard slice — `int(ctx * 0.5)`, the size every
+measured row in this project uses — the same rung fails:
+
+| ctx | prompt | outcome | free after |
+|---|---|---|---|
+| **229,376** | 114,688 | **loaded, answered `/health`, DIED on the request** — `ggml_backend_cuda_buffer_type_alloc_buffer: allocating 20.00 MiB on device 1: cudaMalloc failed: out of memory` | — |
+| **200,704** | 100,352 | survived 91,428 tokens | 1,133 / **654** MiB |
+| 180,224 | 90,112 | survived 83,127 tokens | 1,379 / 1,174 MiB |
+| 163,840 | 81,920 | survived 76,741 tokens | 1,458 / 1,601 MiB |
+
+**229,376 loads with 680 / 206 MiB free.** This project had already measured
+**336 MiB dying** on a first request and **488 surviving**. 206 is below both.
+The number was there in the load report and was not read.
+
+**Fixed:** `$NVFP4_MAX_CTX` is **200,704**, which is what `-Deep` serves and
+what the cap enforces. Verified by booting `serve-dual-nvfp4-deep.bat` itself:
+`n_ctx 200704`, a **101,029-token** request answered, finishing 1,009 / 692 MiB
+free.
+
+### The general form
+
+**A depth that loads is not a depth that serves, and a rung tested with a small
+prompt is a rung tested at a different depth.** This project already holds that
+*loading is not surviving* and tests every rung with a real request — the rule
+held, and the request was a quarter of the window it was certifying. **The size
+of the probe is part of the claim.** A window is not a place to put one small
+prompt: a session that needs 200,704 tokens will fill it.
+
+Note what did *not* fail: **the profile's budget guard refused a boot** when a
+leaked server still held both cards, rather than spilling. The instrument that
+was wrong was the ladder's prompt.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nvfp4-ceiling-229376`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

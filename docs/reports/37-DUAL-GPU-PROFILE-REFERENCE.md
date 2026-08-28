@@ -92,6 +92,8 @@ one card or two, loopback or exposed — plus an MTP pair:
 | `serve-dual-dflash-lan.bat` | **two** | LAN | `-Dflash`, **never** `-MaxCtx` |
 | `serve-dual-nvfp4.bat` | **two** | `127.0.0.1` | `-Nvfp4`, **never** `-MaxCtx` |
 | `serve-dual-nvfp4-lan.bat` | **two** | LAN | `-Nvfp4`, **never** `-MaxCtx` |
+| `serve-dual-nvfp4-deep.bat` | **two** | `127.0.0.1` | `-Nvfp4 -Deep`, 200,704 |
+| `serve-dual-nvfp4-deep-lan.bat` | **two** | LAN | `-Nvfp4 -Deep`, 200,704 |
 
 Each `.bat` is ASCII, CRLF, no BOM, anchored on `%~dp0`, runs
 `powershell -ExecutionPolicy Bypass -File "%~dp0serve.ps1" ...`, and pauses on a

@@ -108,6 +108,7 @@ param(
     # the headroom. Its own pair of launchers; never a default.
     [switch]$Dflash,
     [switch]$Nvfp4,
+    [switch]$Deep,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -204,7 +205,7 @@ public static class KillOnClose {
 # ---- what this is, and what is still open ------------------------------------
 Write-Host ""
 if ($Dual -and $Nvfp4) {
-    Write-Host "Qwen3.8-27B NVFP4 + baked-in MTP across BOTH cards -- 13.84 GiB, ceiling 229,376" -ForegroundColor Cyan
+    Write-Host "Qwen3.8-27B NVFP4 + baked-in MTP across BOTH cards -- 13.84 GiB, ceiling 200,704" -ForegroundColor Cyan
 } elseif ($Dual) {
     Write-Host "Qwen3.8-27B UD-Q4_K_XL across BOTH cards -- 16.69 GiB, resident to 229,376" -ForegroundColor Cyan
 } else {
@@ -262,10 +263,21 @@ if ($Dual) {
         Write-Host "  decoder   draft-mtp from inside the file, beside ngram-mod at" -ForegroundColor Green
         Write-Host "            n-match 24 -- NOT the 12 every other profile serves. 12"
         Write-Host "            won on the Q4 and gives away a third of the gain here."
-        Write-Host "  window    147,456; the ceiling is 229,376, which survived a 65,643-"
-        Write-Host "            token request with 846 and 526 MiB free. 262,144 does not."
-        Write-Host "  headroom  MORE than the incumbent: about 2,395 MiB free after a large" -ForegroundColor Green
-        Write-Host "            request against about 2,010. The smaller file is real."
+        if ($Deep) {
+            Write-Host "  window    200,704 -- the MEASURED ceiling, not a budget answer." -ForegroundColor Yellow
+            Write-Host "            91,428 tokens through it, finishing 1,133 and 654 MiB free."
+            Write-Host "            229,376 LOADS, answers /health and DIES on the request."
+            Write-Host "  headroom  THIS IS THE COST. 654 MiB is not far above the line this" -ForegroundColor Yellow
+            Write-Host "            project measured: 336 died on a first request, 488 lived."
+            Write-Host "            The profile re-checks the budget at launch and refuses"
+            Write-Host "            rather than spilling, so a busy desktop stops it."
+        } else {
+            Write-Host "  window    147,456; the ceiling is 200,704 and serve-dual-nvfp4-deep.bat"
+            Write-Host "            serves it. That rung took a 91,428-token request and"
+            Write-Host "            finished with 1,133 and 654 MiB free. 229,376 does not."
+            Write-Host "  headroom  MORE than the incumbent: about 2,395 MiB free after a large" -ForegroundColor Green
+            Write-Host "            request against about 2,010. The smaller file is real."
+        }
     } else {
         Write-Host "  rate      25.5 / 25.4 / 26.4 tok/s at 147,456, spread 3.7 %,"
         Write-Host "            against 21.8 with no speculation at all."
@@ -320,8 +332,8 @@ Write-Host "        This changes the MODEL FILE, not a flag. ngram-mod acceptanc
 Write-Host "        falls 55.4 -> 22.1 on this artifact, which is direct evidence" -ForegroundColor Yellow
 Write-Host "        it writes DIFFERENTLY rather than merely faster. Whether" -ForegroundColor Yellow
 Write-Host "        differently is worse is exactly what nobody here knows." -ForegroundColor Yellow
-Write-Host "        Also open: MID-HIGH has no rate, and nothing has run at" -ForegroundColor Yellow
-Write-Host "        229,376 with this n-gram. Issue #50." -ForegroundColor Yellow
+Write-Host "        Also open: MID-HIGH has no rate at all, and no depth above" -ForegroundColor Yellow
+Write-Host "        147,456 has a PAIRED one. Issue #50." -ForegroundColor Yellow
 } elseif ($Dflash) {
 Write-Host "  OPEN: the DECODE RATE at 131,072 has never been measured." -ForegroundColor Yellow
 Write-Host "        The +123.8 % is at 65,536. A verdict at one depth does not" -ForegroundColor Yellow
@@ -375,6 +387,14 @@ if ($Dflash) {
         exit 1
     }
     $profileArgs['Dflash'] = $true
+}
+if ($Deep) {
+    if (-not ($Dual -and $Nvfp4)) {
+        Write-Host "FATAL: -Deep is the NVFP4 ceiling; pass -Dual -Nvfp4 too." -ForegroundColor Red
+        Write-Host "  On UD-Q4_K_XL the deep question is a budget one: use -MaxCtx." -ForegroundColor Yellow
+        exit 1
+    }
+    $profileArgs['Deep'] = $true
 }
 if ($Nvfp4) {
     if (-not $Dual) {

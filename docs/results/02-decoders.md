@@ -1072,5 +1072,26 @@ artifact there is no case for DFlash2.**
 **Quality has never been measured on this project's own artifacts, and the
 proposal swaps the MODEL FILE, not a flag.** `ngram-mod`'s acceptance halving
 from 55.4 to 22.1 is direct evidence that NVFP4 *writes differently*, not merely
-faster. **No default has been changed.** Also unmeasured: `MID-HIGH` has no rate
-at all, and nothing has been run at 229,376 with the re-tuned n-gram.
+faster. **No default has been changed.** Also unmeasured: `MID-HIGH` has no rate at all,
+and no depth above 147,456 has a **paired** one.
+
+### The deep rung, re-derived against a half-window request — 2026-08-29
+
+The first ladder certified **229,376** because it survived a 65,643-token
+request. That is a **quarter** of its own window. Given the arena's standard
+`int(ctx * 0.5)` slice, one boot per rung through the profile:
+
+| ctx | prompt | outcome | free after |
+|---|---|---|---|
+| 229,376 | 114,688 | **loaded, answered `/health`, DIED** — `cudaMalloc failed: out of memory` on device 1, having loaded with **206 MiB** free there | — |
+| **200,704** | 100,352 | survived 91,428 tokens, 37.59 tok/s | 1,133 / **654** MiB |
+| 180,224 | 90,112 | survived 83,127 tokens, 29.28 tok/s | 1,379 / 1,174 MiB |
+| 163,840 | 81,920 | survived 76,741 tokens, 28.69 tok/s | 1,458 / 1,601 MiB |
+
+**Those three rates are single unpaired readings at three different depths on
+three different prompts.** They are not a depth-versus-speed curve and must not
+be read as one — they are here because a rung that answers is the evidence that
+it survives. [CORRECTIONS 35](../reports/CORRECTIONS.md).
+
+**200,704 is what `serve-dual-nvfp4-deep.bat` serves**, verified by booting that
+launcher: `n_ctx 200704`, a 101,029-token request answered, 1,009 / 692 MiB free.

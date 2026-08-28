@@ -82,9 +82,10 @@ def test_it_asks_for_both_cards_and_the_artifact(path):
 
 @pytest.mark.parametrize("path", BOTH)
 def test_it_does_NOT_ask_for_the_deepest_window(path):
-    """229,376 is the measured ceiling; 262,144 does not come up."""
+    """200,704 is the measured ceiling; the rungs above it die on a real
+    half-window request (CORRECTIONS 35)."""
     assert "-MaxCtx" not in read(path), (
-        path + " carries -MaxCtx; the NVFP4 ceiling is 229,376")
+        path + " carries -MaxCtx; the NVFP4 ceiling is 200,704")
 
 
 def test_only_the_lan_one_exposes():
@@ -154,7 +155,7 @@ def test_it_uses_the_SERVED_binary_and_not_the_patched_one():
 
 def test_the_window_is_capped_at_the_measured_ceiling():
     out = _whatif(PROFILE, "-Nvfp4", "-Ctx", "262144")
-    assert re.search(r"-c\s+229376", out), out
+    assert re.search(r"-c\s+200704", out), out
 
 
 def test_it_refuses_the_other_two_drafters():
@@ -210,3 +211,96 @@ def test_the_banner_still_describes_the_incumbent_correctly():
     out = _whatif(SERVE, "-Dual")
     assert "UD-Q4_K_XL" in out, out
     assert "NVFP4" not in out, out
+
+
+# ---------------------------------------------- the deep pair, at the MEASURED ceiling
+
+DEEP = os.path.join(ROOT, "serve-dual-nvfp4-deep.bat")
+DEEP_LAN = os.path.join(ROOT, "serve-dual-nvfp4-deep-lan.bat")
+BOTH_DEEP = [DEEP, DEEP_LAN]
+
+
+@pytest.mark.parametrize("path", BOTH_DEEP)
+def test_the_deep_launcher_exists_at_the_root(path):
+    """147,456 is the bench depth. Real work on this machine runs near 250,000
+    from the -MaxCtx launchers, and the NVFP4 pair could not go past its
+    default, so the fastest configuration was also the shallowest."""
+    assert os.path.exists(path), path + " is missing"
+
+
+@pytest.mark.parametrize("path", BOTH_DEEP)
+def test_the_deep_launcher_is_readable_by_cmd(path):
+    raw = open(path, "rb").read()
+    raw.decode("ascii")
+    assert not raw.startswith(b"\xef\xbb\xbf"), "a BOM makes cmd choke"
+    assert b"\r\n" in raw
+
+
+@pytest.mark.parametrize("path", BOTH_DEEP)
+def test_the_deep_launcher_asks_for_the_artifact_and_the_depth(path):
+    t = read(path)
+    assert "-Dual" in t, path
+    assert "-Nvfp4" in t, path
+    assert "-Deep" in t, path
+
+
+@pytest.mark.parametrize("path", BOTH_DEEP)
+def test_the_deep_launcher_still_refuses_the_budget_question(path):
+    """-Deep is a MEASURED constant, not "the deepest that fits". 262,144 does
+    not come up at all, so asking the budget is the wrong question here too."""
+    assert "-MaxCtx" not in read(path), path
+
+
+def test_only_the_lan_deep_one_exposes():
+    assert "-Lan" not in read(DEEP)
+    assert "-Lan" in read(DEEP_LAN)
+
+
+def test_deep_serves_the_measured_ceiling():
+    """200,704, NOT the 229,376 first recorded -- see CORRECTIONS 35.
+
+    229,376 was called the ceiling because it survived a 65,643-token request,
+    a QUARTER of its own window. Asked for the arena's standard half-window
+    slice it loads with 206 MiB free on the second card and dies on the request
+    with `cudaMalloc failed: out of memory`. 206 is below the 336 this project
+    has already recorded as dying.
+    """
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep")
+    assert re.search(r"-c\s+200704", out), out
+    assert not re.search(r"-c\s+229376", out), out
+
+
+def test_deep_keeps_everything_else_the_same():
+    """Only the window moves. A depth switch that also changed the decoder or
+    the n-gram would make the two pairs incomparable."""
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep")
+    assert "NVFP4-MTP-VERY-LOW.gguf" in out, out
+    assert re.search(r"--spec-type\s+draft-mtp,ngram-mod", out), out
+    assert re.search(r"--spec-ngram-mod-n-match\s+24", out), out
+    assert re.search(r"--alias\s+\S*NVFP4", out), out
+
+
+def test_deep_without_nvfp4_is_refused():
+    """On UD-Q4_K_XL the deep question is a budget one and -MaxCtx answers it.
+    229,376 is a ceiling measured on ONE artifact and does not transfer."""
+    out = _whatif(PROFILE, "-Deep")
+    assert "FATAL" in out, out
+
+
+def test_deep_and_maxctx_together_are_refused():
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-MaxCtx")
+    assert "FATAL" in out, out
+
+
+def test_the_switch_reaches_the_profile_through_serve():
+    out = _whatif(SERVE, "-Dual", "-Nvfp4", "-Deep")
+    assert re.search(r"-Deep\s+True", out), out
+
+
+def test_the_deep_banner_says_the_headroom_is_the_cost():
+    """1,133 and 654 MiB free after a 91,428-token request. This project has
+    measured 336 dying and 488 surviving, so the deep rung sits above that line
+    but not far above it, and the launcher must not be quiet about that."""
+    out = _whatif(SERVE, "-Dual", "-Nvfp4", "-Deep")
+    assert "200,704" in out or "200704" in out, out
+    assert "654" in out, out
