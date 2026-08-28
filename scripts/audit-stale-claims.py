@@ -208,6 +208,19 @@ RULES = [
      "measured free VRAM and refuses when the budget cannot hold the weights",
      "CORRECTIONS.md 33"),
 
+    ("target-column-is-the-arms",
+     r"target=TARGET|target_mib=model_size_mib\(TARGET\)|"
+     r"'target=TARGET' in SRC",
+     "the target column recorded the MODULE DEFAULT for every row, so any arm "
+     "that overrode -m -- every NVFP4 arm -- was recorded as having run the Q4 "
+     "control's file, at the control's size. args carried the truth and no rate "
+     "is retracted, but a reader of the raw JSONL would read a two-artifact "
+     "head-to-head as a decoder sweep on one artifact. It is now resolved from "
+     "the last -m of server_argv(ctx, extra), which is the same last-wins answer "
+     "llama.cpp gives itself. The test that guarded it grepped the SOURCE TEXT "
+     "and so passed throughout",
+     "CORRECTIONS.md 34"),
+
     ("fa-all-quants-decided",
      r"FA_ALL_QUANTS`? rebuild for Q8 KV\?\s*\|\s*\*\*not needed|"
      r"Is `?FA_ALL_QUANTS`? needed for Q8 KV\?\s*\|\s*\*\*No|"

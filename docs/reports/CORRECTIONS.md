@@ -1300,6 +1300,58 @@ fitting step gave up"*. The thing that settled it was a person running it.
 
 ---
 
+## 34. The `target` column named the wrong model whenever an arm overrode `-m`
+
+**Instrument fault, found 2026-08-29. Nothing published from it is retracted.**
+
+`new_row` recorded `target=TARGET, target_mib=model_size_mib(TARGET)` — the
+module default — for **every** row, including arms that load a different file by
+putting their own `-m` at the end of the argv. Four result files carry it:
+
+```
+arm:        nvfp4-mtp+nm24
+target:     ...\Qwen3.8-27B-UD-Q4_K_XL.gguf        <- the CONTROL's file
+target_mib: 17093.08
+args:       ... -m ...\Qwen3.8-27B-NVFP4-MTP-VERY-LOW.gguf   <- what ran
+```
+
+Affected: `nvfp4-vs-q4-147456.jsonl`, `nvfp4-ngram-retune-147456.jsonl`,
+`nvfp4-dflash-147456.jsonl`, `nvfp4-final-147456.jsonl`. **The rows are not
+wrong about their rates** — `args` carries the truth, the arm labels carry the
+distinction, and the report reads `args`. **No number changes.** What a reader
+of the raw JSONL would conclude does: that a head-to-head between two artifacts
+was a comparison of decoder flags on one artifact.
+
+**Why the field did not catch it.** Its own comment says *"two files on this
+machine share the name UD-Q2_K_XL and differ by 808 MiB, so the path alone is
+not an identity"* — it was added to defend against exactly this, and was blind
+to the single way an arm can change its model. And the test that guarded it
+asserted the **source text** `'target=TARGET' in SRC`, which passes for as long
+as the fault exists. **A source shape is not a behaviour.**
+
+**Fixed** by reading the last `-m` off `server_argv(ctx, extra)` — the same
+last-wins answer llama.cpp gives itself, and unable to drift from the argv that
+launches. `-md` is a different token, so a speculative arm's drafter is not
+mistaken for its target. Tests:
+`bench/tests/test_a_row_names_the_model_that_made_it.py` (four cases, red first)
+and `test_target_provenance.py`, whose grep was rewritten to assert on the row.
+
+### The general form
+
+**A provenance column added after an incident inherits only the incident's
+imagination.** This one anticipated the cache moving and not the arm choosing.
+And **a test that greps the source passes on the shape it was written against,
+not on the behaviour it was written for**. This is the second time in three
+days that asserting on file text rather than on a resolved value cost
+something here: on 2026-08-28 an argv refactor turned twelve source-shape
+assertions red while the profile served an identical command line, and
+`bench/tests/_invocation.py` was written to stop it. That reader guards the
+PowerShell launcher; this column had its own grep and was not covered.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `target-column-is-the-arms`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

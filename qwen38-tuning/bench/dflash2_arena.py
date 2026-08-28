@@ -1355,6 +1355,23 @@ def completion_payload(prompt, ignore_eos=False):
     return body
 
 
+def arm_target(ctx, extra):
+    """The model an arm actually loads, read off the argv that launches it.
+
+    `server_argv` hardcodes `-m TARGET` and appends the arm's flags, so an arm
+    that overrides `-m` puts it twice on the command line and llama.cpp's
+    last-wins parsing decides. Reading the LAST `-m` of the resolved argv is
+    therefore the same answer the server gives itself -- and it cannot drift
+    from `server_argv`, which a second scan of `extra` alone could.
+
+    `-md` names the DRAFTER and is a different token: a speculative arm has two
+    models and only one of them is the target.
+    """
+    argv = server_argv(ctx, extra)
+    hits = [i for i, tok in enumerate(argv) if tok == "-m" and i + 1 < len(argv)]
+    return argv[hits[-1] + 1]
+
+
 def new_row(ctx, arm, rnd, regime, extra, env, free_before, ignore_eos=False,
             loaded=True):
     """The columns every row carries, and why each one is there.
@@ -1380,8 +1397,12 @@ def new_row(ctx, arm, rnd, regime, extra, env, free_before, ignore_eos=False,
         devices=launch_env(env)["CUDA_VISIBLE_DEVICES"],
         # Which MODEL, with its size: two files on this machine share the name
         # UD-Q2_K_XL and differ by 808 MiB, so the path alone is not an identity
-        # if the cache ever moves.
-        target=TARGET, target_mib=model_size_mib(TARGET),
+        # if the cache ever moves. Resolved from the arm's own `-m` when it has
+        # one -- on 2026-08-29 an NVFP4 arm and the Q4 control both recorded the
+        # Q4 path, because this column read the module default and an arm can
+        # change its target by overriding `-m`.
+        target=arm_target(ctx, extra),
+        target_mib=model_size_mib(arm_target(ctx, extra)),
         # Which reasoning effort. Everything before 2026-08-24 ran at the
         # template's xhigh; a row without this field is one of those.
         effort=EFFORT,

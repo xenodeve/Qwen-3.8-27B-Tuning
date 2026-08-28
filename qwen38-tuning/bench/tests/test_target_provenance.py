@@ -123,6 +123,13 @@ def test_server_argv_launches_the_module_target():
 
 
 def test_the_row_records_the_target_and_its_size():
-    assert 'target=TARGET' in SRC, "the row does not record which model ran"
-    assert "model_size_mib(TARGET)" in SRC, \
-        "the path is recorded without the size, so a moved cache makes it a lie"
+    """Assert on the ROW, not on the source text.
+
+    This test used to grep for `target=TARGET`, which passed for as long as the
+    column was blind to an arm's own `-m` -- the 2026-08-29 fault. A source
+    shape is not a behaviour; see `test_a_row_names_the_model_that_made_it.py`
+    for the arm-override half.
+    """
+    row = arena.new_row(16384, "control", 1, "real-code", [], {}, 15000)
+    assert row["target"] == arena.TARGET
+    assert row["target_mib"] == provenance.model_size_mib(arena.TARGET),         "the path is recorded without the size, so a moved cache makes it a lie"
