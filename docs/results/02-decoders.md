@@ -983,3 +983,94 @@ today spread 8.1 % on a binary with no Blackwell kernels.
 **Any speculative gain beyond `ngram-mod` costs the context window**, and the
 only lever that could change that is freeing VRAM: KV is 18.00 KiB/token, so
 every 16,384 tokens is 288 MiB, and the display card holds 1,600–2,600 MiB.
+
+---
+
+## NVFP4 with a baked-in MTP head — the fastest thing measured on this machine
+
+### The head-to-head against what we serve, ctx 147,456 — 2026-08-29
+
+Three paired rounds, arms rotated every round, real vendor code, served binary
+`llama.cpp-blackwell` (`sm_120a` + `sm_89`). Raw: `results/nvfp4-final-147456.jsonl`.
+
+| arm | rounds | spread | vs baseline |
+|---|---|---|---|
+| `q4-ngram-base` — `UD-Q4_K_XL` + `ngram-mod` n-match 12 **(serving today)** | 24.90 / 25.73 / 25.73 | **3.3 %** | baseline |
+| `nvfp4-mtp+nm24` — NVFP4 VERY-LOW + `draft-mtp,ngram-mod` n-match 24 | **39.43 / 42.61 / 42.55** | 8.1 % | **+63.1 % [+58.3, +65.6] RESOLVED** |
+
+The bracket is the per-round pairing, not a confidence interval: +58.3, +65.6,
++65.4. The floor applied was 13.6 % (`NOISE_FLOOR_PCT`, Ada @ 16,384) and this
+run's own baseline spread was 3.3 %, so the result clears both.
+
+**This run exists because +41.2 % and +27.1 % were measured in different runs.**
+Multiplying them is the cross-boot comparison `CLAUDE.md` forbids. **+63.1 % is
+the only figure that may be quoted for this pairing**; the two components below
+are recorded for mechanism, not for arithmetic.
+
+**It needs nothing.** No mirror patch, no sidecar drafter, no unreviewed binary
+— the MTP head is inside the file and it runs on the served executable. It also
+leaves **more** headroom than the incumbent: 2,393–2,400 MiB free against
+1,998–2,026.
+
+### Why it is not the artifact alone — the same artifact WITHOUT MTP is a loss
+
+Raw: `results/nvfp4-vs-q4-147456.jsonl`, same depth, three rounds rotated.
+
+| arm | rounds | vs baseline |
+|---|---|---|
+| `q4-ngram-base` | 24.44 / 25.58 / 25.66 | baseline |
+| `nvfp4-ngram` — NVFP4 + `ngram-mod` alone | 17.76 / 22.73 / 18.26 | **−22.4 % RESOLVED** |
+| `nvfp4-mtp+ngram` — n-match 12 | 34.96 / 35.97 / 35.90 | +41.2 % RESOLVED |
+
+**`ngram-mod` acceptance falls 55.4 → 22.1 on NVFP4.** That artifact writes text
+the n-gram cannot predict, and on its own that is a **loss**, not a gain. MTP
+fills exactly the gap the n-gram stopped covering. **Neither half is the
+result; the pairing is.**
+
+**The MTP head in this file does not copy the prompt.** `copied_frac
+[0.0, 0.0, 0.0]` and `predicted_n 512` in every round, against `[0.519, 0.0, 0.23]`
+for Unsloth's head at the same depth. **The copying recorded for weeks as a
+property of `draft-mtp` is a property of the ARTIFACT.**
+
+### The n-gram family, re-tuned ON NVFP4 — the verdict did not transfer
+
+Raw: `results/nvfp4-ngram-retune-147456.jsonl`, `draft-mtp` held fixed.
+
+| n-gram | rounds | vs nm12 | acceptance |
+|---|---|---|---|
+| `ngram-mod` n-match 12 (the tuned value on `UD-Q4_K_XL`) | 32.84 / 32.43 / 36.51 | baseline | 49.6 |
+| `ngram-mod` n-match 16 | 37.53 / 37.42 / 37.36 | +11.6 % | 50.7 |
+| **`ngram-mod` n-match 24** | **43.10 / 42.99 / 42.93** | **+27.1 % RESOLVED** | **58.8** |
+| `map-k` | 39.01 / 38.96 / 39.23 | +15.4 % RESOLVED | 54.5 |
+| `map-k4v` | 38.82 / 37.22 / 38.55 | +12.4 % | 50.9 |
+
+**`n-match 24` LOST on `UD-Q4_K_XL` at this exact depth, and `map-k` declined
+100 % of its drafts there in all three rounds.** Both recover here. See the
+n-gram-family section above for the contradicted measurement and task #40, whose
+verdict has been narrowed to `UD-Q4_K_XL` only.
+
+**The rule this establishes:** this project already holds that *a verdict at one
+depth does not transfer to another*. **It does not transfer across artifacts
+either.** "The n-gram family is swept, nothing left" was generalised past what
+it measured.
+
+### DFlash2 on NVFP4 — no better than the head already in the file
+
+Raw: `results/nvfp4-dflash-147456.jsonl`, paired against `nvfp4-mtp+ngram`.
+
+| arm | rounds | verdict |
+|---|---|---|
+| `nvfp4-mtp+ngram` | 35.66 / 34.02 / 35.80 | baseline |
+| `nvfp4-dflash+ngram` | 37.04 / 36.90 / 31.96 | **+0.2 %, and the sign flips** |
+
+It also costs a sidecar drafter (~600–700 MiB: free falls 2,238–2,305 → 1,638–1,644)
+and the mirror patch, and the patched binary is not the one we serve. **On this
+artifact there is no case for DFlash2.**
+
+### What is NOT established, and it gates shipping
+
+**Quality has never been measured on this project's own artifacts, and the
+proposal swaps the MODEL FILE, not a flag.** `ngram-mod`'s acceptance halving
+from 55.4 to 22.1 is direct evidence that NVFP4 *writes differently*, not merely
+faster. **No default has been changed.** Also unmeasured: `MID-HIGH` has no rate
+at all, and nothing has been run at 229,376 with the re-tuned n-gram.
