@@ -62,7 +62,7 @@ cd /d "%~dp0"
 where pwsh >nul 2>nul
 if errorlevel 1 (
     echo.
-    echo PowerShell 7 ^^(pwsh^^) was not found, and this needs it.
+    echo PowerShell 7 ^(pwsh^) was not found, and this needs it.
     echo Install it with:  winget install Microsoft.PowerShell
     echo.
     pause
