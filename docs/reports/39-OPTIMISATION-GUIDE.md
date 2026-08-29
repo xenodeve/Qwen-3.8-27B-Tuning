@@ -60,6 +60,43 @@ not carry the +31 % to an MoE.
 
 ## 2. The levers, in the order worth pulling
 
+### Tier 0 — what the client sends, which no flag on this page can touch
+
+**MEASURED 2026-08-30, one boot, minutes apart, nothing changed but a toggle in
+the chat UI** (`qwen38-tuning/logs/serve-20260830-010653.log`, tasks 2931 and
+2994):
+
+| | tools ON | tools OFF |
+|---|---|---|
+| prompt | **17,843 tokens** | **334** |
+| prefill | 18,618 ms | **554 ms** |
+| decode | 35.20 tok/s | **45.64** |
+| the whole answer | **21.5 s** | **1.5 s** |
+
+The message both times was `สวัสดี`. **17,509 of those 17,843 tokens were tool
+schemas**, sent on every request by the client, and reading them is what the
+18 seconds were. Decode rose too, because decoding at depth 334 is cheaper than
+at 17,843 — the prompt size moves both halves.
+
+**14x on the wall clock, from a checkbox.** Every lever below this line is worth
+single-digit or low-double-digit percentages. Before touching any of them, ask
+what the client is putting in front of the user's actual words:
+
+- **tool schemas.** Claude Code sends **17,881** tokens of preamble before the
+  first character of a greeting — the same shape, a different client. A tool
+  the model will not call this turn still costs its full definition every turn.
+- **whole files pasted into context.** A 117 KB plan is ~29,000 tokens. Unsloth
+  Studio answers questions about that same file in under 4 seconds because it
+  indexes it and retrieves 5 chunks — **1,942 new tokens against our 46,998**
+  (`docs/researchs/unsloth-studio-config-2026-08-29.md`). That is a client
+  feature, not a server setting, and it is most of the difference in feel.
+- **conversation history**, including preserved thinking. See
+  `--reasoning-preserve` below.
+
+**This is the one place a factor of ten is available on this machine.** It is
+recorded in an optimisation guide because a reader who came here for flags
+should meet it first.
+
 ### Tier 1 — one flag, one paired sweep, no downside if it loses
 
 | # | lever | now | try | why |
