@@ -493,6 +493,33 @@ param(
     # load, begins `{%- set image_count = namespace(value...`. The model was
     # never the limitation.
     [switch]$Vision,
+    # Adopt, as ONE bundle, the settings Unsloth Studio uses that we do not.
+    # Studio runs the same model file on the same two cards; the full diff is in
+    # docs/researchs/unsloth-studio-config-2026-08-29.md. Eleven flags differ.
+    # Taking them one at a time is eleven sweeps; taking them all silently is a
+    # profile nobody can reason about. This is one switch, one bundle, one
+    # paired measurement -- and if the bundle wins it gets bisected.
+    #
+    #   --cache-ram 0        a real session here held 20.4 GB working set and
+    #   --ctx-checkpoints 0  34.4 GB private, with 32 checkpoints at ~350 MiB.
+    #                        NOT free: our log shows them RESTORED at positions
+    #                        47,940-50,091, so this trades RAM for re-prefill.
+    #   --load-mode none     Studio's auto "picks None when it can prove the
+    #                        model fits without paging, since a mapped read is
+    #                        slower" (their words).
+    #   --kv-unified         they set it; may be inert at -np 1.
+    #   -t 2                 they use 2 against our 18. Everything is resident,
+    #                        and the DRAFT sampler falls back to the CPU under
+    #                        this split, so the right number is not obvious.
+    #   --metrics            free Prometheus endpoint; no throughput claim.
+    #
+    # NOT in the bundle, on purpose: the n-gram parameters and the --spec-type
+    # order (they have arm sets and belong in a sweep), --parallel 4 (we serve
+    # one conversation and want the whole window for it), their shallow -c
+    # (depth is the point of this machine), -ub 512 and --spec-draft-n-max 2
+    # (ours are 1024 and 3, both measured), and the sampler, which is a QUALITY
+    # lever on a project that has never measured quality.
+    [switch]$Lean,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -906,6 +933,13 @@ $nMatch = if ($Nvfp4) { '24' } else { '12' }
 # Images or not. `--no-mmproj-auto` and `-mm` together is a contradiction for
 # whoever reads the command line next, so it is one or the other.
 $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
+
+# The -Lean bundle. Empty by default: it is UNMEASURED and must not leak.
+$leanArg = if ($Lean) {
+    @('--cache-ram', '0', '--ctx-checkpoints', '0',
+      '--load-mode', 'none', '--kv-unified', '--metrics')
+} else { @() }
+$threads = if ($Lean) { '2' } else { '18' }
 # --alias is the model name every caller sees on /v1/models and in each
 # response. Left hardcoded it would announce Q4_K_XL while serving the NVFP4
 # file -- the same fault as CORRECTIONS 34 one layer out, and visible to clients
@@ -917,15 +951,26 @@ $ngramArg = @('--spec-ngram-mod-n-match', $nMatch,
 $argv = @(
     '-m', $Model,
     '--alias', $alias, '-c', "$Ctx",
-    '-ngl', 'auto', '--fit', 'on', '--fit-target', '768', '-fa', 'on', '-np', '1',
+    # `--fit off`, not `--fit on --fit-target 768`, and not silence.
+    #
+    # Fitting is MEASURED INERT here: llama.cpp prints `llama_params_fit is not
+    # implemented for SPLIT_MODE_TENSOR, abort` on every boot and this profile
+    # is always -sm tensor. The first attempt at this simply DELETED the flag --
+    # and booting it showed the warning still there, because `--fit` defaults to
+    # ON (`--fit [on|off] ... default: 'on'`). Deleting it was a no-op dressed as
+    # a cleanup. Turning it off is the honest version, and it is what Unsloth
+    # Studio passes.
+    #
+    # `--fit-target 768` goes with it: a margin for a step that never runs.
+    '-ngl', 'auto', '--fit', 'off', '-fa', 'on', '-np', '1',
     '-sm', 'tensor'
 ) + $tsArg + @(
-    '-t', '18', '-b', '2048', '-ub', "$UBatch", '-lv', "$Verbosity",
+    '-t', $threads, '-b', '2048', '-ub', "$UBatch", '-lv', "$Verbosity",
     '--log-colors', $LogColors
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0'
 ) + $specArg + @(
-) + $ngramArg + $visionArg + @(
+) + $ngramArg + $visionArg + $leanArg + @(
     '--chat-template-file', 'C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja',
     '--reasoning-effort', 'medium',
     '--sse-ping-interval', "$SsePingIntervalSec",

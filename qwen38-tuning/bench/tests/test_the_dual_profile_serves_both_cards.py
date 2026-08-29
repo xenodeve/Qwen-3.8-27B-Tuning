@@ -127,12 +127,17 @@ def test_it_does_not_pipe_llama_cpps_output_anywhere():
     `| ForEach-Object` anywhere and went red on the error handler that lists
     installed GPUs -- a pipe that has nothing to do with llama.cpp's output.
     A test that cannot tell those two apart is testing punctuation.
+
+    COMMENTS ARE EXEMPT, and that took a second draft too. A comment quoting
+    llama.cpp's own help -- `--fit [on|off]` -- made this red on 2026-08-29
+    while nothing was piped anywhere. A pipe in prose is prose.
     """
     t = read(DUAL)
     invocation = from_source(DUAL)
-    assert "|" not in invocation, (
-        "something stands between llama.cpp and the console: "
-        + next(l for l in invocation.splitlines() if "|" in l))
+    live = [l for l in invocation.splitlines() if not l.strip().startswith("#")]
+    piped = [l for l in live if "|" in l]
+    assert not piped, (
+        "something stands between llama.cpp and the console: " + piped[0])
 
 
 # ---- and it must not silently disagree with the profile it was modelled on ---

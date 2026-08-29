@@ -110,6 +110,7 @@ param(
     [switch]$Nvfp4,
     [switch]$Deep,
     [switch]$Vision,
+    [switch]$Lean,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -292,6 +293,18 @@ if ($Dual) {
         Write-Host "            'image input is not supported'. The model itself was"
         Write-Host "            never the limitation; its chat template handles images."
     }
+    if ($Lean) {
+        Write-Host "  bundle    -Lean: UNMEASURED. Six settings borrowed whole from Unsloth" -ForegroundColor Yellow
+        Write-Host "            Studio, which runs this same model file on these same two"
+        Write-Host "            cards -- prompt cache and context checkpoints OFF, no mmap,"
+        Write-Host "            unified KV, 2 threads instead of 18, metrics on."
+        Write-Host "            THE RAM IS THE POINT: a real session here held 20.4 GB"
+        Write-Host "            working set and 34.4 GB private, and 32 checkpoints at"
+        Write-Host "            ~350 MiB each is where it went. It is NOT free -- those"
+        Write-Host "            checkpoints were being restored, so this trades host RAM"
+        Write-Host "            for re-prefill, about a minute per 50,000 tokens."
+        Write-Host "            Nothing here has been measured against the default yet." -ForegroundColor Yellow
+    }
     Write-Host "  effort    medium. Chosen on the agentic axis, where xhigh costs one point and"
     Write-Host "            low costs six. NEVER MEASURED on any artifact here."
     Write-Host "  KV        q4_0. Not a preference -- our build compiles only f16, bf16, q4_0"
@@ -395,6 +408,13 @@ if ($Dflash) {
         exit 1
     }
     $profileArgs['Dflash'] = $true
+}
+if ($Lean) {
+    if (-not $Dual) {
+        Write-Host "FATAL: -Lean is a two-card bundle; pass -Dual too." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['Lean'] = $true
 }
 if ($Vision) {
     if (-not $Dual) {
