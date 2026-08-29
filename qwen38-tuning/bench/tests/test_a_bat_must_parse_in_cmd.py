@@ -50,6 +50,18 @@ def _neutered(path):
         low = line.strip().lower()
         if "serve.ps1" in line and not low.startswith("rem"):
             out.append("echo " + MARKER)
+        elif low.startswith("call "):
+            # A launcher that delegates to another launcher -- the hub. Its
+            # target is built from a variable, so it names no .bat literally
+            # and a rule keyed on the filename would miss it.
+            out.append("echo " + MARKER)
+        elif low.startswith("choice "):
+            # choice reports its key POSITION through ERRORLEVEL; exit 1 is
+            # the first key, which every prompt here orders as the safe one.
+            out.append("cmd /c exit 1")
+        elif low.startswith("set /p"):
+            # An interactive prompt would wait for a human who is not here.
+            out.append("set SEL=1")
         elif low == "pause":
             out.append("echo PAUSE_HIT")
         else:
@@ -60,6 +72,10 @@ def _neutered(path):
 @pytest.mark.parametrize("path", BATS, ids=[os.path.basename(b) for b in BATS])
 def test_cmd_can_parse_it_and_reach_the_launch(path):
     with tempfile.TemporaryDirectory() as d:
+        # Stub every sibling: a launcher that checks its target exists before
+        # calling it should have that check PASS here, not be edited out.
+        for sibling in BATS:
+            open(os.path.join(d, os.path.basename(sibling)), "w").close()
         copy = os.path.join(d, os.path.basename(path))
         with open(copy, "w", encoding="ascii", newline="") as fh:
             fh.write(_neutered(path))

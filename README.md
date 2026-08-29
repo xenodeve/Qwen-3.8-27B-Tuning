@@ -15,6 +15,11 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 its output is that window's output. `Ctrl+C` stops it, and so does closing the
 window — there is one process, not a server beside a log-watcher.
 
+**Not sure which? Double-click [`serve-hub.bat`](serve-hub.bat).** It asks two
+questions — which server, and whether to expose it — and then hands off to one
+of the twelve below. It holds no flags of its own; it only picks a file. Every
+icon still works on its own, and the hub is a front door, not a replacement.
+
 **Twelve icons.** Two families, because the choice is really *which artifact*
 first and *which window* second.
 

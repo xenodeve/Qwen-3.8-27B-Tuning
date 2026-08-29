@@ -82,6 +82,7 @@ one card or two, loopback or exposed — plus an MTP pair:
 
 | launcher | cards | binds | notes |
 |---|---|---|---|
+| `serve-hub.bat` | — | — | **a chooser**: asks which of the twelve, then whether to expose. Holds no flag; `call`s one of the others |
 | `serve.bat` | one | `127.0.0.1` | `UD-Q2_K_XL` profile |
 | `serve-lan.bat` | one | LAN | |
 | `serve-dual.bat` | **two** | `127.0.0.1` | carries `-MaxCtx` |
