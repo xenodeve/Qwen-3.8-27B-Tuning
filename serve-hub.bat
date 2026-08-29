@@ -33,6 +33,7 @@ echo     2   200,704 context, images work          deepest measured
 echo     7   200,704 + the Unsloth bundle (beta)   SPEED UNPAIRED
 echo     8   ... same, minus --kv-unified          A/B AGAINST 7
 echo     9   Unsloth Studio's command line        BASELINE ONLY, 107,899
+echo     A   ... on Unsloth's own BINARY too      build 10679 vs our 10499
 echo.
 echo   BOTH CARDS, UD-Q4_K_XL  -- the artifact whose output we have used longest
 echo.
@@ -56,6 +57,8 @@ echo   time is going into the forward pass. --kv-unified is the first suspect.
 echo   Watch the log for: forcing full prompt re-processing.
 echo   9 is their WHOLE command line on our binary -- a baseline to measure
 echo   against, not a way to serve. Its window is 107,899, half of 2.
+echo   A is 9 on THEIR binary as well -- ours is build 10499, theirs 10679,
+echo   180 apart. 9 and A together say whether the gap is flags or build.
 echo.
 echo   Quality has never been measured on ANY of these artifacts. 1 and 2 change
 echo   the model file, not just a flag; 3 is what has been served longest.
@@ -68,13 +71,13 @@ REM  here on 2026-08-29. choice restricts the keystroke itself, needs no Enter,
 REM  and cannot hand a broken value to the comparison below. It returns the
 REM  POSITION in the key list, so 1-6 line up with the printed numbers and Q
 REM  is 7.
-choice /c 123456789Q /n /m "  Choose 1-9, or Q to quit: "
+choice /c 123456789AQ /n /m "  Choose 1-9 or A, or Q to quit: "
 set "SEL=%ERRORLEVEL%"
 
 REM  BOTH NAMES ARE SPELLED OUT, not built by appending "-lan" to a stem. A
 REM  constructed filename cannot be checked by anything until somebody presses
 REM  the key, and this file's whole job is to point at other files.
-if "%SEL%"=="10" goto :done
+if "%SEL%"=="11" goto :done
 if "%SEL%"=="1" (
     set "LOOP=serve-dual-nvfp4.bat"
     set "WIDE=serve-dual-nvfp4-lan.bat"
@@ -118,6 +121,11 @@ if "%SEL%"=="8" (
 if "%SEL%"=="9" (
     set "LOOP=serve-dual-nvfp4-clone.bat"
     set "WIDE=serve-dual-nvfp4-clone-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="10" (
+    set "LOOP=serve-dual-nvfp4-clone-theirbuild.bat"
+    set "WIDE=serve-dual-nvfp4-clone-theirbuild-lan.bat"
     goto :ask_lan
 )
 REM  Unreachable while choice guards the key list, and kept anyway: if that

@@ -117,6 +117,9 @@ param(
     # Unsloth Studio's command line on our binary. A BASELINE, not a
     # candidate: its window is half of what this machine serves.
     [switch]$Clone,
+    # Studio's llama-server instead of ours. Ours is build 10499, theirs
+    # 10679 -- 180 apart, which -Clone alone cannot separate from flags.
+    [switch]$TheirBuild,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -447,6 +450,16 @@ if ($Clone) {
         exit 1
     }
     $profileArgs['Clone'] = $true
+}
+if ($TheirBuild) {
+    if ($Dflash) {
+        # -Dflash chooses a third binary. Two switches choosing the exe is
+        # a launch nobody can attribute, and the architecture guard would
+        # check one file while another ran.
+        Write-Host "FATAL: -Dflash and -TheirBuild both choose the binary; pick one." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['TheirBuild'] = $true
 }
 if ($Vision) {
     if (-not $Dual) {

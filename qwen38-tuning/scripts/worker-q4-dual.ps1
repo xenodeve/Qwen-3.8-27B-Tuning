@@ -554,6 +554,12 @@ param(
     # NOT A CANDIDATE FOR SERVING. -c 107,899 is half the window this
     # machine exists to serve.
     [switch]$Clone,
+    # Run on Unsloth Studio's llama-server instead of ours. THE CONFOUND THIS
+    # REMOVES: every comparison against Studio assumed one binary and it is two
+    # -- ours build 10499 (1deefcca3), theirs build 10679 (b84725557), 180
+    # apart. -Clone alone cannot tell "their flags are better" from "their build
+    # is newer"; this supplies the other cell of the 2x2.
+    [switch]$TheirBuild,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -573,6 +579,7 @@ $ErrorActionPreference = 'Stop'
 # no Blackwell kernels earlier today.
 $DFLASH_MAX_CTX     = 131072
 $DFLASH_EXE = "C:\AI\llama.cpp-mirror\build-mirror\bin\llama-server.exe"
+$STUDIO_EXE = Join-Path $env:USERPROFILE '.unsloth\llama.cpp\build\bin\Release\llama-server.exe'
 $DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
     "\models--z-lab--Qwen3.8-27B-DFlash2-GGUF" +
     "\snapshots\57ab3265056d4024870b0621cfc2c127537020ed" +
@@ -664,6 +671,57 @@ if ($Dflash) {
     if ($Ctx -gt $DFLASH_MAX_CTX) { $Ctx = $DFLASH_MAX_CTX }
     if ($UBatch -gt 512)          { $UBatch = 512 }
     $Exe = $DFLASH_EXE
+}
+
+# ---- -TheirBuild: the other binary, and the loader path it needs -------------
+# Before the guard, for the same reason -Dflash is.
+#
+# THE FAULT THIS BLOCK EXISTS TO PREVENT. Launched with a bare PATH, Studio's
+# binary reports
+#
+#     device_info:
+#       - CPU     : 13th Gen Intel(R) Core(TM) i5-13500
+#
+# and NO CUDA device at all -- then serves, from the CPU, at a speed somebody
+# would write down. It is STUDIO that prepends the loader path, and CUDA 13
+# keeps cudart64_13.dll and cublas64_13.dll in %CUDA_PATH%\bin\x64 rather than
+# \bin, which is why the obvious directory is the wrong one. Nothing ships
+# beside their binary to supply them.
+#
+# Verified by running it both ways. Bare PATH gives CPU only; with the x64
+# directory prepended it reports
+#     ARCHS = 860,890,900,1000,1200 | USE_GRAPHS = 1 | BLACKWELL_NATIVE_FP4 = 1
+# against our 890,1200 with the same two feature flags -- so the compile-time
+# difference that matters here is 180 commits of source, not a missing kernel.
+if ($TheirBuild) {
+    $Exe = $STUDIO_EXE
+    $cudaBin = @()
+    if ($env:CUDA_PATH) {
+        $cudaBin += (Join-Path $env:CUDA_PATH 'bin')
+        $cudaBin += (Join-Path $env:CUDA_PATH 'bin\x64')
+    }
+    $loaderDirs = @((Split-Path $Exe -Parent)) + $cudaBin
+    $haveRuntime = $false
+    foreach ($d in $loaderDirs) {
+        if ((Test-Path $d) -and
+            (Get-ChildItem -Path $d -Filter 'cudart64_*.dll' -ErrorAction SilentlyContinue)) {
+            $haveRuntime = $true
+        }
+    }
+    if (-not $haveRuntime) {
+        # REFUSE. A warning would be read past and the run would produce a
+        # believable number from the wrong hardware, which is the one failure
+        # this repository's north star names.
+        Write-Host "FATAL: cannot find cudart64_*.dll for $Exe" -ForegroundColor Red
+        Write-Host "  Looked in: $($loaderDirs -join '; ')" -ForegroundColor Yellow
+        Write-Host "  Without it that binary starts, finds NO CUDA device, and" -ForegroundColor Yellow
+        Write-Host "  serves from the CPU without saying so." -ForegroundColor Yellow
+        Write-Host "  Set CUDA_PATH to a CUDA 13 install and try again." -ForegroundColor Yellow
+        exit 1
+    }
+    $env:PATH = ($loaderDirs -join ';') + ';' + $env:PATH
+    Write-Host "  build     THEIRS -- $Exe" -ForegroundColor Yellow
+    Write-Host "            ours is build 10499 (1deefcca3); this is 10679 (b84725557)" -ForegroundColor DarkGray
 }
 
 # ---- the build ---------------------------------------------------------------
