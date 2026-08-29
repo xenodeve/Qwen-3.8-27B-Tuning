@@ -275,6 +275,15 @@ Q4_K_XL = (r"C:\Users\xenod\.cache\huggingface\hub"
            r"\Qwen3.8-27B-UD-Q4_K_XL.gguf")
 
 
+# The PATCHED build. `draft-dflash` under `-sm tensor` aborts without it, and
+# the existing tensor dflash arm sets reach it by requiring QWEN38_LLAMA_EXE to
+# be exported -- which makes an arm set an incomplete description of its own
+# experiment, and turns a forgotten export into either a dead sweep or, worse,
+# a live one on whatever the variable did hold.
+MIRROR_EXE = r"C:\AI\llama.cpp-mirror\build-mirror\bin\llama-server.exe"
+MIRROR_ENV = {ENV_VAR: MIRROR_EXE, "CUDA_VISIBLE_DEVICES": BOTH_CARDS}
+
+
 def _layer_pairing(decoder, extra):
     """One decoder's argv under the layer split, identical on both builds.
 
@@ -331,10 +340,65 @@ LAYER_PAIRINGS = [
 ]
 
 
+def _tensor_arm(decoder, extra):
+    """One arm of the draft-depth set, on the tensor split with its ratio.
+
+    `-ts` travels with `-sm tensor` and is never optional: the even split is the
+    0.38 tok/s configuration on this pair (CORRECTIONS 33).
+    """
+    return (DUAL_TENSOR + ["-m", Q4_K_XL, "--spec-type", decoder]
+            + list(extra) + NGRAM)
+
+
+# ---- 2026-08-30: --spec-draft-n-max 4 against 7 where DFlash2 is fastest -----
+#
+# `draft-dflash,ngram-mod` under `-sm tensor` on the patched mirror is the
+# fastest paired figure this project holds: 65.1 / 64.3 / 63.8 tok/s at ctx
+# 65,536, +123.8 % over the incumbent (results/dual-pairings-65536.jsonl).
+# EVERY ONE OF THOSE ROUNDS RAN AT n_max 4 -- a value the ledger records as
+# "chosen without knowing either number". common.h:325 defaults it to 3;
+# speculative.cpp:989 clamps at block_size - 1, and this drafter's block_size is
+# 8, so the ceiling is 7. 7 was measured once, in another configuration, and
+# took 25 % off DFlash2's wall clock.
+#
+# THE HEADROOM IS THE RISK, AND IT IS PROBED RATHER THAN ASSUMED. The recurrent
+# state is 149.62 x (1 + n_max), so this costs about 449 MiB on the arm that
+# already finishes with the least in the register. Probed 2026-08-30 at exactly
+# this configuration, both load AND answer a real request -- n_max 4 leaves
+# [1043, 770] MiB and n_max 7 leaves [870, 462]. But 462 on CUDA1 sits between
+# the two numbers the profile measured (336 died on the first request, 488
+# survived 135,233 tokens), so the arm may still die on the real corpus at
+# depth. The arena records that; it is not a reason to leave the arm out.
+#
+# MTP IS HELD AT 3, DELIBERATELY. qwen35.nextn_predict_layers = 1 -- the head
+# predicts ONE token ahead -- and 7 measured -56 % on it with acceptance falling
+# from 0.48-0.61 to 0.38-0.44. Matching the two drafters would be matching a
+# number that does not mean the same thing twice. It is here so the ordering
+# found under `-sm layer` on 2026-08-30 can be re-checked at each drafter's own
+# best-known depth, in one rotation.
+#
+# THE INCUMBENT IS HERE FOR THE SAME REASON IT IS IN `layer-pairings`: without
+# it the two dflash figures can only be compared to a table from another boot
+# series, which is the thing this bench exists to stop.
+TENSOR_DRAFT_DEPTH = [
+    ("ngram-mod", _tensor_arm("ngram-mod", []), MIRROR_ENV),
+    # NO -md: the nextn head is inside UD-Q4_K_XL.
+    ("mtp+ngram n3", _tensor_arm("draft-mtp,ngram-mod",
+                                 ["--spec-draft-n-max", "3"]), MIRROR_ENV),
+    ("dflash+ngram n4", _tensor_arm("draft-dflash,ngram-mod",
+                                    ["-md", DRAFTER, "-ngld", "99",
+                                     "--spec-draft-n-max", "4"]), MIRROR_ENV),
+    ("dflash+ngram n7", _tensor_arm("draft-dflash,ngram-mod",
+                                    ["-md", DRAFTER, "-ngld", "99",
+                                     "--spec-draft-n-max", "7"]), MIRROR_ENV),
+]
+
+
 ARM_SETS = {
     "decoders": ARMS,
     "build-ab": BUILD_AB,
     "layer-pairings": LAYER_PAIRINGS,
+    "tensor-draft-depth": TENSOR_DRAFT_DEPTH,
 
     # `GGML_CUDA_GRAPH_OPT` -- NEVER RUN HERE. An optimisation that is off
     # unless asked for, and nothing in this project has ever asked.
