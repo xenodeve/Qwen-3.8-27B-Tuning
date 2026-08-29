@@ -151,3 +151,42 @@ def test_the_row_records_the_effort():
     """Same lesson as exe, cuda_archs, env and target: a row that does not name
     a condition cannot be compared against one taken under a different one."""
     assert "effort=EFFORT" in SRC, "the row does not record the effort level"
+
+
+# ------------------------------------- what a SWITCH does to the resolved argv
+
+DUAL = os.path.join(PROFILES, "worker-q4-dual.ps1")
+
+# THE SOURCE SCAN ABOVE CANNOT SEE THIS. It reads the file and finds
+# `--reasoning-effort medium` in one branch of an if/else, so it passes for
+# every switch combination -- including the ones where the other branch runs and
+# the flag is never emitted.
+#
+# That is exactly what happened. `-Beta` was written on 2026-08-29 to copy
+# Unsloth Studio's `--reasoning on --reasoning-preserve`, and in doing so it
+# dropped the template file AND the effort flag together. The served boot log
+# then read
+#
+#     init: chat template, example_format: '<|im_start|>system
+#     Reasoning effort is set to xhigh. Please think carefully through ...
+#
+# -- the model's own template default, the condition this whole file exists to
+# end, silently restored by a switch. The developer found it by feel: the server
+# "felt much slower" than Studio serving the same file, while decode was fine.
+#
+# The dry run resolves the branch, so it sees what the source scan cannot.
+@pytest.mark.parametrize("switches", [
+    (),
+    ("-Nvfp4",),
+    ("-Nvfp4", "-Beta"),
+    ("-Nvfp4", "-Deep", "-Vision", "-Beta"),
+])
+def test_every_switch_combination_still_sets_the_effort(switches):
+    from _invocation import resolved, flag, live_lines
+    out = os.linesep.join(live_lines(resolved(DUAL, *switches)))
+    got = flag(out, "--reasoning-effort")
+    assert got is not None, (
+        "worker-q4-dual.ps1 %s resolves with NO --reasoning-effort, so the chat "
+        "template's own xhigh default applies" % (" ".join(switches) or "(no switches)"))
+    assert got.strip("`\"' ") == "medium", \
+        "worker-q4-dual.ps1 %s serves at %r" % (" ".join(switches), got)

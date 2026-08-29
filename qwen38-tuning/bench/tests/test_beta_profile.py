@@ -241,10 +241,23 @@ def test_beta_uses_the_models_own_template_with_kwargs():
     So one kwarg is deprecated and the other DOES NOTHING -- the server still
     asks for `--reasoning-preserve` after being handed `preserve_thinking`.
     Copying a command line from a different build is copying its bugs.
+
+    WHAT THIS TEST ITSELF GOT WRONG, 2026-08-29. It asserted `--reasoning-effort`
+    was ABSENT -- borrowing their mechanism was read as borrowing the whole line,
+    effort included. But Studio does not drop the effort; it sends `medium` per
+    REQUEST (`reasoningEffort: "medium"`, both n-max threads in `studio.db`).
+    Dropping the flag with no client to supply it hands the choice to the chat
+    template, and the served boot log then read
+
+        Reasoning effort is set to xhigh. Please think carefully through ...
+
+    -- the exact default `test_reasoning_effort_default.py` exists to end,
+    restored by a switch, with decode healthy the whole time. Only the template
+    FILE is Studio's to omit. See CORRECTIONS 36.
     """
     out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
     assert "--chat-template-file" not in out, out
-    assert "--reasoning-effort" not in out, out
+    assert re.search(r"--reasoning-effort\s+medium", out), out
     assert "--chat-template-kwargs" not in out, "deprecated on this build"
     assert re.search(r"--reasoning\s+on", out), out
     assert "--reasoning-preserve" in out, out

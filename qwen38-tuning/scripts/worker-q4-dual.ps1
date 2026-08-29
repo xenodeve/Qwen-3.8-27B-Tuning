@@ -1026,8 +1026,17 @@ $threads = if ($Beta) { '2' } else { '18' }
 # line from a different build copies its bugs, so this uses the flags this
 # binary actually wants. It also removes a JSON blob that had to survive
 # PowerShell and then cmd intact.
+#
+# --reasoning-effort IS NOT OPTIONAL HERE, and -Beta shipped without it for one
+# afternoon. Studio hands its own effort per REQUEST (`reasoningEffort:
+# "medium"` in both n-max threads); we have no client that does, so dropping the
+# flag hands the decision to the chat template, whose default is xhigh. The
+# served boot log said so in as many words -- "Reasoning effort is set to
+# xhigh" (serve-20260829-125227.log:298) -- while decode was healthy, which is
+# why it read as "the server feels slower" rather than as a fault. Report 35
+# measured four real tasks at 537-1,019 s under that default.
 $thinkArg = if ($Beta) {
-    @('--reasoning', 'on', '--reasoning-preserve')
+    @('--reasoning', 'on', '--reasoning-preserve', '--reasoning-effort', 'medium')
 } else {
     @('--chat-template-file', "$PSScriptRoot\..\templates\qwen38-late-system.jinja",
       '--reasoning-effort', 'medium')

@@ -1396,6 +1396,61 @@ was wrong was the ladder's prompt.
 
 ---
 
+## 36. `-Beta` dropped `--reasoning-effort` and served at `xhigh` for an afternoon
+
+**Retracted 2026-08-29, the same day it shipped, after the developer said the
+server "felt much slower" than Unsloth Studio serving the same file.**
+
+`-Beta` was built to borrow Studio's thinking mechanism — the GGUF's own chat
+template steered by flags, instead of our `qwen38-late-system.jinja`. Studio
+passes no template file, so `-Beta` passed none. It also passes no
+`--reasoning-effort`, so `-Beta` passed none. **The second inference was wrong.**
+
+Studio sends the effort **per request**, not on the command line:
+`reasoningEffort: "medium"` in `chat_threads.settings_json` for both n-max
+threads in `~/.unsloth/studio/studio.db`. We serve llama.cpp's own webui and
+Claude Code, and **neither sends one**. With no flag and no client value, the
+choice falls to the template, whose default this project measured and rejected
+on 2026-08-24. The served boot log said so on line 298:
+
+```
+init: chat template, example_format: '<|im_start|>system
+Reasoning effort is set to xhigh. Please think carefully through the task, ...
+```
+
+`docs/results/05-runtime-flags.md` records an outside review putting xHigh at
+**15 minutes where medium takes 3** for 90 % of the result, and this project's
+own four real-task runs under that default came in at **537.7 / 855.8 / 947.2 /
+1,019.3 s**. Decode was healthy throughout — 33.48 tok/s at depth 48,501 in the
+same log — which is why it read as a slow server rather than as a fault.
+
+**Fixed:** `worker-q4-dual.ps1` emits `--reasoning-effort medium` in the `-Beta`
+branch as well. Verified by `-WhatIf`, not by reading the source.
+
+### The general form
+
+**Copying a configuration copies the assumptions of the client that sends the
+rest of it.** Studio omits the effort flag because its own UI supplies it every
+request; we have no such client, so the same omission means something else
+entirely. This is the second time in one day that borrowing a Studio value
+imported a workload assumption with it — `--cache-ram 0` is the other, and it is
+still in place.
+
+### And the test that was green through all of it
+
+`test_every_worker_profile_sets_the_effort` scans each `worker-*.ps1` for
+`--reasoning-effort` and asserts `medium`. The flag **is** in the file, in the
+non-`-Beta` branch of an `if/else`, so the scan passed for every switch
+combination — including the one where the other branch runs. **A source scan
+cannot see which branch a switch takes.** The dry run can, and
+`test_every_switch_combination_still_sets_the_effort` now resolves the argv
+through `-WhatIf` for five switch combinations. `test_beta_profile.py` had also
+asserted the flag was *absent*; that assertion encoded the bug.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `beta-reasoning-effort`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

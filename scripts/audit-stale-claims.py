@@ -220,6 +220,21 @@ RULES = [
      "depth that loads is not a depth that serves",
      "CORRECTIONS.md 35"),
 
+    ("beta-reasoning-effort",
+     r"--reasoning-effort['\"]?\s*not in out|"
+     r"assert ['\"]--reasoning-effort['\"] not in|"
+     r"-Beta.{0,90}(no|without|drops?|omits?).{0,20}--reasoning-effort|"
+     r"Studio.{0,60}(sets?|passes|sends).{0,20}no --reasoning-effort",
+     "-Beta shipped with no --reasoning-effort because Studio's command line "
+     "has none. Studio sends it PER REQUEST instead (reasoningEffort: medium in "
+     "chat_threads.settings_json); our clients send nothing, so the choice fell "
+     "to the chat template and the served boot log read 'Reasoning effort is "
+     "set to xhigh' -- the default this project rejected on 2026-08-24. Every "
+     "-Beta branch now emits --reasoning-effort medium. The guarding test "
+     "scanned the SOURCE, found the flag in the OTHER branch of the if/else, "
+     "and stayed green",
+     "CORRECTIONS.md 36"),
+
     ("target-column-is-the-arms",
      r"target=TARGET|target_mib=model_size_mib\(TARGET\)|"
      r"'target=TARGET' in SRC",
