@@ -53,7 +53,7 @@ from harness import (observed_spread_pct, classify_against_floors,
                      paired_deltas, vram_settled, VRAM_MIN_RISE_MIB,
                      parse_spec_impl_stats, generation_is_measurable)
 from provenance import (resolve_exe, resolve_target, resolve_effort,
-                        cuda_archs, model_size_mib)
+                        cuda_archs, model_size_mib, ENV_VAR)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
 # THE SERVED BINARY, so the arena measures what we serve unless told otherwise.
@@ -186,7 +186,12 @@ def launch_env(env):
     UUID leaves llama-server with no devices and it runs on CPU, which produces
     a row rather than an error.
     """
-    return {**os.environ, **gpu_device.pin_env(), **env}
+    # `env or {}` and not `env`: `run_arm`'s own signature defaults it to None,
+    # so the control arm reaches here as None the moment anything calls this
+    # without going through an arm set. It raised `'NoneType' object is not a
+    # mapping` -- loud, which is why it survived unnoticed; the fix is to make
+    # "no arm environment" mean the empty one it already means everywhere else.
+    return {**os.environ, **gpu_device.pin_env(), **(env or {})}
 
 
 def _ngram(n_min, n_match=12, n_max=32):
@@ -215,8 +220,41 @@ def _pair(extra_ngram=None, n_draft=4, extra=()):
 # Named arm sets. The default set answers "which decoder"; the others answer
 # "which setting of the decoder we already chose", which is where the measured
 # levers are.
+# ---- the build A/B ----------------------------------------------------------
+# ONE binary against another, alternating inside one session, which is the only
+# admissible way to ask this. Icon B against icon 7 gave +26 % at matched depth,
+# one reading per side, in different boots -- and CORRECTIONS 23 measured the
+# same arm drifting 48.9 % across boots at depth. That number cannot carry a
+# verdict; this arm set can.
+#
+# BOTH ARMS CARRY THE SAME `extra`. The only difference is the binary, because
+# an arm set that also moved a flag produces a delta with two causes -- the
+# shape of CORRECTIONS 26 and 28.
+#
+# THE PATH ON ONE SIDE ONLY IS DELIBERATE. Studio's binary finds NO CUDA device
+# with a bare PATH and serves from the CPU without saying so; CUDA 13 keeps
+# cudart64_13.dll in %CUDA_PATH%ind, not in. Ours ships its own cublas
+# beside it and needs nothing, so adding the directory to both sides would be
+# adding a variable to the arm that did not need it.
+STUDIO_EXE = os.path.join(os.path.expanduser("~"), ".unsloth", "llama.cpp", "build", "bin", "Release", "llama-server.exe")
+_CUDA = os.environ.get("CUDA_PATH", "")
+STUDIO_ENV = {
+    ENV_VAR: STUDIO_EXE,
+    "PATH": ";".join([os.path.dirname(STUDIO_EXE),
+                      os.path.join(_CUDA, "bin"),
+                      os.path.join(_CUDA, "bin", "x64"),
+                      os.environ.get("PATH", "")]),
+}
+
+BUILD_AB = [
+    ("build-10499-ours", SERVED_NGRAM),
+    ("build-10679-unsloth", SERVED_NGRAM, STUDIO_ENV),
+]
+
+
 ARM_SETS = {
     "decoders": ARMS,
+    "build-ab": BUILD_AB,
 
     # `GGML_CUDA_GRAPH_OPT` -- NEVER RUN HERE. An optimisation that is off
     # unless asked for, and nothing in this project has ever asked.
@@ -1376,7 +1414,19 @@ def stop_server():
     wait_for_vram_release(floor_mib=resident_free + VRAM_MIN_RISE_MIB)
 
 
-def server_argv(ctx, extra):
+def arm_exe(env):
+    """The binary THIS ARM runs: its own `QWEN38_LLAMA_EXE`, else the module's.
+
+    `EXE` is resolved once at import, which was right while every arm in a run
+    shared a binary. It stopped being right the moment the question became
+    "does build 10679 decode faster than 10499", because that is a comparison
+    the harness could only make ACROSS boots -- and this bench exists because
+    across-boot comparisons are not admissible here.
+    """
+    return (env or {}).get(ENV_VAR) or EXE
+
+
+def server_argv(ctx, extra, env=None, verify=False):
     """The exact command line `start()` launches, without launching it.
 
     Extracted so a test can assert on what reaches llama-server rather than on
@@ -1386,7 +1436,15 @@ def server_argv(ctx, extra):
     setters) decides which value is used. An arm set that got that backwards
     would run every arm at the hardcoded value and report a flat sweep.
     """
-    return [EXE, "-m", TARGET, "--alias", "Qwen3.8-27B-arena", "-c", str(ctx),
+    exe = arm_exe(env)
+    if verify and not os.path.isfile(exe):
+        # REFUSE. Falling back to the module default would run both arms of a
+        # build comparison on ONE build and report a flat sweep as a result.
+        raise FileNotFoundError(
+            "arm asked for %s and it is not a file. Not falling back to %s: "
+            "a build A/B whose arms silently share a binary is worse than no "
+            "A/B, because it looks complete." % (exe, EXE))
+    return [exe, "-m", TARGET, "--alias", "Qwen3.8-27B-arena", "-c", str(ctx),
             "-ngl", "auto", "--fit", "on", "--fit-target", "768", "-fa", "on",
             "-np", "1", "-t", "18", "-b", "2048", "-ub", "256",
             "-ctk", "q4_0", "-ctv", "q4_0",
@@ -1517,7 +1575,13 @@ def new_row(ctx, arm, rnd, regime, extra, env, free_before, ignore_eos=False,
         # Which binary produced this number. Two builds on this machine report
         # the same version string and differ 2x in prefill; without these two
         # fields the JSONL cannot tell them apart afterwards.
-        exe=EXE, cuda_archs=cuda_archs(EXE),
+        # THE ARM'S binary, not the module default. CORRECTIONS 34 is this
+        # column's neighbour making exactly this mistake: `target` recorded the
+        # module default for every row, so every NVFP4 arm was written down as
+        # having run the Q4 control's file, and the test guarding it stayed
+        # green throughout. A build A/B whose rows all say 10499 is worse than
+        # no A/B -- it looks complete.
+        exe=arm_exe(env), cuda_archs=cuda_archs(arm_exe(env)),
         # WHICH CARDS. Resolved from the environment a launch would actually
         # get, not from what the arm asked for -- the control arm asks for
         # nothing, and a silent column reads like "the usual card" right up
@@ -1545,7 +1609,11 @@ def new_row(ctx, arm, rnd, regime, extra, env, free_before, ignore_eos=False,
         # Always present, even when empty: absent and {} must not be the same
         # value, or "this arm set nothing" reads the same as "this row predates
         # the feature".
-        env=dict(env),
+        # `env or {}`, so "this arm set nothing" is the empty dict this comment
+        # already promises rather than a TypeError. `run_arm` defaults env to
+        # None, so the control arm reaches here as None the moment a caller
+        # skips the arm-set path.
+        env=dict(env or {}),
         loaded=loaded)
 
 

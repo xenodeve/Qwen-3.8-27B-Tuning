@@ -7,9 +7,16 @@ Every comparison in this project against Studio assumed one binary. It is two:
     ours     version 0.1.2-dev   build 10499   commit 1deefcca3
     Studio   version 0.3.0-dev   build 10679   commit b84725557
 
-**180 builds apart.** So `-Clone` -- their whole command line on our binary --
-cannot separate "their flags are better" from "their build is newer". This
-switch supplies the other cell:
+The build NUMBERS differ by 180. **That is not a count of commits between
+them**, and saying so would be an inference dressed as a count: our own HEAD is
+`1deefcca3`, a local commit *"Add p_min in DFlash2"*, and neither `b84725557`
+nor the `50f068f` reported upstream for build 10679 is in our clone. **Both
+sides are forks.** What separates them is a source/build-lineage delta of
+unknown length.
+
+So `-Clone` -- their whole command line on our binary -- cannot separate "their
+flags are better" from "their build is different". This switch supplies the
+other cell:
 
                         our flags        their flags
     our build           icons 1/2/7/8    icon 9   (-Clone)
@@ -31,7 +38,7 @@ WHAT IS AND IS NOT DIFFERENT ABOUT THE TWO BUILDS, checked rather than assumed:
               `ARCHS = 890,1200 | USE_GRAPHS = 1 | BLACKWELL_NATIVE_FP4 = 1`.
               The compile-time feature set that matters is the same.
 
-So what is left between them is 180 commits of source, which no amount of
+So what is left is a SOURCE/BUILD-LINEAGE DELTA, which no amount of
 reading `--help` will settle.
 
 THE FAULT THIS SWITCH MUST NOT HAVE

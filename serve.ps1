@@ -118,7 +118,7 @@ param(
     # candidate: its window is half of what this machine serves.
     [switch]$Clone,
     # Studio's llama-server instead of ours. Ours is build 10499, theirs
-    # 10679 -- 180 apart, which -Clone alone cannot separate from flags.
+    # 10679. -Clone alone cannot separate their flags from their build.
     [switch]$TheirBuild,
     [switch]$MaxCtx,
     [switch]$Mtp,

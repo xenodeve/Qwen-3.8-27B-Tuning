@@ -692,7 +692,8 @@ if ($Dflash) {
 # directory prepended it reports
 #     ARCHS = 860,890,900,1000,1200 | USE_GRAPHS = 1 | BLACKWELL_NATIVE_FP4 = 1
 # against our 890,1200 with the same two feature flags -- so the compile-time
-# difference that matters here is 180 commits of source, not a missing kernel.
+# difference that matters here is a source/build-lineage delta, not a missing
+# kernel.
 if ($TheirBuild) {
     $Exe = $STUDIO_EXE
     $cudaBin = @()

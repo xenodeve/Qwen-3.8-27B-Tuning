@@ -36,9 +36,12 @@ REM
 REM      ours     version 0.1.2-dev   build 10499   commit 1deefcca3
 REM      Studio   version 0.3.0-dev   build 10679   commit b84725557
 REM
-REM  180 builds apart. Their --help is a strict superset of ours, no default
+REM  The build NUMBERS differ by 180. That is not a count of commits between
+REM  them: our own HEAD is 1deefcca3, a local commit "Add p_min in DFlash2",
+REM  and neither b84725557 nor upstream's 50f068f is in our clone. BOTH SIDES
+REM  ARE FORKS. Their --help is a strict superset of ours, no default
 REM  differs on any flag either side sets, and both binaries carry native SASS
-REM  for both cards here -- so what separates them is 180 commits of source,
+REM  for both cards here -- so what separates them is a SOURCE/BUILD-LINEAGE DELTA,
 REM  not a missing kernel and not a flag we cannot reach.
 REM
 REM  THIS IS NOT A RESULT YET. One reading per side, taken in different boots,

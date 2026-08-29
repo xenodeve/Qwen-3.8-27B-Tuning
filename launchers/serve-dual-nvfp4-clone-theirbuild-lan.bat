@@ -7,7 +7,8 @@ REM
 REM  THE CONFOUND THIS ICON REMOVES
 REM
 REM  Every comparison this project made against Unsloth Studio assumed one
-REM  binary. It is two, and they are 180 builds apart:
+REM  binary. It is two, and their build NUMBERS differ by 180 -- which is not
+REM  a count of commits between them, since both sides are forks:
 REM
 REM      ours     version 0.1.2-dev   build 10499   commit 1deefcca3
 REM      Studio   version 0.3.0-dev   build 10679   commit b84725557
@@ -37,7 +38,7 @@ REM      features    ARCHS = 860,890,900,1000,1200 ^| USE_GRAPHS = 1 ^|
 REM                  BLACKWELL_NATIVE_FP4 = 1, against our 890,1200 with the
 REM                  same two feature flags.
 REM
-REM  What is left between them is 180 commits of source.
+REM  What is left between them is a SOURCE/BUILD-LINEAGE DELTA.
 REM
 REM  THE FAULT THIS ICON HAD TO BE BUILT AROUND
 REM
