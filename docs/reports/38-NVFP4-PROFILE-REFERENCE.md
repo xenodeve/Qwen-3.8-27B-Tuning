@@ -244,10 +244,12 @@ it is not earning either.
   were wrong.** The tower loads under `-sm tensor` on the unpatched served
   binary and answers a real image correctly at 65,536, **147,456 and 200,704** —
   the `ggml-backend-meta` wall that blocks a sidecar drafter does not apply to
-  `mmproj`, and 888 MiB does fit at the deep rung. What remains untested is
-  vision **beside a large text prompt**: the deep rung finished a tiny image
-  request with **614 MiB** free, against a measured line of 488 surviving and
-  336 dying.
+  `mmproj`, and 888 MiB does fit at the deep rung. **Vision beside a large text
+  prompt is measured too:** every rung took a half-window request *and* an image
+  on top of it, and all four answered correctly — 200,704 finishing with **464**
+  MiB free, 180,224 with 534, 163,840 with 817, 147,456 with 1,068. Both
+  launcher pairs now carry it. The thin margin at the cap is the remaining
+  caveat, and the budget check refusing to start is what guards it.
 - **`--spec-draft-n-max 3` was never swept on this artifact.** Position 3 still
   accepts 28.4 % in real use, and the publisher runs `spec_n_max 6` with
   `spec_p_min 0.75`; we set no `p_min` at all.
@@ -281,10 +283,12 @@ it is not earning either.
 5. **`ngram-mod` fires 5 times in 4,653 calls on real traffic.** Is a lower
    `n-match` worth trying, or is a prompt-lookup decoder simply the wrong tool
    for agent output and the slot better spent elsewhere?
-6. ~~Can a vision projector load under `-sm tensor` at all?~~ **Answered:
-   yes**, at every depth we serve, on the unpatched binary. The open part is
-   narrower — **is 614 MiB of headroom at 200,704 enough for vision beside a
-   real 100k-token prompt**, or does vision belong only at 147,456?
+6. ~~Can a vision projector load under `-sm tensor`, and is there room for it
+   beside a real prompt?~~ **Both answered: yes.** 200,704 took a 91,428-token
+   request and then an image, finishing with **464 MiB** free. The narrower
+   question left is whether a margin that thin is one to ship at all, or whether
+   a deep profile should reserve more than the 768 MiB `--fit-target` it asks
+   for — a constant set from one incident and never bisected.
 7. **`-sm layer` is −31.0 % on NVFP4** (measured, three paired rounds, both arms
    `66+0`) — so the tensor split's verdict *did* transfer across the artifact,
    unlike every other verdict tested this session. **Is there a reason to expect

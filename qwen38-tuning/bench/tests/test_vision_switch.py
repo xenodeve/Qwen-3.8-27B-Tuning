@@ -138,12 +138,26 @@ def test_the_served_pair_carries_vision(path):
 
 
 @pytest.mark.parametrize("path", DEEP_PAIR)
-def test_the_deep_pair_stays_text_only(path):
-    """200,704 loaded and answered a SMALL picture with 614 MiB free -- between
-    the 488 this project measured surviving and the 336 dying -- and vision
-    beside a large text prompt is untested at any depth. Turning it on here
-    would ship an untested combination as a default."""
-    assert "-Vision" not in read(path), path
+def test_the_deep_pair_carries_vision_too(path):
+    """It did not, until the combination was measured on 2026-08-29.
+
+    The reason to hold it back was that vision beside a LARGE text prompt was
+    untested at any depth -- the earlier probes were a small picture against an
+    empty context. A ladder then asked every rung for a half-window request from
+    the arena's corpus AND an image on top of that context, which is what a
+    person pasting a screenshot into a long conversation actually does:
+
+        200,704   91,428 tokens, then an image   free 464 / 1,187 MiB
+        180,224   83,127 tokens, then an image   free 534 / 1,703 MiB
+        163,840   76,741 tokens, then an image   free 817 / 2,057 MiB
+        147,456   70,322 tokens, then an image   free 1,068 / 2,413 MiB
+
+    All four answered correctly. The margin at the cap is thin -- 464 MiB sits
+    between the 336 this project has seen die and the 488 seen survive, both on
+    a different configuration -- and the profile's budget check is what stands
+    between a grown desktop and a spill. It refuses rather than spilling.
+    """
+    assert "-Vision" in read(path), path
 
 
 def test_the_separate_vision_icons_are_gone():

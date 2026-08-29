@@ -37,7 +37,7 @@ first and *which window* second.
 **The NVFP4 family — faster, both cards, same everything except the window and
 whether images work.**
 
-| | 147,456, **with images** | **200,704**, deepest measured, text only |
+| | 147,456, **with images** | **200,704**, deepest measured, **also with images** |
 |---|---|---|
 | loopback only | [`serve-dual-nvfp4.bat`](launchers/serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](launchers/serve-dual-nvfp4-deep.bat) |
 | reachable from other machines | [`serve-dual-nvfp4-lan.bat`](launchers/serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](launchers/serve-dual-nvfp4-deep-lan.bat) |
@@ -85,10 +85,23 @@ loaded and answered real pictures correctly at 65,536, 147,456 and 200,704, and
 before. **It costs headroom, not window:** 147,456 either way, finishing a large
 request with about 1,205 and 2,450 MiB free against roughly 2,395 without it.
 
-**The deep pair stays text only, on purpose.** 200,704 answered a *small*
-picture and finished with 614 MiB free on one card; this project has measured
-336 dying and 488 surviving, and images beside a large text prompt have not been
-measured at any depth.
+**The deep pair takes images too, and that was measured before it was switched
+on.** Every rung was asked for a half-window request *and* an image on top of
+that context — which is what pasting a screenshot into a long conversation does,
+and what the earlier small-picture probes could not tell you:
+
+| ctx | prompt, then a picture | free afterwards |
+|---|---|---|
+| **200,704** | 91,428 tokens, answered correctly | **464** / 1,187 MiB |
+| 180,224 | 83,127 tokens, answered correctly | 534 / 1,703 MiB |
+| 163,840 | 76,741 tokens, answered correctly | 817 / 2,057 MiB |
+| 147,456 | 70,322 tokens, answered correctly | 1,068 / 2,413 MiB |
+
+**The margin at 200,704 is the thinnest of the four.** 464 MiB sits between a
+run this project saw die with 336 free and one that survived with 488 — on a
+different configuration, so treat that as a neighbourhood rather than a line.
+If your desktop has grown since you last booted, the profile refuses to start
+rather than spilling; that refusal is the safety, not the margin.
 
 **What it changes is the model file, and that is why it is an icon and not the
 default: quality has not been measured.** Not here and not on any artifact this

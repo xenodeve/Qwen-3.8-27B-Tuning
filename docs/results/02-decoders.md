@@ -1149,11 +1149,36 @@ through `/v1/chat/completions`:
 | **147,456** | yes | identical, correct | 1,205 / 2,450 MiB |
 | **200,704** | yes | identical, correct | **614** / 1,294 MiB |
 
-⚠️ **The free-VRAM column is after a TINY request.** A 512×512 image and a
-15-word answer is not a working session. **614 MiB at the deep rung is close to
-the 488 that survived and the 336 that died**, and vision has **not** been tested
-alongside a large text prompt at any depth. Treat 147,456 as the depth vision
-belongs at until that is measured.
+The free-VRAM column above is after a **tiny** request, which says nothing about
+a screenshot pasted into a long conversation. That was measured next.
+
+### How deep the context goes WITH vision — 200,704, the profile's cap — 2026-08-29
+
+Every rung asked for **both**, in one session: a half-window request from the
+arena's frozen corpus, and **then an image on top of that context**. A rung
+passes only if both succeed — getting the text and dying on the picture is the
+failure a person would actually hit.
+
+| ctx | half-window prompt | then an image | free at load → after text → after image |
+|---|---|---|---|
+| **200,704** | 91,428 tokens, 28.21 tok/s | correct | 605/1,365 → 509/1,189 → **464**/1,187 |
+| 180,224 | 83,127 tokens, 32.47 tok/s | correct | 819/1,881 → 559/1,703 → 534/1,703 |
+| 163,840 | 76,741 tokens, 27.73 tok/s | correct | 966/2,235 → 850/2,057 → **817**/2,057 |
+| 147,456 | 70,322 tokens, 44.16 tok/s | correct | 1,218/2,591 → 1,094/2,413 → 1,068/2,413 |
+
+**All four survived.** The picture was a third distinct one — green field, yellow
+triangle — so a right answer is not a cached one. **The four rates are single
+unpaired readings at four depths on four prompts and are NOT a depth curve.**
+
+**200,704 is the answer, and the margin there is the thinnest of the four.**
+464 MiB sits between the 336 this project has seen die on a first request and
+the 488 seen survive — both on a *different* configuration, so read that as a
+neighbourhood, not a line. What actually stands between a grown desktop and a
+spill is the profile's budget check, which **refuses rather than spilling**.
+
+The ladder stops at 200,704 because the profile caps there
+([CORRECTIONS 35](../reports/CORRECTIONS.md)); 229,376 already dies **without**
+the tower, and 888 MiB more cannot help.
 
 **Without `-mm` the server returns HTTP 500 to any image** — `image input is not
 supported` — which is what a real Claude Code session hit five times.
