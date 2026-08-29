@@ -30,7 +30,7 @@ echo   BOTH CARDS, NVFP4  -- fastest measured here, +63%% over 2 and 3
 echo.
 echo     1   147,456 context, images work          [recommended]
 echo     2   200,704 context, images work          deepest measured
-echo     7   147,456 + the Unsloth bundle          SPEED UNMEASURED
+echo     7   200,704 + the Unsloth bundle          SPEED UNPAIRED
 echo.
 echo   BOTH CARDS, UD-Q4_K_XL  -- the artifact whose output we have used longest
 echo.
@@ -45,9 +45,10 @@ echo.
 echo     Q   quit                                  (one key, no Enter)
 echo.
 echo   1 and 2 both take pictures. 2 goes deeper and finishes a large request
-echo   with the least room to spare of anything measured here. 7 is 1 with six
-echo   settings borrowed from Unsloth Studio: it uses 2.03 GB of RAM against
-echo   15.28, and NOBODY HAS PAIRED ITS SPEED against 1 yet.
+echo   with the least room to spare of anything measured here.
+echo   7 is 2 with six settings borrowed from Unsloth Studio. At 200,704 it
+echo   used 3.21 GB of host RAM against 19.42 and read 135 tok/s against 54 --
+echo   ONE BOOT EACH, which is not a measurement here. Try it and see.
 echo.
 echo   Quality has never been measured on ANY of these artifacts. 1 and 2 change
 echo   the model file, not just a flag; 3 is what has been served longest.

@@ -122,7 +122,6 @@ def test_lean_keeps_everything_we_measured():
     assert re.search(r"--spec-ngram-mod-n-match\s+24", out), out
     assert re.search(r"--spec-type\s+draft-mtp,ngram-mod", out), out
     assert re.search(r"-np\s+1", out), "one conversation gets the whole window"
-    assert re.search(r"-c\s+147456", out), out
 
 
 def test_lean_reaches_the_profile_through_serve():
@@ -163,10 +162,16 @@ def test_it_admits_the_bundle_is_unmeasured(path):
 
 @pytest.mark.parametrize("path", BOTH_LEAN)
 def test_it_asks_for_the_bundle_and_the_same_everything_else(path):
+    """AT 200,704, because that is the depth actually served.
+
+    This shipped at 147,456 first, on the reasoning that it made a clean A/B
+    against the shallow pair. The developer runs 200k. An A/B against a
+    configuration nobody uses answers a question nobody asked, so the pair moved
+    and its partner is now serve-dual-nvfp4-deep.bat.
+    """
     t = read_bat(path)
-    for flag in ("-Dual", "-Nvfp4", "-Vision", "-Lean"):
+    for flag in ("-Dual", "-Nvfp4", "-Vision", "-Lean", "-Deep"):
         assert flag in t, (path, flag)
-    assert "-Deep" not in t, "%s: pair it against the 147,456 default, not the deep one" % path
 
 
 @pytest.mark.parametrize("path", BOTH_LEAN)
@@ -184,6 +189,14 @@ def test_only_the_lan_lean_one_exposes():
 
 def test_it_names_the_number_to_compare_against():
     """The point of the icon is an A/B the developer runs. A launcher that does
-    not say what to compare it with leaves them to remember."""
+    not say what to compare it with leaves them to remember.
+
+    Asserted as "two working-set figures at this depth", not as two literals:
+    the first version hardcoded 15.28 and 2.03, which were measured at ctx
+    65,536, and moving the pair to 200,704 made them the wrong numbers for the
+    file they were in.
+    """
     t = read_bat(LEAN)
-    assert "15.28" in t and "2.03" in t, "the measured RAM pair is not stated"
+    assert t.count("GB working set") >= 2, (
+        "the .bat must state BOTH sides of the memory pair it claims")
+    assert "200,704" in t, "it must say which depth those figures came from"

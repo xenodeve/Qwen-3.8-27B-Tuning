@@ -85,19 +85,32 @@ loaded and answered real pictures correctly at 65,536, 147,456 and 200,704, and
 before. **It costs headroom, not window:** 147,456 either way, finishing a large
 request with about 1,205 and 2,450 MiB free against roughly 2,395 without it.
 
-**The `lean` pair is the 147,456 one with six settings borrowed from Unsloth
+**The `lean` pair is the deep one with six settings borrowed from Unsloth
 Studio**, which runs this same model file on these same two cards: prompt cache
 and context checkpoints off, no memory-mapped read, unified KV, two threads
 instead of eighteen, metrics on. Everything else is identical, deliberately —
-the two icons are an A/B you can run.
+the two icons are an A/B you can run at the depth this machine actually serves.
 
-**Its memory is measured and its speed is not.** Working set **2.03 GB against
-15.28**, reproduced over two boots, with private memory unchanged. Nobody has
-paired its throughput against the default, and the two boots that exist
-generated thirty tokens each — which this project's own guard rejects as a rate.
-It is also **not a free saving**: those context checkpoints were being restored
-in a real session, so it trades host RAM for re-processing the prompt, roughly a
-minute per 50,000 tokens.
+One boot each at 200,704, a 91,428-token prompt then 512 tokens generated, then
+a picture on top:
+
+| | `serve-dual-nvfp4-deep.bat` | `serve-dual-nvfp4-lean.bat` |
+|---|---|---|
+| decode | 53.69 tok/s | **135.25 tok/s** |
+| prefill | 816.6 | 824.1 |
+| host memory | 19.42 GB working set | **3.21 GB** |
+| free VRAM after the image | 555 / 1,186 MiB | 556 / 1,332 MiB |
+
+**Do not treat the decode number as a result.** One reading per side, taken in
+different boots, and this project has measured the *same* arm drifting 48.9 %
+across boots at depth. +152 % is far outside that, which makes it interesting
+rather than proven — the paired sweep that would settle it has not been run.
+
+**The memory is the solid part**, and it is **not a free saving**: those context
+checkpoints were being restored in a real session, so turning them off means a
+conversation that rewinds re-processes the prompt instead. The measurement above
+is one long request, which is the case checkpoints cost the most and help the
+least.
 
 **The deep pair takes images too, and that was measured before it was switched
 on.** Every rung was asked for a half-window request *and* an image on top of
