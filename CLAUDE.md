@@ -26,8 +26,15 @@ session can recover state without re-deriving it.
    instincts to. **Fifteen of its nineteen traps produced a plausible number rather
    than an error.**
 4. **`docs/results/README.md`** — the register: has X been tried, what happened.
-5. **`docs/reports/START-HERE.md`** — the narrative, if you need the why.
-6. The specific GitHub issue you are picking up: `gh issue view <n> --comments`.
+5. **`docs/reports/39-OPTIMISATION-GUIDE.md`** — **read this before proposing any
+   speed work.** Eleven levers already settled and not to be re-tested, six
+   one-flag sweeps ranked by cost, the trades that need a decision rather than a
+   number, and six ways to waste a day — each one something that actually
+   happened here. Every line is tagged **MEASURED HERE** with its source file,
+   **VENDOR** for an outside claim, or **UNMEASURED**; an untagged number is the
+   thing to distrust.
+6. **`docs/reports/START-HERE.md`** — the narrative, if you need the why.
+7. The specific GitHub issue you are picking up: `gh issue view <n> --comments`.
 
 `DONE.md` and `docs/reports/04-MEASUREMENT-METHODOLOGY.md` §7–§8 only when the
 task needs history or you are about to run a benchmark.
@@ -180,8 +187,13 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
    ห้ามเชื่อ ส่วนอันนี้บอกว่าสัญชาตญาณข้อไหนของตัวเองห้ามเชื่อ **สิบห้าจากสิบเก้ากับดักในนั้น
    คืนตัวเลขที่ดูสมเหตุสมผลออกมา ไม่ได้แจ้งความผิดพลาด**
 4. **`docs/results/README.md`** — ทะเบียนว่าอะไรถูกทดสอบแล้ว ผลเป็นอะไร
-5. **`docs/reports/START-HERE.md`** — เรื่องเล่าทั้งหมด ถ้าต้องการรู้ว่าทำไม
-6. issue ที่กำลังจะทำ: `gh issue view <n> --comments`
+5. **`docs/reports/39-OPTIMISATION-GUIDE.md`** — **อ่านก่อนเสนอเรื่องความเร็วทุกครั้ง**
+   คันโยกสิบเอ็ดตัวที่จบแล้วและห้ามทดสอบซ้ำ · sweep แบบ flag เดียวหกอันเรียงตามต้นทุน ·
+   การแลกที่ต้องตัดสินใจ ไม่ใช่แค่หาตัวเลข · และหกวิธีเสียเวลาทั้งวัน ซึ่งทุกข้อเคยเกิดขึ้นจริงที่นี่
+   ทุกบรรทัดติดป้ายว่า **MEASURED HERE** พร้อมไฟล์ที่ตัวเลขมาจาก · **VENDOR** ถ้าเป็นคำอ้างของคนอื่น ·
+   หรือ **UNMEASURED** — **ตัวเลขที่ไม่มีป้ายคือตัวที่ต้องไม่เชื่อ**
+6. **`docs/reports/START-HERE.md`** — เรื่องเล่าทั้งหมด ถ้าต้องการรู้ว่าทำไม
+7. issue ที่กำลังจะทำ: `gh issue view <n> --comments`
 
 ## หลักการหลัก
 
