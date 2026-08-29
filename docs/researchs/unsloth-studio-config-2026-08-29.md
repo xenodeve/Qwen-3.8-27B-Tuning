@@ -103,12 +103,16 @@ Two cautions before copying them:
   pushes against repeating tokens already emitted; a coding agent repeats
   identifiers constantly. **Untested here, and the risk is quality, which is the
   one thing this project has never measured.**
-- **The thinking state is ambiguous.** `chat_settings.reasoningEnabled` is
-  `false` while the server is launched with `enable_thinking: true`. Qwen's
-  published presets differ between thinking and non-thinking modes, and the NVFP4
-  repo quotes `temperature 0.6, top_p 0.95, top_k 20, min_p 0` — a *different*
-  preset from Studio's 0.7 / 0.8. **Which one belongs beside
-  `--reasoning-effort medium` is not established.**
+- ~~The thinking state is ambiguous.~~ **Resolved by reading every launch:
+  thinking is ALWAYS ON at the server.** All eighteen Qwen launches carry
+  `--chat-template-kwargs {"enable_thinking": true, "preserve_thinking": true}`
+  — including the ones where `chat_settings.reasoningEnabled` is `false`, so
+  that switch governs the UI, not the model. **Their 0.7 / 0.8 / 20 was
+  therefore used WITH thinking on**, which makes it directly comparable to our
+  `--reasoning-effort medium`. It remains a *different* preset from the
+  `0.6 / 0.95 / 20` the NVFP4 repo quotes for the same mode, and which of the
+  two is right here is still unmeasured — but it is now a straight choice
+  between two presets, not a confusion about which mode they belong to.
 
 ## Their build, which is not a setting but is worth knowing
 
@@ -310,3 +314,31 @@ full capacity of the model will not be utilized."*
 **Nothing here changes what this project serves.** The value of the whole panel
 is that it is another team's answers for our artifact — and, in this one field,
 a reminder that a setting sitting in a text box is not a setting in force.
+
+
+---
+
+## Three things only the full command line showed
+
+The argv was truncated at `--chat-template-kwargs {` in the first extraction —
+the regex stopped at the first quote inside the JSON. The tail changes the
+picture in three places.
+
+**1. `--mmproj` is on EVERY run, including the pure decoder comparisons.** The
+vision tower was loaded for all eight. It costs 888 MiB and some of the `-c`
+that `auto` computed; none of those eight numbers is a text-only configuration.
+
+**2. One launch carries `--no-mmproj-offload`** — the vision tower on the CPU
+rather than a card. That is the fallback this project would have needed if the
+tensor split had refused to host the projector, which was the predicted failure
+before it was measured. It exists and is reachable; we have not needed it.
+
+**3. `--chat-template-kwargs {"enable_thinking": true, "preserve_thinking": true}`
+on every Qwen launch**, regardless of the UI's `reasoningEnabled`. Thinking is
+always on at the server. (One launch in the nineteen reads
+`{"reasoning_effort": "high"}` — that is `gpt-oss-20b`, a different model.)
+
+**And the `--rope-scaling` field is settled.** It appears in Studio's own source
+— `studio/backend/core/inference/llama_cpp.py`, a test, and the frontend — so the
+app supports the flag. It appears **zero times in the launch logs**, so no run
+used it. Supported, entered, never sent.
