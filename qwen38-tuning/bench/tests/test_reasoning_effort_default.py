@@ -124,8 +124,16 @@ def test_there_are_worker_profiles_to_check():
 
 @pytest.mark.parametrize("name", worker_profiles())
 def test_every_worker_profile_sets_the_effort(name):
-    text = open(os.path.join(PROFILES, name), encoding="utf-8",
-                errors="replace").read()
+    raw = open(os.path.join(PROFILES, name), encoding="utf-8",
+               errors="replace").read()
+    # COMMENTS ARE NOT CODE. This scanned the whole file until 2026-08-29 and
+    # matched a sentence explaining the flag -- "--reasoning-effort medium.
+    # Neither the file's reason..." -- capturing `medium.` with the full stop
+    # and calling the profile misconfigured while it was set correctly two
+    # dozen lines below. Seventh source-shape assertion this session to read
+    # prose as configuration.
+    text = os.linesep.join(l for l in raw.splitlines()
+                           if not l.strip().startswith("#"))
     m = re.search(r"--reasoning-effort['\\\"]?\s*,?\s*['\\\"]?([^\s',\\\"]+)", text)
     assert m, (f"{name} sets no --reasoning-effort, so it serves at the "
                f"template's xhigh default -- the condition this change exists "

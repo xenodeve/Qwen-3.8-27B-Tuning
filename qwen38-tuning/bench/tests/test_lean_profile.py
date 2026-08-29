@@ -200,3 +200,58 @@ def test_it_names_the_number_to_compare_against():
     assert t.count("GB working set") >= 2, (
         "the .bat must state BOTH sides of the memory pair it claims")
     assert "200,704" in t, "it must say which depth those figures came from"
+
+
+# ------------------------------------------------- thinking, the Unsloth mechanism
+
+def test_lean_uses_the_models_own_template_with_kwargs():
+    """Studio does not pass a template file at all.
+
+    It uses the one inside the GGUF and steers it with
+    `--chat-template-kwargs {"enable_thinking": true, "preserve_thinking": true}`.
+    We pass `--chat-template-file qwen38-late-system.jinja` plus
+    `--reasoning-effort medium`, and NEITHER the template's reason for existing
+    nor the choice of `medium` is written down anywhere in this repository.
+
+    `-Lean` borrows their mechanism whole, which is the only way to find out
+    whether ours is doing anything. Note what `preserve_thinking` maps to on our
+    side: `--reasoning-preserve`, a flag we do not set and which our own boot log
+    suggests -- "chat template supports preserving reasoning, consider enabling
+    it via --reasoning-preserve".
+
+    THEIR MECHANISM, ADAPTED TO OUR BINARY, BECAUSE BOOTING IT SAID SO. Copying
+    `--chat-template-kwargs {"enable_thinking": true, "preserve_thinking": true}`
+    verbatim starts and thinks, but the log answers back twice:
+
+        W Setting 'enable_thinking' via --chat-template-kwargs is deprecated.
+          Use --reasoning on / --reasoning off instead.
+        I chat template supports preserving reasoning, consider enabling it via
+          --reasoning-preserve
+
+    So one kwarg is deprecated and the other DOES NOTHING -- the server still
+    asks for `--reasoning-preserve` after being handed `preserve_thinking`.
+    Copying a command line from a different build is copying its bugs.
+    """
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Lean")
+    assert "--chat-template-file" not in out, out
+    assert "--reasoning-effort" not in out, out
+    assert "--chat-template-kwargs" not in out, "deprecated on this build"
+    assert re.search(r"--reasoning\s+on", out), out
+    assert "--reasoning-preserve" in out, out
+
+
+def test_without_lean_the_template_file_is_still_used():
+    """The default keeps what it has always had. This is an experiment, not a
+    migration."""
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep")
+    assert "qwen38-late-system.jinja" in out, out
+    assert re.search(r"--reasoning-effort\s+medium", out), out
+    assert "--chat-template-kwargs" not in out, out
+
+
+def test_no_json_blob_has_to_cross_two_shells():
+    """The first version passed a JSON object as one argv entry, which has to
+    survive PowerShell and then cmd intact. Using the flags llama.cpp actually
+    wants removes the problem rather than solving it."""
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Lean")
+    assert "{" not in out.split("llama-server.exe")[-1], out

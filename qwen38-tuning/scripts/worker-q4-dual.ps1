@@ -940,6 +940,44 @@ $leanArg = if ($Lean) {
       '--load-mode', 'none', '--kv-unified', '--metrics')
 } else { @() }
 $threads = if ($Lean) { '2' } else { '18' }
+
+# HOW THINKING IS TURNED ON, and the two profiles do it differently on purpose.
+#
+# Ours: a template FILE plus --reasoning-effort medium. Neither the file's
+# reason for existing nor the choice of `medium` is written down anywhere in
+# this repository, and `medium` is recorded in our own docs as NEVER MEASURED
+# on any artifact.
+#
+# Studio's: no template file at all -- the one inside the GGUF, steered with
+# --chat-template-kwargs {"enable_thinking": true, "preserve_thinking": true}.
+# `preserve_thinking` is `--reasoning-preserve` on our side, a flag we do not
+# set and which our own boot log suggests: "chat template supports preserving
+# reasoning, consider enabling it via --reasoning-preserve".
+#
+# -Lean borrows theirs whole, which is the only way to find out whether ours is
+# doing anything. The JSON must stay ONE argv entry: split across several it is
+# not valid JSON and llama.cpp rejects it.
+#
+# AND THEIR EXACT FLAGS ARE NOT THE ONES TO COPY. Passing their
+# `--chat-template-kwargs {"enable_thinking": true, "preserve_thinking": true}`
+# boots and thinks, and the log answers back twice:
+#
+#   W Setting 'enable_thinking' via --chat-template-kwargs is deprecated.
+#     Use --reasoning on / --reasoning off instead.
+#   I chat template supports preserving reasoning, consider enabling it via
+#     --reasoning-preserve
+#
+# One is deprecated and THE OTHER DOES NOTHING -- the server still asks for
+# --reasoning-preserve after being handed preserve_thinking. Copying a command
+# line from a different build copies its bugs, so this uses the flags this
+# binary actually wants. It also removes a JSON blob that had to survive
+# PowerShell and then cmd intact.
+$thinkArg = if ($Lean) {
+    @('--reasoning', 'on', '--reasoning-preserve')
+} else {
+    @('--chat-template-file', "$PSScriptRoot\..\templates\qwen38-late-system.jinja",
+      '--reasoning-effort', 'medium')
+}
 # --alias is the model name every caller sees on /v1/models and in each
 # response. Left hardcoded it would announce Q4_K_XL while serving the NVFP4
 # file -- the same fault as CORRECTIONS 34 one layer out, and visible to clients
@@ -970,9 +1008,7 @@ $argv = @(
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0'
 ) + $specArg + @(
-) + $ngramArg + $visionArg + $leanArg + @(
-    '--chat-template-file', 'C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja',
-    '--reasoning-effort', 'medium',
+) + $ngramArg + $visionArg + $leanArg + $thinkArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",
     '--host', $BindAddress, '--port', "$Port"
 )
