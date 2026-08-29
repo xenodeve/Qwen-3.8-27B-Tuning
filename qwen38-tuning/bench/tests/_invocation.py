@@ -79,3 +79,32 @@ def flag(text, name):
     m = re.search(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])"
                   r"['\"]?\s*,?\s*['\"]?([^\s',\"]+)", text)
     return m.group(1) if m else None
+
+
+def live_lines(text):
+    """The text with PowerShell comments removed -- both forms.
+
+    EIGHT TIMES in one session an assertion read prose as configuration: a
+    comment quoting `--reasoning-effort medium.`, one containing `[on|off]`, one
+    naming `serve.ps1`, one spelling out `Stop-Process -Name` as the thing NOT
+    to do. Each was a real property tested against the wrong text.
+
+    Line comments start with `#`. Block comments are `<# ... #>` and their
+    middle lines start with nothing in particular, which is what the
+    line-comment filters kept missing.
+    """
+    out, in_block = [], False
+    for line in text.splitlines():
+        st = line.strip()
+        if in_block:
+            if "#>" in st:
+                in_block = False
+            continue
+        if st.startswith("<#"):
+            if "#>" not in st[2:]:
+                in_block = True
+            continue
+        if st.startswith("#"):
+            continue
+        out.append(line)
+    return out

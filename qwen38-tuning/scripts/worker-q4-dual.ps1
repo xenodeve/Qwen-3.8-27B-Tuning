@@ -901,7 +901,23 @@ $tsArg = @('-ts', ($budgets -join ','))
 # Studio documents 2 for MTP on GPU. A default from another product is still a
 # verdict from another configuration, and this one does not hold here.
 $draftN = '3'
-$specArg = if ($Nvfp4) {
+# -Beta RUNS MTP ALONE, at the developer's request. Two independent
+# observations point the same way:
+#
+#   Studio's fastest of eight runs on this same model file was draft-mtp by
+#   itself -- 54.95 tok/s against 52.28 and 49.72 for MTP+ngram.
+#
+#   On this machine, on real agent traffic, ngram-mod DOES NOT FIRE. Two
+#   sessions logged `#gen drafts = 0`; an earlier eighteen-minute session logged
+#   5 drafts in 4,653 calls.
+#
+# THE DEFAULT KEEPS THE PAIRING, and that is not indecision. +63.1 % was
+# measured with it on `real-code-vendor` -- repeated vendor source, exactly the
+# text an n-gram is good at. Both numbers are real and they are about different
+# workloads; this repository has measured only one of the two.
+$specArg = if ($Nvfp4 -and $Beta) {
+    @('--spec-type', 'draft-mtp', '--spec-draft-n-max', $draftN)
+} elseif ($Nvfp4) {
     # The head is in the file; no -md, no second model on any device.
     @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', $draftN)
 } elseif ($Mtp) {
@@ -1021,8 +1037,13 @@ $thinkArg = if ($Beta) {
 # file -- the same fault as CORRECTIONS 34 one layer out, and visible to clients
 # rather than only to a reader of the raw results.
 $alias = if ($Nvfp4) { 'Qwen3.8-27B-NVFP4-MTP' } else { 'Qwen3.8-27B-Q4_K_XL' }
-$ngramArg = @('--spec-ngram-mod-n-match', $nMatch,
-              '--spec-ngram-mod-n-min', $nMin, '--spec-ngram-mod-n-max', $nMaxG)
+# Empty under -Beta: a parameter for a decoder that is not loaded is a flag
+# that does nothing and a reader who believes it did -- the same fault as the
+# inert `--fit on` this profile carried for weeks.
+$ngramArg = if ($Beta) { @() } else {
+    @('--spec-ngram-mod-n-match', $nMatch,
+      '--spec-ngram-mod-n-min', $nMin, '--spec-ngram-mod-n-max', $nMaxG)
+}
 
 $argv = @(
     '-m', $Model,

@@ -119,10 +119,18 @@ def test_without_beta_none_of_it_appears():
 
 def test_beta_keeps_everything_we_measured():
     """The bundle borrows what Studio does DIFFERENTLY. It must not quietly
-    revert a value this project measured and won on."""
+    revert a value this project measured and won on.
+
+    The n-gram left this list on 2026-08-29 and that is not a quiet revert: it
+    is the one change here made ON PURPOSE against a number of ours, because
+    that number (+27.1 % for n-match 24) was measured on a corpus where the
+    n-gram fires and the developer's workload is one where it does not -- two
+    sessions at `#gen drafts = 0`. `test_beta_runs_MTP_ALONE` carries the
+    reasoning; this list keeps what is NOT in dispute.
+    """
     out = _whatif(PROFILE, "-Nvfp4", "-Beta")
     assert re.search(r"-ub\s+1024", out), "-ub 1024 is +10.1 % prefill, MEASURED"
-    assert re.search(r"--spec-type\s+draft-mtp,ngram-mod", out), out
+    assert re.search(r"--spec-draft-n-max\s+3", out), "2 was measured slower here"
     assert re.search(r"-np\s+1", out), "one conversation gets the whole window"
 
 
@@ -303,7 +311,47 @@ def _retired_test_beta_takes_unsloths_draft_depth():
     assert re.search(r"--spec-draft-n-max\s+2\b", out), out
 
 
-def test_beta_keeps_our_ngram_bounds_because_theirs_measured_NOTHING():
+def test_beta_runs_MTP_ALONE():
+    """No n-gram at all, at the developer's request, 2026-08-29.
+
+    Two independent observations point the same way and neither is ours alone:
+
+      Studio's fastest of eight runs on this same model file was `draft-mtp`
+      by itself -- 54.95 tok/s against 52.28 and 49.72 for MTP+ngram.
+
+      On this machine, on real agent traffic, `ngram-mod` DOES NOT FIRE. Two
+      sessions logged `#gen drafts = 0`, and an earlier eighteen-minute session
+      logged 5 drafts in 4,653 calls. A decoder that never produces a draft
+      cannot be earning the call.
+
+    WHAT THIS IS NOT. Our own corpus measures `ngram-mod` at n-match 24 as
+    +27.1 % over 12 -- on `real-code-vendor`, which is repeated vendor source
+    and exactly the text an n-gram is good at. That number is real and it is
+    about a different workload. **The default keeps the n-gram; -Beta drops it.**
+    Which is right depends on what you are doing, and this repository has
+    measured only one of the two.
+    """
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
+    assert re.search(r"--spec-type\s+draft-mtp(?!,)", out), out
+
+
+def test_beta_carries_no_ngram_parameter_at_all():
+    """A parameter for a decoder that is not loaded is a flag that does nothing
+    and a reader who thinks it did -- the same fault as the inert `--fit on`
+    this profile carried for weeks."""
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
+    assert "--spec-ngram" not in out, out
+
+
+def test_the_default_still_pairs_mtp_with_the_ngram():
+    """+63.1 % was measured with the pairing, on the corpus this project uses.
+    Dropping it there would throw away the only decoder result it has."""
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep")
+    assert re.search(r"--spec-type\s+draft-mtp,ngram-mod", out), out
+    assert re.search(r"--spec-ngram-mod-n-match\s+24", out), out
+
+
+def _retired_test_beta_keeps_our_ngram_bounds():
     """REVERTED 2026-08-29, the same afternoon, and for a different reason than
     the draft depth.
 
