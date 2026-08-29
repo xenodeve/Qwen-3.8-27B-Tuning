@@ -831,6 +831,28 @@ if (std::regex_match(tensor_name, pattern_output_weight)) {
 `qwen38-tuning/patches/dflash-mirror-output-1deefcca3.patch`. It duplicates the
 full vocabulary head on both cards.
 
+**Upstream already does exactly this, for one other architecture** — found
+2026-08-30 while re-reading the unpatched tree. The branch the patch replaces is
+not a bare `SPLIT_AXIS_1`; it is a conditional that mirrors first
+(`llama-model.cpp:583-588` in Unsloth's `build 10679` tree, unchanged from
+upstream):
+
+```cpp
+if (std::regex_match(tensor_name, pattern_output_weight)) {
+    if (is_dsv4) {
+        return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+    }
+    return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_1);
+}
+```
+
+So mirroring the output projection under a tensor split is **an accepted shape
+in this codebase, already carried for DeepSeek V4** — our patch widens an
+existing exception rather than inventing one. That is an argument for proposing
+it upstream, and it is not evidence that our version is correct: DeepSeek V4's
+exception was presumably measured by whoever added it, and ours has been
+measured only here.
+
 ### Is it lossless? Four comparisons, greedy, same prompt
 
 | comparison | result | what it rules out |
