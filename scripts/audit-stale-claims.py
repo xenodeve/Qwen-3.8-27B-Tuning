@@ -220,6 +220,33 @@ RULES = [
      "depth that loads is not a depth that serves",
      "CORRECTIONS.md 35"),
 
+    ("sampler-is-the-flag-default",
+     r"llama\.cpp'?s? (own )?defaults? appl(y|ies).{0,120}temp 0\.80|"
+     r"we set \*\*none\*\*, so llama\.cpp|"
+     r"temp 0\.80 . top_k 40|"
+     r"--temp 0\.80.{0,40}--top-k 40",
+     "the served sampler is NOT the flag default. GET /props on the served port "
+     "returns temp 1.0, top_k 20, top_p 0.95 -- keys 2-4 of the artifact's own "
+     "metadata (general.sampling.*), which llama.cpp reads and applies. Studio "
+     "sends the same three off the same file, so we already agree on them. The "
+     "real gaps are min_p 0.05 vs 0.0, presence_penalty 0.0 vs 1.5 and "
+     "n_predict -1 vs 36,453. --help documents the flag default, not the served "
+     "value",
+     "CORRECTIONS.md 37"),
+
+    ("nmatch-24-independent",
+     r"(agree|arriv\w+|reach\w+|both).{0,60}24.{0,60}independent|"
+     r"independent\w*.{0,60}(agree\w*|24).{0,40}n-match|"
+     r"agree, and independently|"
+     r"[Tt]wo parties arriving at 24",
+     "24 IS on Studio's command line, but so are --spec-ngram-mod-n-min 48 and "
+     "--spec-ngram-mod-n-max 64, and --help gives 24/48/64 as llama.cpp's "
+     "defaults for all three. A UI renders every field including the untouched "
+     "ones, so an explicit 24 beside an explicit 48 and 64 is a printed default, "
+     "not a second opinion. This project's n-match 12 stands on its own paired "
+     "measurement and gains nothing from it",
+     "CORRECTIONS.md 38"),
+
     ("beta-reasoning-effort",
      r"--reasoning-effort['\"]?\s*not in out|"
      r"assert ['\"]--reasoning-effort['\"] not in|"

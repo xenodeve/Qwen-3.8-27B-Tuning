@@ -78,7 +78,7 @@ not carry the +31 % to an MoE.
 | `--ctx-checkpoints 0` | **RAM against re-prefill.** 32 checkpoints × ~350 MiB is where **20.4 GB working set / 34.4 GB private** goes. They are *not* idle here — the log shows restores at positions 47,940–50,091 — so turning them off costs about a minute per 50,000 tokens re-prefilled at ~825 tok/s. VENDOR notes models without a sliding window ignore the setting; **ours does not ignore it.** |
 | `--cache-ram 0` | same family, same trade, smaller. Default is 8,192 MiB of host prompt cache |
 | **drop `ngram-mod`** | it fires 5 times in 4,653 calls on agent traffic and Studio's single runs put **MTP alone ahead of MTP+ngram** (54.95 vs 52.28). **Our corpus cannot answer this** — `real-code-vendor` is exactly the text an n-gram is good at. Needs an agent-like regime first |
-| the sampler | we set **none**, so llama.cpp's defaults apply: `temp 0.80 · top_k 40 · top_p 0.95 · min_p 0.05 · presence 0.00`. Studio uses `0.7 / 0.8 / 20 / 0.0 / 1.5`; the artifact's own publisher quotes `0.6 / 0.95 / 20 / 0`. **A quality lever, and quality is unmeasured on every artifact here** |
+| the sampler | we set **none**, and the served value is **not** the flag default. `GET /props` reads `temp 1.0 · top_k 20 · top_p 0.95` — llama.cpp applies `general.sampling.*` from the GGUF, and Studio sends the same three off the same file (MEASURED HERE, `/props` on port 8080). **The real gaps are `min_p` 0.05 vs their 0.0, `presence_penalty` 0.0 vs their 1.5, and `n_predict` -1 vs their 36,453.** A quality lever, and quality is unmeasured on every artifact here |
 
 ### Tier 1b — the one that needed the developer to catch a bad argument
 

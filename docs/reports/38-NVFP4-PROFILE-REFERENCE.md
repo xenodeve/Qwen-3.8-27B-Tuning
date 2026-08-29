@@ -250,9 +250,18 @@ it is not earning either.
   MiB free, 180,224 with 534, 163,840 with 817, 147,456 with 1,068. Both
   launcher pairs now carry it. The thin margin at the cap is the remaining
   caveat, and the budget check refusing to start is what guards it.
-- **`--spec-draft-n-max 3` was never swept on this artifact.** Position 3 still
-  accepts 28.4 % in real use, and the publisher runs `spec_n_max 6` with
-  `spec_p_min 0.75`; we set no `p_min` at all.
+- **`--spec-draft-n-max 3` has now been swept on this artifact — by Unsloth
+  Studio, not by us, and it is a wash.** Two of its sessions differ in that flag
+  and nothing else (`--spec-type draft-mtp` alone, ports 49297 and 51604):
+  **45.58 tok/s at 3 against 44.90 at 2**, 17,211 and 9,286 generated tokens.
+  Acceptance per drafted token is 46.0 % at 3 and 61.5 % at 2 — position 3 is
+  the one that gets refused — and tokens per target forward pass are 2.38
+  against 2.23, so the extra draft eval very nearly pays for itself and no more.
+  **Neither session is paired**, prompts differ, and depth moves decode far
+  harder than the flag does (49 tok/s at 10K, 35 at 68K on both). Depth-matched
+  turns flip sign; the deepest pair differs by **0.09 tok/s**. Keep 3, which is
+  llama.cpp's own default. The publisher runs `spec_n_max 6` with
+  `spec_p_min 0.75`; we set no `p_min` at all, and that is still unswept.
 - **`-DisplayReserveMiB 2500` and `RUNTIME_RESERVE_MIB 768`** each come from one
   incident and were never bisected.
 - **`set_sampler: backend sampling not supported with SPLIT_MODE_TENSOR; using

@@ -1451,6 +1451,85 @@ asserted the flag was *absent*; that assertion encoded the bug.
 
 ---
 
+## 37. "We set no sampler, so llama.cpp's defaults apply" — the artifact carries its own, and llama.cpp uses them
+
+**Retracted 2026-08-29 by asking the running server instead of reading `--help`.**
+
+Written into `docs/reports/39-OPTIMISATION-GUIDE.md` and the Studio research
+note the same day: our profile passes no `--temp`, `--top-k` or `--min-p`, so
+the binary's documented defaults were quoted as what we serve —
+`temp 0.80 · top_k 40 · top_p 0.95 · min_p 0.05` — and every one of them was
+said to differ from Studio's.
+
+`GET /props` on the served port says otherwise:
+
+```
+temperature       1.0
+top_k             20
+top_p             0.95
+min_p             0.05
+```
+
+`temp` and `top_k` are not the flag defaults. They are keys **2, 3 and 4 of the
+artifact's own metadata** — `general.sampling.top_k = 20`,
+`general.sampling.top_p = 0.95`, `general.sampling.temp = 1.000000`, printed in
+every boot log this project has taken since the file was downloaded. llama.cpp
+reads them and applies them, and Studio sends the same three because it reads
+the same file. **We already agree with Studio on the sampler's three main
+terms.**
+
+What genuinely differs is narrower: `min_p` **0.05** against their **0.0**,
+`presence_penalty` **0.0** against their **1.5**, and `n_predict` **-1,
+unlimited** against their **36,453**.
+
+### The general form
+
+**`--help` documents the flag default, not the served value.** Anything a model
+file can carry — a sampler, a rope scaling, a chat template — is a value the
+loader can override before a request ever arrives, and reading the flag
+documentation returns a plausible wrong number for it. The server publishes what
+it actually holds; `/props` is one HTTP call and this project had never made it.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `sampler-is-the-flag-default`.
+
+---
+
+## 38. "Two parties arrived at `--spec-ngram-mod-n-match 24` independently"
+
+**Retracted 2026-08-29, hours after it was written, then corrected a second time.**
+
+Unsloth Studio's command line carries `--spec-ngram-mod-n-match 24`, the value
+this project measured at +27.1 % over the 12 every other profile serves. That
+was written up as the strongest outside support any decoder verdict here had.
+
+The first retraction said Studio never sets it. **That was also wrong** — it is
+on their command line, explicitly. The real objection is the company it keeps:
+the same line carries `--spec-ngram-mod-n-min 48 --spec-ngram-mod-n-max 64`, and
+`--help` on the served binary gives
+
+```
+--spec-ngram-mod-n-min N     (default: 48)
+--spec-ngram-mod-n-max N     (default: 64)
+--spec-ngram-mod-n-match N   (default: 24)
+```
+
+**All three are llama.cpp's defaults.** A UI that builds a command line writes
+out every field including the ones its user left alone, so an explicit 24 beside
+an explicit 48 and 64 is a rendered default, not a choice. Had they tuned
+n-match they would have moved the other two off 48 / 64 as well.
+
+### The general form
+
+**A value on someone else's command line is not a second opinion until you have
+checked it against the default.** Independent agreement means two parties
+choosing; agreeing with a default is agreeing with nobody. This project's own
+`n-match 12` remains a measured deviation with a paired number behind it, and it
+stands on that measurement alone.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nmatch-24-independent`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

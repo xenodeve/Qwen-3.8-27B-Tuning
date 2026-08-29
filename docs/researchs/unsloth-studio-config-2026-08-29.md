@@ -29,10 +29,19 @@ reproduced, and `credential_secrets` was not read.
 
 **Three independent agreements** with what this project measured its way to:
 `q4_0` KV, MTP **beside** an n-gram rather than either alone, and the tensor
-split. And in the command line, **`--spec-ngram-mod-n-match 24`** — the exact
-value this project measured as +27.1 % over the 12 every other profile serves,
-and which *lost* on the other artifact. Two parties arriving at 24 separately is
-the strongest outside support any decoder verdict here has.
+split.
+
+**A fourth was claimed here and withdrawn the same day.** The command line does
+carry `--spec-ngram-mod-n-match 24`, the exact value this project measured at
++27.1 % over the 12 every other profile serves — and that was written up as two
+parties reaching 24 separately, the strongest outside support any decoder
+verdict here had. **It is not support at all.** The same line carries
+`--spec-ngram-mod-n-min 48 --spec-ngram-mod-n-max 64`, and `--help` on the
+served binary gives **24, 48 and 64 as llama.cpp's own defaults for all three**.
+A UI that renders every field, including the ones its user left alone, writes
+the defaults out explicitly; that is what this is. Had they tuned n-match to 24
+they would have moved n-min and n-max off 48 / 64 as well. **An agreement with
+a default is an agreement with nobody.**
 
 ## The command line, theirs against ours
 
@@ -46,7 +55,7 @@ Theirs, reformatted; ours is `worker-q4-dual.ps1 -Nvfp4 -Vision`.
 | `--split-mode` | `tensor` | `tensor` | **agree** |
 | `--tensor-split` | `7177,12425` | computed, e.g. `7505,15288` | both compute it |
 | `--flash-attn` | `on` | `on` | **agree** |
-| `--spec-ngram-mod-n-match` | **24** | **24** | **agree, and independently** |
+| `--spec-ngram-mod-n-match` | **24** | **24** | same value, but 24 is llama.cpp's default — not an independent choice |
 | `--spec-type` | `ngram-mod,draft-mtp` | `draft-mtp,ngram-mod` | **order differs** |
 | `--spec-draft-n-max` | **2** | **3** | differs |
 | `--spec-ngram-mod-n-min` | **48** | **16** | differs |
@@ -89,10 +98,24 @@ Studio can afford it at `-c 41,984`; at 200,704 the trade is different.
 
 and per-model, for our artifact: `{"temperature": 0.7, "topP": 0.8}`.
 
-**Our server sets none of these**, so llama.cpp's own defaults apply —
-`--temp 0.80`, `--top-k 40`, `--top-p 0.95`, `--min-p 0.05`,
-`--presence-penalty 0.00`, read from `--help` on the served binary. **Every one
-differs.**
+**Our server sets none of these, and that does NOT mean llama.cpp's defaults
+apply.** This note first said it did — `--temp 0.80`, `--top-k 40`, `--min-p
+0.05` off `--help` — and the running server says otherwise. `GET /props` on
+port 8080 returns **`temperature 1.0 · top_k 20 · top_p 0.95`**, which are not
+the flag defaults (0.80 / 40) but the values carried **inside the artifact**:
+`general.sampling.top_k = 20`, `general.sampling.top_p = 0.95`,
+`general.sampling.temp = 1.000000`, keys 2–4 of its own metadata. llama.cpp
+reads them and applies them. Studio sends the same three because it reads the
+same file.
+
+What actually differs is smaller and worth naming exactly:
+
+| | ours (`/props`) | Studio (per request) |
+|---|---|---|
+| `min_p` | **0.05** | **0.0** |
+| `presence_penalty` | **0.0** | **1.5** |
+| `n_predict` / `max_tokens` | **-1, unlimited** | **36,453** |
+| temp · top_k · top_p | 1.0 · 20 · 0.95 | 1.0 · 20 · 0.95 — **both from the GGUF** |
 
 Two cautions before copying them:
 
