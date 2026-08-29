@@ -420,8 +420,8 @@ def test_the_header_retracts_the_hard_failure_claim_rather_than_deleting_it():
 
 # ---- MTP as an option, after the probe showed it runs here ------------------
 
-MTP_BATS = [os.path.join(ROOT, "..", "serve-dual-mtp.bat"),
-            os.path.join(ROOT, "..", "serve-dual-mtp-lan.bat")]
+MTP_BATS = [os.path.join(ROOT, "..", "launchers", "serve-dual-mtp.bat"),
+            os.path.join(ROOT, "..", "launchers", "serve-dual-mtp-lan.bat")]
 MTP_BATS = [os.path.normpath(p) for p in MTP_BATS]
 
 
@@ -686,8 +686,8 @@ def test_the_profile_records_that_loading_is_not_surviving():
 # ---- full native context, without pretending the margin is not there --------
 
 MAXCTX_BATS = [os.path.normpath(os.path.join(ROOT, "..", n)) for n in
-               ("serve-dual.bat", "serve-dual-lan.bat",
-                "serve-dual-mtp.bat", "serve-dual-mtp-lan.bat")]
+               ("launchers/serve-dual.bat", "launchers/serve-dual-lan.bat",
+                "launchers/serve-dual-mtp.bat", "launchers/serve-dual-mtp-lan.bat")]
 
 
 def test_the_profile_can_be_asked_for_the_deepest_context_that_fits():

@@ -34,7 +34,10 @@ import pytest
 
 BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(BENCH))
-BATS = sorted(glob.glob(os.path.join(ROOT, "*.bat")))
+# The hub at the root, the launchers in their folder. Globbing one place
+# would silently stop checking twelve files the day they moved.
+BATS = sorted(glob.glob(os.path.join(ROOT, "*.bat")) +
+              glob.glob(os.path.join(ROOT, "launchers", "*.bat")))
 MARKER = "LAUNCH_REACHED"
 
 
@@ -72,11 +75,15 @@ def _neutered(path):
 @pytest.mark.parametrize("path", BATS, ids=[os.path.basename(b) for b in BATS])
 def test_cmd_can_parse_it_and_reach_the_launch(path):
     with tempfile.TemporaryDirectory() as d:
-        # Stub every sibling: a launcher that checks its target exists before
-        # calling it should have that check PASS here, not be edited out.
+        # MIRROR THE REAL LAYOUT, do not flatten it. The hub looks for its
+        # targets in launchers\, so a flat stub directory made its existence
+        # guard fire -- correctly, and uselessly. Each copy also goes where its
+        # original lives, because every launcher resolves `%~dp0..` to reach
+        # the entry point and a file moved up a level would not find it.
+        os.mkdir(os.path.join(d, "launchers"))
         for sibling in BATS:
-            open(os.path.join(d, os.path.basename(sibling)), "w").close()
-        copy = os.path.join(d, os.path.basename(path))
+            open(os.path.join(d, os.path.relpath(sibling, ROOT)), "w").close()
+        copy = os.path.join(d, os.path.relpath(path, ROOT))
         with open(copy, "w", encoding="ascii", newline="") as fh:
             fh.write(_neutered(path))
         r = subprocess.run(["cmd.exe", "/c", copy], capture_output=True,

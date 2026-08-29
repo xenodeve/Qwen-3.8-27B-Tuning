@@ -31,6 +31,7 @@ import pytest
 
 BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(BENCH))
+LAUNCHERS = os.path.join(ROOT, "launchers")
 PROFILE = os.path.join(ROOT, "qwen38-tuning", "scripts", "worker-q4-dual.ps1")
 SERVE = os.path.join(ROOT, "serve.ps1")
 
@@ -109,10 +110,10 @@ def test_the_banner_is_silent_about_vision_when_it_is_off():
 
 # ------------------------------------------------ the launchers, once it was proven
 
-NVFP4 = os.path.join(ROOT, "serve-dual-nvfp4.bat")
-NVFP4_LAN = os.path.join(ROOT, "serve-dual-nvfp4-lan.bat")
-DEEP = os.path.join(ROOT, "serve-dual-nvfp4-deep.bat")
-DEEP_LAN = os.path.join(ROOT, "serve-dual-nvfp4-deep-lan.bat")
+NVFP4 = os.path.join(LAUNCHERS, "serve-dual-nvfp4.bat")
+NVFP4_LAN = os.path.join(LAUNCHERS, "serve-dual-nvfp4-lan.bat")
+DEEP = os.path.join(LAUNCHERS, "serve-dual-nvfp4-deep.bat")
+DEEP_LAN = os.path.join(LAUNCHERS, "serve-dual-nvfp4-deep-lan.bat")
 SERVED_PAIR = [NVFP4, NVFP4_LAN]
 DEEP_PAIR = [DEEP, DEEP_LAN]
 

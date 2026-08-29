@@ -24,10 +24,13 @@ REM
 REM  So: click this when you know the work is under 131,072 tokens and you want
 REM  the speed. Click serve-dual.bat when you want the window.
 REM
-REM  %~dp0 is this file's own folder. Double-clicking from a shortcut does not
+REM  %~dp0 is this file's own folder, and this file lives in launchers\,
+REM  so the paths below climb one level to reach the repository root. Double-clicking from a shortcut does not
 REM  put %CD% here, and a relative path would resolve against the wrong place.
 REM
-REM  This one binds 127.0.0.1 only. Nothing outside this machine reaches it.
+REM  THIS ONE IS EXPOSED. -Lan binds every interface, and --host is the only
+REM  access control this server has: no API key, CORS is open. Clicking it is
+REM  the same act as typing the flag.
 REM
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Dual -Dflash
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\serve.ps1" -Dual -Dflash -Lan
 if errorlevel 1 pause

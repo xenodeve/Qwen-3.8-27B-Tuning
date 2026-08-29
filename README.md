@@ -11,14 +11,18 @@ Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 
 ## Just start it
 
-**Double-click [`serve.bat`](serve.bat).** The server runs *in* that window and
+**Double-click [`serve.bat`](launchers/serve.bat).** The server runs *in* that window and
 its output is that window's output. `Ctrl+C` stops it, and so does closing the
 window — there is one process, not a server beside a log-watcher.
 
-**Not sure which? Double-click [`serve-hub.bat`](serve-hub.bat).** It asks two
-questions — which server, and whether to expose it — and then hands off to one
-of the twelve below. It holds no flags of its own; it only picks a file. Every
-icon still works on its own, and the hub is a front door, not a replacement.
+**Double-click [`serve-hub.bat`](serve-hub.bat).** It is the only `.bat` at the
+top of this repository, and it asks two questions — which server, and whether to
+expose it — then hands off to one of the twelve in
+[`launchers/`](launchers/). It holds no flags of its own; it only picks a file.
+
+The twelve still work if you open that folder and double-click one directly.
+They are listed below so you can see what the hub is choosing between, not
+because you have to choose that way.
 
 **Twelve icons.** Two families, because the choice is really *which artifact*
 first and *which window* second.
@@ -27,16 +31,16 @@ first and *which window* second.
 
 | | one card, `UD-Q2_K_XL` | both cards | both cards **+ `draft-mtp`** | both cards **+ DFlash2** |
 |---|---|---|---|---|
-| loopback only | [`serve.bat`](serve.bat) | [`serve-dual.bat`](serve-dual.bat) | [`serve-dual-mtp.bat`](serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](serve-dual-dflash.bat) |
-| reachable from other machines | [`serve-lan.bat`](serve-lan.bat) | [`serve-dual-lan.bat`](serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](serve-dual-dflash-lan.bat) |
+| loopback only | [`serve.bat`](launchers/serve.bat) | [`serve-dual.bat`](launchers/serve-dual.bat) | [`serve-dual-mtp.bat`](launchers/serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](launchers/serve-dual-dflash.bat) |
+| reachable from other machines | [`serve-lan.bat`](launchers/serve-lan.bat) | [`serve-dual-lan.bat`](launchers/serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](launchers/serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](launchers/serve-dual-dflash-lan.bat) |
 
 **The NVFP4 family — faster, both cards, same everything except the window and
 whether images work.**
 
 | | 147,456, **with images** | **200,704**, deepest measured, text only |
 |---|---|---|
-| loopback only | [`serve-dual-nvfp4.bat`](serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](serve-dual-nvfp4-deep.bat) |
-| reachable from other machines | [`serve-dual-nvfp4-lan.bat`](serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](serve-dual-nvfp4-deep-lan.bat) |
+| loopback only | [`serve-dual-nvfp4.bat`](launchers/serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](launchers/serve-dual-nvfp4-deep.bat) |
+| reachable from other machines | [`serve-dual-nvfp4-lan.bat`](launchers/serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](launchers/serve-dual-nvfp4-deep-lan.bat) |
 
 **The `nvfp4` pair is the fastest thing measured here, and it is the cheapest to
 reach.** At ctx 147,456, three paired rounds rotated on real vendor code:
@@ -53,7 +57,7 @@ the `12` every other profile serves**: `12` won on `UD-Q4_K_XL` and is worth a
 third less here, and `24` is the value that *lost* on the Q4 at this same depth.
 The tuning belongs to the file, not to the depth. And the window is 147,456
 against a measured ceiling of **200,704**, which
-[`serve-dual-nvfp4-deep.bat`](serve-dual-nvfp4-deep.bat) serves — verified by
+[`serve-dual-nvfp4-deep.bat`](launchers/serve-dual-nvfp4-deep.bat) serves — verified by
 booting that launcher and pushing a **101,029-token** request through it,
 finishing with 1,009 and 692 MiB free. **229,376 loads, answers a health check
 and then dies**, so neither pair asks for the deepest window that fits.

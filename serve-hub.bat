@@ -12,7 +12,9 @@ REM  the only place a flag is written down. A chooser that assembled its own
 REM  command line would be a second source of truth, and this project has
 REM  already shipped a launcher that described a run it did not perform.
 REM
-REM  Every icon still works on its own. This is a front door, not a replacement.
+REM  The launchers themselves live in launchers\ so that the root holds one
+REM  icon instead of thirteen. Each still works on its own if you go in there;
+REM  this is a front door, not a replacement.
 REM ============================================================================
 
 setlocal
@@ -112,7 +114,7 @@ choice /c NY /n /m "  Expose on the LAN?   [N] no, this machine only   [Y] yes: 
 set "PICK=%LOOP%"
 if "%ERRORLEVEL%"=="2" set "PICK=%WIDE%"
 
-if not exist "%~dp0%PICK%" (
+if not exist "%~dp0launchers\%PICK%" (
     echo.
     echo   %PICK% is missing. This hub only points at other launchers; it
     echo   holds no flags of its own, so there is nothing here to start with.
@@ -126,7 +128,7 @@ echo   Starting %PICK% ...
 echo   The server runs in this window. Ctrl+C stops it; so does closing it.
 echo.
 
-call "%~dp0%PICK%"
+call "%~dp0launchers\%PICK%"
 goto :done
 
 :done

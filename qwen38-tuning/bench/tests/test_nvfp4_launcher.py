@@ -39,8 +39,9 @@ import pytest
 
 BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(BENCH))
-NVFP4 = os.path.join(ROOT, "serve-dual-nvfp4.bat")
-NVFP4_LAN = os.path.join(ROOT, "serve-dual-nvfp4-lan.bat")
+LAUNCHERS = os.path.join(ROOT, "launchers")
+NVFP4 = os.path.join(LAUNCHERS, "serve-dual-nvfp4.bat")
+NVFP4_LAN = os.path.join(LAUNCHERS, "serve-dual-nvfp4-lan.bat")
 BOTH = [NVFP4, NVFP4_LAN]
 SERVE = os.path.join(ROOT, "serve.ps1")
 PROFILE = os.path.join(ROOT, "qwen38-tuning", "scripts", "worker-q4-dual.ps1")
@@ -60,7 +61,20 @@ def test_the_launcher_exists_at_the_root(path):
 
 @pytest.mark.parametrize("path", BOTH)
 def test_it_anchors_on_its_own_folder(path):
-    assert "%~dp0serve.ps1" in read(path)
+    """%CD% is not the .bat's folder when it is double-clicked from elsewhere.
+
+    Asserted as a path that RESOLVES rather than as the literal
+    `%~dp0serve.ps1`: the launchers moved into `launchers/` on 2026-08-29 and
+    now climb one level, and the old string check called that a regression
+    while the file it points at was right there.
+    """
+    line = next(l for l in read(path).splitlines()
+                if "serve.ps1" in l and "%~dp0" in l
+                and not l.strip().lower().startswith("rem"))
+    rel = line[line.index("%~dp0") + len("%~dp0"):].split('"')[0]
+    target = os.path.normpath(
+        os.path.join(os.path.dirname(path), rel.replace("\\", os.sep)))
+    assert os.path.exists(target), "%s points at %s" % (path, target)
 
 
 @pytest.mark.parametrize("path", BOTH)
@@ -215,8 +229,8 @@ def test_the_banner_still_describes_the_incumbent_correctly():
 
 # ---------------------------------------------- the deep pair, at the MEASURED ceiling
 
-DEEP = os.path.join(ROOT, "serve-dual-nvfp4-deep.bat")
-DEEP_LAN = os.path.join(ROOT, "serve-dual-nvfp4-deep-lan.bat")
+DEEP = os.path.join(LAUNCHERS, "serve-dual-nvfp4-deep.bat")
+DEEP_LAN = os.path.join(LAUNCHERS, "serve-dual-nvfp4-deep-lan.bat")
 BOTH_DEEP = [DEEP, DEEP_LAN]
 
 

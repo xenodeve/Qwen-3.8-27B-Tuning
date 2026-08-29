@@ -45,12 +45,13 @@ REM  hundred MiB spare, against about 2,000 at the 147,456 default. A run with
 REM  336 MiB free died on its first request; one with 488 survived 135,233
 REM  tokens. Deep is measured, not comfortable.
 REM
-REM  %~dp0 is this file's own folder. %CD% is not it when the file is opened
+REM  %~dp0 is this file's own folder, and this file lives in launchers\,
+REM  so the paths below climb one level to reach the repository root. %CD% is not it when the file is opened
 REM  from a shortcut or from a shell that started somewhere else.
 REM ============================================================================
 
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 where pwsh >nul 2>nul
 if errorlevel 1 (
@@ -62,7 +63,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Dual -MaxCtx -Mtp
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\serve.ps1" -Dual -MaxCtx -Mtp
 set RC=%ERRORLEVEL%
 
 if not "%RC%"=="0" (

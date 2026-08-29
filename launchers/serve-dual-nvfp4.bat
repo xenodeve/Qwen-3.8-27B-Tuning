@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Start the worker  --  BOTH GPUs, the NVFP4 artifact, reachable on your LAN
+REM  Start the worker  --  BOTH GPUs, the NVFP4 artifact, loopback only
 REM
 REM  Double-click this. The server runs IN this window and its output is this
 REM  window's output. Ctrl+C stops it; so does closing this window.
@@ -70,16 +70,15 @@ REM
 REM  It holds no configuration. The flags live in
 REM  qwen38-tuning\scripts\worker-q4-dual.ps1 and only there.
 REM
-REM  %~dp0 is this file's own folder. %CD% is not it when the file is opened
+REM  %~dp0 is this file's own folder, and this file lives in launchers\,
+REM  so the paths below climb one level to reach the repository root. %CD% is not it when the file is opened
 REM  from a shortcut or from a shell that started somewhere else.
 REM
-REM  THIS ONE BINDS 0.0.0.0. The server has NO API key, CORS '*', and no auth
-REM  of any kind -- anyone who can reach this machine can use it and read
-REM  every prompt. Only on a network you control.
+REM  This one binds 127.0.0.1 only. Nothing outside this machine reaches it.
 REM ============================================================================
 
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 where pwsh >nul 2>nul
 if errorlevel 1 (
@@ -91,7 +90,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Dual -Nvfp4 -Vision -Lan
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\serve.ps1" -Dual -Nvfp4 -Vision
 set RC=%ERRORLEVEL%
 
 if not "%RC%"=="0" (

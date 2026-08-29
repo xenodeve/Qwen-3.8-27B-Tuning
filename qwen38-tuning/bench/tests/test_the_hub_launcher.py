@@ -33,6 +33,7 @@ import pytest
 BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(BENCH))
 HUB = os.path.join(ROOT, "serve-hub.bat")
+LAUNCHERS = os.path.join(ROOT, "launchers")
 
 # Every launcher the hub is allowed to offer, and the flag file that owns it.
 OFFERED = [
@@ -91,15 +92,14 @@ def test_every_launcher_it_offers_exists():
     offered = [n for n in OFFERED if n in t]
     assert offered, "the hub offers nothing"
     for name in offered:
-        assert os.path.exists(os.path.join(ROOT, name)), name
+        assert os.path.exists(os.path.join(LAUNCHERS, name)), name
 
 
 def test_it_offers_every_launcher_at_the_root():
     """A hub that silently omits an icon is worse than no hub: the icon still
     exists and the person who used the hub does not know it."""
     t = read(HUB)
-    on_disk = {f for f in os.listdir(ROOT)
-               if f.endswith(".bat") and f != "serve-hub.bat"}
+    on_disk = {f for f in os.listdir(LAUNCHERS) if f.endswith(".bat")}
     missing = sorted(f for f in on_disk if f not in t)
     assert not missing, "not offered by the hub: %s" % missing
 
@@ -155,8 +155,9 @@ def test_cmd_parses_it_and_a_choice_reaches_a_launch():
     names the hub uses have to be the names on disk.
     """
     with tempfile.TemporaryDirectory() as d:
+        os.mkdir(os.path.join(d, "launchers"))
         for name in OFFERED:
-            open(os.path.join(d, name), "w").close()
+            open(os.path.join(d, "launchers", name), "w").close()
         copy = os.path.join(d, "serve-hub.bat")
         with open(copy, "w", encoding="ascii", newline="") as fh:
             fh.write(_neutered_hub())

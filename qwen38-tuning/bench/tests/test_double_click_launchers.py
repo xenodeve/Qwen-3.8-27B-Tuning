@@ -47,10 +47,11 @@ import pytest
 
 BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(BENCH))
-PLAIN = os.path.join(ROOT, "serve.bat")
-LAN = os.path.join(ROOT, "serve-lan.bat")
-DUAL = os.path.join(ROOT, "serve-dual.bat")
-DUAL_LAN = os.path.join(ROOT, "serve-dual-lan.bat")
+LAUNCHERS = os.path.join(ROOT, "launchers")
+PLAIN = os.path.join(LAUNCHERS, "serve.bat")
+LAN = os.path.join(LAUNCHERS, "serve-lan.bat")
+DUAL = os.path.join(LAUNCHERS, "serve-dual.bat")
+DUAL_LAN = os.path.join(LAUNCHERS, "serve-dual-lan.bat")
 
 ALL = [PLAIN, LAN, DUAL, DUAL_LAN]
 SINGLE_CARD = [PLAIN, LAN]
