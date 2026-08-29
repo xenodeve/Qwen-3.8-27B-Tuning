@@ -96,8 +96,13 @@ reviews an external RTX 3090 stack against our own files;
 [29](29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) is the DFlash2 result and
 the prompt that hid it.
 
-[38](38-NVFP4-PROFILE-REFERENCE.md) is the **complete reference for the NVFP4
-profile**, written 2026-08-29 for a reader with no prior context: the machine,
+[39](39-OPTIMISATION-GUIDE.md) is the **optimisation guide** — what is settled
+and must not be re-tested, the levers ranked by what they cost to try, the trades
+that need a decision and not just a number, and the six ways to waste a day here.
+Every line is tagged **MEASURED HERE** with the file its number came from,
+**VENDOR** for someone else's documented claim, or **UNMEASURED**. Start here if
+you want to make it faster; [38](38-NVFP4-PROFILE-REFERENCE.md) is the **complete
+reference for the NVFP4 profile**, written 2026-08-29 for a reader with no prior context: the machine,
 the binary, the full provenance chain from `Qwen/Qwen3.8-27B` through Unsloth's
 NVFP4 to the GGUF tier we serve, the exact resolved command line, what is
 measured and by what method, and — in its own section — everything that is
