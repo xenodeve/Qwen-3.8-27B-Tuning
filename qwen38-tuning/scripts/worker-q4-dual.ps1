@@ -886,7 +886,21 @@ $tsArg = @('-ts', ($budgets -join ','))
 # standard. Our real-use acceptance per position is (0.690, 0.448, 0.284), so
 # position three still lands 28 % of the time and 3 looks earned. -Beta carries
 # 2 so that argument gets tested rather than repeated.
-$draftN = if ($Beta) { '2' } else { '3' }
+# MEASURED 2026-08-29, and 2 LOST. -Beta carried Studio's 2 for one afternoon;
+# the developer's own use said it felt slower and the server's counters said
+# why -- not the rate, which was a cross-session comparison, but the mechanism:
+#
+#   n-max 3   297 drafts ->   891 tokens = 3 per draft, mean accepted len 2.80
+#   n-max 2   887 drafts -> 1,774 tokens = 2 per draft, mean accepted len 2.12
+#
+# The acceptance RATE barely moved (0.60 -> 0.54); the accepted LENGTH fell
+# 24 %, so every verify step advances less far. Decode read 43-45 tok/s before
+# and 25-33 after. Exactly what per-position acceptance predicted:
+# (0.690, 0.448, 0.284) -- position three lands 28 % of the time.
+#
+# Studio documents 2 for MTP on GPU. A default from another product is still a
+# verdict from another configuration, and this one does not hold here.
+$draftN = '3'
 $specArg = if ($Nvfp4) {
     # The head is in the file; no -md, no second model on any device.
     @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', $draftN)

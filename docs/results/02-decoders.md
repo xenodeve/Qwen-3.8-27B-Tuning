@@ -1182,3 +1182,35 @@ the tower, and 888 MiB more cannot help.
 
 **Without `-mm` the server returns HTTP 500 to any image** — `image input is not
 supported` — which is what a real Claude Code session hit five times.
+
+### `--spec-draft-n-max` 2 against 3, decided by ordinary use — 2026-08-29
+
+`-Beta` carried Unsloth Studio's `--spec-draft-n-max 2` for one afternoon. The
+developer said it felt slower. It is.
+
+**Not from the rate** — the two sessions were different prompts on different
+boots, which this project does not compare. **From the counters**, which are a
+property of the run and not of the boot:
+
+| | drafts | draft tokens | tokens per draft | mean ACCEPTED length | acceptance |
+|---|---|---|---|---|---|
+| `n-max 3` | 297 | 891 | 3 | **2.80** | 0.60 |
+| `n-max 2` | 887 | 1,774 | 2 | **2.12** | 0.54 |
+
+**The acceptance rate barely moved. The accepted LENGTH fell 24 %**, which is
+what a shorter draft buys: every verify step advances less far. Decode read
+43–45 tok/s in the first session and 25–33 in the second.
+
+This is exactly what the per-position acceptance predicted —
+`(0.690, 0.448, 0.284)`, so the third draft position lands **28 %** of the time
+and cutting it costs. **The prediction is now measured.** Reverted to 3, which
+is also llama.cpp's own default.
+
+Studio's UI documents 2 for MTP on a GPU. **A default from another product is
+still a verdict from another configuration.**
+
+**And the n-gram bounds did nothing.** `n-min 48 / n-max 64` were changed in the
+same bundle, and both sessions record `ngram-mod: #gen drafts = 0` — the n-gram
+never fired at all on agent traffic. That matches the 5 drafts in 4,653 calls
+recorded in an earlier real session, and it means those two values are untested
+rather than tested-and-kept.

@@ -261,7 +261,32 @@ def test_no_json_blob_has_to_cross_two_shells():
 
 # ------------------------------------- the two decoder values added on request
 
-def test_beta_takes_unsloths_draft_depth():
+def test_beta_keeps_our_draft_depth_because_2_was_MEASURED_SLOWER():
+    """REVERTED 2026-08-29, hours after it was added, on the developer's own use.
+
+    -Beta carried Studio's `--spec-draft-n-max 2` for one afternoon. The
+    developer said it felt slower and the server's own counters say why -- not
+    the rate, which is a cross-session comparison, but the MECHANISM:
+
+        n-max 3    297 drafts -> 891 tokens   = 3 per draft, mean acc len 2.80
+        n-max 2    887 drafts -> 1774 tokens  = 2 per draft, mean acc len 2.12
+
+    The acceptance RATE barely moved (0.60 -> 0.54). The accepted LENGTH fell
+    24 %, which is what a shorter draft buys you: every verify step advances
+    less far. Decode read 43-45 tok/s before and 25-33 after.
+
+    That is exactly what the per-position acceptance predicted --
+    (0.690, 0.448, 0.284), so position three lands 28 % of the time and cutting
+    it costs. The prediction is now measured on this machine, on this workload.
+
+    Studio's 2 is documented for MTP on GPU; it is not right HERE. A default
+    from another product is still a verdict from another configuration.
+    """
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
+    assert re.search(r"--spec-draft-n-max\s+3\b", out), out
+
+
+def _retired_test_beta_takes_unsloths_draft_depth():
     """2, not our 3.
 
     3 is llama.cpp's own default (`--spec-draft-n-max N (default: 3)`) and we
