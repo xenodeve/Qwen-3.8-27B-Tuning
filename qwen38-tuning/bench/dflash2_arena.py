@@ -1601,7 +1601,16 @@ def start(ctx, extra, tag, boot_s=240, env=None):
     stop_server()
     free_before = free_for_env(env or {})
     log = ROOT / "logs" / ("dflash2-" + tag + ".log")
-    args = server_argv(ctx, extra)
+    # `env` IS NOT OPTIONAL HERE. Without it `arm_exe` falls back to the module
+    # `EXE` and the process runs the default while `new_row` records the binary
+    # the arm pinned -- CORRECTIONS 34's shape, one seam below the one its test
+    # covers. It voided a six-arm build A/B on 2026-08-30: every row named
+    # `llama.cpp-mirror` and every process was `llama.cpp-blackwell`, and the
+    # only visible symptom was draft counters that matched to the digit across
+    # the two "builds", which reads as greedy determinism until you check.
+    # `verify=True` so a pin at a path that is not there stops the run instead
+    # of silently becoming the default one boot later.
+    args = server_argv(ctx, extra, env=env, verify=True)
     fh = log.open("w", encoding="utf-8", errors="replace")
     p = subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT,
                          env=launch_env(env or {}))
