@@ -152,3 +152,77 @@ Needs a decision, not just a sweep:
    another, borrowed one.
 
 **Nothing here has been applied.** The profile is unchanged.
+
+
+---
+
+## The eight runs the developer made in Studio, and what each ACTUALLY ran
+
+Eight chat threads named for a decoder — `Ngram`, `MTP no Tensor Split`,
+`DSpark`, `MTP+Ngram`, `MTP`, `MTP+Ngram no Tensor Split`, `MTP+Ngram`,
+`DFlash` — each given the same job (read a Markdown file through the
+knowledge-base tool), all on `NVFP4-MTP-VERY-LOW`.
+
+Studio relaunches `llama-server` when the configuration changes and logs the
+argv, so each run can be matched to the configuration that served it. **Match on
+the message's `responseDetails.startedAt`, not on thread creation time** — the
+threads are created before the relaunch finishes, and matching on creation
+attributes two of them to the wrong server.
+
+| thread | sent | `-c` | `--spec-type` | `n-max` | split | prefill t/s | decode t/s | draft acc. |
+|---|---|---|---|---|---|---|---|---|
+| **MTP** | 01:45:13 | 40,704 | `draft-mtp` | 2 | tensor | 1,030 | **54.95** | 68.3 % |
+| MTP+Ngram | 01:46:57 | 40,960 | `ngram-mod,draft-mtp` | 2 | tensor | 1,019 | 52.28 | 60.1 % |
+| MTP+Ngram | 01:40:06 | 38,912 | `ngram-mod,draft-mtp` | 2 | tensor | 981 | 49.72 | 55.0 % |
+| MTP+Ngram no Tensor Split | 01:41:33 | 62,208 | `ngram-mod,draft-mtp` | 2 | **layer** | **1,275** | 41.13 | 56.4 % |
+| MTP no Tensor Split | 01:49:40 | 59,392 | `draft-mtp` | 2 | **layer** | 1,256 | 40.02 | 68.0 % |
+| Ngram | 01:50:56 | 63,816 | `ngram-mod` | — | tensor | 1,071 | 30.14 | **0 drafts** |
+| DSpark ⚠️ | 01:48:31 | 31,469 | **`--spec-default`** | — | tensor | 1,069 | 29.77 | 6.2 % |
+| DFlash ⚠️ | 01:38:20 | 38,656 | **`--spec-default`** | — | tensor | 1,075 | 29.42 | 8.3 % |
+
+### ⚠️ Two labels do not describe what ran
+
+**`DFlash` and `DSpark` ran neither.** Both launches carry `--spec-default` and
+**no `--spec-type` and no `-md`**. `draft-dflash` and `draft-dspark` each require
+a drafter model file, and none was passed. Their 8.3 % and 6.2 % acceptance is
+consistent with something weak, not with DFlash — which this project has
+measured at high acceptance when it does run.
+
+Those two rows say what `--spec-default` does on this artifact. They say nothing
+about DFlash2 or DSpark.
+
+### `-c` moved on every launch, and that is the biggest confound
+
+31,469 · 38,656 · 38,912 · 40,704 · 40,960 · 59,392 · 62,208 · 63,816 — a **2×
+range**. `gpuMemoryMode: "auto"` recomputes the window from whatever VRAM is free
+at that moment, and `--tensor-split` moved with it (`7009,12462` … `7195,12544`).
+**No two of these eight ran the same configuration in anything but name.**
+
+The prompts were similar in size (`cache_n` 6,310–10,270), so the effect of the
+allocated window on decode is probably small — but it is unquantified, and the
+two `layer` runs happen to be the two deepest, which is exactly the direction
+that would flatter the tensor split.
+
+### What survives the caveats
+
+These are single runs, unrotated, unpaired, with tool calls in the loop and a
+window that changed underneath them. **They are hypotheses.** Two point the same
+way as things this project measured independently:
+
+- **`ngram-mod` alone produced ZERO drafts** on this task. Not a low acceptance —
+  none generated. That is the same story as the served profile's real-use log,
+  where `ngram-mod` fired **5 times in 4,653 calls** on agent traffic.
+- **Layer split is slower at decode** — 40.02 against 54.95 with `draft-mtp`,
+  −27 % — near this project's own paired **−31.0 %** on the same artifact.
+  And it gives something we do not have: **layer is FASTER at prefill**,
+  1,256 against 1,030, about +22 %. The paired split sweep here reported decode
+  only.
+
+One points the other way and is worth taking seriously:
+
+- **`MTP` alone beat `MTP+Ngram`**, 54.95 against 52.28 and 49.72. This project
+  measured the *pairing* as the result — but on a frozen corpus of vendor source
+  code, where an exact 24-token match into context is common. On agent work it
+  may be dead weight. **Testing this needs a regime that resembles agent traffic,
+  and the arena does not have one** — running it on `real-code-vendor` would
+  answer a question nobody asked.
