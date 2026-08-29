@@ -826,6 +826,38 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # ---- 2026-08-29: is the n-gram beside MTP earning its place? -------------
+    #
+    # draft-mtp ALONE has never been run on this artifact. Every NVFP4 arm here
+    # carries an n-gram, and the one exception is the n-gram alone.
+    #
+    # Two pieces of evidence point opposite ways. FOR the n-gram: n-match 24 is
+    # +27.1 % RESOLVED over 12 on this corpus with MTP fixed. AGAINST it: on the
+    # developer's real agent traffic ngram-mod generated 5 drafts in 4,653
+    # calls, and Unsloth Studio's single runs on this same file put MTP alone
+    # ahead of MTP+ngram.
+    #
+    # THIS RUNS ON real-code-vendor, WHICH IS THE N-GRAM'S BEST CASE -- repeated
+    # vendor source. So the n-gram should win here. If it loses even here that is
+    # decisive; if it wins, the agent-traffic question stays open and needs a
+    # regime this project does not have. Do not generalise the win.
+    #
+    # n-max is swept in the same boots because it is free: 2 is llama.cpp's
+    # documented default for MTP on GPU, 3 is our deviation, and real-use
+    # acceptance per position (0.690, 0.448, 0.284) says 3 should hold.
+    "nvfp4-mtp-solo": [
+        ("mtp+nm24-base", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("mtp-solo", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                    "--spec-type", "draft-mtp",
+                                    "--spec-draft-n-max", "3"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("mtp-solo-nmax2", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                          "--spec-type", "draft-mtp",
+                                          "--spec-draft-n-max", "2"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "nvfp4-final": [
         ("q4-ngram-base", DUAL_TENSOR + SERVED_NGRAM,
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
