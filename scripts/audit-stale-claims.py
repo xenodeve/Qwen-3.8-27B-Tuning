@@ -239,16 +239,26 @@ RULES = [
      r"\+?26\s*%%?\s*(decode|from the newer build|on (their|Unsloth's) build)|"
      r"(their|Unsloth's) BUILD gave \+?26|"
      r"[Tt]heir build (changed|gave|is worth) \+?26",
-     "the two binaries were never paired when that was published -- one "
-     "reading per side, in different boots, at a depth where the same arm "
-     "with byte-identical counters spans 48.9 % (CORRECTIONS 23). Paired in "
-     "one rotation, three rounds on three decoders "
-     "(results/layer-pairings-65536.jsonl, issue #56), TWO of the three do "
-     "not keep a sign across rounds -- ngram-mod +0.9/-2.0/+0.4 and "
-     "dflash+ngram -4.0/+4.6/-4.3 -- and the third moves 2.0 % against a "
-     "13.6 % floor. Say the build measured NULL. What is not refuted is the "
-     "clone configuration, which has still never been paired",
-     "CORRECTIONS.md 40"),
+     "the two binaries have NEVER been paired, so neither +26 % nor NULL is "
+     "supported. The +26 % came from one reading per side in different "
+     "boots, at a depth where the same arm with byte-identical counters "
+     "spans 48.9 % (CORRECTIONS 23). The run that appeared to refute it "
+     "measured ONE BINARY TWICE -- start() launched the module default while "
+     "every row recorded the pin (CORRECTIONS 41) -- and a null is exactly "
+     "what that produces. Say CONTESTED, and say that the pairing has not "
+     "been run",
+     "CORRECTIONS.md 40 and 41"),
+
+    ("build-ab-measured-null",
+     r"(the )?build (measured|is worth) (NULL|null|nothing)|"
+     r"\+?26 %.{0,40}(REFUTED|refuted)|"
+     r"paired.{0,30}(it is worth|worth) nothing",
+     "the run behind that sentence is VOID: every arm launched the module "
+     "default binary while every row recorded the binary the arm pinned "
+     "(CORRECTIONS 41). One binary measured twice yields null by "
+     "construction. The correct status is CONTESTED -- the two builds have "
+     "never run in one rotation",
+     "CORRECTIONS.md 40 and 41"),
 
     ("sampler-is-the-flag-default",
      r"llama\.cpp'?s? (own )?defaults? appl(y|ies).{0,120}temp 0\.80|"

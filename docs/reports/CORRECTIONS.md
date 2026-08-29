@@ -1585,56 +1585,118 @@ it, they do not.** That is one boot to test and is not tested here.
 
 ---
 
-## 40. "Unsloth's build 10679 is worth +26 % decode" — paired, it is worth nothing
+## 40. "`+26 % from the newer build` is refuted" — the refutation ran one binary twice
 
-**Published** 2026-08-29 into `serve-hub.bat`, two launcher `.bat` files, an
-arena comment and several commit messages, off **one reading per side**: icon 9
-at 33.00 against icon A at 41.58, at roughly matched depth, in different boots.
+**Published** 2026-08-30, in this file, in `docs/results/02-decoders.md`, in
+`serve-hub.bat`, in two launcher `.bat` files, in an arena comment and in a test
+docstring — all within about an hour of the run that supposedly established it.
 
-**Contradicted** 2026-08-30 by `results/layer-pairings-65536.jsonl` — the first
-time the two binaries ran in one rotation, with byte-identical argv, three
-rounds each, on three decoders (issue #56):
+**Contradicted the same morning**, by §41 below: the arena launched the module
+default binary for every arm while recording the binary each arm had pinned. The
+"two builds" were one. **A null result is exactly what one binary measured twice
+produces**, so the data cannot refute anything.
 
-| decoder | ours 10499 | theirs 10679 | per-round % | verdict |
-|---|---:|---:|---|---|
-| `ngram-mod` | 23.00 | 22.71 | +0.9 / −2.0 / +0.4 | **sign flips — null** |
-| `mtp+ngram` | 38.67 | 38.87 | +4.6 / +0.9 / +0.5 | +2.0 %, under the floor |
-| `dflash+ngram` | 36.34 | 34.91 | −4.0 / +4.6 / −4.3 | **sign flips — null** |
+**Restored state: `+26 % from the newer build` is CONTESTED, as it was before.**
+One reading per side, icon 9 against icon A at roughly matched depth, 33.00
+against 41.58, in different boots, against a measured 48.9 % same-arm drift at
+depth (§23). The developer's own near-200K logs point the other way — 43.56
+against 44.77 at ~30,300 and 33.69 against **32.51** at ~104,035 — and are also
+two boots. **Neither side of this has ever been paired. That is the whole
+status.**
 
-**Two of three decoders do not keep a sign across rounds**, and the one that
-does moves 2.0 % against a 13.6 % floor. There is no +26 % here.
+### The tell, and that it was written down and explained away
 
-The developer's own near-200K logs had already said so on 2026-08-30 — build
-10499 and 10679 configured identically at `n_ctx 200704` read 43.56 against
-44.77 at ~30,300 and 33.69 against **32.51** at ~104,035 — but that was two
-boots as well and was correctly left as *contested* rather than acted on.
+Every arm reported draft counters identical **to the digit** across the two
+"builds" — `ngram-mod` acceptance 46.3, decline 98.9 %, mean length 15.9, the
+same three numbers on both sides, in every round. That was noticed, reported to
+the developer in writing, and explained as normal greedy determinism on a fixed
+prompt.
 
-### Why the original number looked real
+It is also precisely what one binary measured twice looks like. **The
+explanation offered was available; the check that would have separated the two
+was one line of `nvidia-smi` or one look at a running process, and it was not
+made until the arms started failing for an unrelated reason.**
 
-Nothing was miscomputed. **Both readings were single, in separate boots, at a
-depth where this project has measured the same arm with byte-identical
-counters spanning 48.9 % (§23).** A 26 % gap is comfortably inside that. This
-is §23's own warning applied to a case where the arms differed in something
-plausible, which is what made it persuasive rather than obviously unsafe.
+### What was reverted
 
-**The tell that was available at the time and not used:** the claim was never
-paired. Every RESOLVED verdict in this register comes from arms alternating
-inside one rotation, and this one did not, and it was written into a menu the
-developer reads anyway.
-
-### What is NOT refuted
-
-**The clone configuration.** Icon 9 and icon A ran `-c 107,899`, `-ub 512`,
-`--ctx-checkpoints 0` and no `--kv-unified`. The refutation above is our flags
-at 65,536 under `-sm layer`. It remains possible the build helps in *their*
-configuration specifically; that pairing has still never been run. What is
-refuted is the general claim, which is the form it was published in.
-
-**Fixed:** the figure is out of `serve-hub.bat`, both `*-theirbuild*.bat`
-launchers and the arena comment; each now says the build measured null.
+`serve-hub.bat`, both `*-theirbuild*.bat` launchers, the arena's `build-ab`
+comment and `test_beta_on_their_build.py`'s docstring are back to **contested**
+— not `+26 %`, and not `null`. The audit rule is rewritten to flag both forms.
 
 **Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`.
 
+---
+
+## 41. `start()` launched the module default while every row named the pin
+
+**The fault.** `dflash2_arena.start()` built its command line without the arm's
+environment:
+
+```python
+args = server_argv(ctx, extra)                      # env NOT passed
+p = subprocess.Popen(args, ..., env=launch_env(env or {}))
+```
+
+`server_argv` with no `env` resolves `arm_exe(None)` to the module `EXE`. So
+every arm ran the default binary, while `new_row` recorded `arm_exe(env)` — the
+binary the arm had asked for. **The two columns could disagree, and did.**
+
+**This is §34 in its third appearance** — a column recording a module default
+while something else ran — one seam below the one §34's test covers.
+
+### Why the existing guard did not fire
+
+`test_build_ab_arm_set.py` was written for exactly this failure and its first
+assertion says so: *"does the row name the binary that arm actually used"*. It
+asserts on `server_argv` and on `new_row`, and **both were correct**. The seam
+that decides what runs is `start()`, and nothing asserted on it.
+
+**The general form, now stated where it will be read: a test that asserts on the
+function which BUILDS a command has not tested the function which RUNS it.**
+
+### How it was found
+
+Not by a test and not by the numbers. By reading the command line of a
+`llama-server` left running after the sweep was stopped:
+
+```
+C:\AI\llama.cpp-blackwell\llama-server.exe ... --alias Qwen3.8-27B-arena
+```
+
+`--alias Qwen3.8-27B-arena` is the arena's own; `llama.cpp-blackwell` is not what
+that arm pinned. The arms had begun failing to load — `draft-dflash` under
+`-sm tensor` aborts on an unpatched binary — and the investigation into *that*
+is what surfaced this.
+
+**Every earlier tensor DFlash2 result is unaffected.** Those runs reached the
+mirror by **exporting** `QWEN38_LLAMA_EXE`, which makes the module `EXE` the
+mirror at import time. That is why exporting worked and pinning did not, and why
+the fault survived until an arm set pinned instead of exporting.
+
+### What it voided
+
+| file | why |
+|---|---|
+| `VOID-layer-pairings-65536-one-binary-twice.jsonl` | the two "builds" were one; the three `b10679` arms additionally ran the served executable with Studio's DLL directory prepended to `PATH` |
+| `VOID-tensor-draft-depth-65536-wrong-binary.jsonl` | `draft-dflash` arms aborted because the unpatched binary ran |
+
+Renamed rather than deleted: they are the evidence for this entry.
+
+**Salvaged, and re-derived rather than re-quoted:** the three `b10499` arms of
+the first file asked for the served binary, got it, and carried no `PATH`
+override. They stand as a three-arm decoder comparison on one binary
+(`results/02-decoders.md`), which is what they always were.
+
+**Fixed:** `server_argv(ctx, extra, env=env, verify=True)` in `start()`.
+`verify=True` so a pin at a path that is not there stops the run instead of
+silently becoming the default one boot later.
+`tests/test_start_launches_the_arms_binary.py` captures the argv handed to
+`subprocess.Popen` and asserts the process uses the arm's binary, that the
+launched argv and the recorded `exe` column cannot disagree, that the arm's
+environment still reaches the child, and that a missing pin refuses.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`,
+and by the source assertion in that test file.
 ---
 
 ## What has NOT been contradicted

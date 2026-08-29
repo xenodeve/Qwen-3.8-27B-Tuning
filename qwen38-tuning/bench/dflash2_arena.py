@@ -227,11 +227,12 @@ def _pair(extra_ngram=None, n_draft=4, extra=()):
 # same arm drifting 48.9 % across boots at depth. That number cannot carry a
 # verdict; this arm set can.
 #
-# IT HAS SINCE BEEN ANSWERED, by `layer-pairings` rather than by this set:
-# paired three rounds on three decoders, two of the three flip sign across
-# rounds and the third moves 2.0 %. +26 % is REFUTED (CORRECTIONS 40). This set
-# is still the right instrument for the CLONE configuration, which is the part
-# the refutation does not cover and which has still never been paired.
+# IT IS STILL UNANSWERED, and one attempt has already failed silently.
+# `layer-pairings` looked like it settled this on 2026-08-30 and did not: every
+# arm launched the module default while every row recorded the pin, so the two
+# "builds" were one binary and the null it produced was an artefact
+# (CORRECTIONS 40 and 41). `start()` is fixed and this set is the instrument.
+# Until it is RUN, +26 % is CONTESTED -- not confirmed, not refuted.
 #
 # BOTH ARMS CARRY THE SAME `extra`. The only difference is the binary, because
 # an arm set that also moved a flag produces a delta with two causes -- the

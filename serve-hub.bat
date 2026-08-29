@@ -34,7 +34,7 @@ echo     7   200,704 + the Unsloth bundle (beta)   SPEED UNPAIRED
 echo     8   ... same, minus --kv-unified          A/B AGAINST 7
 echo     9   Unsloth Studio's command line        BASELINE ONLY, 107,899
 echo     A   ... on Unsloth's own BINARY too      build 10679 vs our 10499
-echo     B   7 on Unsloth's BINARY, 200,704       build measured NULL
+echo     B   7 on Unsloth's BINARY, 200,704       build CONTESTED, unpaired
 echo.
 echo   BOTH CARDS, UD-Q4_K_XL  -- the artifact whose output we have used longest
 echo.
@@ -60,11 +60,12 @@ echo   9 is their WHOLE command line on our binary -- a baseline to measure
 echo   against, not a way to serve. Its window is 107,899, half of 2.
 echo   A is 9 on THEIR binary as well -- ours is build 10499, theirs 10679,
 echo   180 apart. 9 and A together say whether the gap is flags or build.
-echo   BOTH answered NULL. Their FLAGS on our build changed nothing (33.00
-echo   vs 33.05), and their BUILD, paired three rounds on three decoders,
-echo   flips sign on two of them (CORRECTIONS 40). B is icon 7 on that
-echo   binary at the depth we serve; run it against 7 back to back anyway,
-echo   because the CLONE configuration has still never been paired.
+echo   Their FLAGS on our build changed nothing -- 33.00 against 33.05.
+echo   Their BUILD read +26 percent, from ONE boot per side, and has never
+echo   been paired: the run that looked like a refutation measured one
+echo   binary twice (CORRECTIONS 40 and 41). It is CONTESTED, not settled
+echo   in either direction. B is icon 7 on that binary at the depth we
+echo   serve. Run B against 7 back to back -- that is the missing pairing.
 echo.
 echo   Quality has never been measured on ANY of these artifacts. 1 and 2 change
 echo   the model file, not just a flag; 3 is what has been served longest.

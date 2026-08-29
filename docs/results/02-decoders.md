@@ -1066,71 +1066,59 @@ because nothing loaded.
 
 Raw: terminal only. The evidence quoted here is the whole of it.
 
-### 🟢 MTP beats DFlash2 under `-sm layer` — and the build is worth nothing, 2026-08-30
+### 🟢 MTP beats DFlash2 under `-sm layer` — one binary, three rounds, 2026-08-30
 
-Issue #56. The question was which drafter is faster on build 10679. It cannot be
-asked under `-sm tensor`, because DFlash2 does not load there on that build, so
-**`-sm layer` is forced rather than chosen** — and all four combinations do load
-there, including DFlash2 on our served, unpatched binary.
+Issue #56. **Read the correction first: this was published as a two-build
+comparison and it is not one.** `dflash2_arena.start()` built its command line
+without the arm's environment, so every arm launched the module default binary
+while every row recorded the binary the arm had pinned (`CORRECTIONS.md` §41).
+The run is void as a build A/B and `results/layer-pairings-65536.jsonl` is
+renamed `VOID-layer-pairings-65536-one-binary-twice.jsonl`.
 
-Six arms, three decoders × two builds, one rotation, three rounds. ctx 65,536,
-`UD-Q4_K_XL`, `-sm layer -ub 1024`, `q4_0` KV, effort `medium`, both cards,
-corpus `real-code-vendor`, greedy. **Every row 66+0 resident**, none skipped,
-none voided. Raw: `results/layer-pairings-65536.jsonl`, 18 rows.
+**What survives is the half that was never supposed to vary the binary.** The
+three arms labelled `b10499` asked for the served binary, got the served binary,
+and carried no `PATH` override — so they are what they claim to be: a three-arm
+decoder comparison on `llama.cpp-blackwell`, three rounds, rotated. The three
+labelled `b10679` ran the served **executable** with Studio's DLL directory
+prepended to `PATH`, which is a chimera and is not quoted anywhere.
+
+ctx 65,536, `UD-Q4_K_XL`, `-sm layer -ub 1024`, `q4_0` KV, effort `medium`, both
+cards, `real-code-vendor`, greedy. Every row 66+0 resident.
 
 | arm | rounds (tok/s) | own spread | median | free after |
 |---|---|---:|---:|---:|
-| `ngram-mod` b10499 | 23.00 / 23.13 / 22.62 | 2.2 % | 23.00 | 4,408 MiB |
-| `ngram-mod` b10679 | 23.20 / 22.66 / 22.71 | 2.4 % | 22.71 | 4,408 |
-| **`mtp+ngram` b10499** | 39.52 / 38.40 / 38.67 | 2.9 % | **38.67** | 2,690 |
-| **`mtp+ngram` b10679** | 41.34 / 38.74 / 38.87 | 6.7 % | **38.87** | 2,690 |
-| `dflash+ngram` b10499 | 36.34 / 35.16 / 36.49 | 3.8 % | 36.34 | 2,184 |
-| `dflash+ngram` b10679 | 34.88 / 36.77 / 34.91 | 5.4 % | 34.91 | 1,990 |
+| `ngram-mod` | 23.00 / 23.13 / 22.62 | 2.2 % | 23.00 | 4,408 MiB |
+| **`draft-mtp,ngram-mod`** | 39.52 / 38.40 / 38.67 | 2.9 % | **38.67** | 2,690 |
+| `draft-dflash,ngram-mod` | 36.34 / 35.16 / 36.49 | 3.8 % | 36.34 | 2,184 |
 
 **Both drafters roughly double decode, and that is the RESOLVED part.** Against
-`ngram-mod` on the same build: MTP **+69.6 %** [+66.0, +71.8] and **+73.4 %**
-[+71.0, +78.2]; DFlash2 **+57.1 %** [+52.0, +61.3] and **+55.5 %** [+50.3,
-+62.3]. All four clear the 13.6 % floor in every round.
+`ngram-mod`: MTP **+69.6 %** [+66.0, +71.8], DFlash2 **+57.1 %** [+52.0, +61.3].
+Both clear the 13.6 % floor in every round.
 
-**MTP is ahead of DFlash2 in all six pairings — but the margin does not clear
-the floor.** +8.0 % [+6.0, +9.2] on our build, +11.7 % [+5.3, +18.5] on theirs.
-Consistent in sign in every round, and larger than this run's own spreads
-(2.2–6.7 %), which is why it is worth writing down; **not RESOLVED**, because
-13.6 % is the floor this project applies and the effect is under it. Read it as
-*MTP is not behind*, not as *MTP wins by 10 %*.
+**MTP is ahead of DFlash2 in all three rounds, but the margin does not clear the
+floor** — **+8.0 %** [+6.0, +9.2]. Consistent in sign and larger than either
+arm's own spread, so it is worth recording; **not RESOLVED**. Read it as *MTP is
+not behind*, not as *MTP wins by 8 %*.
 
-**This is the reverse of the tensor-split ordering, and that is the finding.**
-Under `-sm tensor` on the patched mirror, `draft-dflash,ngram-mod` beat
-`draft-mtp,ngram-mod` **64 against 40** at this same depth and corpus. Under
-`-sm layer` the same two decoders land 34.9–38.9 and DFlash2 is the slower one.
-**So DFlash2's advantage is a property of the tensor split, not of the drafter.**
-Nothing here contradicts the +123.8 % table; it says where that number lives.
+**This is the reverse of the tensor-split ordering, and it is the finding.**
+Under `-sm tensor` on the patched mirror, at this same depth and corpus,
+`draft-dflash,ngram-mod` beat `draft-mtp,ngram-mod` **64 against 40**. Under
+`-sm layer` DFlash2 is the slower of the two. **So DFlash2's advantage looks
+like a property of the tensor split rather than of the drafter.** Nothing here
+contradicts the +123.8 % table; it says where that number lives.
 
 > **Do not compare a row above to a row in the `dual-pairings` tables.** Those
-> are `-sm tensor` on the patched mirror; these are `-sm layer` on two unpatched
-> builds. Two variables move between them.
+> are `-sm tensor` on the **patched mirror**, which mirrors the target's output
+> projection and therefore changes the target's own split. These are `-sm layer`
+> on the **unpatched served binary**. Two variables move between them.
 
-#### 🔴 `+26 % from the newer build` is REFUTED
+**Also established, and not affected by the fault:** DFlash2 runs under
+`-sm layer` on the served, unpatched binary — no mirror patch needed. The patch
+is a tensor-split requirement, not a DFlash2 requirement.
 
-The two builds had never been measured against each other in one rotation. Now
-they have been, three times each, on three decoders:
-
-| decoder | ours 10499 | theirs 10679 | per-round % | verdict |
-|---|---:|---:|---|---|
-| `ngram-mod` | 23.00 | 22.71 | +0.9 / −2.0 / +0.4 | **sign flips — null** |
-| `mtp+ngram` | 38.67 | 38.87 | +4.6 / +0.9 / +0.5 | +2.0 %, under the floor |
-| `dflash+ngram` | 36.34 | 34.91 | −4.0 / +4.6 / −4.3 | **sign flips — null** |
-
-**Two of the three decoders do not keep a sign, and the third moves 2.0 %.**
-The retracted claim came from icon 9 against icon A at ~48,000 — 33.00 against
-41.58, one reading each, in different boots, against a measured 48.9 % same-arm
-drift at depth (`CORRECTIONS.md` §23). See `CORRECTIONS.md` §40.
-
-**What this does not say.** These arms are `-sm layer` at 65,536 with our flags.
-It remains possible that the build helps in the *clone* configuration
-(`-c 107,899`, `-ub 512`, no `--kv-unified`) that icon 9 and icon A actually ran
-— that pairing has still never been measured in one rotation. What is refuted is
-the general claim, which is the form it was written in.
+**What this run says about the two builds: nothing.** `+26 % from the newer
+build` is neither confirmed nor refuted here and remains **contested** — see
+`CORRECTIONS.md` §41.
 
 ---
 

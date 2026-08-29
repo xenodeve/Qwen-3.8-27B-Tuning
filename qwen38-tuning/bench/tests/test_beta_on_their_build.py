@@ -21,15 +21,14 @@ MEASURED, at matched depth, and it is why the developer asked for it:
     ~76,000 depth   icon 8 28.59  |  icon A **35.23**
 
 Their whole flag set on our build changed **nothing** — 33.00 against 33.05.
-Their build READ **+26 %** there, and that has since been REFUTED: paired in one
-rotation, three rounds on three decoders, two of the three flip sign across
-rounds and the third moves 2.0 % against a 13.6 % floor (CORRECTIONS 40,
-`results/layer-pairings-65536.jsonl`).
+Their build READ **+26 %** there, from ONE boot per side, and **the two binaries
+have still never been paired.** A run on 2026-08-30 appeared to refute it and
+did not: every arm launched the module default while every row recorded the pin,
+so the "two builds" were one binary and the null was an artefact (CORRECTIONS 40
+and 41). The status is **CONTESTED**, settled in neither direction.
 
-The icon is still worth having. The refutation covers OUR flags; the CLONE
-configuration those two readings actually ran — `-c 107,899`, `-ub 512`, no
-`--kv-unified` — has never been paired, and that is what this icon exists to
-put in front of the developer.
+That is what this icon is for: back to back against icon 7 it is the pairing
+nobody has run.
 
 WHAT THIS ICON IS NOT
 
