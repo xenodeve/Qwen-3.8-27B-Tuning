@@ -1,11 +1,11 @@
 @echo off
 REM ============================================================================
-REM  Start the worker  --  BOTH GPUs, NVFP4, images, THE UNSLOTH BUNDLE, loopback only
+REM  Start the worker  --  BOTH GPUs, NVFP4, images, THE UNSLOTH BUNDLE (BETA), reachable on your LAN
 REM
 REM  Double-click this. The server runs IN this window and its output is this
 REM  window's output. Ctrl+C stops it; so does closing this window.
 REM
-REM  THIS IS serve-dual-nvfp4-deep.bat WITH SIX SETTINGS BORROWED FROM UNSLOTH
+REM  THIS IS serve-dual-nvfp4-deep.bat WITH NINE SETTINGS BORROWED FROM UNSLOTH
 REM  STUDIO, which runs this same model file on these same two cards:
 REM
 REM      --cache-ram 0          prompt cache off
@@ -14,6 +14,18 @@ REM      --load-mode none       no memory-mapped read
 REM      --kv-unified           one shared KV buffer
 REM      --metrics              Prometheus endpoint
 REM      -t 2                   two threads instead of eighteen
+REM      --reasoning on         thinking, their way rather than ours
+REM      --spec-draft-n-max 2   MTP drafts two tokens per step, not three
+REM      n-min 48 / n-max 64    the n-gram bounds, which are llama.cpp's
+REM                             defaults -- ours are 16 / 32
+REM
+REM  TWO OF THOSE ARE US COMING BACK TO A DEFAULT, NOT COPYING A TUNING.
+REM  --spec-draft-n-max 3 is llama.cpp's own default and we got it by not
+REM  setting anything; Studio picks 2 on purpose for a GPU run. n-min 48 and
+REM  n-max 64 are also llama.cpp defaults that Studio simply never touched --
+REM  our 16 / 32 came through an older sweep where they were held constant
+REM  rather than chosen. So this icon is partly an experiment and partly a
+REM  question about a value nobody here ever decided.
 REM
 REM  Everything else is identical to serve-dual-nvfp4-deep.bat: same file, the
 REM  same 200,704 window, same speculative head, same n-gram at n-match 24,
@@ -67,7 +79,8 @@ REM
 REM  %~dp0 is this file's own folder, and this file lives in launchers\,
 REM  so the paths below climb one level to reach the repository root.
 REM
-REM  This one binds 127.0.0.1 only. Nothing outside this machine reaches it.
+REM  THIS ONE BINDS 0.0.0.0. The server has NO API key, no authentication of
+REM  any kind, and CORS is open. Only on a network you control.
 REM ============================================================================
 
 setlocal
@@ -83,7 +96,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\serve.ps1" -Dual -Nvfp4 -Deep -Vision -Lean
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\serve.ps1" -Dual -Nvfp4 -Deep -Vision -Beta -Lan
 set RC=%ERRORLEVEL%
 
 if not "%RC%"=="0" (

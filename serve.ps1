@@ -110,7 +110,7 @@ param(
     [switch]$Nvfp4,
     [switch]$Deep,
     [switch]$Vision,
-    [switch]$Lean,
+    [switch]$Beta,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -293,11 +293,12 @@ if ($Dual) {
         Write-Host "            'image input is not supported'. The model itself was"
         Write-Host "            never the limitation; its chat template handles images."
     }
-    if ($Lean) {
-        Write-Host "  bundle    -Lean: UNMEASURED. Six settings borrowed whole from Unsloth" -ForegroundColor Yellow
+    if ($Beta) {
+        Write-Host "  bundle    -Beta: UNMEASURED. Nine settings borrowed whole from Unsloth" -ForegroundColor Yellow
         Write-Host "            Studio, which runs this same model file on these same two"
         Write-Host "            cards -- prompt cache and context checkpoints OFF, no mmap,"
-        Write-Host "            unified KV, 2 threads instead of 18, metrics on."
+        Write-Host "            unified KV, 2 threads instead of 18, metrics on, their"
+        Write-Host "            thinking flags, draft depth 2 and n-gram bounds 48/64."
         Write-Host "            THE RAM IS THE POINT: a real session here held 20.4 GB"
         Write-Host "            working set and 34.4 GB private, and 32 checkpoints at"
         Write-Host "            ~350 MiB each is where it went. It is NOT free -- those"
@@ -409,12 +410,12 @@ if ($Dflash) {
     }
     $profileArgs['Dflash'] = $true
 }
-if ($Lean) {
+if ($Beta) {
     if (-not $Dual) {
-        Write-Host "FATAL: -Lean is a two-card bundle; pass -Dual too." -ForegroundColor Red
+        Write-Host "FATAL: -Beta is a two-card bundle; pass -Dual too." -ForegroundColor Red
         exit 1
     }
-    $profileArgs['Lean'] = $true
+    $profileArgs['Beta'] = $true
 }
 if ($Vision) {
     if (-not $Dual) {

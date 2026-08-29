@@ -494,6 +494,8 @@ param(
     # never the limitation.
     [switch]$Vision,
     # Adopt, as ONE bundle, the settings Unsloth Studio uses that we do not.
+# Called -Beta from 2026-08-29; it was -Lean while the bundle was only about
+# memory, and the name stopped fitting once it carried decoder values too.
     # Studio runs the same model file on the same two cards; the full diff is in
     # docs/researchs/unsloth-studio-config-2026-08-29.md. Eleven flags differ.
     # Taking them one at a time is eleven sweeps; taking them all silently is a
@@ -519,7 +521,7 @@ param(
     # (depth is the point of this machine), -ub 512 and --spec-draft-n-max 2
     # (ours are 1024 and 3, both measured), and the sampler, which is a QUALITY
     # lever on a project that has never measured quality.
-    [switch]$Lean,
+    [switch]$Beta,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -878,9 +880,16 @@ $tsArg = @('-ts', ($budgets -join ','))
 
 # The decoder. ngram-mod alone is what has a measured rate here; -Mtp adds the
 # baked-in head beside it, which runs but whose rate the guard would not accept.
+# 3 is llama.cpp's OWN default (`--spec-draft-n-max N (default: 3)`) and we get
+# it by not setting anything. Studio sets 2 deliberately: its UI documents 2 for
+# MTP on GPU, 3 for CPU/Mac -- so 2 is THEIR choice for a GPU run, not a
+# standard. Our real-use acceptance per position is (0.690, 0.448, 0.284), so
+# position three still lands 28 % of the time and 3 looks earned. -Beta carries
+# 2 so that argument gets tested rather than repeated.
+$draftN = if ($Beta) { '2' } else { '3' }
 $specArg = if ($Nvfp4) {
     # The head is in the file; no -md, no second model on any device.
-    @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', '3')
+    @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', $draftN)
 } elseif ($Mtp) {
     @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', '3')
 } elseif ($Dflash) {
@@ -930,16 +939,22 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 # value that LOST on UD-Q4_K_XL at this exact depth. Two artifacts, two answers,
 # both measured at 147,456.
 $nMatch = if ($Nvfp4) { '24' } else { '12' }
+# n-min and n-max: ours are 16/32 and llama.cpp's DEFAULTS are 48/64. Studio
+# does not set them at all, so we are the ones deviating -- and 16/32 came
+# through an older sweep where they were "held constant" rather than chosen.
+# -Beta takes the defaults so the deviation gets tested instead of inherited.
+$nMin = if ($Beta) { '48' } else { '16' }
+$nMaxG = if ($Beta) { '64' } else { '32' }
 # Images or not. `--no-mmproj-auto` and `-mm` together is a contradiction for
 # whoever reads the command line next, so it is one or the other.
 $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 
 # The -Lean bundle. Empty by default: it is UNMEASURED and must not leak.
-$leanArg = if ($Lean) {
+$betaArg = if ($Beta) {
     @('--cache-ram', '0', '--ctx-checkpoints', '0',
       '--load-mode', 'none', '--kv-unified', '--metrics')
 } else { @() }
-$threads = if ($Lean) { '2' } else { '18' }
+$threads = if ($Beta) { '2' } else { '18' }
 
 # HOW THINKING IS TURNED ON, and the two profiles do it differently on purpose.
 #
@@ -972,7 +987,7 @@ $threads = if ($Lean) { '2' } else { '18' }
 # line from a different build copies its bugs, so this uses the flags this
 # binary actually wants. It also removes a JSON blob that had to survive
 # PowerShell and then cmd intact.
-$thinkArg = if ($Lean) {
+$thinkArg = if ($Beta) {
     @('--reasoning', 'on', '--reasoning-preserve')
 } else {
     @('--chat-template-file', "$PSScriptRoot\..\templates\qwen38-late-system.jinja",
@@ -984,7 +999,7 @@ $thinkArg = if ($Lean) {
 # rather than only to a reader of the raw results.
 $alias = if ($Nvfp4) { 'Qwen3.8-27B-NVFP4-MTP' } else { 'Qwen3.8-27B-Q4_K_XL' }
 $ngramArg = @('--spec-ngram-mod-n-match', $nMatch,
-              '--spec-ngram-mod-n-min', '16', '--spec-ngram-mod-n-max', '32')
+              '--spec-ngram-mod-n-min', $nMin, '--spec-ngram-mod-n-max', $nMaxG)
 
 $argv = @(
     '-m', $Model,
@@ -1008,7 +1023,7 @@ $argv = @(
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0'
 ) + $specArg + @(
-) + $ngramArg + $visionArg + $leanArg + $thinkArg + @(
+) + $ngramArg + $visionArg + $betaArg + $thinkArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",
     '--host', $BindAddress, '--port', "$Port"
 )

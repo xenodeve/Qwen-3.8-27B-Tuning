@@ -866,9 +866,9 @@ ARM_SETS = {
     #
     # MEASURED ON layer, WHICH IS NOT WHAT WE SERVE. The number is about the
     # offload, not about a servable configuration.
-    # ---- 2026-08-29: the -Lean bundle, borrowed whole from Unsloth Studio ----
+    # ---- 2026-08-29: the -Beta bundle, borrowed whole from Unsloth Studio ----
     #
-    # Six settings Studio uses and we do not, adopted together so one paired
+    # Nine settings Studio uses and we do not, adopted together so one paired
     # sweep can say whether the bundle is worth bisecting. If it wins, bisect.
     # If it loses, the eleven-flag diff stops being interesting and the RAM
     # question becomes a pure trade rather than a hoped-for free win.
@@ -877,10 +877,13 @@ ARM_SETS = {
     # and 34.4 GB private, and --ctx-checkpoints 32 at ~350 MiB each is where it
     # went. The arena cannot see host RAM, so THIS SWEEP ONLY ANSWERS THE SPEED
     # HALF -- read the process RAM separately.
-    "lean-bundle": [
+    "beta-bundle": [
         ("default-base", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
-        ("lean", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24)
+        ("beta", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                        "--spec-type", "draft-mtp,ngram-mod",
+                        "--spec-draft-n-max", "2"]
+               + _ngram(48, 24, 64)
                + ["--cache-ram", "0", "--ctx-checkpoints", "0",
                   "--load-mode", "none", "--kv-unified", "-t", "2"],
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),

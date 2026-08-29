@@ -85,7 +85,7 @@ loaded and answered real pictures correctly at 65,536, 147,456 and 200,704, and
 before. **It costs headroom, not window:** 147,456 either way, finishing a large
 request with about 1,205 and 2,450 MiB free against roughly 2,395 without it.
 
-**The `lean` pair is the deep one with six settings borrowed from Unsloth
+**The `beta` pair is the deep one with nine settings borrowed from Unsloth
 Studio**, which runs this same model file on these same two cards: prompt cache
 and context checkpoints off, no memory-mapped read, unified KV, two threads
 instead of eighteen, metrics on. Everything else is identical, deliberately —
@@ -94,7 +94,7 @@ the two icons are an A/B you can run at the depth this machine actually serves.
 One boot each at 200,704, a 91,428-token prompt then 512 tokens generated, then
 a picture on top:
 
-| | `serve-dual-nvfp4-deep.bat` | `serve-dual-nvfp4-lean.bat` |
+| | `serve-dual-nvfp4-deep.bat` | `serve-dual-nvfp4-beta.bat` |
 |---|---|---|
 | decode | 53.69 tok/s | **135.25 tok/s** |
 | prefill | 816.6 | 824.1 |
