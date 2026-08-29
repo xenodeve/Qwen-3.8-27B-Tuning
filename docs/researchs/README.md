@@ -78,3 +78,5 @@ tokens**.
 Also note the axes are not comparable: Unsloth plots "quant size **with removal
 of MTP**", AtomicChat plots raw file size. The same artifact sits at different
 x-positions on the two charts.
+
+- [`unsloth-studio-config-2026-08-29.md`](unsloth-studio-config-2026-08-29.md) — **the `llama-server` command line Unsloth Studio builds for OUR artifact on THIS machine**, read out of its own logs and settings database rather than off a web page. It agrees with us on `q4_0` KV, MTP beside an n-gram, the tensor split, and — independently — on **`n-match 24`**. It differs on eleven other flags, including turning the prompt cache and context checkpoints **off**, which is where our 34 GB of host RAM goes. Nothing applied; seven items ranked by cost at the end.
