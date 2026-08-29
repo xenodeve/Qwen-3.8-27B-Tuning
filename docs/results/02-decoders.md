@@ -1120,6 +1120,82 @@ is a tensor-split requirement, not a DFlash2 requirement.
 build` is neither confirmed nor refuted here and remains **contested** — see
 `CORRECTIONS.md` §41.
 
+
+### 🔴 `--spec-draft-n-max 7` is WORSE than 4 where DFlash2 is fastest — 2026-08-30
+
+Issue #56. Every DFlash2 figure this project holds, the +123.8 % table included,
+was taken at `n_max 4` — a value the ledger records as *"chosen without knowing
+either number"*. `common.h:325` defaults it to 3; `speculative.cpp:989` clamps at
+`block_size - 1`, and this drafter's `block_size` is 8, so the ceiling is 7. A
+single measurement on 2026-08-24 took **25 % off DFlash2's wall clock** at 7 and
+made it the largest unclaimed lever on the list.
+
+**It does not reproduce here. 7 is slower than 4 in every round.**
+
+Four arms, one rotation, three rounds. ctx 65,536, `UD-Q4_K_XL`,
+**patched mirror**, `-sm tensor -ts 7819,15490 -ub 1024`, `q4_0` KV, effort
+`medium`, both cards, `real-code-vendor`, greedy. All twelve rows 66+0 resident,
+none skipped, none voided, **one binary across every row**. Raw:
+`results/tensor-draft-depth-65536.jsonl`.
+
+| arm | rounds (tok/s) | own spread | median | free after |
+|---|---|---:|---:|---:|
+| `ngram-mod` | 27.27 / 26.72 / 26.31 | 3.6 % | 26.72 | 3,073 MiB |
+| `draft-mtp,ngram-mod` n3 | 38.13 / 37.64 / 36.39 | 4.8 % | 37.64 | 2,037 |
+| **`draft-dflash,ngram-mod` n4** | 57.42 / 54.81 / 55.72 | 4.8 % | **55.72** | 479 |
+| `draft-dflash,ngram-mod` **n7** | 52.69 / 52.64 / 51.58 | 2.1 % | 52.64 | **171** |
+
+**7 against 4: −6.5 %** [−8.2, −4.0], consistent in sign in all three rounds,
+**not RESOLVED** — the margin is under the 13.6 % floor, though it is larger than
+n7's own 2.1 % spread. **And it is not only slower: it costs 308 MiB**, finishing
+with 171 MiB where 4 finishes with 479. There is no axis on which 7 is the better
+choice here.
+
+**Why the earlier reading does not carry.** That measurement was `-sm layer`, on
+an unpatched binary, against a prompt the same page records as **84.5 % duplicate
+lines**, and it was scored on wall clock and window high-water rather than
+decode rate. Three things differ; this run changes none of them relative to the
++123.8 % table it is meant to extend.
+
+**Keep `--spec-draft-n-max 4`.** The served `-Dflash` profile uses **2**, chosen
+for headroom at 131,072, and nothing here argues against that either — at 65,536
+n7 already finishes with 171 MiB, and 131,072 needs 1,152 MiB more KV.
+
+#### DFlash2 beats MTP by half again on this split
+
+| comparison | delta | verdict |
+|---|---|---|
+| `dflash` n4 vs `mtp` n3 | **+49.8 %** [+45.6, +53.1] | **RESOLVED** |
+| `dflash` **n7** vs `mtp` n3 | **+39.9 %** [+38.2, +41.8] | **RESOLVED** |
+| `mtp` n3 vs `ngram-mod` | **+39.7 %** [+38.3, +40.9] | **RESOLVED** |
+| `dflash` n4 vs `ngram-mod` | **+109.2 %** [+105.1, +111.8] | **RESOLVED** |
+
+**Even the worse DFlash2 setting beats MTP by 40 %.** And the incumbent
+comparison reproduces the earlier three-way: +109.2 % here against +123.8 %
+there, a different boot series on the same binary and depth.
+
+#### The split mode is the variable, not the drafter
+
+The same two decoders, same depth, same corpus, same `-ub`, same draft depths,
+measured five hours apart:
+
+| arm | `-sm layer`, served binary | `-sm tensor`, patched mirror |
+|---|---:|---:|
+| `ngram-mod` | 23.00 | 26.72 |
+| `draft-mtp,ngram-mod` | **38.67** | 37.64 |
+| `draft-dflash,ngram-mod` n4 | 36.34 | **55.72** |
+
+**MTP does not move — 38.67 against 37.64. DFlash2 gains half again.** So the
+ordering reversal between the two tables is DFlash2 rising, not MTP falling.
+
+> **What this cannot separate.** `-sm tensor` and the mirror patch travel
+> together: DFlash2 cannot load on the tensor split without the patch, and the
+> patch mirrors the target's output projection, which changes the *target's* own
+> split. `ngram-mod` — which involves no drafter at all — also moves +16 %
+> between the two columns, so the patched binary is doing something on its own.
+> **The missing measurement is `mtp+ngram` and `ngram-mod` on the mirror under
+> `-sm layer`**, which needs no patch to load and would isolate the split mode
+> from the binary. It has not been run.
 ---
 
 ## NVFP4 with a baked-in MTP head — the fastest thing measured on this machine
