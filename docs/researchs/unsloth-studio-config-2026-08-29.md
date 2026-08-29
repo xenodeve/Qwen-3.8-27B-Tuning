@@ -226,3 +226,87 @@ One points the other way and is worth taking seriously:
   may be dead weight. **Testing this needs a regime that resembles agent traffic,
   and the arena does not have one** — running it on `real-code-vendor` would
   answer a question nobody asked.
+
+
+---
+
+## The complete Run settings panel, and where each value actually lives
+
+Asked for in full because the UI shows many fields as `auto`, and `auto` is not
+a value — it is a promise to compute one. Four different stores hold pieces of
+this, and **they do not agree with each other**, so each row below names its
+source.
+
+**S** = `studio.db`  ·  **L** = webview Local Storage  ·  **A** = resolved
+`llama-server` argv from the backend log  ·  **U** = visible in the UI only.
+
+### Load / runtime
+
+| field | UI shows | actually | src |
+|---|---|---|---|
+| GPU memory mode | `auto` | recomputes `-c` **and** `--tensor-split` on every launch — `-c` spanned **31,469 → 63,816** across eight runs | S, A |
+| Checkpoints | `auto` | resolved to **`--ctx-checkpoints 0`** — off | U, A |
+| Cache RAM | `auto` | resolved to **`--cache-ram 0`** — prompt cache off | U, A |
+| KV cache dtype | — | `q4_0` / `q4_0` | S, L, A |
+| Speculative type | `auto` | **the three stores disagree**: `app_settings` says `"ngram"`, Local Storage says `"mtp+ngram"` with `specDraftNMax: 3`, and the argv that actually ran says `--spec-type ngram-mod,draft-mtp --spec-draft-n-max 2` | S, L, A |
+| Tensor parallel | — | `app_settings` `true`, Local Storage `false`, argv `--split-mode tensor` | S, L, A |
+| GPU layers | — | `gpuLayers: -1` → `-ngl -1` | L, A |
+| `nCpuMoe` | — | `0` | L |
+| Parallel / batch / ubatch | — | stored `null`; argv resolved `--parallel 4`, no `-b`/`-ub` | L, A |
+| Vision | — | `disableVision: false` → `--mmproj` passed | L, A |
+| Advanced settings | on | — | U |
+| Preset | `Default` | — | U |
+| System prompt | empty | — | U |
+
+### Sampling — none of it reaches the server as a flag
+
+These are per-request values the app sends, not `llama-server` arguments.
+
+| field | value | source |
+|---|---|---|
+| Temperature | **0.7** | S (`inferenceParams`), U |
+| Top P | **0.8** | S, U |
+| Top K | **20** | S, U |
+| Min P | **0** | S, U |
+| Repetition penalty | **Off** | U |
+| Presence penalty | **1.5** | S, U |
+| Max tokens | `Max` → **63,816**, and it tracks whatever `-c` `auto` chose | S, U |
+| Seed | Random | S (`null`), U |
+
+### Tools and retrieval — no effect on the server
+
+`Auto-Healing Tool Calls` on · `Nudge Tool Calls` on · `Confirm tool calls` off ·
+permissions `Approve for me` · max **25** tool calls per message · **5 min** per
+call · search mode `Hybrid` · passages top-K **5** · auto-retrieve `Auto` at
+threshold **0.70** · OCR scanned pages on · describe figures and charts on.
+
+These shape the *prompt* the eight runs were given — 25 tool calls and hybrid
+retrieval is why their `cache_n` and `predicted_n` vary so much — but they are
+not comparable to anything in our profile, which serves an API and no tools.
+
+### ⚠️ `Extra Arguments: --rope-scaling yarn --yarn-orig-ctx 32768`
+
+**It has never been applied, and it would be wrong for this model.**
+
+*Never applied*: the string appears **zero times** in all 19 logged
+`llama-server` launches. It lives in the webview's `Web Data` — Chromium's
+**autofill** store, origin `tauri.localhost` — which is remembered form input,
+not application state. The model has not been reloaded since it was typed.
+
+*Wrong for this model*: our own boot log reads the GGUF's own metadata —
+
+```
+n_ctx_train      = 262144        qwen35.context_length = 262144
+n_ctx_orig_yarn  = 262144        freq_base_train       = 10000000.0
+rope scaling     = linear        freq_scale_train      = 1
+```
+
+The model is **trained to 262,144**. `--yarn-orig-ctx 32768` asserts it was
+trained to 32,768 and asks llama.cpp to stretch from there — a rescaling of
+every position, on a model that needs none. llama.cpp is explicit in the other
+direction on our own runs: *"n_ctx_seq (200704) < n_ctx_train (262144) — the
+full capacity of the model will not be utilized."*
+
+**Nothing here changes what this project serves.** The value of the whole panel
+is that it is another team's answers for our artifact — and, in this one field,
+a reminder that a setting sitting in a text box is not a setting in force.
