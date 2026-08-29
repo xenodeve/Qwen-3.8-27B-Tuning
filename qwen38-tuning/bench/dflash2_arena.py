@@ -251,10 +251,84 @@ BUILD_AB = [
     ("build-10679-unsloth", SERVED_NGRAM, STUDIO_ENV),
 ]
 
+# OUR side of a build A/B, PINNED rather than inherited. `arm_exe` falls back to
+# the module `EXE`, which `resolve_exe` reads from QWEN38_LLAMA_EXE at import --
+# and exporting that variable is exactly how the patched mirror gets measured.
+# A developer with it set would turn a build A/B into B/B or A/C without
+# changing a single label, and every row would still carry a plausible number.
+SERVED_ENV = {ENV_VAR: DEFAULT_EXE}
+
+# The artifact with the nextn head in the main file. `draft-mtp` has no sidecar,
+# so on an artifact without one it does not merely lose -- it cannot run. Named
+# here rather than reached through QWEN38_TARGET: the three-way at 65,536 was
+# run by exporting that variable, which makes the arm set an incomplete
+# description of its own experiment.
+Q4_K_XL = (r"C:\Users\xenod\.cache\huggingface\hub"
+           r"\models--unsloth--Qwen3.8-27B-GGUF"
+           r"\snapshots\f1bfb127c64f7072bdd2cad55f258b9c8b2910fe"
+           r"\Qwen3.8-27B-UD-Q4_K_XL.gguf")
+
+
+def _layer_pairing(decoder, extra):
+    """One decoder's argv under the layer split, identical on both builds.
+
+    Built once and shared by the two arms so the pair CANNOT drift: if the two
+    builds ran different flags for one decoder, "their build is faster" and
+    "their arm had a different flag" would be the same number. `arm_parts`
+    copies the list, so sharing the object is safe.
+    """
+    return (DUAL_LAYER + ["-m", Q4_K_XL, "--spec-type", decoder]
+            + list(extra) + NGRAM)
+
+
+# ---- 2026-08-30: DFlash2 against MTP on BOTH builds, issue #56 --------------
+#
+# THE SPLIT MODE IS FORCED, NOT CHOSEN. Under `-sm tensor` DFlash2 cannot load
+# on build 10679 at all: it aborts at ggml-backend-meta.cpp:543,
+# GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0), the same assertion
+# our own unpatched binary dies on (#52, 5f87e12). Probed at ctx 65,536 on
+# UD-Q4_K_XL with both cards, all four combinations load under `-sm layer` and
+# only there. Our SERVED binary runs DFlash2 there with no mirror patch, which
+# is what makes a same-flags comparison possible at all.
+#
+# SO NOTHING HERE MAY BE COMPARED TO `dual-pairings`. That table is `-sm
+# tensor` on the patched mirror; this is `-sm layer` on two unpatched builds.
+# Two variables move between them. The comparison is valid INSIDE this run.
+#
+# WHY OUR BUILD RUNS IN THE SAME ROUNDS. `+26 % from the newer build` rests on
+# two single readings from two different boots, against a measured 48.9 %
+# same-arm drift at this depth (CORRECTIONS 23). Quoting the existing tables
+# for our side would repeat that error while looking like a control.
+#
+# WHY THE INCUMBENT IS IN IT. Without `ngram-mod` on each build the two drafter
+# figures have nothing to be a percentage of, and the run answers a comparison
+# nobody asked for.
+#
+# THE DRAFT DEPTHS ARE DELIBERATE AND DIFFERENT. 4 for DFlash2 and 3 for MTP
+# are the values every figure in 02-decoders.md was taken at; matching them to
+# each other would make this incomparable with the whole register to remove a
+# difference neither drafter shares a meaning for -- MTP's ceiling is unread,
+# DFlash2's is block_size - 1 = 7.
+LAYER_PAIRINGS = [
+    (label % build, extra, {**env, "CUDA_VISIBLE_DEVICES": BOTH_CARDS})
+    for build, env in (("b10499", SERVED_ENV), ("b10679", STUDIO_ENV))
+    for label, extra in (
+        ("ngram-mod %s", _layer_pairing("ngram-mod", [])),
+        # NO -md. The head is inside UD-Q4_K_XL; a sidecar would add about
+        # 1.4 GB for nothing and quietly make this a different experiment.
+        ("mtp+ngram %s", _layer_pairing("draft-mtp,ngram-mod",
+                                        ["--spec-draft-n-max", "3"])),
+        ("dflash+ngram %s", _layer_pairing("draft-dflash,ngram-mod",
+                                           ["-md", DRAFTER, "-ngld", "99",
+                                            "--spec-draft-n-max", "4"])),
+    )
+]
+
 
 ARM_SETS = {
     "decoders": ARMS,
     "build-ab": BUILD_AB,
+    "layer-pairings": LAYER_PAIRINGS,
 
     # `GGML_CUDA_GRAPH_OPT` -- NEVER RUN HERE. An optimisation that is off
     # unless asked for, and nothing in this project has ever asked.
