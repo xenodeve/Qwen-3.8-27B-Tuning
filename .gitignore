@@ -42,3 +42,5 @@ llama.cpp-mirror/
 
 # Runtime lock: names a live PID, meaningless in a checkout
 qwen38-tuning/.port8080.lock
+logs/llama-tap/
+qwen38-tuning/logs/llama-tap/
