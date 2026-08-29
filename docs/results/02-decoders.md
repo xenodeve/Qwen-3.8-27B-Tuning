@@ -984,6 +984,66 @@ today spread 8.1 % on a binary with no Blackwell kernels.
 only lever that could change that is freeing VRAM: KV is 18.00 KiB/token, so
 every 16,384 tokens is 288 MiB, and the display card holds 1,600–2,600 MiB.
 
+### 🔴 Unsloth's build 10679 does NOT remove the patch — probed 2026-08-30
+
+**The question.** Studio ships its own `llama-server`
+(`~/.unsloth/llama.cpp/build/bin/Release/llama-server.exe`, `version 0.3.0-dev,
+build 10679 (b84725557)`, *"Compiled by the Unsloth team"*), 180 build numbers
+newer than ours. If DFlash2 already runs there under `-sm tensor`, the
+unreviewed mirror patch above could be dropped.
+
+**Answer: no. It aborts on the same file and the same line.**
+
+Their source *has* DFlash2 — the drafter loads (`general.architecture = dflash`,
+`general.name = Qwen3.8-27B-DFlash2`, `dflash.block_count 5`,
+`dflash.block_size 8`), the graph reserves, and the speculator initialises:
+
+```
+common_speculative_impl_draft_dflash: adding speculative implementation 'draft-dflash'
+  - n_max=2, n_min=0, p_min=0.00
+  - block_size=8, mask_token_id=248070, n_extract=5, sample_from_anchor=true
+D:\a\llama.cpp\llama.cpp\src\ggml\src\ggml-backend-meta.cpp:543:
+GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0) failed
+```
+
+`D:\a\llama.cpp\llama.cpp` is a GitHub-runner path — that is their build, not a
+local one. **It is the identical assertion this section opens with**, reached
+after `sample_from_anchor=true` puts the selection into the graph, exactly as
+recorded above.
+
+**The control is what makes this a result.** The same command line, changing
+only the binary to `C:\AI\llama.cpp-mirror\build-mirror\bin\llama-server.exe`
+(`build 10499 (1deefcca3)`, patched):
+
+```
+common_speculative_impl_draft_dflash: adding speculative implementation 'draft-dflash'
+srv  llama_server: model loaded
+srv  llama_server: listening on http://127.0.0.1:8098
+```
+
+So the command was right and **the binary is the only difference**. Both arms:
+`-sm tensor`, `n_ctx 16384` on target and drafter, `kv_unified 'false'`,
+`--spec-draft-n-max 2`, port 8098, one boot each, run back to back with VRAM
+cleared first.
+
+Reading the source agrees with the logs. In `ggml/src/ggml-backend-meta.cpp`,
+the `case GGML_OP_TOP_K:` block is **byte-identical** in the two trees — ours at
+line 976, theirs at 1010 — and both route to `handle_per_row`, which carries the
+same `GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0)`: ours at 565,
+theirs at 543. The 22-line offset is our own debug instrumentation
+(`PER-ROW OP GOT AN AXIS-0 SOURCE`, quoted earlier in this section) sitting
+above it, not a difference in the check.
+
+**Consequence.** `qwen38-tuning/patches/dflash-mirror-output-1deefcca3.patch`
+stays required. Their tree is still the better rebase base — it *contains*
+DFlash2, which upstream `master` does not — but rebasing onto it does not buy
+the tensor split, and `Add p_min in DFlash2` is ours to carry either way.
+
+**Not established:** any rate on their build. Nothing was measured past load,
+because nothing loaded.
+
+Raw: terminal only. The evidence quoted here is the whole of it.
+
 ---
 
 ## NVFP4 with a baked-in MTP head — the fastest thing measured on this machine
