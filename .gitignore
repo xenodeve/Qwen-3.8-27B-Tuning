@@ -44,3 +44,5 @@ llama.cpp-mirror/
 qwen38-tuning/.port8080.lock
 logs/llama-tap/
 qwen38-tuning/logs/llama-tap/
+logs/llama-slots/
+qwen38-tuning/logs/llama-slots/

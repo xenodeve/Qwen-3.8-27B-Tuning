@@ -542,6 +542,18 @@ param(
     # A switch rather than an edit, because -Beta is nine settings adopted
     # together and this project has already read a two-flag change as one.
     [switch]$NoKvUnified,
+    # Unsloth Studio's command line, on our binary, as a BASELINE.
+    #
+    # By 2026-08-30 the servers differed in eight flags and every one had
+    # a plausible story. One at a time is eight boots before the first
+    # answer; this is ONE boot that says whether the remaining gap lives
+    # in that list at all. If the clone matches Studio, bisecting is worth
+    # doing. If it does not, the cause is somewhere no flag here reaches
+    # and eight sweeps would have found nothing.
+    #
+    # NOT A CANDIDATE FOR SERVING. -c 107,899 is half the window this
+    # machine exists to serve.
+    [switch]$Clone,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -579,6 +591,15 @@ $DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
 # A window is not a place to put one small prompt: a session that needs this
 # depth will fill it.
 $NVFP4_MAX_CTX = 200704
+
+# UNSLOTH STUDIO'S OWN VALUES, read from the argv of the server it had
+# running on 2026-08-30 at 00:11 (pid 29416). Both are things Studio
+# computes from free VRAM at launch, exactly as this profile does, so they
+# are a snapshot of one boot and not a constant of theirs. They are frozen
+# here on purpose: a baseline that recomputed them would not be the same
+# baseline twice.
+$STUDIO_CTX = 107899
+$STUDIO_TS  = '7648,13509'
 # The vision tower. Shipped BY THE NVFP4 REPO ITSELF -- esatapedico publishes
 # mmproj-BF16.gguf beside the weights, 931,146,432 bytes, the same size as
 # unsloth's mmproj-BF16.gguf, which is what a shared tower looks like. It is a
@@ -618,6 +639,10 @@ if ($Nvfp4) {
     }
     if ($Deep) { $Ctx = $NVFP4_MAX_CTX }
     if ($Ctx -gt $NVFP4_MAX_CTX) { $Ctx = $NVFP4_MAX_CTX }
+    # The clone's window is theirs, and it is set HERE so the residency
+    # guard below checks the window that will actually be served rather
+    # than the one this profile would have chosen.
+    if ($Clone) { $Ctx = $STUDIO_CTX }
     $Model = $NVFP4_MODEL
 } elseif ($Deep) {
     Write-Host "FATAL: -Deep is the NVFP4 ceiling; pass -Nvfp4 too." -ForegroundColor Red
@@ -896,7 +921,16 @@ if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $demand
     }
 }
 
-$tsArg = @('-ts', ($budgets -join ','))
+$tsArg = if ($Clone) {
+    # Theirs, verbatim, from the argv of the server that was running on
+    # 2026-08-30 00:11. 36/64 against our 33/67 -- and ours is derived
+    # from FREE VRAM, which optimises for fitting rather than for speed.
+    # Under -sm tensor the split is also a split of COMPUTE, and that has
+    # never been tested here.
+    @('-ts', $STUDIO_TS)
+} else {
+    @('-ts', ($budgets -join ','))
+}
 
 # The decoder. ngram-mod alone is what has a measured rate here; -Mtp adds the
 # baked-in head beside it, which runs but whose rate the guard would not accept.
@@ -1125,6 +1159,59 @@ $argv = @(
     '--sse-ping-interval', "$SsePingIntervalSec",
     '--host', $BindAddress, '--port', "$Port"
 )
+
+# THE CLONE REPLACES THE WHOLE COMMAND LINE, rather than patching the one above.
+# Patching would leave every value this profile computes silently in play, and
+# the point of a baseline is that a reader can see all of it in one place.
+#
+# FIVE THINGS ARE DELIBERATELY NOT COPIED. A literal copy reproduces their bugs
+# and breaks the comparison:
+#
+#   --reasoning-effort medium   ADDED. Not on their command line because Studio
+#                               sends it in every request body. No client of
+#                               ours does, so copying the OMISSION serves at the
+#                               template's xhigh -- CORRECTIONS 36, exactly.
+#   --reasoning on
+#   --reasoning-preserve        INSTEAD of --chat-template-kwargs {...}: this
+#                               build answers that kwarg with "deprecated" and
+#                               then asks for --reasoning-preserve anyway.
+#   --alias                     OURS. The alias is the model name a client asks
+#                               for; changing it changes the client too, and
+#                               then the A/B has two variables.
+#   -lv                         OURS. `forcing full prompt re-processing` and
+#                               `cached n_tokens` do not print at their
+#                               verbosity 3, and those lines are the reason to
+#                               run this at all.
+#   --host/--port               OURS. Studio picks a random port per launch.
+if ($Clone) {
+    $slotDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'logs\llama-slots'
+    # [void] and not `| Out-Null`: this block sits inside the invocation
+    # region, and the guard that keeps anything from standing between
+    # llama.cpp and the console scans that region for a pipe. The pipe
+    # here would have been harmless and the guard would have been right to
+    # be suspicious, so the code moves rather than the test.
+    if (-not (Test-Path $slotDir)) { [void](New-Item -ItemType Directory -Path $slotDir -Force) }
+    $argv = @(
+        '-m', $Model,
+        '--alias', $alias,
+        '-np', '1', '-fa', 'on', '--no-context-shift',
+        '-c', "$STUDIO_CTX",
+        '-ngl', '-1', '--fit', 'off', '--metrics',
+        '--slot-save-path', $slotDir,
+        '-t', '2', '--jinja',
+        '-ctk', 'q4_0', '-ctv', 'q4_0',
+        '-sm', 'tensor', '-ts', $STUDIO_TS,
+        '-b', '2048', '-ub', '512',
+        '--spec-type', 'draft-mtp', '--spec-draft-n-max', '2'
+    ) + $visionArg + @(
+        '--cache-ram', '0', '--ctx-checkpoints', '0', '--load-mode', 'none',
+        '-lv', "$Verbosity", '--log-colors', $LogColors
+    ) + $logFileArg + @(
+        '--reasoning', 'on', '--reasoning-preserve', '--reasoning-effort', 'medium',
+        '--sse-ping-interval', "$SsePingIntervalSec",
+        '--host', $BindAddress, '--port', "$Port"
+    )
+}
 
 if ($WhatIfPreference) {
     Write-Host ""

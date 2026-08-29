@@ -114,6 +114,9 @@ param(
     # -Beta minus `--kv-unified`, and nothing else. See the profile for
     # the numbers that made it worth a switch of its own.
     [switch]$NoKvUnified,
+    # Unsloth Studio's command line on our binary. A BASELINE, not a
+    # candidate: its window is half of what this machine serves.
+    [switch]$Clone,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -430,6 +433,20 @@ if ($NoKvUnified) {
         exit 1
     }
     $profileArgs['NoKvUnified'] = $true
+}
+if ($Clone) {
+    if (-not $Dual) {
+        Write-Host "FATAL: -Clone reproduces a two-card command line; pass -Dual too." -ForegroundColor Red
+        exit 1
+    }
+    if ($Beta -or $NoKvUnified -or $Deep -or $MaxCtx -or $Dflash -or $Mtp) {
+        # -Beta is our bundle, -Clone is theirs, and -Deep/-MaxCtx choose a
+        # window the clone has already fixed at 107,899. Any of them together
+        # is a command line nobody can attribute a number to.
+        Write-Host "FATAL: -Clone replaces the whole command line; pass it alone (with -Vision if you want images)." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['Clone'] = $true
 }
 if ($Vision) {
     if (-not $Dual) {

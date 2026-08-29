@@ -30,6 +30,7 @@ EXPECTED = sorted([
     "serve-dual-nvfp4-deep.bat", "serve-dual-nvfp4-deep-lan.bat",
     "serve-dual-nvfp4-beta.bat", "serve-dual-nvfp4-beta-lan.bat",
     "serve-dual-nvfp4-beta-nokvu.bat", "serve-dual-nvfp4-beta-nokvu-lan.bat",
+    "serve-dual-nvfp4-clone.bat", "serve-dual-nvfp4-clone-lan.bat",
 ])
 
 
