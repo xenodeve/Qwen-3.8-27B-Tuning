@@ -85,6 +85,20 @@ loaded and answered real pictures correctly at 65,536, 147,456 and 200,704, and
 before. **It costs headroom, not window:** 147,456 either way, finishing a large
 request with about 1,205 and 2,450 MiB free against roughly 2,395 without it.
 
+**The `lean` pair is the 147,456 one with six settings borrowed from Unsloth
+Studio**, which runs this same model file on these same two cards: prompt cache
+and context checkpoints off, no memory-mapped read, unified KV, two threads
+instead of eighteen, metrics on. Everything else is identical, deliberately —
+the two icons are an A/B you can run.
+
+**Its memory is measured and its speed is not.** Working set **2.03 GB against
+15.28**, reproduced over two boots, with private memory unchanged. Nobody has
+paired its throughput against the default, and the two boots that exist
+generated thirty tokens each — which this project's own guard rejects as a rate.
+It is also **not a free saving**: those context checkpoints were being restored
+in a real session, so it trades host RAM for re-processing the prompt, roughly a
+minute per 50,000 tokens.
+
 **The deep pair takes images too, and that was measured before it was switched
 on.** Every rung was asked for a half-window request *and* an image on top of
 that context — which is what pasting a screenshot into a long conversation does,

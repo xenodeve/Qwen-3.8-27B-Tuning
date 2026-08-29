@@ -133,3 +133,57 @@ def test_lean_reaches_the_profile_through_serve():
 def test_the_banner_says_the_bundle_is_unmeasured():
     out = _whatif(SERVE, "-Dual", "-Nvfp4", "-Lean")
     assert "UNMEASURED" in out.upper(), out
+
+
+# ---------------------------------------------------- the launcher, at the developer's request
+
+LEAN = os.path.join(ROOT, "launchers", "serve-dual-nvfp4-lean.bat")
+LEAN_LAN = os.path.join(ROOT, "launchers", "serve-dual-nvfp4-lean-lan.bat")
+BOTH_LEAN = [LEAN, LEAN_LAN]
+
+
+def read_bat(path):
+    with open(path, "rb") as fh:
+        return fh.read().decode("ascii")
+
+
+@pytest.mark.parametrize("path", BOTH_LEAN)
+def test_the_lean_launcher_exists(path):
+    """Shipped for an UNMEASURED bundle, which is normally forbidden here --
+    the exception is that the developer asked for it in order to be the
+    measurement. The file must say that, which the next test checks."""
+    assert os.path.exists(path), path
+
+
+@pytest.mark.parametrize("path", BOTH_LEAN)
+def test_it_admits_the_bundle_is_unmeasured(path):
+    """A launcher that presents a hypothesis as a result is trap 17 again."""
+    assert "UNMEASURED" in read_bat(path).upper(), path
+
+
+@pytest.mark.parametrize("path", BOTH_LEAN)
+def test_it_asks_for_the_bundle_and_the_same_everything_else(path):
+    t = read_bat(path)
+    for flag in ("-Dual", "-Nvfp4", "-Vision", "-Lean"):
+        assert flag in t, (path, flag)
+    assert "-Deep" not in t, "%s: pair it against the 147,456 default, not the deep one" % path
+
+
+@pytest.mark.parametrize("path", BOTH_LEAN)
+def test_it_is_readable_by_cmd(path):
+    raw = open(path, "rb").read()
+    raw.decode("ascii")
+    assert not raw.startswith(b"\xef\xbb\xbf"), "a BOM makes cmd choke"
+    assert b"\r\n" in raw
+
+
+def test_only_the_lan_lean_one_exposes():
+    assert "-Lan" not in read_bat(LEAN)
+    assert "-Lan" in read_bat(LEAN_LAN)
+
+
+def test_it_names_the_number_to_compare_against():
+    """The point of the icon is an A/B the developer runs. A launcher that does
+    not say what to compare it with leaves them to remember."""
+    t = read_bat(LEAN)
+    assert "15.28" in t and "2.03" in t, "the measured RAM pair is not stated"

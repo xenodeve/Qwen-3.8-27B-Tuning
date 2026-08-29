@@ -30,6 +30,7 @@ echo   BOTH CARDS, NVFP4  -- fastest measured here, +63%% over 2 and 3
 echo.
 echo     1   147,456 context, images work          [recommended]
 echo     2   200,704 context, images work          deepest measured
+echo     7   147,456 + the Unsloth bundle          SPEED UNMEASURED
 echo.
 echo   BOTH CARDS, UD-Q4_K_XL  -- the artifact whose output we have used longest
 echo.
@@ -41,10 +42,12 @@ echo   ONE CARD, UD-Q2_K_XL
 echo.
 echo     6   the single-GPU profile
 echo.
-echo     Q   quit                              (one key, no Enter)
+echo     Q   quit                                  (one key, no Enter)
 echo.
 echo   1 and 2 both take pictures. 2 goes deeper and finishes a large request
-echo   with the least room to spare of anything measured here.
+echo   with the least room to spare of anything measured here. 7 is 1 with six
+echo   settings borrowed from Unsloth Studio: it uses 2.03 GB of RAM against
+echo   15.28, and NOBODY HAS PAIRED ITS SPEED against 1 yet.
 echo.
 echo   Quality has never been measured on ANY of these artifacts. 1 and 2 change
 echo   the model file, not just a flag; 3 is what has been served longest.
@@ -57,13 +60,13 @@ REM  here on 2026-08-29. choice restricts the keystroke itself, needs no Enter,
 REM  and cannot hand a broken value to the comparison below. It returns the
 REM  POSITION in the key list, so 1-6 line up with the printed numbers and Q
 REM  is 7.
-choice /c 123456Q /n /m "  Choose 1-6, or Q to quit: "
+choice /c 1234567Q /n /m "  Choose 1-7, or Q to quit: "
 set "SEL=%ERRORLEVEL%"
 
 REM  BOTH NAMES ARE SPELLED OUT, not built by appending "-lan" to a stem. A
 REM  constructed filename cannot be checked by anything until somebody presses
 REM  the key, and this file's whole job is to point at other files.
-if "%SEL%"=="7" goto :done
+if "%SEL%"=="8" goto :done
 if "%SEL%"=="1" (
     set "LOOP=serve-dual-nvfp4.bat"
     set "WIDE=serve-dual-nvfp4-lan.bat"
@@ -92,6 +95,11 @@ if "%SEL%"=="5" (
 if "%SEL%"=="6" (
     set "LOOP=serve.bat"
     set "WIDE=serve-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="7" (
+    set "LOOP=serve-dual-nvfp4-lean.bat"
+    set "WIDE=serve-dual-nvfp4-lean-lan.bat"
     goto :ask_lan
 )
 REM  Unreachable while choice guards the key list, and kept anyway: if that
