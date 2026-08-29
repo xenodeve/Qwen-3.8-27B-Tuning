@@ -1585,6 +1585,58 @@ it, they do not.** That is one boot to test and is not tested here.
 
 ---
 
+## 40. "Unsloth's build 10679 is worth +26 % decode" — paired, it is worth nothing
+
+**Published** 2026-08-29 into `serve-hub.bat`, two launcher `.bat` files, an
+arena comment and several commit messages, off **one reading per side**: icon 9
+at 33.00 against icon A at 41.58, at roughly matched depth, in different boots.
+
+**Contradicted** 2026-08-30 by `results/layer-pairings-65536.jsonl` — the first
+time the two binaries ran in one rotation, with byte-identical argv, three
+rounds each, on three decoders (issue #56):
+
+| decoder | ours 10499 | theirs 10679 | per-round % | verdict |
+|---|---:|---:|---|---|
+| `ngram-mod` | 23.00 | 22.71 | +0.9 / −2.0 / +0.4 | **sign flips — null** |
+| `mtp+ngram` | 38.67 | 38.87 | +4.6 / +0.9 / +0.5 | +2.0 %, under the floor |
+| `dflash+ngram` | 36.34 | 34.91 | −4.0 / +4.6 / −4.3 | **sign flips — null** |
+
+**Two of three decoders do not keep a sign across rounds**, and the one that
+does moves 2.0 % against a 13.6 % floor. There is no +26 % here.
+
+The developer's own near-200K logs had already said so on 2026-08-30 — build
+10499 and 10679 configured identically at `n_ctx 200704` read 43.56 against
+44.77 at ~30,300 and 33.69 against **32.51** at ~104,035 — but that was two
+boots as well and was correctly left as *contested* rather than acted on.
+
+### Why the original number looked real
+
+Nothing was miscomputed. **Both readings were single, in separate boots, at a
+depth where this project has measured the same arm with byte-identical
+counters spanning 48.9 % (§23).** A 26 % gap is comfortably inside that. This
+is §23's own warning applied to a case where the arms differed in something
+plausible, which is what made it persuasive rather than obviously unsafe.
+
+**The tell that was available at the time and not used:** the claim was never
+paired. Every RESOLVED verdict in this register comes from arms alternating
+inside one rotation, and this one did not, and it was written into a menu the
+developer reads anyway.
+
+### What is NOT refuted
+
+**The clone configuration.** Icon 9 and icon A ran `-c 107,899`, `-ub 512`,
+`--ctx-checkpoints 0` and no `--kv-unified`. The refutation above is our flags
+at 65,536 under `-sm layer`. It remains possible the build helps in *their*
+configuration specifically; that pairing has still never been run. What is
+refuted is the general claim, which is the form it was published in.
+
+**Fixed:** the figure is out of `serve-hub.bat`, both `*-theirbuild*.bat`
+launchers and the arena comment; each now says the build measured null.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

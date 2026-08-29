@@ -235,6 +235,21 @@ RULES = [
      "DIFFERENT mechanism from --cache-ram, which stays and stays open",
      "CORRECTIONS.md 39"),
 
+    ("their-build-is-worth-26",
+     r"\+?26\s*%%?\s*(decode|from the newer build|on (their|Unsloth's) build)|"
+     r"(their|Unsloth's) BUILD gave \+?26|"
+     r"[Tt]heir build (changed|gave|is worth) \+?26",
+     "the two binaries were never paired when that was published -- one "
+     "reading per side, in different boots, at a depth where the same arm "
+     "with byte-identical counters spans 48.9 % (CORRECTIONS 23). Paired in "
+     "one rotation, three rounds on three decoders "
+     "(results/layer-pairings-65536.jsonl, issue #56), TWO of the three do "
+     "not keep a sign across rounds -- ngram-mod +0.9/-2.0/+0.4 and "
+     "dflash+ngram -4.0/+4.6/-4.3 -- and the third moves 2.0 % against a "
+     "13.6 % floor. Say the build measured NULL. What is not refuted is the "
+     "clone configuration, which has still never been paired",
+     "CORRECTIONS.md 40"),
+
     ("sampler-is-the-flag-default",
      r"llama\.cpp'?s? (own )?defaults? appl(y|ies).{0,120}temp 0\.80|"
      r"we set \*\*none\*\*, so llama\.cpp|"

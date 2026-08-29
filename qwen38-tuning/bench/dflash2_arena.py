@@ -227,6 +227,12 @@ def _pair(extra_ngram=None, n_draft=4, extra=()):
 # same arm drifting 48.9 % across boots at depth. That number cannot carry a
 # verdict; this arm set can.
 #
+# IT HAS SINCE BEEN ANSWERED, by `layer-pairings` rather than by this set:
+# paired three rounds on three decoders, two of the three flip sign across
+# rounds and the third moves 2.0 %. +26 % is REFUTED (CORRECTIONS 40). This set
+# is still the right instrument for the CLONE configuration, which is the part
+# the refutation does not cover and which has still never been paired.
+#
 # BOTH ARMS CARRY THE SAME `extra`. The only difference is the binary, because
 # an arm set that also moved a flag produces a delta with two causes -- the
 # shape of CORRECTIONS 26 and 28.

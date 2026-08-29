@@ -30,8 +30,14 @@ REM                 icon A                              35.23
 REM
 REM  Read the first block twice. THEIR ENTIRE FLAG SET ON OUR BUILD CHANGED
 REM  NOTHING -- 33.00 against 33.05, which is not a difference. Their BUILD
-REM  changed +26 percent. So the thing worth carrying forward is the binary,
-REM  and the thing worth carrying it into is the profile we actually serve.
+REM  read +26 percent there, and that has since been REFUTED: paired in one
+REM  rotation, three rounds on three decoders, two of the three flip sign
+REM  across rounds and the third moves 2.0 percent against a 13.6 percent
+REM  floor (CORRECTIONS 40, results/layer-pairings-65536.jsonl).
+REM
+REM  This icon is still worth running. What the refutation covers is OUR
+REM  flags; the CLONE configuration those two readings actually used has
+REM  never been paired, and that is the comparison left open.
 REM
 REM      ours     version 0.1.2-dev   build 10499   commit 1deefcca3
 REM      Studio   version 0.3.0-dev   build 10679   commit b84725557
