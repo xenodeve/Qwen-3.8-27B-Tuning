@@ -845,6 +845,35 @@ ARM_SETS = {
     # n-max is swept in the same boots because it is free: 2 is llama.cpp's
     # documented default for MTP on GPU, 3 is our deviation, and real-use
     # acceptance per position (0.690, 0.448, 0.284) says 3 should hold.
+    # ---- 2026-08-29: what does CPU draft-sampling cost? ----------------------
+    #
+    # The developer pushed back on "the CPU sampler is not the bottleneck", and
+    # was right: the layer-vs-tensor pair changed the split AND the offload at
+    # once, so -31 % bounds the offload's benefit only from above.
+    #
+    #   -bs, --backend-sampling        enable backend sampling   default DISABLED
+    #   --spec-draft-backend-sampling  offload DRAFT sampling    default ENABLED
+    #
+    # The MAIN sampler is on the CPU under both splits -- nothing here passes
+    # -bs. What tensor loses is the DRAFT offload, and the logs say it exactly:
+    # tensor prints `set_sampler: backend sampling not supported with
+    # SPLIT_MODE_TENSOR; using CPU`, layer does not.
+    #
+    # layer is the ONLY split where the offload works, so it is the only place
+    # the offload can be varied alone. The delta is its worth, X -- which makes
+    # tensor's true advantage about 31 % + X, and tells us the size of a tax
+    # this configuration pays and cannot avoid.
+    #
+    # MEASURED ON layer, WHICH IS NOT WHAT WE SERVE. The number is about the
+    # offload, not about a servable configuration.
+    "draft-sampling-cost": [
+        ("layer-bs-on", DUAL_LAYER + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("layer-bs-off", DUAL_LAYER + _nvfp4_mtp() + _ngram(16, 24)
+                       + ["--no-spec-draft-backend-sampling"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "nvfp4-mtp-solo": [
         ("mtp+nm24-base", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),

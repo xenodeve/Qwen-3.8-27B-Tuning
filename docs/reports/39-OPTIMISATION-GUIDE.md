@@ -80,6 +80,32 @@ not carry the +31 % to an MoE.
 | **drop `ngram-mod`** | it fires 5 times in 4,653 calls on agent traffic and Studio's single runs put **MTP alone ahead of MTP+ngram** (54.95 vs 52.28). **Our corpus cannot answer this** — `real-code-vendor` is exactly the text an n-gram is good at. Needs an agent-like regime first |
 | the sampler | we set **none**, so llama.cpp's defaults apply: `temp 0.80 · top_k 40 · top_p 0.95 · min_p 0.05 · presence 0.00`. Studio uses `0.7 / 0.8 / 20 / 0.0 / 1.5`; the artifact's own publisher quotes `0.6 / 0.95 / 20 / 0`. **A quality lever, and quality is unmeasured on every artifact here** |
 
+### Tier 1b — the one that needed the developer to catch a bad argument
+
+**`--spec-draft-backend-sampling`.** Every tensor-split boot prints
+`set_sampler: backend sampling not supported with SPLIT_MODE_TENSOR; using CPU`,
+one line after `draft-mtp` announces `backend_sampling=1`. This guide previously
+implied the CPU fallback was harmless because *"layer has backend sampling and
+is still 31 % slower"*. **That argument is invalid** — the layer/tensor pair
+changed the split *and* the offload together, so −31 % bounds the offload's
+benefit only from above. It could be worth 20 % while the split costs 51 %.
+
+Two flags, from the binary's own help:
+
+```
+-bs, --backend-sampling         enable backend sampling (experimental)   default DISABLED
+--spec-draft-backend-sampling   offload DRAFT sampling to the backend    default ENABLED
+```
+
+So the **main** sampler is on the CPU under *both* splits — nothing here passes
+`-bs`. What the tensor split loses is only the **draft** offload.
+
+`-sm layer` is the only split where it works, so it is the only place it can be
+varied alone: `--arms draft-sampling-cost`, one flag, everything else held. The
+delta is the offload's worth **X**, and **X is a tax this configuration pays and
+cannot avoid** — the offload is refused under the split that wins by 31 %.
+Tensor's true advantage is about **31 % + X**.
+
 ### Tier 3 — recorded, not proposed
 
 `GGML_CUDA_ALLREDUCE` A/B · the display card moving to the UHD 770 ·
