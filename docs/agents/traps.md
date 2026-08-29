@@ -511,3 +511,29 @@ carries the reason llama.cpp gave.
 
 **Guarded by** `bench/tests/test_a_row_names_the_cards_that_made_it.py`
 (`test_a_dead_arm_is_recorded_once_per_round_but_only_tried_once`).
+
+## Killing a process by NAME on a machine that runs two of them — 2026-08-29
+
+Clearing VRAM, an agent ran `Get-Process llama-server | Stop-Process -Force`
+several times. The count came back `1` every time and the memory never fully
+returned, which read as *"this process will not die"*.
+
+It was dying. **A different one was.** This machine runs two llama-servers —
+ours under `C:\AI\llama.cpp-blackwell\`, and Unsloth Studio's under
+`C:\Users\xenod\.unsloth\llama.cpp\build\bin\Release\`.
+
+Studio restarts its own server, so every pass killed **the developer's live
+session** and Studio brought it straight back. Nothing of ours was running at
+all by then. The symptom and the cause pointed in opposite directions: the loop
+looked like a stubborn process and was actually a wrong filter.
+
+**The rule.** Select what you mean to kill by something that identifies *yours* —
+here, `ExecutablePath` under the repository root — and **say out loud what you
+are leaving alone**, because silence there is indistinguishable from "there was
+nothing else". `qwen38-tuning/scripts/stop-our-servers.ps1` does both and
+supports `-WhatIf`; `test_stop_script_spares_other_servers.py` refuses the
+by-name form.
+
+**The wider version:** a selector that is *usually* unique is a selector that
+will one day match a second thing, and a process name is the least unique handle
+available.
