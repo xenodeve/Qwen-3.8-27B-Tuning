@@ -1126,9 +1126,22 @@ $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 # whole prompts that have been evicted, which is what carries a conversation
 # across a slot change rather than across a turn. Whether to restore its 8,192
 # MiB default is still the developer's open question.
+# `--no-kv-unified`, NOT the absence of `--kv-unified`. MEASURED 2026-08-30 and
+# the first version of this switch was wrong.
+#
+# Removing the flag looked sufficient -- `--help` says "default: enabled if
+# number of slots is auto", and this profile always passes `-np 1`. The boot log
+# of the run that was supposed to be testing the removal says
+#
+#     llama_context: kv_unified            = true
+#
+# so the arm measured the same setting as the arm it was compared against, and
+# nothing said so. This is the `--fit on` fault exactly (CORRECTIONS 33): a flag
+# whose default may be ON cannot be turned off by deleting it. The negative form
+# is the only form that means anything.
 $betaArg = if ($Beta) {
     @('--cache-ram', '0', '--load-mode', 'none', '--metrics') +
-    $(if ($NoKvUnified) { @() } else { @('--kv-unified') })
+    $(if ($NoKvUnified) { @('--no-kv-unified') } else { @('--kv-unified') })
 } else { @() }
 $threads = if ($Beta) { '2' } else { '18' }
 

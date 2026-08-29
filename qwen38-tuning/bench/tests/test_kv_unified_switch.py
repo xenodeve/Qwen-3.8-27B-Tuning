@@ -97,9 +97,9 @@ def test_it_removes_ONLY_that_flag():
                 continue
             out.append(t)
         return out
-    assert scrub(x) == scrub(y) + ["--kv-unified"] or \
-        [t for t in scrub(x) if t != "--kv-unified"] == scrub(y), \
-        ("more than --kv-unified changed", scrub(x), scrub(y))
+    a = [t for t in scrub(x) if t != "--kv-unified"]
+    b = [t for t in scrub(y) if t != "--no-kv-unified"]
+    assert a == b, ("more than the kv-unified flag changed", a, b)
 
 
 def test_the_switch_does_nothing_without_beta():
