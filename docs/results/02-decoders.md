@@ -1209,8 +1209,16 @@ is also llama.cpp's own default.
 Studio's UI documents 2 for MTP on a GPU. **A default from another product is
 still a verdict from another configuration.**
 
-**And the n-gram bounds did nothing.** `n-min 48 / n-max 64` were changed in the
-same bundle, and both sessions record `ngram-mod: #gen drafts = 0` — the n-gram
-never fired at all on agent traffic. That matches the 5 drafts in 4,653 calls
-recorded in an earlier real session, and it means those two values are untested
-rather than tested-and-kept.
+**And the n-gram bounds did nothing — a different verdict, and it matters.**
+`n-min 48 / n-max 64` rode in with the same bundle, and both sessions record
+`ngram-mod: #gen drafts = 0` on either side. **The n-gram never fired once**, so
+that change was **inert: not better, not worse, never exercised.** It has been
+reverted to 16 / 32 as well, to keep the bundle readable — but the register must
+not say "reverted" for both as if 48 / 64 had been tried and beaten. One LOST;
+the other was NEVER RUN.
+
+`16 / 32` therefore remains a deviation from llama.cpp's defaults with no
+measurement behind it, carried through an older sweep where they were *held
+constant* rather than chosen. What would settle it is a workload where an
+n-gram fires at all, and this project does not have one — the same blocker as
+the tier-2 question about dropping `ngram-mod` entirely.

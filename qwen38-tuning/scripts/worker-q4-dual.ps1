@@ -953,12 +953,21 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 # value that LOST on UD-Q4_K_XL at this exact depth. Two artifacts, two answers,
 # both measured at 147,456.
 $nMatch = if ($Nvfp4) { '24' } else { '12' }
-# n-min and n-max: ours are 16/32 and llama.cpp's DEFAULTS are 48/64. Studio
-# does not set them at all, so we are the ones deviating -- and 16/32 came
-# through an older sweep where they were "held constant" rather than chosen.
-# -Beta takes the defaults so the deviation gets tested instead of inherited.
-$nMin = if ($Beta) { '48' } else { '16' }
-$nMaxG = if ($Beta) { '64' } else { '32' }
+# n-min 16 / n-max 32. llama.cpp's defaults are 48 / 64 and Studio never sets
+# them, so we are the ones deviating -- 16/32 came through an older sweep where
+# they were "held constant" rather than chosen, and that is still true.
+#
+# -Beta carried 48/64 for one afternoon and it was REVERTED WITHOUT A VERDICT.
+# Both sessions that ran it recorded `ngram-mod: #gen drafts = 0` on either
+# side: the n-gram never fired once on agent traffic, so the change was inert
+# rather than better or worse. An inert deviation inside a bundle makes the
+# bundle harder to reason about for nothing.
+#
+# NOT THE SAME AS THE DRAFT DEPTH, which was tried and LOST. This one was never
+# exercised, and what would exercise it is a workload where an n-gram fires at
+# all -- which this project does not have.
+$nMin = '16'
+$nMaxG = '32'
 # Images or not. `--no-mmproj-auto` and `-mm` together is a contradiction for
 # whoever reads the command line next, so it is one or the other.
 $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }

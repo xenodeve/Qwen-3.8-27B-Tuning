@@ -746,7 +746,7 @@ ARM_SETS = {
         ("nvfp4-dflash+ngram", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
                                               "--spec-type", "draft-dflash,ngram-mod",
                                               "-md", DFLASH_SMALL, "-ngld", "99",
-                                              "--spec-draft-n-max", "2"] + NGRAM,
+                                              "--spec-draft-n-max", "3"] + NGRAM,
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
@@ -883,7 +883,7 @@ ARM_SETS = {
         ("beta", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
                         "--spec-type", "draft-mtp,ngram-mod",
                         "--spec-draft-n-max", "2"]
-               + _ngram(48, 24, 64)
+               + _ngram(16, 24)
                + ["--cache-ram", "0", "--ctx-checkpoints", "0",
                   "--load-mode", "none", "--kv-unified", "-t", "2"],
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),

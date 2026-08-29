@@ -5,7 +5,7 @@ REM
 REM  Double-click this. The server runs IN this window and its output is this
 REM  window's output. Ctrl+C stops it; so does closing this window.
 REM
-REM  THIS IS serve-dual-nvfp4-deep.bat WITH EIGHT SETTINGS BORROWED FROM UNSLOTH
+REM  THIS IS serve-dual-nvfp4-deep.bat WITH SIX SETTINGS BORROWED FROM UNSLOTH
 REM  STUDIO, which runs this same model file on these same two cards:
 REM
 REM      --cache-ram 0          prompt cache off
@@ -15,9 +15,8 @@ REM      --kv-unified           one shared KV buffer
 REM      --metrics              Prometheus endpoint
 REM      -t 2                   two threads instead of eighteen
 REM      --reasoning on         thinking, their way rather than ours
-REM      (--spec-draft-n-max stays 3 -- see below; 2 was tried and lost)
-REM      n-min 48 / n-max 64    the n-gram bounds, which are llama.cpp's
-REM                             defaults -- ours are 16 / 32
+REM
+REM  TWO MORE WERE IN HERE AND ARE NOT ANY MORE, for different reasons:
 REM
 REM  --spec-draft-n-max 2 WAS IN THIS BUNDLE AND WAS TAKEN OUT THE SAME DAY.
 REM  Studio documents 2 for MTP on a GPU. On this machine it lost, and the
@@ -32,12 +31,16 @@ REM  24 %, so every verify step advances less far. Decode read 43-45 tok/s
 REM  before and 25-33 after. A default from another product is still a verdict
 REM  from another configuration.
 REM
-REM  n-min 48 and n-max 64 ARE llama.cpp's defaults, which Studio never touched
-REM  -- our 16 / 32 came through an older sweep where they were held constant
-REM  rather than chosen. They are kept here, and on this workload they do
-REM  NOTHING AT ALL: both runs above show `ngram-mod: #gen drafts = 0`. The
-REM  n-gram never fires on agent traffic, which matches the 5 drafts in 4,653
-REM  calls seen in a real session.
+REM  n-min 48 / n-max 64 went the same way, but NOT for the same reason. Those
+REM  are llama.cpp's defaults and Studio never sets them, so our 16 / 32 is the
+REM  deviation -- and it still is. They were reverted because BOTH runs above
+REM  logged `ngram-mod: #gen drafts = 0`. The n-gram never fired once, so the
+REM  change was inert: not better, not worse, NEVER EXERCISED. Keeping an inert
+REM  deviation inside a bundle makes the bundle harder to read for nothing.
+REM
+REM  So this icon now differs from serve-dual-nvfp4-deep.bat in six ways, all of
+REM  them about memory, threads and how thinking is switched on -- and in no
+REM  decoder value at all.
 REM
 REM  Everything else is identical to serve-dual-nvfp4-deep.bat: same file, the
 REM  same 200,704 window, same speculative head, same n-gram at n-match 24,

@@ -303,7 +303,36 @@ def _retired_test_beta_takes_unsloths_draft_depth():
     assert re.search(r"--spec-draft-n-max\s+2\b", out), out
 
 
-def test_beta_takes_unsloths_ngram_bounds():
+def test_beta_keeps_our_ngram_bounds_because_theirs_measured_NOTHING():
+    """REVERTED 2026-08-29, the same afternoon, and for a different reason than
+    the draft depth.
+
+    `n-min 48 / n-max 64` are llama.cpp's defaults, which Studio never sets;
+    ours are 16 / 32. They rode into -Beta alongside `--spec-draft-n-max 2` and
+    the two sessions that followed recorded, on BOTH sides:
+
+        ngram-mod: #gen drafts = 0
+
+    The n-gram never fired once on agent traffic, so the change could not have
+    been measured -- it was inert, not better and not worse. Keeping an inert
+    deviation inside a bundle makes the bundle harder to reason about for
+    nothing, so it goes back.
+
+    This is a different verdict from the draft depth: that one LOST, this one
+    was NEVER EXERCISED. The register says both, because "reverted" alone would
+    read as if 48/64 had been tried and beaten.
+
+    What would exercise it is a workload where an n-gram fires at all, and this
+    project does not have one. See the guide's tier-2 entry on dropping
+    `ngram-mod` for the same reason.
+    """
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
+    assert re.search(r"--spec-ngram-mod-n-min\s+16", out), out
+    assert re.search(r"--spec-ngram-mod-n-max\s+32", out), out
+    assert re.search(r"--spec-ngram-mod-n-match\s+24", out), out
+
+
+def _retired_test_beta_takes_unsloths_ngram_bounds():
     """48 and 64 -- which are llama.cpp's DEFAULTS, not Studio's tuning.
 
     `--spec-ngram-mod-n-min` defaults to 48 and `n-max` to 64. Studio simply

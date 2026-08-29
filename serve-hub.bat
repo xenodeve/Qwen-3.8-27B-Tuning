@@ -46,7 +46,7 @@ echo     Q   quit                                  (one key, no Enter)
 echo.
 echo   1 and 2 both take pictures. 2 goes deeper and finishes a large request
 echo   with the least room to spare of anything measured here.
-echo   7 is 2 with eight settings borrowed from Unsloth Studio. At 200,704 it
+echo   7 is 2 with six settings borrowed from Unsloth Studio. At 200,704 it
 echo   used 3.21 GB of host RAM against 19.42 and read 135 tok/s against 54 --
 echo   ONE BOOT EACH, which is not a measurement here. Try it and see.
 echo.
