@@ -61,8 +61,18 @@ def test_the_profile_it_delegates_to_exists():
                                   "-lv "])
 def test_it_does_not_re_declare_a_serving_flag(flag):
     """The configuration lives in the profile. Copying a flag here makes two
-    sources of truth that drift silently, because both files still run."""
-    assert flag not in text(), (
+    sources of truth that drift silently, because both files still run.
+
+    COMMENTS ARE NOT CODE. This read the whole file until 2026-08-29 and went
+    red on a comment explaining why `--fit-target 768` had been REMOVED -- the
+    ninth assertion in this repo to read prose as configuration, and the one it
+    flagged was a sentence arguing for the very rule it enforces.
+    `_invocation.live_lines` exists for this and is what to reach for next
+    time.
+    """
+    from _invocation import live_lines
+    live = os.linesep.join(live_lines(text()))
+    assert flag not in live, (
         "serve.ps1 declares %r; it must resolve and invoke the profile instead"
         % flag)
 

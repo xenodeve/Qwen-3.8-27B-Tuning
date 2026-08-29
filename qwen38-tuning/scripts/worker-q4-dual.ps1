@@ -522,6 +522,26 @@ param(
     # (ours are 1024 and 3, both measured), and the sampler, which is a QUALITY
     # lever on a project that has never measured quality.
     [switch]$Beta,
+    # Takes `--kv-unified` back OUT of the -Beta bundle, and nothing else.
+    #
+    # 2026-08-29, same machine, same artifact, same evening, Discord streaming
+    # through both: Unsloth Studio read 728-1,000 tok/s prefill and 34.9-48.0
+    # decode where -Beta read 319-633 and 24.1-29.0, at the same depths. Our
+    # mean accepted draft length was HIGHER on every row (2.5-2.8 against
+    # 1.8-2.5), so the speculation is not what is slow -- the target model's
+    # forward pass is, and the flags that matter there are the ones that lay
+    # out attention and the KV cache.
+    #
+    # `--kv-unified` is the first of those and the only one that would also
+    # explain the other open difference: Studio reuses a 39,616-token prefix
+    # with `--ctx-checkpoints 0`, where that same setting made every one of our
+    # requests re-read from token 0 with `forcing full prompt re-processing due
+    # to lack of cache data`. One shared KV buffer is a plausible reason a
+    # partial sequence removal cannot be done. PLAUSIBLE. NOT MEASURED.
+    #
+    # A switch rather than an edit, because -Beta is nine settings adopted
+    # together and this project has already read a two-flag change as one.
+    [switch]$NoKvUnified,
     [switch]$MaxCtx,
     [switch]$Mtp,
     [int]$DisplayReserveMiB = 2500,
@@ -1015,8 +1035,8 @@ $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 # across a slot change rather than across a turn. Whether to restore its 8,192
 # MiB default is still the developer's open question.
 $betaArg = if ($Beta) {
-    @('--cache-ram', '0',
-      '--load-mode', 'none', '--kv-unified', '--metrics')
+    @('--cache-ram', '0', '--load-mode', 'none', '--metrics') +
+    $(if ($NoKvUnified) { @() } else { @('--kv-unified') })
 } else { @() }
 $threads = if ($Beta) { '2' } else { '18' }
 

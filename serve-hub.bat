@@ -31,6 +31,7 @@ echo.
 echo     1   147,456 context, images work          [recommended]
 echo     2   200,704 context, images work          deepest measured
 echo     7   200,704 + the Unsloth bundle (beta)   SPEED UNPAIRED
+echo     8   ... same, minus --kv-unified          A/B AGAINST 7
 echo.
 echo   BOTH CARDS, UD-Q4_K_XL  -- the artifact whose output we have used longest
 echo.
@@ -46,9 +47,12 @@ echo     Q   quit                                  (one key, no Enter)
 echo.
 echo   1 and 2 both take pictures. 2 goes deeper and finishes a large request
 echo   with the least room to spare of anything measured here.
-echo   7 is 2 with six settings borrowed from Unsloth Studio. At 200,704 it
-echo   used 3.21 GB of host RAM against 19.42 and read 135 tok/s against 54 --
-echo   ONE BOOT EACH, which is not a measurement here. Try it and see.
+echo   7 is 2 with settings borrowed from Unsloth Studio. 8 is 7 with ONE flag
+echo   removed, --kv-unified, and is meant to be run against 7 back to back.
+echo   Studio reads 728-1,000 tok/s prefill where 7 reads 319-633, on the same
+echo   machine and file -- and our drafting is the BETTER of the two, so the
+echo   time is going into the forward pass. --kv-unified is the first suspect.
+echo   Watch the log for: forcing full prompt re-processing.
 echo.
 echo   Quality has never been measured on ANY of these artifacts. 1 and 2 change
 echo   the model file, not just a flag; 3 is what has been served longest.
@@ -61,13 +65,13 @@ REM  here on 2026-08-29. choice restricts the keystroke itself, needs no Enter,
 REM  and cannot hand a broken value to the comparison below. It returns the
 REM  POSITION in the key list, so 1-6 line up with the printed numbers and Q
 REM  is 7.
-choice /c 1234567Q /n /m "  Choose 1-7, or Q to quit: "
+choice /c 12345678Q /n /m "  Choose 1-8, or Q to quit: "
 set "SEL=%ERRORLEVEL%"
 
 REM  BOTH NAMES ARE SPELLED OUT, not built by appending "-lan" to a stem. A
 REM  constructed filename cannot be checked by anything until somebody presses
 REM  the key, and this file's whole job is to point at other files.
-if "%SEL%"=="8" goto :done
+if "%SEL%"=="9" goto :done
 if "%SEL%"=="1" (
     set "LOOP=serve-dual-nvfp4.bat"
     set "WIDE=serve-dual-nvfp4-lan.bat"
@@ -101,6 +105,11 @@ if "%SEL%"=="6" (
 if "%SEL%"=="7" (
     set "LOOP=serve-dual-nvfp4-beta.bat"
     set "WIDE=serve-dual-nvfp4-beta-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="8" (
+    set "LOOP=serve-dual-nvfp4-beta-nokvu.bat"
+    set "WIDE=serve-dual-nvfp4-beta-nokvu-lan.bat"
     goto :ask_lan
 )
 REM  Unreachable while choice guards the key list, and kept anyway: if that

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Start the best-supported Qwen3.8-27B configuration. No arguments needed.
 
@@ -111,6 +111,9 @@ param(
     [switch]$Deep,
     [switch]$Vision,
     [switch]$Beta,
+    # -Beta minus `--kv-unified`, and nothing else. See the profile for
+    # the numbers that made it worth a switch of its own.
+    [switch]$NoKvUnified,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -416,6 +419,17 @@ if ($Beta) {
         exit 1
     }
     $profileArgs['Beta'] = $true
+}
+if ($NoKvUnified) {
+    if (-not $Beta) {
+        # `--kv-unified` is only ever set by the bundle, so opting out of it
+        # anywhere else would be a switch that silently does nothing -- the
+        # class of flag this project has already shipped twice (`--fit on`,
+        # `--fit-target 768`).
+        Write-Host "FATAL: -NoKvUnified opts out of a -Beta setting; pass -Beta too." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['NoKvUnified'] = $true
 }
 if ($Vision) {
     if (-not $Dual) {
