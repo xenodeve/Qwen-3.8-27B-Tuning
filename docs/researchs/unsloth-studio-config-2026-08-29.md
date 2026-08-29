@@ -342,3 +342,81 @@ always on at the server. (One launch in the nineteen reads
 — `studio/backend/core/inference/llama_cpp.py`, a test, and the frontend — so the
 app supports the flag. It appears **zero times in the launch logs**, so no run
 used it. Supported, entered, never sent.
+
+
+---
+
+## Studio documents every setting, so several of ours stop being guesses
+
+Each field carries an `InfoHint` in the UI. Nineteen were read out of
+`studio/frontend/src/features/model-picker/components/model-config-page.tsx`
+(and siblings) rather than from screenshots. **These are the vendor's own words
+about llama.cpp's behaviour, not measurements** — but where they state a
+*default*, that is checkable fact we had been inferring.
+
+### The four that change how our own numbers should be read
+
+**Draft Tokens** — *"Max draft tokens per step. Leave blank for the default (MTP
+and DFlash: **2 on GPU**, 3 on CPU/Mac; DSpark: 3)."*
+So Studio's `--spec-draft-n-max 2` is **the documented default, not a tuned
+choice.** Our 3 is the deviation. Our own real-use counters give acceptance per
+position `(0.690, 0.448, 0.284)` — position 3 still lands 28 % of the time — so
+the deviation looks earned. It is still unmeasured, and item 3 of the test list
+above is now a test against a *default* rather than against someone's verdict.
+
+**Speculative Decoding** — *"DSpark or DFlash when the model ships a drafter
+sidecar, otherwise MTP / ngram. DSpark downloads a sidecar of about 11 GB and
+DFlash one of about 1.5 GB … on quantized targets their greedy output can differ
+from a non speculative run. **MTP and ngram do not change output.**"*
+
+Two things follow. It confirms the `DFlash` / `DSpark` threads: no sidecar was
+downloaded, so `auto` fell back — which is why those launches carry
+`--spec-default` and no `-md`. And the last sentence bears directly on **the one
+question gating everything here**: the vendor states that MTP and n-gram leave
+output identical, while DFlash and DSpark can change it on a quantized target.
+Our served configuration is MTP + n-gram. **Their claim, not our measurement**,
+but it is the first outside statement that the decoder half of our profile is
+quality-neutral.
+
+**Tensor Parallelism** — *"No effect on a single GPU. On multi-GPU setups,
+improves tokens/sec for **dense models**. MoE models don't benefit."*
+Qwen3.8-27B is dense. That is the mechanism behind our measured **+31.0 %**, and
+it says the result should not be expected to carry to an MoE.
+
+**Checkpoints** — *"Context checkpoints kept per slot (`--ctx-checkpoints`),
+which let a **sliding-window model** rewind instead of re-processing the prompt.
+Each one costs host memory, and **models without a sliding window ignore the
+setting**."*
+Ours does **not** ignore it: our own log shows checkpoints created *and restored*
+at positions 47,940–50,091, at ~350 MiB each with `max = 32`. So the host RAM is
+buying real re-prefill avoidance on this model, and `--ctx-checkpoints 0` is a
+trade rather than a free saving.
+
+### The rest, verbatim, for the record
+
+| setting | Studio's own description |
+|---|---|
+| **Max Seq Length** | Maximum context window size in tokens. Applies when the model loads. |
+| **Context Length** | Drag all the way left for Auto, which chooses a context that fits **while prioritizing GPU speed**. Custom values request an exact context; higher values use more memory and may move model layers to system RAM. |
+| **GPU Memory** | Default: Unsloth fits the model and context to your GPUs. Manual: set GPU Layers yourself. Auto lets llama.cpp size the context and offload overflow (including MoE experts) to RAM. |
+| **KV Cache Dtype** | Lower KV precision to save VRAM at the cost of some quality. **f16 is the default**; **8-bit is the safest reduction**; q8_0 through iq4_nl are quantized. |
+| **Spec Decoding KV Cache Dtype** | KV precision for the *draft model's own* context (`--spec-draft-type-k/-v`), separate from the target's. A quantized draft cache saves VRAM on a drafter whose output is verified by the target anyway. |
+| **Parallel Slots** | `--parallel` decode slots for concurrent requests. **More slots share the context pool** and use more VRAM. |
+| **Batch Size** | `--batch-size`. Default **2048**. Rarely needs changing; the micro-batch is what usually matters. |
+| **Micro-batch Size** | `--ubatch-size`. Default **512**. Larger speeds up prompt processing but costs compute-buffer VRAM; capped at the batch size. |
+| **Cache RAM** | Host MiB for prompt state evicted from a slot (`--cache-ram`), so a returning conversation is not re-processed. **0 disables, −1 lifts the limit.** |
+| **Mmap/Mlock** | `--load-mode`. Auto picks **None** when it can prove the model fits without paging, **since a mapped read is slower**. |
+| **Vision** | Loads the projector so the model can read images. Turning it off frees that VRAM, which can leave room for more layers. **Text generation is unaffected either way.** |
+| **Extra Arguments** | Passed straight to llama-server **after** the settings above, so anything set in both is taken from here. Flags Unsloth owns — model, port, API key — are refused. |
+| **GPUs / Chat Template** | candidate-pool selection; Jinja override applied at load. |
+
+### One number of theirs cannot be read from ours
+
+`--parallel 4` with `--kv-unified` — llama.cpp's help says the unified buffer is
+"shared across all sequences", and Studio's own text says slots "share the
+context pool". **Whether each of their conversations saw the full `-c` or a
+quarter of it is not established from anything readable here**: their logs do
+not capture llama-server's own `n_ctx_slot` line. Their `contextUsage.promptTokens`
+of 10,231 against a `-c` of 40,960 is consistent with either. **Not resolved, and
+it matters** — it decides whether their eight decode rates were taken at ~40k or
+at ~10k of context.
