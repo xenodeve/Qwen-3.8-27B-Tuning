@@ -989,8 +989,33 @@ $nMaxG = '32'
 $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 
 # The -Lean bundle. Empty by default: it is UNMEASURED and must not leak.
+#
+# --ctx-checkpoints 0 LEFT THE BUNDLE 2026-08-29, MEASURED. It was copied from
+# Studio beside --cache-ram 0 as one memory decision; they are not one decision.
+# This artifact is hybrid -- Gated DeltaNet recurrent state beside attention KV
+# -- and the recurrent half cannot be rewound to a shared prefix. With no
+# checkpoint to restore from, llama.cpp abandons the whole prompt and says so
+# once per request:
+#
+#   forcing full prompt re-processing due to lack of cache data
+#   (likely due to SWA or hybrid/recurrent memory)
+#
+# serve-20260829-125227.log served THREE requests and printed it on all three:
+# 17,881 tokens, then 46,998, then 46,997 -- the last two the same conversation
+# read again from the first token, 51.6 s each before a character came back.
+# The same binary and artifact with checkpoints at their default
+# (serve-20260829-073741.log) printed it ONCE in a whole session and prefilled
+# 13, 29, 285, 829, 1,358 tokens per turn instead.
+#
+# The default costs 150.89 MiB per checkpoint, at most 32, no closer together
+# than 8,192 tokens -- about six at the depth we serve, in HOST RAM.
+#
+# --cache-ram 0 STAYS, because it is a different mechanism: the host store for
+# whole prompts that have been evicted, which is what carries a conversation
+# across a slot change rather than across a turn. Whether to restore its 8,192
+# MiB default is still the developer's open question.
 $betaArg = if ($Beta) {
-    @('--cache-ram', '0', '--ctx-checkpoints', '0',
+    @('--cache-ram', '0',
       '--load-mode', 'none', '--kv-unified', '--metrics')
 } else { @() }
 $threads = if ($Beta) { '2' } else { '18' }

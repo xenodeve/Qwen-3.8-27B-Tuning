@@ -1530,6 +1530,61 @@ stands on that measurement alone.
 
 ---
 
+## 39. `--ctx-checkpoints 0` was grouped with `--cache-ram 0` as one memory decision — they are not one decision
+
+**Retracted 2026-08-29 by the developer noticing that Studio answered a first
+prompt while ours did not.**
+
+Both were copied from Unsloth Studio into the `-Beta` bundle and written up
+together as *"RAM against re-prefill"*, a single trade needing a single answer.
+They are different mechanisms and only one of them was costing anything.
+
+`--cache-ram` is the **host store for evicted prompts** — it carries a
+conversation across a slot change. `--ctx-checkpoints` is the **per-slot
+mechanism for rewinding state**, and on this artifact it is not optional.
+Qwen3.8-27B is hybrid: Gated DeltaNet recurrent state beside attention KV, and
+the recurrent half cannot be rewound to a shared prefix. Without a checkpoint to
+restore from, llama.cpp gives up on the whole prompt and says so:
+
+```
+forcing full prompt re-processing due to lack of cache data
+(likely due to SWA or hybrid/recurrent memory)
+```
+
+`serve-20260829-125227.log` — the `-Beta` boot — served **three** requests and
+printed that line on **all three**: 17,881 tokens, then 46,998, then 46,997.
+The last two are the same conversation, read again from the first token,
+**51.6 s at ~911 tok/s before a character came back.**
+
+The same binary, same artifact, same day, checkpoints at their default
+(`serve-20260829-073741.log`):
+
+```
+context checkpoints enabled, max = 32, min spacing = 8192
+restored context checkpoint (pos_min = 321, n_past = 322, size = 150.890 MiB)
+```
+
+forced full re-processing **once** in the whole session; its turns prefilled
+13, 29, 285, 829 and 1,358 tokens.
+
+**Fixed:** `--ctx-checkpoints 0` is out of the `-Beta` bundle. `--cache-ram 0`
+stays and remains the developer's open question. Cost of the default: 150.89
+MiB per checkpoint, at most 32, no closer than 8,192 tokens apart — about six at
+the depth we serve, in host RAM.
+
+### The general form
+
+**Two flags that a third party sets together are not one setting.** The bundle
+took Studio's line as a position on memory; it was two positions, and the one
+that mattered was never argued on its own. And Studio pays less for it than we
+do — its own logs show a 39,616-token prefix being reused with checkpoints off,
+which this project cannot yet explain. **`--kv-unified` is the candidate: we set
+it, they do not.** That is one boot to test and is not tested here.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ctx-checkpoints-is-a-trade`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

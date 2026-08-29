@@ -13,10 +13,13 @@ paired measurement**, and if the bundle wins it gets bisected.
 WHAT IS IN THE BUNDLE, AND WHY EACH ONE
 
   --cache-ram 0        MEASURED HERE: a real session held 20.4 GB working set
-  --ctx-checkpoints 0  and 34.4 GB private, with 32 checkpoints reaching 350 MiB
-                       each. Studio disables both. NOT FREE -- our log shows
-                       checkpoints RESTORED at 47,940-50,091, so this trades
-                       host RAM for re-prefill.
+                       and 34.4 GB private. Studio disables it. This is the HOST
+                       store for evicted prompts -- it carries a conversation
+                       across a slot change, not across a turn. Still open.
+  (--ctx-checkpoints 0 was in this bundle and was MEASURED OUT on 2026-08-29:
+   on a hybrid model it makes every turn re-prefill from token 0, 51.6 s at the
+   served depth. It is a different mechanism from --cache-ram and was only ever
+   grouped with it because Studio sets both.)
   --load-mode none     VENDOR: Studio's auto "picks None when it can prove the
                        model fits without paging, since a mapped read is slower".
   --kv-unified         Studio sets it; may be inert at -np 1.
@@ -93,15 +96,16 @@ def test_the_split_is_still_tensor(args):
 
 # ------------------------------------------------------------------ the bundle
 
-BUNDLE = ["--cache-ram", "0", "--ctx-checkpoints", "0",
+BUNDLE = ["--cache-ram", "0",
           "--load-mode", "none", "--kv-unified", "--metrics",
           "-t", "2"]
 
 
 def test_beta_applies_the_whole_bundle():
+    """`--ctx-checkpoints 0` was here until 2026-08-29 and was MEASURED OUT --
+    see test_beta_does_not_disable_context_checkpoints for the 51.6 s."""
     out = _whatif(PROFILE, "-Nvfp4", "-Beta")
-    for flag, value in (("--cache-ram", "0"), ("--ctx-checkpoints", "0"),
-                        ("--load-mode", "none")):
+    for flag, value in (("--cache-ram", "0"), ("--load-mode", "none")):
         assert re.search(re.escape(flag) + r"\s+" + value, out), (flag, out)
     assert "--kv-unified" in out, out
     assert "--metrics" in out, out
@@ -415,3 +419,47 @@ def test_the_default_keeps_our_values():
     assert re.search(r"--spec-draft-n-max\s+3\b", out), out
     assert re.search(r"--spec-ngram-mod-n-min\s+16\b", out), out
     assert re.search(r"--spec-ngram-mod-n-max\s+32\b", out), out
+
+
+# --------------------------------------------- context checkpoints, and the 51 s
+
+def test_beta_does_not_disable_context_checkpoints():
+    r"""`--ctx-checkpoints 0` is what made every turn re-prefill from zero.
+
+    This artifact is HYBRID -- Gated DeltaNet recurrent state beside attention
+    KV -- and the recurrent half cannot be rewound to a shared prefix. Without a
+    checkpoint to restore from, llama.cpp gives up on the whole prompt and says
+    so, once per request:
+
+        forcing full prompt re-processing due to lack of cache data
+        (likely due to SWA or hybrid/recurrent memory, see PR 13194)
+
+    In serve-20260829-125227.log, the `-Beta` boot, that line appears on ALL
+    THREE requests it served: 17,881 tokens, then 46,998, then 46,997 -- the
+    last two the same conversation, re-read from the first token, 51.6 s each
+    at ~911 tok/s before a character came back.
+
+    The same binary, same artifact, same day, with checkpoints left at their
+    default (serve-20260829-073741.log):
+
+        context checkpoints enabled, max = 32, min spacing = 8192
+        restored context checkpoint (pos_min = 321, n_past = 322, size = 150.890 MiB)
+
+    forced full re-processing ONCE in the whole session, and its turns prefilled
+    13, 29, 285, 829, 1,358 tokens. Checkpoints are the mechanism for exactly
+    the memory this model has, and they work on it.
+
+    `0` was copied from Unsloth Studio along with `--cache-ram 0`. Studio serves
+    at half our window and its own logs show it reusing a 39,616-token prefix
+    anyway, so the setting costs them less than it costs us -- and WHY it costs
+    them less is not settled here. `--kv-unified` is the candidate: we set it,
+    they do not.
+
+    Cost of the default: 150.89 MiB per checkpoint, at most 32, no closer
+    together than 8,192 tokens -- so about six of them at the depth we serve.
+    Host RAM, not VRAM.
+    """
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
+    assert not re.search(r"--ctx-checkpoints\s+0(?!\d)", out), (
+        "-Beta disables context checkpoints, which on this hybrid model means "
+        "every request re-prefills from token 0 -- 51.6 s at the served depth")

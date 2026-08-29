@@ -220,6 +220,21 @@ RULES = [
      "depth that loads is not a depth that serves",
      "CORRECTIONS.md 35"),
 
+    ("ctx-checkpoints-is-a-trade",
+     r"--ctx-checkpoints 0.{0,60}\b(is|as) an? (memory |real )?trade|"
+     r"RAM against re-prefill|"
+     r"RAM against re-prefill|"
+     r"--cache-ram 0.{0,40}--ctx-checkpoints 0.{0,60}(same family|one decision)|"
+     r"--ctx-checkpoints', '0'",
+     "on a hybrid model --ctx-checkpoints 0 is not a trade, it is a fault. The "
+     "Gated DeltaNet state cannot rewind to a shared prefix, so with no "
+     "checkpoint llama.cpp prints 'forcing full prompt re-processing due to "
+     "lack of cache data' and re-reads the whole prompt: three of three "
+     "requests in serve-20260829-125227.log, 51.6 s each at 47k. The default "
+     "costs 150.89 MiB per checkpoint, max 32, 8,192 tokens apart. It is a "
+     "DIFFERENT mechanism from --cache-ram, which stays and stays open",
+     "CORRECTIONS.md 39"),
+
     ("sampler-is-the-flag-default",
      r"llama\.cpp'?s? (own )?defaults? appl(y|ies).{0,120}temp 0\.80|"
      r"we set \*\*none\*\*, so llama\.cpp|"
