@@ -28,8 +28,8 @@ echo   ============================================================
 echo.
 echo   BOTH CARDS, NVFP4  -- fastest measured here, +63%% over 2 and 3
 echo.
-echo     1   147,456 context, IMAGES WORK          [recommended]
-echo     2   200,704 context, text only            deepest measured
+echo     1   147,456 context, images work          [recommended]
+echo     2   200,704 context, images work          deepest measured
 echo.
 echo   BOTH CARDS, UD-Q4_K_XL  -- the artifact whose output we have used longest
 echo.
@@ -42,6 +42,9 @@ echo.
 echo     6   the single-GPU profile
 echo.
 echo     Q   quit                              (one key, no Enter)
+echo.
+echo   1 and 2 both take pictures. 2 goes deeper and finishes a large request
+echo   with the least room to spare of anything measured here.
 echo.
 echo   Quality has never been measured on ANY of these artifacts. 1 and 2 change
 echo   the model file, not just a flag; 3 is what has been served longest.

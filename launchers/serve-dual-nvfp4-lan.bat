@@ -62,10 +62,11 @@ REM  request finishes with about 1,205 and 2,450 MiB free, against roughly 2,395
 REM  without the tower. The profile counts it before starting and refuses rather
 REM  than spilling, so a busy desktop stops it instead of costing you 85x.
 REM
-REM  serve-dual-nvfp4-deep.bat does NOT carry it, on purpose: 200,704 answered a
-REM  SMALL picture and finished with 614 MiB free, and this project has measured
-REM  a run dying with 336 and surviving with 488. Images beside a large text
-REM  prompt have not been measured at any depth.
+REM  serve-dual-nvfp4-deep.bat takes pictures too, and goes to 200,704. It was
+REM  held back until the combination was measured, and it now has been: every
+REM  rung took a half-window request AND a picture on top of it. The deep one
+REM  finishes with about 464 MiB free against this one's 1,068, which is the
+REM  whole reason to pick this one unless you need the window.
 REM
 REM  It holds no configuration. The flags live in
 REM  qwen38-tuning\scripts\worker-q4-dual.ps1 and only there.

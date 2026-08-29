@@ -166,3 +166,52 @@ def test_cmd_parses_it_and_a_choice_reaches_a_launch():
     both = r.stdout + r.stderr
     assert "unexpected at this time" not in both, both.strip()
     assert "LAUNCH_REACHED" in both, both.strip()
+
+
+# ------------------------------- the menu must not describe a run it does not cause
+
+MENU_LINE = re.compile(r"^echo\s+(\d)\s{2,}(.*?)\s*$")
+BRANCH = re.compile(r'if "%SEL%"=="(\d)"\s*\(\s*\n\s*set "LOOP=(\S+?)"', re.M)
+
+
+def _menu_and_targets():
+    """Each numbered menu line paired with the .bat that key actually calls."""
+    t = read(HUB)
+    targets = dict(BRANCH.findall(t))
+    rows = {}
+    for line in t.splitlines():
+        m = MENU_LINE.match(line.strip())
+        if m and m.group(1) in targets:
+            rows[m.group(1)] = (m.group(2), targets[m.group(1)])
+    assert len(rows) == len(targets), (sorted(rows), sorted(targets))
+    return rows
+
+
+def test_every_menu_line_is_wired_to_a_launcher():
+    rows = _menu_and_targets()
+    assert len(rows) >= 6, rows
+
+
+def test_no_menu_line_claims_text_only_for_a_launcher_that_takes_images():
+    """Trap 17 -- the launcher describing what it does not do -- caught for the
+    seventh time, and the first time by a test.
+
+    The hub said `200,704 context, text only` for a whole day after -Vision was
+    switched on for the deep pair. The behaviour changed; the sentence did not.
+    A person reading the menu would have believed it.
+    """
+    for key, (text, target) in sorted(_menu_and_targets().items()):
+        has_vision = "-Vision" in read(os.path.join(LAUNCHERS, target))
+        says_none = ("text only" in text.lower()) or ("no image" in text.lower())
+        assert not (has_vision and says_none), (
+            "menu option %s says %r but %s carries -Vision" % (key, text, target))
+
+
+def test_no_menu_line_promises_images_a_launcher_cannot_serve():
+    """The mirror of the rule above, and the worse half: a promise the server
+    answers with HTTP 500."""
+    for key, (text, target) in sorted(_menu_and_targets().items()):
+        has_vision = "-Vision" in read(os.path.join(LAUNCHERS, target))
+        promises = "image" in text.lower() and "no image" not in text.lower()
+        assert not (promises and not has_vision), (
+            "menu option %s promises images but %s has no -Vision" % (key, target))
