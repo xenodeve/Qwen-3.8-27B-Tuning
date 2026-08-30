@@ -1,322 +1,284 @@
 # C:\AI — Local Coding Worker
 
-A Qwen3.8-27B coding agent running on **two consumer cards in one desktop** —
-an **RTX 5060 Ti 16 GB** (Blackwell, `sm_120`) beside an **RTX 4070 SUPER 12 GB**
-(Ada, `sm_89`), 28 GB of VRAM between them. Everything measured here is on that
-pair, split with `-sm tensor`.
+**ภาษาไทย** · [English](README.en.md)
 
-> **Two changes, and both invalidate older numbers.**
->
-> **2026-08-23 — the second card arrived.** Before that this was one RTX 4070
-> SUPER 12 GB, and **every measurement predating that date was taken on the old
-> single card.** What transfers and what does not:
-> [`docs/results/09-hardware.md`](docs/results/09-hardware.md).
->
-> **The 4070 SUPER also drives the display**, so its free VRAM moves with
-> whatever is on screen. That is not a footnote: the launch profiles compute
-> the split from free VRAM at boot and **refuse to start rather than spill**.
+Qwen3.8-27B ทำงานเป็น coding agent บน **การ์ดสองใบในเครื่องเดียว** — **RTX 5060 Ti
+16 GB** (Blackwell, `sm_120`) คู่กับ **RTX 4070 SUPER 12 GB** (Ada, `sm_89`) รวม
+VRAM 28 GB · ทุกตัวเลขในที่นี้วัดบนคู่นั้น แบ่งด้วย `-sm tensor`
 
-Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
+Claude Code → Xeno → OpenClink → OpenCode → `llama-server`
 
-## Just start it
+---
 
-**Double-click [`serve.bat`](launchers/serve.bat).** The server runs *in* that window and
-its output is that window's output. `Ctrl+C` stops it, and so does closing the
-window — there is one process, not a server beside a log-watcher.
+## สรุปว่ามันทำอะไรได้
 
-**Double-click [`serve-hub.bat`](serve-hub.bat).** It is the only `.bat` at the
-top of this repository, and it asks two questions — which server, and whether to
-expose it — then hands off to one of the fourteen in
-[`launchers/`](launchers/). It holds no flags of its own; it only picks a file.
+| | |
+|---|---|
+| **artifact หลัก** | **`Qwen3.8-27B-NVFP4-MTP-VERY-LOW`** 13.8 GiB มีหัว MTP อบมาในไฟล์เลย |
+| **ความเร็วต่อเนื่องในการใช้งานจริง** | **60–66 tok/s** ที่ ctx 147,456 |
+| **ผลวัดแบบจับคู่ที่ดีที่สุด** | **+63.1 %** เหนือค่าตั้งต้นเดิม สามรอบสลับลำดับ |
+| **ความลึกที่รอด request จริง** | **200,704** |
+| **รูปภาพ** | ใช้ได้ทุกความลึกที่เสิร์ฟ จ่ายเพิ่ม 888 MiB |
+| **คุณภาพ** | **ยังไม่เคยวัดเลย บน artifact ไหนก็ตามที่นี่** อันนี้คือคำถามที่ค้าง ไม่ใช่เชิงอรรถ |
 
-The fourteen still work if you open that folder and double-click one directly.
-They are listed below so you can see what the hub is choosing between, not
-because you have to choose that way.
+**ตัวเลขความเร็วคือสิ่งที่คนถามก่อน ผมจึงบอกที่มาให้ครบ** ใน session จริงของ
+Claude Code เมื่อ 2026-08-30 NVFP4 VERY-LOW ที่ให้ DFlash2 ร่าง ที่ ctx 147,456
+ทำได้ **66.27 tok/s ตลอด 11,218 token ที่ generate**
+(`qwen38-tuning/logs/serve-20260830-084604.log`) และ **60.58 ตลอด 7,725 token** บน
+binary ที่สร้างจากซอร์ส Unsloth 0.3.0 (`serve-20260830-102405.log`) ·
+**เป็นการรันยาว ไม่ใช่วินาทีแรกที่บังเอิญสวย** — log เดียวกันมี 65.93 ที่ 11,362
+token และ 65.53 ที่ 10,893 token
 
-**Fourteen icons, in three families.** The choice is really *which artifact*
-first, *which window* second, and — for the newest five — *which of the four
-llama-server binaries on this machine*.
+**และมันไม่ใช่ผลวัดแบบจับคู่ ซึ่งโปรเจกต์นี้ไม่ยอมให้สองอย่างนี้ปนกัน** ใต้ชุดวัด
+บน corpus โค้ดจริงที่แช่แข็งไว้ ที่ความลึกเดียวกัน คู่เดียวกันนี้อ่านได้ **44.5
+tok/s** · ช่องว่างคือ**ภาระงาน** — traffic ของ agent จริงเดาง่ายกว่า corpus มาก และ
+speculative decoder ยิ่งเดาง่ายยิ่งเร็ว · **เวลาเทียบ config ให้ใช้ 44.5 · เวลา
+อธิบายว่าใช้แล้วรู้สึกยังไงให้ใช้ 60–66** ห้ามสลับกัน
 
-**The `UD-Q4_K_XL` family — what has been served all along.**
+---
 
-| | one card, `UD-Q2_K_XL` | both cards | both cards **+ `draft-mtp`** | both cards **+ DFlash2** |
+## เริ่มใช้เลย
+
+**ดับเบิลคลิก [`serve-hub.bat`](serve-hub.bat)** เป็น `.bat` ไฟล์เดียวที่อยู่บนสุด
+ของ repo · มันถามสองคำถาม คือจะเอา server ตัวไหน และจะเปิดออก LAN ไหม แล้วส่งต่อ
+ให้หนึ่งในสิบสี่ไฟล์ใน [`launchers/`](launchers/) · **ตัวมันเองไม่ถือ flag อะไรเลย
+มีหน้าที่เลือกไฟล์อย่างเดียว**
+
+ทุก launcher เปิดโฟลเดอร์แล้วดับเบิลคลิกตรง ๆ ก็ได้ · แต่ละไฟล์**พกหลักฐานของ
+ตัวเองไว้ในหัวไฟล์** และมี test ที่**ห้ามไม่ให้ launcher โฆษณาความเร็วที่มันไม่มี**
+
+**server รันอยู่*ใน*หน้าต่างนั้น** output ของมันคือ output ของหน้าต่างนั้น · กด
+`Ctrl+C` หยุด ปิดหน้าต่างก็หยุด · มีโปรเซสเดียว ไม่ใช่ server ตัวหนึ่งกับตัวเฝ้า log
+อีกตัว
+
+### สิบสี่ icon
+
+**เริ่มที่ตระกูล NVFP4 อันนี้คือที่โปรเจกต์แนะนำ**
+
+| | 147,456 พร้อมรูปภาพ | **200,704** ลึกสุดที่วัดแล้ว |
+|---|---|---|
+| เฉพาะเครื่องนี้ | [`serve-dual-nvfp4.bat`](launchers/serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](launchers/serve-dual-nvfp4-deep.bat) |
+| ให้เครื่องอื่นเรียกได้ | [`serve-dual-nvfp4-lan.bat`](launchers/serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](launchers/serve-dual-nvfp4-deep-lan.bat) |
+
+**ตระกูล `UD-Q4_K_XL` ของเดิมที่เคยเสิร์ฟ เก็บไว้เทียบ**
+
+| | การ์ดใบเดียว `UD-Q2_K_XL` | สองใบ | สองใบ **+ `draft-mtp`** | สองใบ **+ DFlash2** |
 |---|---|---|---|---|
-| loopback only | [`serve.bat`](launchers/serve.bat) | [`serve-dual.bat`](launchers/serve-dual.bat) | [`serve-dual-mtp.bat`](launchers/serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](launchers/serve-dual-dflash.bat) |
-| reachable from other machines | [`serve-lan.bat`](launchers/serve-lan.bat) | [`serve-dual-lan.bat`](launchers/serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](launchers/serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](launchers/serve-dual-dflash-lan.bat) |
+| เฉพาะเครื่องนี้ | [`serve.bat`](launchers/serve.bat) | [`serve-dual.bat`](launchers/serve-dual.bat) | [`serve-dual-mtp.bat`](launchers/serve-dual-mtp.bat) | [`serve-dual-dflash.bat`](launchers/serve-dual-dflash.bat) |
+| LAN | [`serve-lan.bat`](launchers/serve-lan.bat) | [`serve-dual-lan.bat`](launchers/serve-dual-lan.bat) | [`serve-dual-mtp-lan.bat`](launchers/serve-dual-mtp-lan.bat) | [`serve-dual-dflash-lan.bat`](launchers/serve-dual-dflash-lan.bat) |
 
-**The NVFP4 family — faster, both cards, same everything except the window and
-whether images work.**
+**กลุ่มทดลอง แต่ละอันคือคำถาม ไม่ใช่คำแนะนำ**
 
-| | 147,456, **with images** | **200,704**, deepest measured, **also with images** |
+| icon | มันคืออะไร | สถานะ |
 |---|---|---|
-| loopback only | [`serve-dual-nvfp4.bat`](launchers/serve-dual-nvfp4.bat) | [`serve-dual-nvfp4-deep.bat`](launchers/serve-dual-nvfp4-deep.bat) |
-| reachable from other machines | [`serve-dual-nvfp4-lan.bat`](launchers/serve-dual-nvfp4-lan.bat) | [`serve-dual-nvfp4-deep-lan.bat`](launchers/serve-dual-nvfp4-deep-lan.bat) |
+| [`serve-dual-dflash-n4.bat`](launchers/serve-dual-dflash-n4.bat) | DFlash2 ที่ `--spec-draft-n-max 4` ซึ่งเป็นค่าที่วัดว่าดีที่สุด · **7 แย่กว่า 6.5 %** และกินเพิ่ม 308 MiB โดย acceptance ตกจาก 61.8 เหลือ 51.9 | วัดแล้ว |
+| [`serve-dual-nvfp4-dflash.bat`](launchers/serve-dual-nvfp4-dflash.bat) | NVFP4 ที่ให้ DFlash2 ร่างแทนหัวของตัวเอง · **+67.9 % ที่ 65,536** · ที่ความลึกจริง 147,456 ได้ +4.0 % ซึ่งต่ำกว่าเพดานสัญญาณรบกวน — สิ่งที่ได้ตรงนั้นคือ**ความนิ่ง 0.7 % เทียบกับ 9.3 %** แลกกับ ~950 MiB | วัดแล้ว · **ไม่ใช่**ความเร็วที่ความลึกที่เสิร์ฟ |
+| [`serve-dual-nvfp4-dflash-theirmirror.bat`](launchers/serve-dual-nvfp4-dflash-theirmirror.bat) | คู่เดียวกันบน**ซอร์ส Unsloth 0.3.0** ที่ใส่ mirror patch ของเราแล้ว — เป็น `llama-server` ตัวที่สี่ในเครื่อง | boot และเสิร์ฟได้ ยังไม่จับคู่วัด |
+| [`serve-dual-nvfp4-beta.bat`](launchers/serve-dual-nvfp4-beta.bat) | เก้าค่าที่ยืมมาทั้งชุดจาก Unsloth Studio ซึ่งรันไฟล์โมเดลเดียวกันบนการ์ดคู่เดียวกัน | boot ละหนึ่งครั้งต่อฝั่ง |
+| [`serve-dual-nvfp4-clone.bat`](launchers/serve-dual-nvfp4-clone.bat) | command line ทั้งบรรทัดของ Studio เป็น baseline โดยมี**หกอย่างที่ตั้งใจไม่ลอก** ระบุไว้ในหัวไฟล์ | baseline |
 
-**The `nvfp4` pair is the fastest thing measured here, and it is the cheapest to
-reach.** At ctx 147,456, three paired rounds rotated on real vendor code:
-**39.4 / 42.6 / 42.6 tok/s against 24.9 / 25.7 / 25.7** for `serve-dual.bat`
-measured in the same rounds — **+63.1 %** [+58.3, +65.6], baseline spread 3.3 %.
+ไฟล์ `lan` แยกออกมาแทนที่จะเป็นคำถาม เพราะ `--host` คือ**การควบคุมการเข้าถึงอย่าง
+เดียวที่ server ตัวนี้มี** — ไม่มี API key และ CORS เป็น `*` · การเปิดออกควรเกิด
+เพราะมีคนกดสิ่งที่เขียนว่า `lan` ไม่ใช่เพราะเขาแค่อยากให้โมเดลรัน
 
-Unlike the `dflash` pair it costs **no patch, no second model and no unreviewed
-binary**: the speculative head is inside the model file and it runs on the same
-`llama.cpp-blackwell` every other icon uses. It even finishes a large request
-with **more** room than the default — about 2,395 MiB against 2,010.
+---
 
-Two numbers in it are not preferences. The n-gram runs at **`n-match 24`, not
-the `12` every other profile serves**: `12` won on `UD-Q4_K_XL` and is worth a
-third less here, and `24` is the value that *lost* on the Q4 at this same depth.
-The tuning belongs to the file, not to the depth. And the window is 147,456
-against a measured ceiling of **200,704**, which
-[`serve-dual-nvfp4-deep.bat`](launchers/serve-dual-nvfp4-deep.bat) serves — verified by
-booting that launcher and pushing a **101,029-token** request through it,
-finishing with 1,009 and 692 MiB free. **229,376 loads, answers a health check
-and then dies**, so neither pair asks for the deepest window that fits.
+## สองการเปลี่ยนแปลงที่ทำให้ตัวเลขเก่าใช้ไม่ได้
 
-**The `deep` pair is the same thing with a bigger window and nothing else
-changed** — same file, same head, same `n-match 24`, 200,704 instead of 147,456.
-The headroom is the whole trade: about **1,133 and 654 MiB** free after a large
-request, against roughly **2,395** at the default. This project has measured a
-run dying with 336 MiB free and one surviving with 488, so 654 is above the line
-but not far above it. The profile re-checks the budget every launch and
-**refuses rather than spilling**, so a busy desktop stops it instead of quietly
-costing you 85×.
+> **2026-08-23 การ์ดใบที่สองมา** ก่อนหน้านั้นเครื่องนี้มี RTX 4070 SUPER 12 GB
+> ใบเดียว และ**ทุกผลวัดที่ลงวันที่ก่อนวันนั้นเป็นของการ์ดใบเก่า** · อะไรโอนได้
+> อะไรโอนไม่ได้อยู่ที่
+> [`docs/results/09-hardware.md`](docs/results/09-hardware.md)
+>
+> **4070 SUPER เป็นการ์ดที่ขับจอด้วย** VRAM ว่างของมันจึงขยับตามสิ่งที่เปิดอยู่บน
+> หน้าจอ · อันนี้ไม่ใช่เชิงอรรถ — profile คำนวณ tensor split จาก VRAM ว่างตอน boot
+> แล้ว**ปฏิเสธที่จะเริ่มแทนที่จะยอม spill** เพราะการ spill ครั้งหนึ่งเคยทำให้ช้าลง
+> 85 เท่า และพิมพ์ตัวเลขที่ดูสมเหตุสมผลออกมาด้วย
 
-**Images work on the 147,456 pair.** Without the vision tower every image is an
-HTTP 500 — `image input is not supported` — which is what a real Claude Code
-session hit five times. The model was never the limitation: it is a native
-vision-language model and its own chat template handles images; the tower is
-simply a separate 888 MiB file this project had switched off because the
-benchmark work is text.
+---
 
-It was expected to fail — the tower is a second model and this split has never
-hosted one — and it does not. Measured on the ordinary unpatched binary, it
-loaded and answered real pictures correctly at 65,536, 147,456 and 200,704, and
-`serve-dual-nvfp4.bat` itself was booted and shown a picture it had not seen
-before. **It costs headroom, not window:** 147,456 either way, finishing a large
-request with about 1,205 and 2,450 MiB free against roughly 2,395 without it.
+## ทำไมถึงเป็น NVFP4 VERY-LOW และกว่าจะรู้ต้องแลกอะไร
 
-**The `beta` pair is the deep one with nine settings borrowed from Unsloth
-Studio**, which runs this same model file on these same two cards: prompt cache
-and context checkpoints off, no memory-mapped read, unified KV, two threads
-instead of eighteen, metrics on. Everything else is identical, deliberately —
-the two icons are an A/B you can run at the depth this machine actually serves.
+**วัดแบบเทียบกันตรง ๆ ที่ ctx 147,456** สามรอบจับคู่สลับลำดับบนโค้ดจริงของ vendor ·
+`NVFP4-MTP-VERY-LOW` + `draft-mtp,ngram-mod` ที่ `n-match 24` ได้ **39.4 / 42.6 /
+42.6** เทียบกับ **24.9 / 25.7 / 25.7** ของค่าตั้งต้นเดิม — **+63.1 %** [+58.3,
++65.6] ความแกว่งของ baseline 3.3 %
 
-One boot each at 200,704, a 91,428-token prompt then 512 tokens generated, then
-a picture on top:
+**และมันไม่ต้องการอะไรเพิ่มเลย** หัว speculative อยู่ในไฟล์โมเดล จึงไม่ต้องมี
+drafter แยก ไม่ต้องมี patch และรันบน binary ตัวเดียวกับที่ icon อื่นใช้ · ยังจบ
+request ใหญ่โดยเหลือที่ว่าง*มากกว่า*ค่าตั้งต้นด้วย ประมาณ 2,395 MiB เทียบกับ 2,010
 
-| | `serve-dual-nvfp4-deep.bat` | `serve-dual-nvfp4-beta.bat` |
+**สามอย่างที่การวัดครั้งนั้นสะสางไปด้วย และทุกอย่างขัดกับสิ่งที่โปรเจกต์นี้เคย
+เผยแพร่ไปแล้ว**
+
+- **ตัว artifact เดี่ยว ๆ คือการขาดทุน** NVFP4 กับ n-gram decoder แต่*ไม่มี* MTP
+  ได้ **−22.4 %** เพราะ acceptance ของ n-gram ตกจาก **55.4 เหลือ 22.1** — ไฟล์นั้น
+  เขียนข้อความที่ตัวทำนายเดาไม่ถูก · **ผลลัพธ์คือการจับคู่ ไม่ใช่ครึ่งใดครึ่งหนึ่ง**
+- **การจูน n-gram ไม่โอนข้าม artifact** `n-match 24` เคย*แพ้*บน `UD-Q4_K_XL` ที่
+  ความลึกเดียวกันเป๊ะ แต่ชนะ **+27.1 %** ที่นี่ · คำตัดสินไม่โอนข้าม artifact
+  เหมือนที่ไม่โอนข้ามความลึก
+- **การที่ MTP ลอก prompt เป็นสมบัติของ artifact ไม่ใช่ของ MTP** ไฟล์นี้รายงาน
+  `copied_frac [0.0, 0.0, 0.0]` ในที่ที่หัวอีกตัวที่ความลึกเดียวกันรายงาน
+  `[0.519, 0.0, 0.23]` · เป็นคำถามที่ค้างมาหลายสัปดาห์
+
+**`MID-HIGH` ก็อยู่บนดิสก์ 15.8 GiB และยังไม่มีตัวเลขความเร็วเลยสักตัว**
+
+---
+
+## สิ่งที่ยังไม่รู้ บอกไว้ตรงนี้ ไม่ซ่อนท้ายไฟล์
+
+- **คุณภาพยังไม่เคยถูกวัดบน artifact ไหนที่โปรเจกต์นี้เสิร์ฟ** เครื่องมือมีครบแล้ว
+  — ตัวคัดว่าโมเดลจบความคิดแล้วตอบจริงไหม · ตัวเทียบว่า speculation เปลี่ยนสิ่งที่
+  โมเดลพูดไหม · soak ร้อยเทิร์น · ชุดงานโค้ดจริง — แต่**ทุกแถวในไฟล์ผลของเครื่องมือ
+  พวกนั้นเป็นของ artifact เก่าบนการ์ดเก่า** · **นี่คือเส้นทางวิกฤต**
+- **สอง build ยังไม่เคยถูกจับคู่วัด** เคยมีการอ่านครั้งหนึ่งที่ชี้ว่า llama.cpp ตัว
+  ใหม่เร็วกว่า 26 % แต่การรันที่ดูเหมือนจะหักล้างมันกลับกลายเป็นว่า**วัด binary
+  ตัวเดียวสองครั้ง** · สถานะคือ *ยังเถียงกันอยู่* ไม่ใช่ *จบแล้ว*
+- **มีอาการค้างที่ทำซ้ำได้** NVFP4 + DFlash2 บน build Unsloth 0.3.0 ค้างสองครั้งเมื่อ
+  2026-08-31 · thread เดียวจาก 36 หมุนเต็มคอร์ การ์ดทั้งสองใบนิ่ง slot ไม่เคยถูก
+  ปล่อย · กำลังหาสาเหตุ ยังไม่รู้
+- **ไม่มีอะไรเหนือ 147,456 ที่วัดกับ DFlash2 แล้ว**
+
+---
+
+## llama-server สี่ตัว และทำไมต้องแยกให้ออก
+
+| binary | build | mirror patch ของเรา | ใครรันมัน |
+|---|---|---|---|
+| `llama.cpp-blackwell` | 10499 | ไม่ | ค่าตั้งต้นที่เสิร์ฟ |
+| `llama.cpp-mirror` | 10499 | **ใช่** | ทุก icon ที่มี `-Dflash` |
+| `~/.unsloth/…/bin` | 10679 | ไม่ | `-TheirBuild` |
+| `llama.cpp-unsloth-mirror` | 10679 | **ใช่** | `-TheirMirror` |
+
+**mirror patch** เปลี่ยนให้ `output.weight` ถูกแบ่งแบบสะท้อนแทนที่จะกระจาย · ถ้าไม่มี
+มัน DFlash2 ใต้ `-sm tensor` จะ abort เพราะ `TOP_K` ต้องการทั้งแถวของ vocabulary
+แต่การแบ่งกระจายมันไว้สองใบ · **upstream ทำแบบเดียวกันนี้กับสถาปัตยกรรมอื่นอยู่แล้ว**
+patch ของเราจึงเป็นการ**ขยายข้อยกเว้นที่ถูกยอมรับแล้ว** ไม่ใช่การคิดขึ้นใหม่ — แต่
+**ยังไม่มีใครนอกโปรเจกต์นี้ review มัน**
+
+**อ่าน banner ของ binary ตัวที่สี่ให้ดีตลอดไป** มันขึ้นว่า
+`0.3.0-dev (build 215, commit …)` · ตัวเลขเวอร์ชันกับบรรทัด "Compiled by the
+Unsloth team" เป็นของเขา ส่วน build number กับ commit เป็น **git ของเรา** ที่ระบบ
+build ของเขานับให้ เพราะต้นไม้ที่ก๊อปมาไม่มี `.git` · **log จากตัวนี้ไม่ใช่ log ของ
+10499**
+
+---
+
+## คันโยกที่ใหญ่ที่สุดไม่ได้อยู่ในหน้านี้
+
+**วัดเมื่อ 2026-08-30 boot เดียว ห่างกันไม่กี่นาที ไม่เปลี่ยนอะไรนอกจากติ๊กช่องใน
+chat client** · ข้อความที่ส่งทั้งสองครั้งคือคำทักทายสองคำ
+
+| | เปิด tools | ปิด tools |
 |---|---|---|
-| decode | 53.69 tok/s | **135.25 tok/s** |
-| prefill | 816.6 | 824.1 |
-| host memory | 19.42 GB working set | **3.21 GB** |
-| free VRAM after the image | 555 / 1,186 MiB | 556 / 1,332 MiB |
+| prompt | **17,843 token** | **334** |
+| prefill | 18,618 ms | **554 ms** |
+| decode | 35.20 tok/s | **45.64** |
+| เวลาทั้งคำตอบ | **21.5 วิ** | **1.5 วิ** |
 
-**Do not treat the decode number as a result.** One reading per side, taken in
-different boots, and this project has measured the *same* arm drifting 48.9 %
-across boots at depth. +152 % is far outside that, which makes it interesting
-rather than proven — the paired sweep that would settle it has not been run.
+**17,509 จาก 17,843 token นั้นคือ tool schema** ที่ client ส่งมาทุก request ·
+**สิบสี่เท่าบนนาฬิกาจริง จากการติ๊กช่องเดียว** · flag ทุกตัวใน repo นี้มีค่าแค่หลัก
+เดียวถึงสิบต้น ๆ เมื่อเทียบกับตัวนี้ · **ก่อนจะไปแตะอันไหน ให้ถามก่อนว่า client กำลัง
+วางอะไรไว้ข้างหน้าคำพูดจริง ๆ ของผู้ใช้**
 
-**The memory is the solid part**, and it is **not a free saving**: those context
-checkpoints were being restored in a real session, so turning them off means a
-conversation that rewinds re-processes the prompt instead. The measurement above
-is one long request, which is the case checkpoints cost the most and help the
-least.
+---
 
-**The deep pair takes images too, and that was measured before it was switched
-on.** Every rung was asked for a half-window request *and* an image on top of
-that context — which is what pasting a screenshot into a long conversation does,
-and what the earlier small-picture probes could not tell you:
+## วินัยการวัด
 
-| ctx | prompt, then a picture | free afterwards |
-|---|---|---|
-| **200,704** | 91,428 tokens, answered correctly | **464** / 1,187 MiB |
-| 180,224 | 83,127 tokens, answered correctly | 534 / 1,703 MiB |
-| 163,840 | 76,741 tokens, answered correctly | 817 / 2,057 MiB |
-| 147,456 | 70,322 tokens, answered correctly | 1,068 / 2,413 MiB |
+โปรเจกต์นี้เผยแพร่ **ข้ออ้าง 43 ข้อที่ภายหลังถูกหักล้างด้วยข้อมูลของตัวเอง**
+([`docs/reports/CORRECTIONS.md`](docs/reports/CORRECTIONS.md)) และมี **instrument
+fault ที่บันทึกไว้ 13 ข้อ ซึ่งทุกข้อผลิตตัวเลขผิดที่ดูสมเหตุสมผลออกมา แทนที่จะแจ้ง
+ความล้มเหลว** · นั่นคือเหตุผลที่กฎข้างล่างมีอยู่ และเหตุผลที่มันถูกวางไว้ก่อนผลวัดใด ๆ
 
-**The margin at 200,704 is the thinnest of the four.** 464 MiB sits between a
-run this project saw die with 336 free and one that survived with 488 — on a
-different configuration, so treat that as a neighbourhood rather than a line.
-If your desktop has grown since you last booted, the profile refuses to start
-rather than spilling; that refusal is the safety, not the margin.
+1. **ห้ามเทียบ decode ดิบข้าม boot** config ควบคุมตัวเดียวกันแกว่ง **32.4–42.5
+   tok/s ใน 25 boot** และ **ยังไม่รู้สาเหตุ** · ผลต่ำกว่า **13.6 %** คือสัญญาณรบกวน
+   *ที่ ctx 16,384 ซึ่งเป็นความลึกที่เพดานนั้นถูกวัด* · ที่ 65,536 arm เดียวกันที่
+   counter ตรงกันทุกหลักแกว่งได้ถึง **48.9 %** · ให้จับคู่ในรอบเดียวกันและสลับลำดับ
+2. **ตรวจ residency ก่อนคำนวณ** ผลต่างระหว่าง arm ที่ spill กับที่ไม่ spill คือการวัด
+   การ spill · ชุดวัด**ปฏิเสธแถวแบบนั้น**แทนที่จะรายงานมันออกมา
+3. **คำตัดสินไม่โอน** ไม่โอนข้ามความลึก ไม่โอนข้าม artifact ไม่โอนข้ามภาระงาน ·
+   decoder ตัวหนึ่งได้ +81 % ที่ 16K แล้ว −71 % ที่ 131,072 บนไฟล์เดียวกัน
+4. **โหลดขึ้นไม่เท่ากับรอด** ทุกคำอ้างเรื่องความลึกต้องยิง request ขนาด**ครึ่งหนึ่ง
+   ของหน้าต่าง** · เพดานที่เคยรับรองด้วย request หนึ่งในสี่ของหน้าต่าง โหลดขึ้นโดย
+   เหลือ 206 MiB แล้วตายเมื่อเจอครึ่งหน้าต่าง
+5. **รันด่าน test ก่อนเชื่อผลวัดใด ๆ**
+   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — **1,435 test**
 
-**What it changes is the model file, and that is why it is an icon and not the
-default: quality has not been measured.** Not here and not on any artifact this
-project serves. What *is* measured is that the n-gram decoder's acceptance falls
-from **55.4 to 22.1** on this file — it writes text the predictor cannot
-anticipate, which is evidence it writes *differently*. Whether differently is
-worse is exactly what nobody knows.
+**การถอนคำเป็นส่วนหนึ่งของงาน** เมื่อผลวัดขัดกับสิ่งที่เผยแพร่ไปแล้ว การถอนยังไม่จบ
+จนกว่าข้ออ้างนั้นจะมีบรรทัดใน `CORRECTIONS.md` **และ** มีกฎใน
+`scripts/audit-stale-claims.py` ที่ตามหาสำเนาทุกอันของมันที่ยังนั่งอยู่ในต้นไม้
 
-**Five newer icons are not in the tables above, and each one is an experiment
-rather than a recommendation.** They are listed in `serve-hub.bat` with their
-evidence written into the head of every `.bat`, which is where the detail lives:
+---
 
-| icon | what it is | status |
-|---|---|---|
-| `serve-dual-dflash-n4.bat` | DFlash2 at `--spec-draft-n-max 4`, the measured best; **7 is 6.5 % worse** and 308 MiB dearer | measured |
-| `serve-dual-nvfp4-dflash.bat` | NVFP4 drafted by DFlash2 instead of its own head. **+67.9 % at 65,536**; at the served 147,456 it is +4.0 %, under the noise floor — what it buys there is **consistency, 0.7 % spread against 9.3 %**, for ~950 MiB | measured, not a speedup |
-| `serve-dual-nvfp4-dflash-theirmirror.bat` | the same thing on **Unsloth's 0.3.0 source** with our mirror patch applied — a fourth binary | boots; unpaired |
-| `serve-dual-nvfp4-beta*.bat` | nine settings borrowed whole from Unsloth Studio | one boot per side |
-| `serve-dual-nvfp4-clone*.bat` | Studio's whole command line as a baseline, with **six deliberate deviations** listed in the file | baseline |
-
-**The `dflash` pair is more than twice as fast and gives up half the window.**
-Measured 2026-08-27, three paired rounds on real vendor code at ctx 65,536:
-**65.1 / 64.3 / 63.8 tok/s against 29.0 / 29.0 / 28.4** for the `ngram-mod` the
-other dual launchers serve — **+123.8 %** [+121.9, +125.1].
-
-It costs three things, which is why it is its own icon and not a default:
-
-- **A patched llama.cpp.** Unpatched, the drafter aborts — `TOP_K` cannot read
-  logits the tensor split scatters across two cards. The patch mirrors the
-  output projection, costs **1,080 MiB** measured, and **has been reviewed by
-  nobody outside this project**.
-- **A window capped at 131,072**, against about 250,000 from `serve-dual.bat`.
-  That cap is not a budget the launcher can stretch: **147,456 loads, answers a
-  health check, and dies on the first real request.**
-- **Almost all the headroom** — roughly 600 MiB per card after a large request,
-  against about 2,210. A run here died with 336 MiB free and survived with 488.
-
-**And its rate at 131,072 has never been measured.** The +123.8 % is at 65,536,
-and a verdict at one depth does not transfer here: at 147,456 a *better* drafter
-measured *slower*, because verify cost dominates at depth. Expect less.
-
-**The `mtp` pair has no measured speed.** `draft-mtp` does run on the two-card
-split — verified 2026-08-27, after this project had wrongly recorded that it
-could not — but **every paired measurement of it was voided by our own output
-guard, because the generations copy the prompt instead of answering it.** Three
-unpaired manual readings looked excellent and are exactly what that guard exists
-to reject: a speculative decoder gets faster the more predictable the text is.
-Click it to try it; `serve-dual.bat` is the one with a number behind it.
-
-The `lan` files are separate rather than a prompt because `--host` is the **only
-access control this server has** — no API key, CORS `*` — so exposure should
-happen because someone clicked the thing that says `lan`, not because they
-wanted the model running.
-
-**The `dual` files are not a free upgrade.** `UD-Q4_K_XL` is 16.69 GiB and does
-not fit on one 16 GB card at any depth; across both it is fully resident to
-229,376 and runs at **parity** with the single-card profile — 32.4/32.6/33.1
-against 32.1/32.0/32.0 at ctx 147,456. But it draws roughly **130 W more**, it
-**needs both cards installed** (with one it refuses to start rather than quietly
-serving something else), and its **quality has never been measured here** — every
-reason to prefer that artifact comes from a bits-per-weight ladder and an
-external campaign, neither of which is our number. Which icon is right is a
-decision, which is why none of the four implies another.
-[Issue #52](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/52),
-[`docs/results/09-hardware.md`](docs/results/09-hardware.md).
-
-**The model announces which artifact it is.** `serve.bat` serves it as
-`Qwen3.8-27B-Q2_K_XL`, the `dual` pair as `Qwen3.8-27B-Q4_K_XL`, and the `nvfp4`
-pair as `Qwen3.8-27B-NVFP4-MTP`. It used to be
-`qwen38` for both, which told a client nothing and left a saved transcript
-unable to say afterwards which one had answered. **A client configured with the
-old name needs updating** — that string is all this rename changes; no file on
-disk moved and no measured row means anything different.
-
-From a terminal, with flags:
-
-**The `dual` and `dual-mtp` launchers serve the deepest window that fits**, capped at
-the model's own `n_ctx_train` of 262,144. It is **computed at launch, not
-fixed** — 262,144 loaded on this machine when the desktop held ~1,600 MiB and
-ran out of memory at 2,575, so the number moves with what you have open. Two
-real boots minutes apart settled on **249,856** and **245,760**; the window it
-chose is printed when it starts.
-
-They spend the micro-batch before the context: halving `-ub` frees about a
-gigabyte across the pair for roughly **3.5 %** of prefill, where the same memory
-bought with context costs tens of thousands of tokens.
-
-**Deep is measured, not comfortable.** At full depth a large request finishes
-with a few hundred MiB spare against about **2,000** at the 147,456 default — a
-run with **336 MiB** free died on its first request, one with **488** survived
-135,233 tokens. To pin a shallower, roomier window, call the profile directly:
+## จาก terminal
 
 ```powershell
-& .\qwen38-tuning\scripts\worker-q4-dual.ps1 -Ctx 147456
+.\serve.ps1                          # การ์ดใบเดียว เฉพาะเครื่องนี้
+.\serve.ps1 -Lan -AllowFirewall      # การ์ดใบเดียว เปิดออก
+.\serve.ps1 -Dual                    # สองใบ เฉพาะเครื่องนี้
+.\serve.ps1 -Dual -Nvfp4 -Vision     # คู่ที่แนะนำ
+.\serve.ps1 -Dual -Nvfp4 -Vision -Deep     # อันเดียวกันที่ 200,704
+.\serve.ps1 -Dual -WhatIf            # พิมพ์คำสั่งที่จะรัน โดยไม่แตะ GPU
 ```
 
-```powershell
-.\serve.ps1                          # one card, loopback
-.\serve.ps1 -Lan -AllowFirewall      # one card, exposed
-.\serve.ps1 -Dual                    # both cards, loopback
-.\serve.ps1 -Dual -Lan -AllowFirewall
-.\serve.ps1 -Dual -Mtp               # both cards + draft-mtp, rate unmeasured
-.\serve.ps1 -Dual -WhatIf            # print what it would run, touch nothing
-```
+[`serve.ps1`](serve.ps1) **ไม่ถือ config ของตัวเองเลย** — flag อยู่ใน worker
+profile ที่เดียว เพราะ launcher ที่ก๊อป flag ไปจะกลายเป็นแหล่งความจริงที่สอง แล้ว
+เพี้ยนไปเงียบ ๆ ทั้งที่ทั้งสองไฟล์ยังรันได้อยู่ · มันเลือก profile ที่หลักฐานรองรับ
+**ปฏิเสธที่จะเริ่มทับ port ที่มีคนตอบอยู่แล้ว** และ**อ่านการแบ่ง layer กลับออกมาจาก
+boot log** เพราะ `--fit` เลือกที่จะ spill แทนที่จะปฏิเสธ ดังนั้น residency ต้องถูก
+ตรวจ ไม่ใช่ถูกสมมติ
 
-That is the whole answer. `qwen38-tuning/scripts/` holds **62 `.ps1` files** and
-several of them serve artifacts that stopped being the default at windows that
-stopped being the answer; nothing in the tree said which was current.
-[`serve.ps1`](serve.ps1) resolves the profile the evidence supports, **refuses to
-start over a port already answering**, and **reads the layer split back out of
-the boot log** — `--fit` spills rather than refusing, so residency is checked,
-never assumed. It prints what each choice rests on and names the one still open.
+`qwen38-tuning/scripts/` มี **62 ไฟล์ `.ps1`** และหลายตัวเสิร์ฟ artifact ที่เลิกเป็น
+ค่าตั้งต้นไปแล้วที่หน้าต่างที่เลิกเป็นคำตอบไปแล้ว · ไม่มีอะไรในต้นไม้บอกว่าอันไหน
+คืออันปัจจุบัน — `serve.ps1` คือคำตอบของเรื่องนั้น
 
-`.\serve.ps1 -WhatIf` shows the resolved command without touching the GPU.
-
-**It holds no configuration of its own.** The flags live in
-`qwen38-tuning/scripts/worker-q2kxl-mtp.ps1` and only there — a launcher that
-copied them would become a second source of truth and drift silently, since both
-files would still run.
-
-**Metric:** verified accepted coding tasks per hour — a task counts only if the
-generated code runs and passes its tests.
-**Current goal:** a usable context of 128K or more, fully GPU-resident, at the
-highest tok/s achievable.
+**โมเดลประกาศว่าตัวเองเป็น artifact ไหน** บน `/v1/models` — `Qwen3.8-27B-NVFP4-MTP`,
+`Qwen3.8-27B-Q4_K_XL`, `Qwen3.8-27B-Q2_K_XL` · เมื่อก่อนใช้ชื่อเดียวกันหมด ซึ่งไม่
+บอกอะไร client เลย และทำให้ transcript ที่บันทึกไว้บอกทีหลังไม่ได้ว่าตัวไหนเป็นคนตอบ
 
 ---
 
-## → If you are new, read [`docs/reports/START-HERE.md`](docs/reports/START-HERE.md)
-
-One document: what was tried, what it cost, what was learned, what is still
-open. Everything else is the detail behind it.
-
----
-
-**Before quoting any number:** [`docs/reports/CORRECTIONS.md`](docs/reports/CORRECTIONS.md)
-lists **forty-three** claims this project published and later contradicted with
-its own measurements.
-
----
-
-## The map
+## แผนที่
 
 ```text
 C:\AI\
-├── README.md                  ← you are here
-├── docs\                      what we know          → docs/README.md
-│   ├── reports\               findings, numbered 00-39
-│   ├── results\               the register — has X been tried, what happened
-│   ├── plans\                 what we intend to run next
-│   └── researchs\             external material, NOT our measurements
-├── scripts\                   tools for the docs map → scripts/README.md
-└── qwen38-tuning\             the machine           → qwen38-tuning/README.md
-    ├── bench\                 the harness (1,435 tests)
-    ├── scripts\               launch profiles and unattended queues
-    ├── results\               raw JSONL, one row per boot
-    ├── logs\                  server and driver logs
-    └── grammars\              GBNF output constraints
+├── README.md                  ← คุณอยู่ตรงนี้ (ไทย, ค่าตั้งต้น)
+├── README.en.md               English
+├── docs\                      สิ่งที่เรารู้            → docs/README.md
+│   ├── OPEN-WORK-LEDGER.md    อะไรค้างอยู่ รวมของที่ไม่มี issue ตาม
+│   ├── reports\               ผลการค้นพบ เรียงเลข 00-39
+│   ├── results\               ทะเบียน — X ถูกลองแล้วหรือยัง ผลเป็นอะไร
+│   ├── plans\                 สิ่งที่ตั้งใจจะรันต่อ
+│   ├── researchs\             ของจากข้างนอก ไม่ใช่ผลวัดของเรา
+│   └── agents\                มาตรฐานการทำงาน และ traps.md
+├── scripts\                   เครื่องมือของแผนที่เอกสาร → scripts/README.md
+└── qwen38-tuning\             ตัวเครื่อง                → qwen38-tuning/README.md
+    ├── bench\                 ชุดวัด (1,435 test)
+    ├── scripts\               profile การ launch และคิวแบบไม่มีคนเฝ้า
+    ├── templates\             chat template ที่แก้ไว้หนึ่งไฟล์ พร้อมเหตุผล
+    ├── results\               JSONL ดิบ หนึ่งแถวต่อหนึ่ง boot
+    ├── logs\                  log ของ server และ driver
+    └── grammars\              GBNF บังคับรูปแบบ output
 ```
 
-**Every folder has a `README.md` that says what is in it and what to read
-first.** If you land somewhere and are unsure, read that folder's README.
+**ทุกโฟลเดอร์มี `README.md`** ที่บอกว่าข้างในมีอะไรและควรอ่านอะไรก่อน
 
 ---
 
-## The three rules that matter most
+## อ่านอะไรต่อ
 
-1. **Never compare raw decode across boots.** The same control config spans
-   **32.4–42.5 tok/s across 25 boots**, and the **cause is unknown** — the old
-   explanation that `--fit` follows the boot VRAM is retracted, because
-   llama.cpp has reported 11,069 MiB free in all 552 logs and 148 of 150 boots
-   say *"no changes needed"* (`docs/reports/CORRECTIONS.md` §27).
-   **Effects below 13.6 % are noise** — **at ctx 16,384, where that floor was measured.** At 65,536 the same arm with byte-identical counters spans up to **48.9 %** across boots, so re-derive before using it at depth (`CORRECTIONS.md` §23). Pair
-   within a round.
-2. **Two orchestrators cannot share port 8080.** `qwen38-tuning\scripts\swap-model.sh` takes a
-   lock. An armed queue once killed a running corpus and the summary still
-   printed a plausible number.
-3. **Run the test gate before trusting any measurement:**
-   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — 1,435 tests.
+| ถ้าคุณอยาก | อ่าน |
+|---|---|
+| รู้เรื่องทั้งหมดในทีเดียว | [`docs/reports/START-HERE.md`](docs/reports/START-HERE.md) |
+| **ก่อนยกตัวเลขไหนไปใช้** | [`docs/reports/CORRECTIONS.md`](docs/reports/CORRECTIONS.md) |
+| ก่อนเสนอเรื่องความเร็ว | [`docs/reports/39-OPTIMISATION-GUIDE.md`](docs/reports/39-OPTIMISATION-GUIDE.md) |
+| รู้ว่าตอนนี้เสิร์ฟอะไรอยู่กันแน่ | [`docs/reports/38-NVFP4-PROFILE-REFERENCE.md`](docs/reports/38-NVFP4-PROFILE-REFERENCE.md) |
+| รู้ว่า X ถูกลองไปแล้วหรือยัง | [`docs/results/README.md`](docs/results/README.md) |
+| รู้ว่าอะไรยังค้าง | [`docs/OPEN-WORK-LEDGER.md`](docs/OPEN-WORK-LEDGER.md) |
+| รู้ว่า*วิธีทำงาน*แบบไหนเคยพลาดที่นี่ | [`docs/agents/traps.md`](docs/agents/traps.md) |
+| กฎอีกสิบสองข้อ ที่แต่ละข้อเคยผลิตตัวเลขผิดที่ดูน่าเชื่อ | [`docs/reports/04-MEASUREMENT-METHODOLOGY.md`](docs/reports/04-MEASUREMENT-METHODOLOGY.md) §7 |
 
-Twelve more in [`docs/reports/04-MEASUREMENT-METHODOLOGY.md`](docs/reports/04-MEASUREMENT-METHODOLOGY.md) §7,
-each of which produced a believable wrong number.
+**ตัวชี้วัด** งานเขียนโค้ดที่ผ่านการตรวจแล้วต่อชั่วโมง — งานจะถูกนับก็ต่อเมื่อโค้ดที่
+สร้างออกมารันได้และผ่าน test ของมัน
+**เป้าหมายตอนนี้** วัดคุณภาพบน artifact ที่เสิร์ฟอยู่จริง เพื่อให้ config ที่เร็ว
+ที่สุดเลิกเป็นของชั่วคราวเสียที

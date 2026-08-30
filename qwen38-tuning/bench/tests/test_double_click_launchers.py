@@ -171,11 +171,18 @@ def test_it_is_readable_by_cmd(path):
 
 # ---- the README is the first thing anyone reads, so it is a launcher too -----
 
+# TWO OF THEM SINCE 2026-08-31. `README.md` is Thai and is what GitHub renders;
+# `README.en.md` is English. They are mirrors, not a page and a summary, so
+# every rule below applies to BOTH -- a fact that only stays true if the tests
+# check both. The first version of this block checked one file and went green
+# while the other could say anything at all.
 README = os.path.join(ROOT, "README.md")
+README_EN = os.path.join(ROOT, "README.en.md")
+READMES = [README, README_EN]
 
 
 def test_the_readme_does_not_advertise_a_flag_serve_ps1_rejects():
-    """It did. "Just start it" showed `.\serve.ps1 -Follow` and
+    r"""It did. "Just start it" showed `.\serve.ps1 -Follow` and
     `-Lan -AllowFirewall -Follow` long after -Follow was removed with the
     detached design -- so the first command in the most-read file failed with a
     parameter error.
@@ -183,24 +190,43 @@ def test_the_readme_does_not_advertise_a_flag_serve_ps1_rejects():
     The same paragraph also said "Ctrl+C stops the watching, not the server",
     which is now exactly backwards: the server runs IN the window.
     """
-    readme = read(README)
     serve = read(os.path.join(ROOT, "serve.ps1"))
-    for flag in ("-Follow", "-Detach"):
-        if flag in readme:
-            assert flag in serve, (
-                "README.md tells the reader to pass %s and serve.ps1 does not "
-                "accept it" % flag)
+    for path in READMES:
+        readme = read(path)
+        for flag in ("-Follow", "-Detach"):
+            if flag in readme:
+                assert flag in serve, (
+                    "%s tells the reader to pass %s and serve.ps1 does not "
+                    "accept it" % (os.path.basename(path), flag))
 
 
-def test_the_readme_offers_the_two_card_launcher():
+@pytest.mark.parametrize("path", READMES, ids=["th", "en"])
+def test_the_readme_offers_the_two_card_launcher(path):
     """A profile nobody is told about is a file. #52 stage 5."""
-    readme = read(README)
-    assert "serve-dual.bat" in readme, (
-        "README.md does not mention the two-card launcher")
+    assert "serve-dual.bat" in read(path), (
+        "%s does not mention the two-card launcher" % os.path.basename(path))
 
 
-def test_the_readme_says_what_the_two_card_option_costs():
+@pytest.mark.parametrize("path", READMES, ids=["th", "en"])
+def test_the_readme_says_what_the_two_card_option_costs(path):
     """Same rule as the .bat headers: presenting it as a free upgrade makes the
-    developer's decision for them."""
-    readme = read(README).lower()
-    assert "quality" in readme
+    developer's decision for them.
+
+    `quality` is an identifier-shaped word in English and a concept in Thai, so
+    the Thai page carries the Thai word. Matching only the English string made
+    this test fail the moment the default README became Thai -- correctly, and
+    for the wrong reason: the page said the thing, in the language of the page.
+    """
+    body = read(path).lower()
+    assert "quality" in body or "คุณภาพ" in body, (
+        "%s does not say that quality is unmeasured" % os.path.basename(path))
+
+
+@pytest.mark.parametrize("path,other", [(README, "README.en.md"),
+                                        (README_EN, "README.md")],
+                         ids=["th->en", "en->th"])
+def test_each_readme_links_to_the_other(path, other):
+    """A reader who lands on the wrong language needs one click, not a search.
+    The link is the whole point of shipping two files rather than one."""
+    assert "(%s)" % other in read(path), (
+        "%s has no link to %s" % (os.path.basename(path), other))
