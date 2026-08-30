@@ -36,6 +36,7 @@ echo     9   Unsloth Studio's command line        BASELINE ONLY, 107,899
 echo     A   ... on Unsloth's own BINARY too      build 10679 vs our 10499
 echo     B   7 on Unsloth's BINARY, 200,704       build CONTESTED, unpaired
 echo     D   1 drafted by DFLASH2, 147,456       NOT faster; STEADIER, -950MiB
+echo     E   ... D on UNSLOTH's 0.3.0 source        UNVERIFIED, may abort
 echo.
 echo   BOTH CARDS, UD-Q4_K_XL  -- the artifact whose output we have used longest
 echo.
@@ -80,13 +81,13 @@ REM  here on 2026-08-29. choice restricts the keystroke itself, needs no Enter,
 REM  and cannot hand a broken value to the comparison below. It returns the
 REM  POSITION in the key list, so 1-6 line up with the printed numbers and Q
 REM  is 7.
-choice /c 123456789ABCDQ /n /m "  Choose 1-9, A-D, or Q to quit: "
+choice /c 123456789ABCDEQ /n /m "  Choose 1-9, A-E, or Q to quit: "
 set "SEL=%ERRORLEVEL%"
 
 REM  BOTH NAMES ARE SPELLED OUT, not built by appending "-lan" to a stem. A
 REM  constructed filename cannot be checked by anything until somebody presses
 REM  the key, and this file's whole job is to point at other files.
-if "%SEL%"=="14" goto :done
+if "%SEL%"=="15" goto :done
 if "%SEL%"=="1" (
     set "LOOP=serve-dual-nvfp4.bat"
     set "WIDE=serve-dual-nvfp4-lan.bat"
@@ -150,6 +151,11 @@ if "%SEL%"=="11" (
 if "%SEL%"=="13" (
     set "LOOP=serve-dual-nvfp4-dflash.bat"
     set "WIDE=serve-dual-nvfp4-dflash-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="14" (
+    set "LOOP=serve-dual-nvfp4-dflash-theirmirror.bat"
+    set "WIDE=serve-dual-nvfp4-dflash-theirmirror-lan.bat"
     goto :ask_lan
 )
 REM  Unreachable while choice guards the key list, and kept anyway: if that

@@ -124,6 +124,9 @@ param(
     [switch]$Clone,
     # Studio's llama-server instead of ours. Ours is build 10499, theirs
     # 10679. -Clone alone cannot separate their flags from their build.
+    # Unsloth's SOURCE with our mirror patch, built here -- NOT the binary they
+    # shipped. Requires -Dflash. See the profile for why it is not -TheirBuild.
+    [switch]$TheirMirror,
     [switch]$TheirBuild,
     [switch]$MaxCtx,
     [switch]$Mtp,
@@ -423,6 +426,11 @@ if ($Dflash) {
         exit 1
     }
     $profileArgs['Dflash'] = $true
+}
+if ($TheirMirror) {
+    if (-not $Dual)   { Write-Host "FATAL: -TheirMirror is a two-card configuration; pass -Dual too." -ForegroundColor Red; exit 1 }
+    if (-not $Dflash) { Write-Host "FATAL: -TheirMirror needs -Dflash." -ForegroundColor Red; exit 1 }
+    $profileArgs['TheirMirror'] = $true
 }
 if ($DflashN -ne 0) {
     if (-not $Dflash) {

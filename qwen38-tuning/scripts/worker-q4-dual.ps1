@@ -464,6 +464,18 @@ param(
     # already set aside. Nothing in the fitting arithmetic changes.
     [int]$DflashN = 0,
 
+    # Run DFlash2 on UNSLOTH'S SOURCE instead of ours -- their 0.3.0 tree with
+    # our mirror patch applied and built here. Requires -Dflash, because the one
+    # thing it offers is the one thing their shipped binary cannot do; without
+    # it this would be a second spelling of -TheirBuild.
+    #
+    # READ THE BANNER CAREFULLY LATER. It says
+    #   version: 0.3.0-dev (build 215, commit 9f55aee) ... Compiled by the Unsloth team
+    # `0.3.0-dev` and the Unsloth line are THEIRS. `build 215` and the commit are
+    # OUR repository's git, counted by their build system because the copied tree
+    # has no .git of its own. A log from this binary is NOT a log from 10499.
+    [switch]$TheirMirror,
+
     # Serve the NVFP4 artifact with the MTP head BAKED INTO IT, and the n-gram
     # retuned for that artifact. Measured +63.1 % [+58.3, +65.6] RESOLVED over
     # this profile's default at ctx 147,456 -- 39.4 / 42.6 / 42.6 against
@@ -602,6 +614,12 @@ $DFLASH_MAX_CTX     = 131072
 # block_size - 1, and the boot log prints block_size=8 for DFlash2.
 $DFLASH_N_MAX_CLAMP = 7
 $DFLASH_N_DEFAULT   = 2
+# Unsloth's SOURCE, our patch, our build. Their SHIPPED binary aborts at
+# ggml-backend-meta.cpp:543 the moment DFlash2 is asked for under -sm tensor
+# (issue #52, 5f87e12), so the tree was copied out of %USERPROFILE%\.unsloth,
+# patched with patches/dflash-mirror-output-b8472555.patch and built here.
+# NEVER the same thing as -TheirBuild, which runs what they shipped.
+$THEIR_MIRROR_EXE = "C:\AI\llama.cpp-unsloth-mirror\build-mirror\bin\llama-server.exe"
 # NVFP4's own ceiling for the DFlash2 pairing: 147,456 is the deepest MEASURED
 # point (results/nvfp4-dflash-147456-n4.jsonl, 1,450 MiB free). Nothing above it
 # has been tried with this pairing.
@@ -1044,6 +1062,36 @@ if (($budgets | Where-Object { $_ -lt 1024 }).Count -gt 0 -or $total -lt $demand
     }
 }
 
+if ($TheirMirror) {
+    if (-not $Dflash) {
+        Write-Host "FATAL: -TheirMirror exists to run DFlash2 on Unsloth's source." -ForegroundColor Red
+        Write-Host "  Without -Dflash it is a second spelling of -TheirBuild, and one" -ForegroundColor Yellow
+        Write-Host "  flag meaning two artifacts makes every later log ambiguous." -ForegroundColor Yellow
+        exit 1
+    }
+    if ($TheirBuild) {
+        Write-Host "FATAL: -TheirMirror and -TheirBuild are two different binaries." -ForegroundColor Red
+        Write-Host "  -TheirBuild runs what Unsloth SHIPPED, which aborts on DFlash2." -ForegroundColor Yellow
+        Write-Host "  -TheirMirror runs their source with our patch. Pick one." -ForegroundColor Yellow
+        exit 1
+    }
+    $Exe = $THEIR_MIRROR_EXE
+    # THE CPU-RUN FAULT. A llama-server that cannot find cudart64_13.dll reports
+    # no CUDA devices and serves happily from the CPU -- a believable slow number
+    # from the wrong hardware. The three runtime DLLs were copied beside this
+    # binary so it is self-contained, and this refuses if they went missing.
+    $needed = @('cudart64_13.dll', 'cublas64_13.dll')
+    $binDir = Split-Path $Exe -Parent
+    foreach ($d in $needed) {
+        if (-not (Test-Path (Join-Path $binDir $d))) {
+            Write-Host "FATAL: $d is not beside $Exe." -ForegroundColor Red
+            Write-Host "  Without it llama-server finds NO CUDA device and serves from" -ForegroundColor Yellow
+            Write-Host "  the CPU without saying so. Copy it from llama.cpp-mirror\build-mirror\bin." -ForegroundColor Yellow
+            exit 1
+        }
+    }
+}
+
 $tsArg = if ($Clone) {
     # Theirs, verbatim, from the argv of the server that was running on
     # 2026-08-30 00:11. 36/64 against our 33/67 -- and ours is derived
@@ -1119,6 +1167,14 @@ $specArg = if ($Nvfp4 -and $Beta) {
       '--spec-draft-n-max', "$(if ($DflashN -ne 0) { $DflashN } else { $DFLASH_N_DEFAULT })")
 } else {
     @('--spec-type', 'ngram-mod')
+}
+if ($TheirMirror) {
+    Write-Host "  binary    UNSLOTH's SOURCE (0.3.0), our mirror patch, built here." -ForegroundColor Yellow
+    Write-Host "            UNVERIFIED: this binary has never been seen to load DFlash2" -ForegroundColor Red
+    Write-Host "            under -sm tensor. If it aborts at ggml-backend-meta.cpp:543," -ForegroundColor Red
+    Write-Host "            the patch did not take and the run is not your fault." -ForegroundColor Red
+    Write-Host "            Its banner reads 'build 215, commit ...' -- that build number" -ForegroundColor Yellow
+    Write-Host "            is OUR repository's git, not theirs. It is NOT 10499." -ForegroundColor Yellow
 }
 if ($Dflash -and $Nvfp4) {
     Write-Host "  decoder   draft-dflash + ngram-mod ON NVFP4 -- NOT a speedup." -ForegroundColor Yellow

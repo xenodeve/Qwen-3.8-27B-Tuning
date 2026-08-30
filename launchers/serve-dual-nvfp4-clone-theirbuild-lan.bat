@@ -49,7 +49,7 @@ REM        - CPU     : 13th Gen Intel(R) Core(TM) i5-13500
 REM
 REM  and no CUDA device at all -- then serves, from the CPU, at a speed somebody
 REM  would write down. Studio prepends the loader path itself, and CUDA 13 keeps
-REM  cudart64_13.dll in %%CUDA_PATH%%ind rather than in. The profile
+REM  cudart64_13.dll in %%CUDA_PATH%%\bin\x64 rather than \bin. The profile
 REM  prepends both and REFUSES to launch if it cannot find the runtime, because
 REM  a warning would be read past and the number would look fine.
 REM
