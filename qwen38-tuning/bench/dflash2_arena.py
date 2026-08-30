@@ -421,6 +421,46 @@ NVFP4_DFLASH_65536 = [
 ]
 
 
+# ---- 2026-08-30: the SAME arm at MTP's depth, issue #50 ---------------------
+#
+# `nvfp4-dflash-65536` settled that DFlash2 works on NVFP4: +67.9 %
+# [+65.8, +71.5] RESOLVED over the incumbent, acceptance 50.0 against the
+# discredited run's 22.1. What it could NOT do is compare DFlash2 to MTP, whose
+# NVFP4 figures are at 147,456 -- a different depth and a different boot.
+#
+# ONE ARM, WHICH THIS BENCH NORMALLY REFUSES. The three-arm rotation was
+# declined: MTP has been measured repeatedly at this exact setting. Checked
+# rather than accepted, and the check is what makes this admissible:
+#
+#   nvfp4-final-147456.jsonl         nvfp4-mtp+nm24   39.43 / 42.61 / 42.55
+#   nvfp4-ngram-retune-147456.jsonl  mtp+nm24         43.10 / 42.99 / 42.93
+#
+# Six rounds, TWO INDEPENDENT BOOT SERIES, same artifact, depth, window and
+# n_max. Five of six fall in 42.5-43.1 and the full range spans 9.3 %.
+# CORRECTIONS 23 measures up to 48.9 % same-arm drift at depth and that is how
+# +26 % happened -- but this comparator does not have that spread. Comparing
+# across boots to a six-round, two-series, 9.3 % comparator is a different act
+# from comparing to one reading, and the write-up must say which it is.
+#
+# EVERYTHING MTP'S ROWS HELD IS HELD HERE. The only differences are the decoder
+# and --spec-draft-n-max: 3 for MTP, 4 for DFlash2, each its own measured best.
+# nextn_predict_layers = 1 and block_size = 8 do not mean the same thing, so
+# matching the two would match a number rather than a setting.
+#
+# THE RISK, BEFORE THE RUN. At 65,536 this arm finished with 2,828 MiB free.
+# 147,456 adds about 1,440 MiB of KV at 18.00 KiB/token and n_max 2 -> 4 adds
+# 299 more, leaving roughly 1,100. The earlier 147,456 DFlash2 run used n_max 2
+# and loaded. If this fails to load, THAT is the result and the fallback is 2.
+NVFP4_DFLASH_147456 = [
+    ("nvfp4-dflash+ngram nm24 n4",
+     DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                    "--spec-type", "draft-dflash,ngram-mod",
+                    "-md", DFLASH_SMALL, "-ngld", "99",
+                    "--spec-draft-n-max", "4"] + _ngram(16, n_match=24),
+     {ENV_VAR: MIRROR_EXE, "CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+]
+
+
 TENSOR_DRAFT_DEPTH = [
     ("ngram-mod", _tensor_arm("ngram-mod", []), MIRROR_ENV),
     # NO -md: the nextn head is inside UD-Q4_K_XL.
@@ -441,6 +481,7 @@ ARM_SETS = {
     "layer-pairings": LAYER_PAIRINGS,
     "tensor-draft-depth": TENSOR_DRAFT_DEPTH,
     "nvfp4-dflash-65536": NVFP4_DFLASH_65536,
+    "nvfp4-dflash-147456": NVFP4_DFLASH_147456,
 
     # `GGML_CUDA_GRAPH_OPT` -- NEVER RUN HERE. An optimisation that is off
     # unless asked for, and nothing in this project has ever asked.
