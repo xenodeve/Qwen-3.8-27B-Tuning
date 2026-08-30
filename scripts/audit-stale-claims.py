@@ -249,6 +249,20 @@ RULES = [
      "been run",
      "CORRECTIONS.md 40 and 41"),
 
+    ("dflash-has-no-case-on-nvfp4",
+     r"DFlash2 has no case on (this|the NVFP4) artifact|"
+     r"dflash.{0,30}\+0\.2 %|"
+     r"\+0\.2 %.{0,30}sign flips",
+     "that verdict is WITHDRAWN as overstated. It rested on one run "
+     "(results/nvfp4-dflash-147456.jsonl) that gave DFlash2 none of the three "
+     "things it is known to want: ctx 147,456 -- above its 131,072 ceiling and "
+     "more than twice its measured best of 65,536 -- --spec-draft-n-max 3 "
+     "against the 4 measured best, and n-match 12, the window this project "
+     "records COLLAPSING on NVFP4 (acceptance 55.4 -> 22.1) while 24 wins. A "
+     "handicapped arm losing is not evidence the decoder loses. See issue #50 "
+     "and results/nvfp4-dflash-65536.jsonl for the re-measurement",
+     "OPEN-WORK-LEDGER.md, issue #50"),
+
     ("build-ab-measured-null",
      r"(the )?build (measured|is worth) (NULL|null|nothing)|"
      r"\+?26 %.{0,40}(REFUTED|refuted)|"

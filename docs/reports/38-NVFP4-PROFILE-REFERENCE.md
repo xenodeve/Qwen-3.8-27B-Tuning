@@ -182,7 +182,14 @@ across boots.
 - This artifact's MTP head **does not copy the prompt**: `copied_frac
   [0.0, 0.0, 0.0]` against `[0.519, 0.0, 0.23]` for Unsloth's head at the same
   depth. A question open for weeks; the copying belongs to the artifact.
-- `draft-dflash` beside it is **+0.2 % and the sign flips** — no case here.
+- `draft-dflash` beside it read **+0.2 % with the sign flipping**, and
+  *"no case here"* is **WITHDRAWN as overstated, 2026-08-30**. That arm ran
+  at ctx 147,456 — above DFlash2's 131,072 ceiling on the other artifact and
+  more than twice its measured best of 65,536 — at `--spec-draft-n-max 3`
+  rather than the 4 since measured best, and with `n-match 12`, the window
+  the line above records collapsing on this very artifact. **A handicapped
+  arm losing is not evidence the decoder loses.** Re-measured at 65,536 /
+  n_max 4 / n-match 24: `results/nvfp4-dflash-65536.jsonl`, issue #50.
 
 **Depth, one boot per rung with a half-window request:**
 
