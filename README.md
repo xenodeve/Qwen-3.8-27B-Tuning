@@ -1,11 +1,20 @@
 # C:\AI — Local Coding Worker
 
-A Qwen3.8-27B coding agent running on one **RTX 5060 Ti (16 GB)**.
+A Qwen3.8-27B coding agent running on **two consumer cards in one desktop** —
+an **RTX 5060 Ti 16 GB** (Blackwell, `sm_120`) beside an **RTX 4070 SUPER 12 GB**
+(Ada, `sm_89`), 28 GB of VRAM between them. Everything measured here is on that
+pair, split with `-sm tensor`.
 
-> **The card changed on 2026-08-23.** It was an RTX 4070 SUPER 12 GB, and
-> **every measurement in this repo predating that date was taken on the old
-> card.** What transfers and what does not:
+> **Two changes, and both invalidate older numbers.**
+>
+> **2026-08-23 — the second card arrived.** Before that this was one RTX 4070
+> SUPER 12 GB, and **every measurement predating that date was taken on the old
+> single card.** What transfers and what does not:
 > [`docs/results/09-hardware.md`](docs/results/09-hardware.md).
+>
+> **The 4070 SUPER also drives the display**, so its free VRAM moves with
+> whatever is on screen. That is not a footnote: the launch profiles compute
+> the split from free VRAM at boot and **refuse to start rather than spill**.
 
 Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 
@@ -17,15 +26,16 @@ window — there is one process, not a server beside a log-watcher.
 
 **Double-click [`serve-hub.bat`](serve-hub.bat).** It is the only `.bat` at the
 top of this repository, and it asks two questions — which server, and whether to
-expose it — then hands off to one of the twelve in
+expose it — then hands off to one of the fourteen in
 [`launchers/`](launchers/). It holds no flags of its own; it only picks a file.
 
-The twelve still work if you open that folder and double-click one directly.
+The fourteen still work if you open that folder and double-click one directly.
 They are listed below so you can see what the hub is choosing between, not
 because you have to choose that way.
 
-**Twelve icons.** Two families, because the choice is really *which artifact*
-first and *which window* second.
+**Fourteen icons, in three families.** The choice is really *which artifact*
+first, *which window* second, and — for the newest five — *which of the four
+llama-server binaries on this machine*.
 
 **The `UD-Q4_K_XL` family — what has been served all along.**
 
@@ -137,6 +147,18 @@ from **55.4 to 22.1** on this file — it writes text the predictor cannot
 anticipate, which is evidence it writes *differently*. Whether differently is
 worse is exactly what nobody knows.
 
+**Five newer icons are not in the tables above, and each one is an experiment
+rather than a recommendation.** They are listed in `serve-hub.bat` with their
+evidence written into the head of every `.bat`, which is where the detail lives:
+
+| icon | what it is | status |
+|---|---|---|
+| `serve-dual-dflash-n4.bat` | DFlash2 at `--spec-draft-n-max 4`, the measured best; **7 is 6.5 % worse** and 308 MiB dearer | measured |
+| `serve-dual-nvfp4-dflash.bat` | NVFP4 drafted by DFlash2 instead of its own head. **+67.9 % at 65,536**; at the served 147,456 it is +4.0 %, under the noise floor — what it buys there is **consistency, 0.7 % spread against 9.3 %**, for ~950 MiB | measured, not a speedup |
+| `serve-dual-nvfp4-dflash-theirmirror.bat` | the same thing on **Unsloth's 0.3.0 source** with our mirror patch applied — a fourth binary | boots; unpaired |
+| `serve-dual-nvfp4-beta*.bat` | nine settings borrowed whole from Unsloth Studio | one boot per side |
+| `serve-dual-nvfp4-clone*.bat` | Studio's whole command line as a baseline, with **six deliberate deviations** listed in the file | baseline |
+
 **The `dflash` pair is more than twice as fast and gives up half the window.**
 Measured 2026-08-27, three paired rounds on real vendor code at ctx 65,536:
 **65.1 / 64.3 / 63.8 tok/s against 29.0 / 29.0 / 28.4** for the `ngram-mod` the
@@ -191,7 +213,7 @@ unable to say afterwards which one had answered. **A client configured with the
 old name needs updating** — that string is all this rename changes; no file on
 disk moved and no measured row means anything different.
 
-From a terminal, the same six with flags:
+From a terminal, with flags:
 
 **The `dual` and `dual-mtp` launchers serve the deepest window that fits**, capped at
 the model's own `n_ctx_train` of 262,144. It is **computed at launch, not
@@ -222,7 +244,7 @@ run with **336 MiB** free died on its first request, one with **488** survived
 .\serve.ps1 -Dual -WhatIf            # print what it would run, touch nothing
 ```
 
-That is the whole answer. `qwen38-tuning/scripts/` holds **58 `.ps1` files** and
+That is the whole answer. `qwen38-tuning/scripts/` holds **62 `.ps1` files** and
 several of them serve artifacts that stopped being the default at windows that
 stopped being the answer; nothing in the tree said which was current.
 [`serve.ps1`](serve.ps1) resolves the profile the evidence supports, **refuses to
@@ -252,8 +274,8 @@ open. Everything else is the detail behind it.
 ---
 
 **Before quoting any number:** [`docs/reports/CORRECTIONS.md`](docs/reports/CORRECTIONS.md)
-lists twenty-eight claims this project published and later contradicted with its own
-measurements.
+lists **forty-three** claims this project published and later contradicted with
+its own measurements.
 
 ---
 
@@ -263,13 +285,13 @@ measurements.
 C:\AI\
 ├── README.md                  ← you are here
 ├── docs\                      what we know          → docs/README.md
-│   ├── reports\               findings, numbered 00-32
+│   ├── reports\               findings, numbered 00-39
 │   ├── results\               the register — has X been tried, what happened
 │   ├── plans\                 what we intend to run next
 │   └── researchs\             external material, NOT our measurements
 ├── scripts\                   tools for the docs map → scripts/README.md
 └── qwen38-tuning\             the machine           → qwen38-tuning/README.md
-    ├── bench\                 the harness (329 tests)
+    ├── bench\                 the harness (1,435 tests)
     ├── scripts\               launch profiles and unattended queues
     ├── results\               raw JSONL, one row per boot
     ├── logs\                  server and driver logs
@@ -294,7 +316,7 @@ first.** If you land somewhere and are unsure, read that folder's README.
    lock. An armed queue once killed a running corpus and the summary still
    printed a plausible number.
 3. **Run the test gate before trusting any measurement:**
-   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — 329 tests.
+   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — 1,435 tests.
 
 Twelve more in [`docs/reports/04-MEASUREMENT-METHODOLOGY.md`](docs/reports/04-MEASUREMENT-METHODOLOGY.md) §7,
 each of which produced a believable wrong number.
