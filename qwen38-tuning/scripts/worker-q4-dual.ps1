@@ -602,6 +602,12 @@ $DFLASH_MAX_CTX     = 131072
 # block_size - 1, and the boot log prints block_size=8 for DFlash2.
 $DFLASH_N_MAX_CLAMP = 7
 $DFLASH_N_DEFAULT   = 2
+# NVFP4's own ceiling for the DFlash2 pairing: 147,456 is the deepest MEASURED
+# point (results/nvfp4-dflash-147456-n4.jsonl, 1,450 MiB free). Nothing above it
+# has been tried with this pairing.
+$NVFP4_DFLASH_MAX_CTX = 147456
+# DFlash2's measured best draft depth, 2026-08-30. -DflashN overrides it.
+$NVFP4_DFLASH_N       = 4
 $DFLASH_EXE = "C:\AI\llama.cpp-mirror\build-mirror\bin\llama-server.exe"
 $STUDIO_EXE = Join-Path $env:USERPROFILE '.unsloth\llama.cpp\build\bin\Release\llama-server.exe'
 $DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
@@ -649,10 +655,16 @@ $NVFP4_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
     "\snapshots\bcd7a7d3e251d4ec0fd15c72584b5eb9e0981383" +
     "\Qwen3.8-27B-NVFP4-MTP-VERY-LOW.gguf"
 if ($Nvfp4) {
-    if ($Dflash -or $Mtp) {
-        Write-Host "FATAL: -Nvfp4 already carries a drafter; -Dflash and -Mtp are others." -ForegroundColor Red
-        Write-Host "  The MTP head is INSIDE this model file. -Dflash would also need" -ForegroundColor Yellow
-        Write-Host "  the patched binary, which this configuration does not use." -ForegroundColor Yellow
+    # -Dflash IS allowed here from 2026-08-30. It was refused while the only
+    # evidence was +0.2 % with the sign flipping -- a run that gave DFlash2 ctx
+    # 147,456 against its best of 65,536, n_max 3 against 4, and n-match 12,
+    # the window this artifact collapses on. Re-measured: +67.9 % RESOLVED over
+    # ngram-mod at 65,536, and 44.48/44.56/44.23 at 147,456 against MTP's pooled
+    # 42.77. -Mtp stays refused: the head is already in the file.
+    if ($Mtp) {
+        Write-Host "FATAL: -Nvfp4 already carries the MTP head INSIDE the model file." -ForegroundColor Red
+        Write-Host "  -Mtp would ask for a second copy of what is already there." -ForegroundColor Yellow
+        Write-Host "  -Dflash is the drafter that WAS measured on this artifact." -ForegroundColor Yellow
         exit 1
     }
     if ($MaxCtx) {
@@ -692,8 +704,19 @@ if ($Dflash) {
         Write-Host "  147,456 LOADS, answers /health, and dies on the first real request." -ForegroundColor Yellow
         exit 1
     }
-    if ($Ctx -gt $DFLASH_MAX_CTX) { $Ctx = $DFLASH_MAX_CTX }
-    if ($UBatch -gt 512)          { $UBatch = 512 }
+    # THESE TWO CAPS ARE UD-Q4_K_XL's, and must not leak onto NVFP4. 131,072 is
+    # that artifact's ceiling because 147,456 loads there and dies on the first
+    # real request. NVFP4 is about 5 GB smaller and 147,456 was MEASURED working
+    # with this pairing, finishing with 1,450 MiB
+    # (results/nvfp4-dflash-147456-n4.jsonl). Applying the Q4 cap here would
+    # silently serve a shallower window than the evidence covers -- and nothing
+    # ABOVE 147,456 has been measured with it either, so that is the NVFP4 cap.
+    if ($Nvfp4) {
+        if ($Ctx -gt $NVFP4_DFLASH_MAX_CTX) { $Ctx = $NVFP4_DFLASH_MAX_CTX }
+    } else {
+        if ($Ctx -gt $DFLASH_MAX_CTX) { $Ctx = $DFLASH_MAX_CTX }
+        if ($UBatch -gt 512)          { $UBatch = 512 }
+    }
     $Exe = $DFLASH_EXE
 }
 # The clamp is llama.cpp's, at speculative.cpp:989 -- block_size - 1, and this
@@ -1071,6 +1094,15 @@ $draftN = '3'
 # workloads; this repository has measured only one of the two.
 $specArg = if ($Nvfp4 -and $Beta) {
     @('--spec-type', 'draft-mtp', '--spec-draft-n-max', $draftN)
+} elseif ($Nvfp4 -and $Dflash) {
+    # The head in the file is IGNORED and DFlash2 drafts instead. Measured
+    # 2026-08-30: +67.9 % over ngram-mod at 65,536 (RESOLVED), and level with
+    # the head at 147,456 -- 44.48/44.56/44.23 against a pooled 42.77 -- while
+    # spending about 950 MiB more headroom. The n-gram window is NOT touched:
+    # 24 is this artifact's own, and 12 collapses here.
+    @('--spec-type', 'draft-dflash,ngram-mod',
+      '-md', $DFLASH_MODEL, '-ngld', '99',
+      '--spec-draft-n-max', "$(if ($DflashN -ne 0) { $DflashN } else { $NVFP4_DFLASH_N })")
 } elseif ($Nvfp4) {
     # The head is in the file; no -md, no second model on any device.
     @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', $draftN)
@@ -1088,7 +1120,17 @@ $specArg = if ($Nvfp4 -and $Beta) {
 } else {
     @('--spec-type', 'ngram-mod')
 }
-if ($Dflash) {
+if ($Dflash -and $Nvfp4) {
+    Write-Host "  decoder   draft-dflash + ngram-mod ON NVFP4 -- NOT a speedup." -ForegroundColor Yellow
+    Write-Host "            At this depth it is +4.0 % over the head already in the file," -ForegroundColor Yellow
+    Write-Host "            which is UNDER the 13.6 % floor and measured across boots." -ForegroundColor Yellow
+    Write-Host "            What it buys is STEADINESS: spread 0.7 % against 9.3 %." -ForegroundColor Green
+    Write-Host "            What it costs is about 950 MiB of headroom -- 1,450 free" -ForegroundColor Yellow
+    Write-Host "            against 2,400 for the baked-in head." -ForegroundColor Yellow
+    Write-Host "            PATCHED BINARY, reviewed by nobody outside this project." -ForegroundColor Yellow
+    Write-Host "            Deepest MEASURED with this pairing: ${NVFP4_DFLASH_MAX_CTX}." -ForegroundColor Yellow
+}
+if ($Dflash -and -not $Nvfp4) {
     Write-Host "  decoder   draft-dflash + ngram-mod -- +123.8 % over ngram-mod at ctx 65,536." -ForegroundColor Green
     Write-Host "            PATCHED BINARY, reviewed by nobody outside this project." -ForegroundColor Yellow
     Write-Host "            Window capped at ${DFLASH_MAX_CTX} -- 147,456 loads and then dies." -ForegroundColor Yellow

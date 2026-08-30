@@ -172,11 +172,38 @@ def test_the_window_is_capped_at_the_measured_ceiling():
     assert re.search(r"-c\s+200704", out), out
 
 
-def test_it_refuses_the_other_two_drafters():
-    """draft-mtp is already inside this file; the others are different models."""
-    for other in ("-Dflash", "-Mtp"):
-        out = _whatif(PROFILE, "-Nvfp4", other)
-        assert "FATAL" in out, (other, out)
+def test_it_refuses_a_SECOND_mtp_head():
+    """`draft-mtp` is already inside this file; asking for it again is asking
+    for a second copy of what is there."""
+    out = _whatif(PROFILE, "-Nvfp4", "-Mtp")
+    assert "FATAL" in out, out
+
+
+def test_dflash_is_ALLOWED_here_since_it_was_measured():
+    """CHANGED 2026-08-30, and the change is the point.
+
+    This assertion used to require FATAL for `-Dflash` too, and that was right
+    while the only evidence was +0.2 % with the sign flipping. That run gave
+    DFlash2 ctx 147,456 against its measured best of 65,536, `n_max` 3 against
+    4, and `n-match` 12 -- a window this project records collapsing on this
+    very artifact, acceptance 55.4 -> 22.1.
+
+    Re-measured: +67.9 % [+65.8, +71.5] RESOLVED over `ngram-mod` at 65,536,
+    and 44.48 / 44.56 / 44.23 at 147,456 against the head's pooled 42.77.
+    `results/nvfp4-dflash-65536.jsonl`, `results/nvfp4-dflash-147456-n4.jsonl`,
+    issue #50. The refusal was encoding a handicapped measurement.
+
+    It is allowed, not preferred: `serve-dual-nvfp4.bat` still serves the head,
+    and the launcher for this one says in its own text that it is NOT faster.
+    """
+    out = _whatif(PROFILE, "-Nvfp4", "-Dflash")
+    assert "FATAL" not in out, out
+    assert "draft-dflash,ngram-mod" in out, out
+
+
+def test_both_drafters_at_once_are_still_refused():
+    out = _whatif(PROFILE, "-Nvfp4", "-Dflash", "-Mtp")
+    assert "FATAL" in out, out
 
 
 def test_maxctx_with_nvfp4_is_refused():
