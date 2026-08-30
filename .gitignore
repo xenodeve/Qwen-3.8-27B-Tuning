@@ -46,3 +46,9 @@ logs/llama-tap/
 qwen38-tuning/logs/llama-tap/
 logs/llama-slots/
 qwen38-tuning/logs/llama-slots/
+
+# Copied third-party source trees, built locally. The PATCH is tracked
+# (qwen38-tuning/patches/) and the build script rebuilds the tree from
+# %USERPROFILE%\.unsloth; the 418 MB of sources and ~2 GB of objects are not
+# ours to carry.
+/llama.cpp-unsloth-mirror/

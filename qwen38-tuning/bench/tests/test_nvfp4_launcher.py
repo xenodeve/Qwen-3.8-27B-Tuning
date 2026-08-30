@@ -197,7 +197,10 @@ def test_dflash_is_ALLOWED_here_since_it_was_measured():
     and the launcher for this one says in its own text that it is NOT faster.
     """
     out = _whatif(PROFILE, "-Nvfp4", "-Dflash")
-    assert "FATAL" not in out, out
+    # The SPECIFIC refusal, not any FATAL. The budget guard also says FATAL
+    # when another process holds the cards, and that is a fact about the
+    # machine this minute rather than about whether the combination is allowed.
+    assert "already carries a drafter" not in out, out
     assert "draft-dflash,ngram-mod" in out, out
 
 

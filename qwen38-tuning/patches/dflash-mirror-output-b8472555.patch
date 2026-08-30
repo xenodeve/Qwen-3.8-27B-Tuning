@@ -1,0 +1,81 @@
+# Mirror the output projection so DFlash2 loads under -sm tensor.
+#
+# TREE   unslothai/llama.cpp, source commit b8472555738ca1d8782e56717ffa4095031ad4a1
+#        release tag b10679-mix-67dfc8b, shipped by Unsloth Studio
+# DATE   2026-08-30
+# ISSUE  #52
+#
+# The same change qwen38-tuning/patches/dflash-mirror-output-1deefcca3.patch
+# carries against build 10499, ported. Without it their binary aborts the
+# moment DFlash2 is asked for under -sm tensor:
+#
+#     ggml-backend-meta.cpp:543
+#     GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0) failed
+#
+# output.weight maps to SPLIT_AXIS_1, which spreads the VOCABULARY across the
+# devices; the logits are then axis 0 and TOP_K needs a whole row.
+#
+# Their tree already has an is_dsv4 branch that mirrors this tensor, and it
+# already names LLM_ARCH_DFLASH -- but it also requires hparams.dsv4_hc_mult>0,
+# which this drafter does not set. Widening that condition is NOT the fix
+# either: the failing logits belong to the TARGET (qwen35), which is why the
+# same mistake on build 10499 changed nothing. The condition is dropped.
+#
+# APPLY   cd <copy of their tree>  &&  patch -p1 < this-file
+#         Never against %USERPROFILE%\.unsloth -- that tree is what Studio runs.
+# BUILD   qwen38-tuning/scripts/build-unsloth-mirror.cmd
+#
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -580,16 +580,44 @@
+         }
+ 
+         // output
++        //
++        // PATCH (local, not upstream): mirror the output projection so the
++        // DFlash2 drafter can be loaded beside a target under -sm tensor. This
++        // is the same change carried in C:\AI\llama.cpp-mirror against build
++        // 10499, ported to build 10679 on 2026-08-30.
++        //
++        // WHAT FAILS WITHOUT IT. Unpatched, output.weight maps to
++        // SPLIT_AXIS_1, which distributes the VOCABULARY across the devices.
++        // The logits are then axis 0, TOP_K needs a whole row to find a
++        // maximum, and handle_per_row trips
++        //     ggml-backend-meta.cpp:543
++        //     GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0)
++        // Observed on this exact binary on 2026-08-30 at ctx 16,384 with
++        // -sm tensor -- the lowest memory pressure the configuration reaches --
++        // so it is structural, not an allocation failure.
++        //
++        // WHY THE EXISTING is_dsv4 GUARD IS NOT ENOUGH, even though it already
++        // covers LLM_ARCH_DFLASH: it requires hparams.dsv4_hc_mult > 0, which
++        // this drafter does not set. And more importantly THE FAILING LOGITS
++        // BELONG TO THE TARGET (qwen35), not to the drafter -- which is why our
++        // first attempt at build 10499, scoped to LLM_ARCH_DFLASH, changed
++        // nothing at all and the drafter's Meta() buffer stayed byte-identical.
++        // So the condition is dropped rather than widened.
++        //
++        // UPSTREAM ALREADY MIRRORS THIS TENSOR FOR ONE ARCHITECTURE -- the
++        // is_dsv4 branch replaced here. This widens an accepted exception; it
++        // does not invent one.
++        //
++        // IT IS NOT FREE AND IT IS NOT COMPARISON-SAFE. Mirroring duplicates
++        // the full vocabulary head on both cards (about 1,080 MiB measured on
++        // build 10499) and it changes the split of every model this binary
++        // loads. A rate from this binary may not be compared with one from the
++        // stock 10679.
+         if (std::regex_match(tensor_name, pattern_output_weight)) {
+-            if (is_dsv4) {
+-                return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+-            }
+-            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_1);
++            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+         }
+         if (std::regex_match(tensor_name, pattern_output_bias)) {
+-            const ggml_tensor * output_weight = ud->model->get_tensor("output.weight");
+-            GGML_ASSERT(output_weight != nullptr);
+-            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_0);
++            return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+         }
+ 
+         // everything else

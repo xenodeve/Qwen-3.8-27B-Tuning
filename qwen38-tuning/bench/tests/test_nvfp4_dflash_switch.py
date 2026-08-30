@@ -140,9 +140,20 @@ def test_it_runs_the_patched_mirror():
 
 
 def test_it_keeps_the_tensor_split_with_a_ratio():
-    line, _ = preview("-Nvfp4", "-Vision", "-Dflash")
+    """`-ts` is computed from FREE VRAM at launch, so its digits are a fact
+    about this minute's desktop, not about the switch. When something else
+    holds the cards the budget goes negative, the profile prints FATAL and --
+    under -WhatIf only, deliberately -- previews anyway. A real launch exits 1.
+    Asserting `\d+,\d+` made this test fail whenever a server was running,
+    which is a property of the machine and not of the code under test."""
+    line, out = preview("-Nvfp4", "-Vision", "-Dflash")
     assert val(line, "-sm") == "tensor", line
-    assert re.search(r"-ts \d+,\d+", line), line
+    m = re.search(r"-ts (-?\d+),(-?\d+)", line)
+    assert m, line
+    if "does not fit without spilling" in out:
+        pytest.skip("the cards are busy; the budget is negative and a real "
+                    "launch would be refused -- nothing about -Dflash to test")
+    assert int(m.group(1)) > 0 and int(m.group(2)) > 0, line
 
 
 # ----------------------------------- the Q4 ceiling must not leak onto this path
