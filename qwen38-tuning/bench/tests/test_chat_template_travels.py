@@ -189,3 +189,65 @@ def test_it_differs_from_the_served_artifacts_own_template_by_one_line():
 def test_serve_forwards_the_switch():
     out = _whatif(SERVE, "-Dual", "-Nvfp4", "-Vision", "-StockTemplate")
     assert re.search(r"StockTemplate\s+True", out), out
+
+# ------------------------------------------- the other six profiles, issue #58
+
+# `worker-q4-dual.ps1` lost the flag because it ASSEMBLES its argv from pieces
+# and two of those pieces forgot. The other six build one flat command line with
+# the flag as a literal, and every conditional in them is a preflight guard that
+# `exit 1`s rather than a branch that edits argv -- checked one by one on
+# 2026-08-31, so none of them can lose it the way the dual profile did.
+#
+# THEY STILL GET A TEST, because "cannot lose it by construction" is a property
+# of today's construction. Deleting or commenting out one line is all it takes,
+# and the failure is silent until a client sees HTTP 500. The dual profile got a
+# runtime guard; these get this.
+FLAT_PROFILES = [
+    "worker-5060ti.ps1",
+    "worker-iq2s-2slot.ps1",
+    "worker-iq2s-fast.ps1",
+    "worker-iq2s-quality.ps1",
+    "worker-iq2xxs-deep.ps1",
+    "worker-q2kxl-mtp.ps1",
+]
+SCRIPTS = os.path.join(ROOT, "qwen38-tuning", "scripts")
+
+
+def _live_lines(path):
+    """The script minus comments. A flag inside a `#` line is documentation and
+    does not reach llama-server -- which is exactly how this would regress."""
+    out = []
+    for line in io.open(path, encoding="utf-8", errors="replace").read().splitlines():
+        s = line.strip()
+        if s.startswith("#") or s.startswith("<#") or s.startswith("."):
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+@pytest.mark.parametrize("name", FLAT_PROFILES)
+def test_every_other_profile_ships_the_template(name):
+    path = os.path.join(SCRIPTS, name)
+    assert os.path.isfile(path), path
+    live = _live_lines(path)
+    assert "--chat-template-file" in live, (
+        name, "the flag is gone from the command line, or only in a comment")
+    assert "qwen38-late-system.jinja" in live, name
+
+
+@pytest.mark.parametrize("name", FLAT_PROFILES + ["worker-q4-dual.ps1"])
+def test_the_template_path_each_profile_names_exists(name):
+    """A renamed template file would break every launch and nothing would say so
+    until a server was started. These paths are literals; nothing resolves them
+    until PowerShell does."""
+    body = _live_lines(os.path.join(SCRIPTS, name))
+    # Two shapes: the flag followed by a literal, and `worker-q4-dual.ps1`,
+    # which names the path once in $TEMPLATE_FILE and passes the variable. A
+    # test that only knew the first shape would report the dual profile has no
+    # template at all -- which is the opposite of true.
+    m = (re.search(r'--chat-template-file[",\s]+"?([^"\n`]+\.jinja)', body)
+         or re.search(r'\$TEMPLATE_FILE\s*=\s*"([^"\n]+\.jinja)"', body))
+    assert m, (name, "no template path found on the command line")
+    raw = m.group(1).strip()
+    resolved = raw.replace("$PSScriptRoot", SCRIPTS)
+    assert os.path.isfile(resolved), (name, raw, resolved)
