@@ -258,13 +258,34 @@ def test_beta_uses_the_models_own_template_with_kwargs():
     -- the exact default `test_reasoning_effort_default.py` exists to end,
     restored by a switch, with decode healthy the whole time. Only the template
     FILE is Studio's to omit. See CORRECTIONS 36.
+
+    AND THEN IT GOT THE TEMPLATE WRONG TOO, 2026-08-31, issue #58. "Only the
+    template FILE is Studio's to omit" is true about STUDIO and false about
+    what we can serve. Studio omits it safely because Studio's client never
+    sends a system message after the user turn; Claude Code sends one every
+    session, and without the patched file Qwen3.8's own template RAISES on it.
+    Five hub icons answered HTTP 500 to every request -- fifteen in a row in
+    `logs/serve-20260831-023636.log` -- because this assertion was read as "the
+    omission belongs to -Beta" rather than "the omission belongs to whoever
+    asks for it".
+
+    So the omission moved to `-StockTemplate` and this test now asks for it by
+    name. `-Beta` alone carries the template, which is what the two assertions
+    below the docstring check. The sweep that keeps EVERY icon honest lives in
+    `test_chat_template_travels.py`; two branches is one fewer than the number
+    that can break.
     """
-    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
+    out = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta", "-StockTemplate")
     assert "--chat-template-file" not in out, out
     assert re.search(r"--reasoning-effort\s+medium", out), out
     assert "--chat-template-kwargs" not in out, "deprecated on this build"
     assert re.search(r"--reasoning\s+on", out), out
     assert "--reasoning-preserve" in out, out
+
+    # -Beta WITHOUT the switch keeps the template. This is the line whose
+    # absence cost five icons every Claude Code request (issue #58).
+    plain = _whatif(PROFILE, "-Nvfp4", "-Deep", "-Beta")
+    assert "qwen38-late-system.jinja" in plain, plain
 
 
 def test_without_beta_the_template_file_is_still_used():

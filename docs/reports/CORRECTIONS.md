@@ -1770,6 +1770,97 @@ rewording cannot slip past on distance alone.
 
 **Guarded by** `scripts/audit-stale-claims.py`, rule `dflash-has-no-case-on-nvfp4`.
 
+## 43. "Only the template FILE is Studio's to omit" — true about Studio, false about what we can serve
+
+**The claim**, written into `bench/tests/test_beta_profile.py` on 2026-08-29 as
+the closing line of the docstring that fixed [§36](#36):
+
+> Only the template FILE is Studio's to omit.
+
+It was the conclusion of getting the *opposite* mistake right. `-Beta` had
+dropped `--reasoning-effort` to match Unsloth Studio's command line, and served
+at `xhigh` for an afternoon because Studio sends the effort in every **request**
+and no client of ours does. The lesson drawn was: restore the effort, keep the
+template omission. **Half of it was correct.**
+
+### What the omission actually does
+
+Qwen3.8's own chat template counts the contiguous leading run of `system` and
+`developer` messages (line 47) and **raises** on any that appear later:
+
+```jinja
+line 110:  {{- raise_exception('System message must be at the beginning.') }}
+```
+
+Claude Code sends exactly that — its `SessionStart` hook output arrives as a
+`role: "system"` message of 25–33 KB appended after the user turn. Issue #4
+fixed it on 2026-08-21 with `templates/qwen38-late-system.jinja`, the model's own
+template with that one line rendering an ordinary system turn instead.
+
+**Studio omits the file safely because Studio's client never sends a late system
+message. Ours does.** Copying the omission does not reproduce a command line; it
+reproduces a client incompatibility. **That is §36's mechanism exactly, a second
+time, on the same switch.**
+
+### What it cost
+
+`--chat-template-file` lived inside the `else` branch of `-Beta`:
+
+```powershell
+$thinkArg = if ($Beta) { ...no template file... } else { ...template file... }
+```
+
+Two unrelated concerns in one either/or. The `$Clone` branch rebuilds `argv` from
+scratch and never had it either. **Five hub icons — 7, 8, 9, A and B — returned
+HTTP 500 to every Claude Code request.** `logs/serve-20260831-023636.log` carries
+**fifteen consecutive** `Jinja Exception: System message must be at the
+beginning.` before the client stopped retrying. The server was healthy
+throughout: eight minutes earlier it had finished a generation over 5,607
+`draft-mtp` calls.
+
+### The four-case reproduction
+
+Against the running server, `max_tokens 1`:
+
+| messages | |
+|---|---|
+| leading `system` only | **200** |
+| two **leading** `system` | **200** |
+| `system` **after** a user message | **500** |
+| `system` second, `user` first | **500** |
+
+**Message position is the whole cause** — the same finding issue #4 recorded with
+a recording proxy, rediscovered because the fix had been lost rather than because
+it was ever in doubt.
+
+### How it was found, and what that says
+
+Not by a test, not by the audit. **By the developer remembering that this was
+fixed once** — *"ถ้าจำไม่ผิด version ก่อนเช่น Profile Single GPU ต่างๆเราแก้ไปแล้วนะ"* —
+and by their refusing the first repair offered, which was to stop using Claude
+Code with those icons. That would have preserved a copy of somebody else's
+command line at the cost of the only client this project serves.
+
+**The general form: a flag omitted "to match them" is only safe if you also have
+what compensates for it on their side.** Studio compensates in its client, twice
+now — the effort per request in §36, the message shape here. Neither compensation
+is visible in a command line, which is why copying one is not a baseline.
+
+### Fixed 2026-08-31, issue #58
+
+`--chat-template-file` left `$thinkArg` and became `$templateArg`, applied to the
+computed command line **and** to `$Clone`'s. The omission moved to an explicit
+`-StockTemplate`, so Studio's template behaviour is still reachable by someone
+who means it. **And a guard now reads the FINAL `argv`** — a branch written later
+that rebuilds it, as `$Clone` does, fails loudly instead of serving 500s.
+
+`bench/tests/test_chat_template_travels.py` sweeps **every** switch combination a
+launcher can produce, because asserting the two branches that broke would pass
+today and miss the third.
+
+**Guarded by** `bench/tests/test_chat_template_travels.py` and the profile's own
+launch guard; `scripts/audit-stale-claims.py`, rule `template-file-is-studios-to-omit`.
+
 ---
 
 ## What has NOT been contradicted

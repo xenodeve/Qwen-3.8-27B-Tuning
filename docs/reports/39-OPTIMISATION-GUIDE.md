@@ -3,7 +3,7 @@
 Everything below is either **MEASURED HERE** (with the file its number came
 from), **VENDOR** (someone else's documented claim, useful and unverified), or
 **UNMEASURED** (a lever nobody has pulled). Nothing is a recommendation from
-memory, and the tags are not decoration — this project has published forty-two
+memory, and the tags are not decoration — this project has published forty-three
 claims it later contradicted with its own data
 ([`CORRECTIONS.md`](CORRECTIONS.md)).
 

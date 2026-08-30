@@ -249,6 +249,19 @@ RULES = [
      "been run",
      "CORRECTIONS.md 40 and 41"),
 
+    ("template-file-is-studios-to-omit",
+     r"[Oo]nly the template FILE is Studio's to omit|"
+     r"template file[^\n]{0,60}Studio does not pass|"
+     r"--chat-template-file[^\n]{0,40}not in out",
+     "true about STUDIO, false about what we can serve. Studio omits it "
+     "safely because Studio's client never sends a system message after the "
+     "user turn; Claude Code sends one every session and Qwen3.8's own "
+     "template RAISES on it. Bundling the omission into -Beta and -Clone made "
+     "five hub icons answer HTTP 500 to every request -- fifteen in a row in "
+     "logs/serve-20260831-023636.log. The omission now belongs to "
+     "-StockTemplate, and a launch guard reads the final argv",
+     "CORRECTIONS.md 43, issue #58"),
+
     ("dflash-has-no-case-on-nvfp4",
      # The `.{0,30}` windows MISSED docs/results/README.md, which said
      # "no case. +0.2 % against the head already in the file, and the sign

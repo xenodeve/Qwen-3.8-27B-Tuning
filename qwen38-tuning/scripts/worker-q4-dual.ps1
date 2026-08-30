@@ -410,6 +410,21 @@ param(
     # most of a minute of silence on a connection that is working -- see the
     # header. This does not shorten a wait, it makes one visible.
     [int]$SsePingIntervalSec = 5,
+    # Serve the artifact's OWN chat template, without our one-line patch.
+    #
+    # The patch (templates/qwen38-late-system.jinja, issue #4) renders a system
+    # message that arrives after the user turn instead of raising on it. Claude
+    # Code sends exactly that -- its SessionStart hook output is a role:"system"
+    # message of 25-33 KB appended after the user turn -- so without the patch
+    # every request comes back HTTP 500, `System message must be at the
+    # beginning.`
+    #
+    # Unsloth Studio passes no template file, so `-Beta` and `-Clone` used to
+    # drop it as part of borrowing their command line. That is what this switch
+    # is for now: the omission is still reachable, but it has to be ASKED FOR.
+    # Choosing a thinking mechanism must not decide it -- see issue #58, and
+    # CORRECTIONS 36 for the first time -Beta silently dropped a flag.
+    [switch]$StockTemplate,
     # Micro-batch. A parameter rather than a literal because the budget check
     # below needs it: the compute buffer is about one -ub of MiB per card.
     [int]$UBatch = 1024,
@@ -620,6 +635,11 @@ $DFLASH_N_DEFAULT   = 2
 # patched with patches/dflash-mirror-output-b8472555.patch and built here.
 # NEVER the same thing as -TheirBuild, which runs what they shipped.
 $THEIR_MIRROR_EXE = "C:\AI\llama.cpp-unsloth-mirror\build-mirror\bin\llama-server.exe"
+# The model's own template with ONE line changed. templates/README.md says how
+# to re-derive it when the artifact changes, and
+# bench/tests/test_chat_template_travels.py checks the difference is still
+# exactly one line against a live /props.
+$TEMPLATE_FILE = "$PSScriptRoot\..\templates\qwen38-late-system.jinja"
 # NVFP4's own ceiling for the DFlash2 pairing: 147,456 is the deepest MEASURED
 # point (results/nvfp4-dflash-147456-n4.jsonl, 1,450 MiB free). Nothing above it
 # has been tried with this pairing.
@@ -1338,8 +1358,16 @@ $threads = if ($Beta) { '2' } else { '18' }
 $thinkArg = if ($Beta) {
     @('--reasoning', 'on', '--reasoning-preserve', '--reasoning-effort', 'medium')
 } else {
-    @('--chat-template-file', "$PSScriptRoot\..\templates\qwen38-late-system.jinja",
-      '--reasoning-effort', 'medium')
+    @('--reasoning-effort', 'medium')
+}
+
+# THE TEMPLATE IS NOT PART OF THE THINKING MECHANISM, and bundling it into the
+# either/or above cost five hub icons -- 7, 8, 9, A, B -- every Claude Code
+# request, fifteen 500s in a row in logs/serve-20260831-023636.log before the
+# client gave up (issue #58). It is a CLIENT-COMPATIBILITY fix: Studio omits it
+# safely because Studio never sends a late system message, and we do.
+$templateArg = if ($StockTemplate) { @() } else {
+    @('--chat-template-file', $TEMPLATE_FILE)
 }
 # --alias is the model name every caller sees on /v1/models and in each
 # response. Left hardcoded it would announce Q4_K_XL while serving the NVFP4
@@ -1376,7 +1404,7 @@ $argv = @(
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0'
 ) + $specArg + @(
-) + $ngramArg + $visionArg + $betaArg + $thinkArg + @(
+) + $ngramArg + $visionArg + $betaArg + $thinkArg + $templateArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",
     '--host', $BindAddress, '--port', "$Port"
 )
@@ -1385,8 +1413,19 @@ $argv = @(
 # Patching would leave every value this profile computes silently in play, and
 # the point of a baseline is that a reader can see all of it in one place.
 #
-# FIVE THINGS ARE DELIBERATELY NOT COPIED. A literal copy reproduces their bugs
+# SIX THINGS ARE DELIBERATELY NOT COPIED. A literal copy reproduces their bugs
 # and breaks the comparison:
+#
+#   --chat-template-file        ADDED 2026-08-31, issue #58, for the same reason
+#                               as --reasoning-effort below. Studio omits the
+#                               file safely because Studio's client never sends
+#                               a system message after the user turn; Claude
+#                               Code sends one every session and Qwen3.8's own
+#                               template RAISES on it. This branch answered HTTP
+#                               500 to every request until $templateArg was
+#                               appended to it. -StockTemplate omits it on
+#                               purpose, which is the only way it should ever
+#                               happen.
 #
 #   --reasoning-effort medium   ADDED. Not on their command line because Studio
 #                               sends it in every request body. No client of
@@ -1431,7 +1470,21 @@ if ($Clone) {
         '--reasoning', 'on', '--reasoning-preserve', '--reasoning-effort', 'medium',
         '--sse-ping-interval', "$SsePingIntervalSec",
         '--host', $BindAddress, '--port', "$Port"
-    )
+    ) + $templateArg
+}
+
+# THE STRUCTURAL HALF OF ISSUE #58, and the only half that stops a third
+# recurrence. Hoisting $templateArg fixes the two branches that broke; this
+# reads the FINAL argv, so a branch written later -- $Clone rebuilds it from
+# scratch, and nothing stops another from doing the same -- fails loudly here
+# instead of serving HTTP 500 to every request until somebody reads a log.
+if (-not $StockTemplate -and ($argv -notcontains '--chat-template-file')) {
+    Write-Host "FATAL: the command line lost --chat-template-file." -ForegroundColor Red
+    Write-Host "  Without it Qwen3.8's own template RAISES on a system message that" -ForegroundColor Yellow
+    Write-Host "  arrives after the user turn, which is what Claude Code sends, and" -ForegroundColor Yellow
+    Write-Host "  every request returns HTTP 500. See issue #58 and #4." -ForegroundColor Yellow
+    Write-Host "  Pass -StockTemplate if the omission is what you meant." -ForegroundColor Yellow
+    exit 1
 }
 
 if ($WhatIfPreference) {

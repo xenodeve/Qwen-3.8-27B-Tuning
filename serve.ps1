@@ -128,6 +128,11 @@ param(
     # shipped. Requires -Dflash. See the profile for why it is not -TheirBuild.
     [switch]$TheirMirror,
     [switch]$TheirBuild,
+    # Serve the artifact's own chat template rather than our one-line patch.
+    # The patch is what keeps Claude Code from getting HTTP 500 on every
+    # request; Unsloth Studio omits it safely because their client never sends
+    # a system message after the user turn. Issue #58.
+    [switch]$StockTemplate,
     [switch]$MaxCtx,
     [switch]$Mtp,
     # WHICH CARD, when you want one other than the served default. Deliberately
@@ -419,6 +424,9 @@ $log   = Join-Path $logDir "serve-$stamp.log"
 
 $profileArgs = @{ Verbosity = 4; LogColors = 'on'; LogFile = $log }
 if ($Lan) { $profileArgs['BindAddress'] = '0.0.0.0' }
+# Forwarded, not defaulted: the profile decides what the template does.
+# Passing it here only carries the developer's explicit ask through.
+if ($StockTemplate) { $profileArgs['StockTemplate'] = $true }
 if ($Device) { $profileArgs['Device'] = $Device }
 if ($Dflash) {
     if (-not $Dual) {

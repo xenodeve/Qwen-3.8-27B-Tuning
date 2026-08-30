@@ -49,6 +49,14 @@ REM                                  because Studio sends it in every REQUEST.
 REM                                  No client of ours does, so copying the
 REM                                  omission serves at the template's xhigh.
 REM                                  That is how CORRECTIONS 36 happened.
+REM      --chat-template-file        ADDED, 2026-08-31, and for the SAME reason.
+REM                                  Studio omits it safely because Studio never
+REM                                  sends a system message after the user turn.
+REM                                  Claude Code sends one every session, and
+REM                                  Qwen3.8's own template RAISES on it -- this
+REM                                  icon answered HTTP 500 to every request
+REM                                  until it was added. Issue #58 and #4.
+REM                                  Pass -StockTemplate to omit it on purpose.
 REM      --reasoning on
 REM      --reasoning-preserve        instead of --chat-template-kwargs, which
 REM                                  this build calls deprecated and then asks
