@@ -8,6 +8,20 @@ documentation, model cards, screenshots.
 > [`../reports/18`](../reports/18-RESEARCH-ROUND2-REVIEW.md) for the record of
 > what survived contact and what did not.
 
+## Seven tools that already do parts of `llama-buffer`
+
+[`context-reduction-tools-2026-08-31.md`](context-reduction-tools-2026-08-31.md) —
+Super-MCP Router, `context-compress`, Serena, `rag-rat`, `minirag-mcp`,
+`claude-code-proxy` and Open WebUI, each against the part of
+[issue #55](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/55) it would
+replace, **with the install command for every one**.
+
+**Three lines in it are ours, not the survey's**, and each changes the plan: the
+**17,509** figure belongs to Unsloth Studio and no MCP router can act on it;
+`llama-tap` is the instrument for the split that gates everything and **has
+never captured a real request**; and **Serena is already installed and
+unmeasured**, so it sits in the baseline rather than being an arm.
+
 ## The one scan that replaced a repository
 
 [`syv-rtx3090/`](syv-rtx3090/README.md) — `syv-ai/qwen38-27b-rtx3090`, a patched
