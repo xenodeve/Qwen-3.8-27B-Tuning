@@ -41,6 +41,7 @@ echo.
 echo     3   deepest window that fits, ~250,000    no images
 echo     4   ... plus draft-mtp                    SPEED NOT MEASURED
 echo     5   ... plus DFlash2, 131,072             patched binary, little spare
+echo     C   ... same, at DRAFT DEPTH 4            +109%% @65,536; 299 MiB more
 echo.
 echo   ONE CARD, UD-Q2_K_XL
 echo.
@@ -78,13 +79,13 @@ REM  here on 2026-08-29. choice restricts the keystroke itself, needs no Enter,
 REM  and cannot hand a broken value to the comparison below. It returns the
 REM  POSITION in the key list, so 1-6 line up with the printed numbers and Q
 REM  is 7.
-choice /c 123456789ABQ /n /m "  Choose 1-9, A or B, or Q to quit: "
+choice /c 123456789ABCQ /n /m "  Choose 1-9, A, B or C, or Q to quit: "
 set "SEL=%ERRORLEVEL%"
 
 REM  BOTH NAMES ARE SPELLED OUT, not built by appending "-lan" to a stem. A
 REM  constructed filename cannot be checked by anything until somebody presses
 REM  the key, and this file's whole job is to point at other files.
-if "%SEL%"=="12" goto :done
+if "%SEL%"=="13" goto :done
 if "%SEL%"=="1" (
     set "LOOP=serve-dual-nvfp4.bat"
     set "WIDE=serve-dual-nvfp4-lan.bat"
@@ -108,6 +109,11 @@ if "%SEL%"=="4" (
 if "%SEL%"=="5" (
     set "LOOP=serve-dual-dflash.bat"
     set "WIDE=serve-dual-dflash-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="12" (
+    set "LOOP=serve-dual-dflash-n4.bat"
+    set "WIDE=serve-dual-dflash-n4-lan.bat"
     goto :ask_lan
 )
 if "%SEL%"=="6" (

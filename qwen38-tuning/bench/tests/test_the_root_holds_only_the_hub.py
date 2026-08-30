@@ -26,6 +26,7 @@ EXPECTED = sorted([
     "serve-dual.bat", "serve-dual-lan.bat",
     "serve-dual-mtp.bat", "serve-dual-mtp-lan.bat",
     "serve-dual-dflash.bat", "serve-dual-dflash-lan.bat",
+    "serve-dual-dflash-n4.bat", "serve-dual-dflash-n4-lan.bat",
     "serve-dual-nvfp4.bat", "serve-dual-nvfp4-lan.bat",
     "serve-dual-nvfp4-deep.bat", "serve-dual-nvfp4-deep-lan.bat",
     "serve-dual-nvfp4-beta.bat", "serve-dual-nvfp4-beta-lan.bat",

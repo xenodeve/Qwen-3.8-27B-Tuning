@@ -444,6 +444,26 @@ param(
     #   3. almost all the HEADROOM. 634/530 MiB free at 131,072 against about
     #      2,210 for the served configuration.
     [switch]$Dflash,
+
+    # The DFlash2 draft depth. 0 means "not given" so the default can stay
+    # where its comment is, beside the flag it sets.
+    #
+    #   2  what -Dflash has always served, and the ONLY value measured at the
+    #      131,072 this switch serves: the run finishes with 634/530 MiB.
+    #   4  the measured best on this split -- 55.72 tok/s against 52.64 at 7 and
+    #      +109.2 % over ngram-mod, three paired rounds
+    #      (results/tensor-draft-depth-65536.jsonl, issue #56) -- but that was
+    #      ctx 65,536, and 4 has NEVER been measured at 131,072.
+    #   7  the clamp (speculative.cpp:989, block_size - 1). MEASURED WORSE:
+    #      -6.5 % against 4 in every round, and 308 MiB dearer.
+    #
+    # The recurrent state is 149.62 MiB x (1 + n_max), so 2 -> 4 spends 299 MiB
+    # of the headroom the 131,072 ceiling exists to protect. The budget already
+    # reserves it -- $DFLASH_DRAFTER_MIB is the measured cost AT n_max 4 -- so
+    # serving 2 leaves that slack unused and serving 4 spends exactly what is
+    # already set aside. Nothing in the fitting arithmetic changes.
+    [int]$DflashN = 0,
+
     # Serve the NVFP4 artifact with the MTP head BAKED INTO IT, and the n-gram
     # retuned for that artifact. Measured +63.1 % [+58.3, +65.6] RESOLVED over
     # this profile's default at ctx 147,456 -- 39.4 / 42.6 / 42.6 against
@@ -578,6 +598,10 @@ $ErrorActionPreference = 'Stop'
 # another -- the exact shape of the fault that put fifteen rows on a build with
 # no Blackwell kernels earlier today.
 $DFLASH_MAX_CTX     = 131072
+# llama.cpp's own ceiling for this drafter: speculative.cpp:989 clamps n_max at
+# block_size - 1, and the boot log prints block_size=8 for DFlash2.
+$DFLASH_N_MAX_CLAMP = 7
+$DFLASH_N_DEFAULT   = 2
 $DFLASH_EXE = "C:\AI\llama.cpp-mirror\build-mirror\bin\llama-server.exe"
 $STUDIO_EXE = Join-Path $env:USERPROFILE '.unsloth\llama.cpp\build\bin\Release\llama-server.exe'
 $DFLASH_MODEL = "C:\Users\xenod\.cache\huggingface\hub" +
@@ -671,6 +695,23 @@ if ($Dflash) {
     if ($Ctx -gt $DFLASH_MAX_CTX) { $Ctx = $DFLASH_MAX_CTX }
     if ($UBatch -gt 512)          { $UBatch = 512 }
     $Exe = $DFLASH_EXE
+}
+# The clamp is llama.cpp's, at speculative.cpp:989 -- block_size - 1, and this
+# drafter's block_size is 8. Out of range is CLAMPED SILENTLY there, so the
+# server would run one depth while the launcher and the log said another.
+# Refusing is the only way the two cannot disagree.
+if ($DflashN -ne 0) {
+    if (-not $Dflash) {
+        Write-Host "FATAL: -DflashN sets the DFlash2 draft depth and needs -Dflash." -ForegroundColor Red
+        exit 1
+    }
+    if ($DflashN -lt 1 -or $DflashN -gt $DFLASH_N_MAX_CLAMP) {
+        Write-Host "FATAL: -DflashN must be 1..$DFLASH_N_MAX_CLAMP." -ForegroundColor Red
+        Write-Host "  speculative.cpp:989 clamps at block_size - 1, and this drafter's" -ForegroundColor Yellow
+        Write-Host "  block_size is 8. Out of range is clamped SILENTLY, so the server" -ForegroundColor Yellow
+        Write-Host "  would run one depth while every log said another." -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 # ---- -TheirBuild: the other binary, and the loader path it needs -------------
@@ -1036,11 +1077,14 @@ $specArg = if ($Nvfp4 -and $Beta) {
 } elseif ($Mtp) {
     @('--spec-type', 'draft-mtp,ngram-mod', '--spec-draft-n-max', '3')
 } elseif ($Dflash) {
-    # n-max 2, not the 4 the arena measured with: the recurrent-state buffer is
-    # 149.62 MiB x (1 + n_max), so 4 -> 2 returns 299 MiB, and at 131,072 the
-    # run finishes with 634/530 MiB. Every one of those MiB was needed.
+    # n-max 2 by default, not the 4 the arena measured with: the recurrent-state
+    # buffer is 149.62 MiB x (1 + n_max), so 4 -> 2 returns 299 MiB, and at
+    # 131,072 the run finishes with 634/530 MiB. Every one of those MiB was
+    # needed. `-DflashN` overrides it; see its comment for what each value is
+    # measured at, and note that 2 is the only one measured AT THIS DEPTH.
     @('--spec-type', 'draft-dflash,ngram-mod',
-      '-md', $DFLASH_MODEL, '-ngld', '99', '--spec-draft-n-max', '2')
+      '-md', $DFLASH_MODEL, '-ngld', '99',
+      '--spec-draft-n-max', "$(if ($DflashN -ne 0) { $DflashN } else { $DFLASH_N_DEFAULT })")
 } else {
     @('--spec-type', 'ngram-mod')
 }
@@ -1049,6 +1093,13 @@ if ($Dflash) {
     Write-Host "            PATCHED BINARY, reviewed by nobody outside this project." -ForegroundColor Yellow
     Write-Host "            Window capped at ${DFLASH_MAX_CTX} -- 147,456 loads and then dies." -ForegroundColor Yellow
     Write-Host "            It finishes with about 600 MiB per card against ~2,210 served." -ForegroundColor Yellow
+    if ($DflashN -ne 0 -and $DflashN -ne $DFLASH_N_DEFAULT) {
+        $extra = [Math]::Round(149.62 * ($DflashN - $DFLASH_N_DEFAULT))
+        Write-Host "  n-max     $DflashN, not the default $DFLASH_N_DEFAULT -- costs about $extra MiB more." -ForegroundColor Yellow
+        Write-Host "            Recurrent state is 149.62 MiB x (1 + n_max); 299 MiB from 2 to 4." -ForegroundColor Yellow
+        Write-Host "            4 is the measured best at ctx 65,536 (55.72 tok/s, +109.2 % over" -ForegroundColor Yellow
+        Write-Host "            ngram-mod) and has NEVER been measured at $DFLASH_MAX_CTX." -ForegroundColor Yellow
+    }
 }
 if ($Mtp) {
     Write-Host "  decoder   draft-mtp + ngram-mod -- LOADS HERE, RATE NOT MEASURED." -ForegroundColor Yellow

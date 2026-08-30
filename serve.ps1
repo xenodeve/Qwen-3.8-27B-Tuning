@@ -107,6 +107,11 @@ param(
     # 131,072, a binary nobody outside this project has reviewed, and almost all
     # the headroom. Its own pair of launchers; never a default.
     [switch]$Dflash,
+    # The DFlash2 draft depth, 1..7. 0 means "not given", so the default
+    # stays in the profile beside the flag it sets. 2 is what is served and
+    # the only value measured at 131,072; 4 is the measured best at 65,536
+    # (55.72 tok/s, +109.2 % over ngram-mod) and 299 MiB dearer.
+    [int]$DflashN = 0,
     [switch]$Nvfp4,
     [switch]$Deep,
     [switch]$Vision,
@@ -418,6 +423,13 @@ if ($Dflash) {
         exit 1
     }
     $profileArgs['Dflash'] = $true
+}
+if ($DflashN -ne 0) {
+    if (-not $Dflash) {
+        Write-Host "FATAL: -DflashN sets the DFlash2 draft depth and needs -Dflash." -ForegroundColor Red
+        exit 1
+    }
+    $profileArgs['DflashN'] = $DflashN
 }
 if ($Beta) {
     if (-not $Dual) {
