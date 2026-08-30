@@ -1266,7 +1266,86 @@ depth does not transfer to another*. **It does not transfer across artifacts
 either.** "The n-gram family is swept, nothing left" was generalised past what
 it measured.
 
-### DFlash2 on NVFP4 — no better than the head already in the file
+### 🟢 DFlash2 DOES work on NVFP4 — the "+0.2 %" was a configuration artifact, 2026-08-30
+
+Issue #50. **This retracts a verdict this page carried.** `draft-dflash` beside
+NVFP4 was written up as **+0.2 % and the sign flips — no case here**, and that
+sentence is withdrawn: the run behind it gave DFlash2 none of the three things
+it is now known to want.
+
+| | the discredited run | here |
+|---|---|---|
+| ctx | 147,456 | **65,536**, its measured best |
+| `--spec-draft-n-max` | 3 | **4**, measured best 2026-08-30 |
+| `--spec-ngram-mod-n-match` | 12 | **24**, NVFP4's own tuned window |
+
+**All three were already written down on this page** — the n-gram retune records
+`n-match 12` collapsing on this artifact, acceptance 55.4 → 22.1, in the same
+section that drew the conclusion. **A handicapped arm losing is not evidence the
+decoder loses.**
+
+#### At 65,536 — RESOLVED against the incumbent
+
+Two arms, three rounds rotated, `NVFP4 VERY-LOW`, patched mirror,
+`-sm tensor -ts 7819,15490 -ub 1024`, `q4_0` KV, effort `medium`, both cards,
+`real-code-vendor`, greedy. Every row 66+0 resident. Raw:
+`results/nvfp4-dflash-65536.jsonl`.
+
+| arm | rounds (tok/s) | spread | median | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| `ngram-mod` nm24 | 26.60 / 26.73 / 27.35 | 2.8 % | 26.73 | 38.1 | 4,970 MiB |
+| **`draft-dflash,ngram-mod`** nm24 n4 | 45.62 / 44.32 / 45.49 | 2.9 % | **45.49** | **50.0** | 2,828 |
+
+**+67.9 %** [+65.8, +71.5], consistent in sign, clears the floor in every round —
+**RESOLVED**. Acceptance is **50.0** against the discredited run's 22.1, which is
+the mechanism: the window was starving the n-gram, not the drafter failing.
+
+#### At 147,456, the depth we serve — level with MTP, and far steadier
+
+One arm, three rounds, everything else held at what MTP's rows held. Raw:
+`results/nvfp4-dflash-147456-n4.jsonl`.
+
+| | rounds (tok/s) | spread | median | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| **`draft-dflash,ngram-mod`** n4 | 44.48 / 44.56 / 44.23 | **0.7 %** | **44.48** | 61.8 | 1,450–1,462 MiB |
+| `draft-mtp,ngram-mod` n3, **6 rounds over 2 boot series** | 39.43 / 42.61 / 42.55 / 43.10 / 42.99 / 42.93 | 9.3 % | 42.77 | 58.8 | **2,393–2,433** |
+
+**+4.0 % on medians — under the 13.6 % floor, and across boots. NOT resolved.**
+
+**What is stronger than that percentage: the ranges do not overlap.** DFlash2's
+worst round, 44.23, is above MTP's best, 43.10 — three rounds beating six, from
+different boots. And DFlash2's own spread is **0.7 % against 9.3 %**, one of the
+tightest series in this register.
+
+> **Why a cross-boot comparison is admissible here specifically.** The
+> comparator is not one reading. It is six rounds across two independent boot
+> series (`nvfp4-final-147456.jsonl`, `nvfp4-ngram-retune-147456.jsonl`) at the
+> same artifact, depth, window and `n_max`, spanning **9.3 %** — not the 48.9 %
+> `CORRECTIONS.md` §23 measures at worst, and not the single reading per side
+> that produced the retracted `+26 %` (§40). **It is still not a paired
+> measurement**, and calling this a win requires the two decoders in one
+> rotation.
+
+#### The trade, and it runs against stripping the head
+
+DFlash2 costs about **950 MiB** more headroom than MTP at this depth — 1,450
+against 2,400 — for 4 % that does not clear the floor.
+
+That reverses the case for a head-less NVFP4 file.
+`esatapedico/...-BUDGET` is 134 MiB smaller and `...-STARVED` 257 MiB
+(`researchs/nvfp4-dflash2-hf-survey-2026-08-30.md`), but replacing the baked-in
+head with an external drafter **spends 950 MiB at runtime to save 134–257 MiB on
+disk**. The MTP head itself is only **133 MiB** of the file, read from its own
+header: 15 tensors in `blk.64`, of 14,174 MiB.
+
+**What DFlash2 offers on this artifact is consistency, not speed.** 0.7 % against
+9.3 % is a real property and the reason to keep the option; 4 % is not a reason
+to pay 950 MiB.
+
+**What would settle it:** both decoders in one rotation at 147,456. That turns
+"disjoint ranges across boots" into a number this project's rules can act on.
+
+### ~~DFlash2 on NVFP4 — no better than the head already in the file~~ — SUPERSEDED, see above
 
 Raw: `results/nvfp4-dflash-147456.jsonl`, paired against `nvfp4-mtp+ngram`.
 
