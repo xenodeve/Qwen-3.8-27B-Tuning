@@ -159,27 +159,41 @@ def test_it_differs_from_the_served_artifacts_own_template_by_one_line():
     """The template belongs to the MODEL, so it has to be re-derived when the
     artifact changes -- `templates/README.md` says so and nothing enforced it.
 
-    Checked against a live server because `/props` is where the stock text
-    lives. Skipped when nothing is serving; the offline assertions above still
-    hold, and this one is the strong form when it can run.
+    `/props` IS NOT A WINDOW ONTO THE GGUF. It reports the template the server
+    is USING, so once the profile passes `--chat-template-file` it hands back
+    our own file. The first version of this test did not know that: it passed
+    once against a `-Beta` boot, which happened to have no override, and then
+    failed the moment a normal profile was running -- reporting ZERO differing
+    lines as if the patch had vanished. The test was wrong, not the template.
+
+    So the strong check needs a server booted with `-StockTemplate`. When one is
+    not running this skips and says which boot would let it run, rather than
+    inventing a verdict from whatever `/props` happened to return.
     """
     import json
     import urllib.request
     try:
         with urllib.request.urlopen("http://127.0.0.1:8080/props", timeout=20) as r:
-            stock = json.loads(r.read()).get("chat_template") or ""
+            served = json.loads(r.read()).get("chat_template") or ""
     except Exception:                                            # noqa: BLE001
         pytest.skip("no server on 8080 to read /props from")
-    if not stock:
+    if not served:
         pytest.skip("/props carried no chat_template")
+
     ours = io.open(TEMPLATE, encoding="utf-8", errors="replace").read()
-    a = stock.replace("\r\n", "\n").rstrip("\n").split("\n")
+    a = served.replace("\r\n", "\n").rstrip("\n").split("\n")
     b = ours.replace("\r\n", "\n").rstrip("\n").split("\n")
+
+    if a == b:
+        pytest.skip("the running server is using OUR template, so /props cannot "
+                    "show the artifact's own -- boot with -StockTemplate to run "
+                    "this check")
+
     assert len(a) == len(b), (
         "the served artifact's template has a different shape; re-derive it "
         "per templates/README.md", len(a), len(b))
     differing = [i for i, (x, y) in enumerate(zip(a, b), 1) if x != y]
-    assert differing == [110] or len(differing) == 1, (
+    assert len(differing) == 1, (
         "exactly one line may differ, and it is the raise", differing)
     assert RAISE in a[differing[0] - 1], a[differing[0] - 1]
 
