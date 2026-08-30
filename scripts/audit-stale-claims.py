@@ -74,8 +74,8 @@ RULES = [
      "plan 04 P0, step W"),
 
     ("test-count",
-     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246|253|262|269|278)\s+tests?\b",
-     "the suite is 287 tests -- but a DATED report quoting its own count is a "
+     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246|253|262|269|278|287|288|295|310|318)\s+tests?\b",
+     "the suite is 329 tests -- but a DATED report quoting its own count is a "
      "historical record and correct as written; only operational docs must be current",
      "bench/README.md, CLAUDE.md"),
 
@@ -158,6 +158,226 @@ RULES = [
      "its stated cause does not",
      "CORRECTIONS.md 27"),
 
+    ("prompt-length-boundary",
+     r"boundary is prompt length|between 43k and 64k|"
+     r"collapses? (?:above|past|beyond) (?:a )?\d+k[- ]token|"
+     r"prompt[- ]length (?:threshold|boundary)",
+     "there is no boundary. Seven cold points go 43,162->512, 46,909->1, "
+     "51,038->1, 54,310->512, 57,780->512, 60,831->512, 64,210->9 -- failure is "
+     "not monotonic in length, so length is not the variable. filler cuts the "
+     "corpus at exactly n*3 characters and WHERE THE CUT LANDS decides it. The "
+     "same seven lengths on real-code-vendor complete 7 of 7 including 70,322 "
+     "tokens. The claim was published in a commit message, which nothing scans",
+     "CORRECTIONS.md 30"),
+
+    ("pcie-gen5-x8",
+     r"gen5\s*x8|PCIe[^\n]{0,10}5\.0[^\n]{0,10}x8",
+     "that is the CARD's specification, not this machine's. Sampled once a "
+     "second through a real generation, 49 samples, 34 with the GPU busy: the "
+     "5060 Ti peaks at gen4 x4 and the 4070 SUPER at gen4 x16. The link "
+     "downtrains at idle and the GENERATION recovers under load; the WIDTH "
+     "never does, so x4 is the slot. It bounds model load and any split "
+     "configuration -- it does not explain decode on one card, which never "
+     "touches the link",
+     "CORRECTIONS.md 31"),
+
+    ("speculative-rate-is-not-hardware",
+     r"splitting[^\n]{0,40}costs? 78|"
+     r"-78\.3\s*%[^\n]{0,40}(?:hardware|GPU|card|slower)|"
+     r"165\.1[^\n]{0,60}(?:one card|solo|single card)",
+     "that figure measures how much the model REPEATED ITSELF, not the "
+     "hardware. The two arms decoded different text -- ngram-mod accepted "
+     "93.3 % on one card and 58.5 % on two, and the single-card output has 24 "
+     "distinct lines of 47 against 30. SAMPLER is already greedy, and the text "
+     "still differs because splitting changes the reduction order and so the "
+     "logits. The clean pair: prefill on the identical 6,621-token prompt is "
+     "+57.4 % for two cards, and decode with speculation OFF is +1.5 % "
+     "[+1.1, +2.1]",
+     "CORRECTIONS.md 32"),
+
+    ("ts-is-not-a-lever",
+     r"tensor-split \*?ratio\*? is not a lever|`?-ts`? is not a lever|"
+     r"hard load failure",
+     "both halves are wrong and both were retracted the day they were written. "
+     "-ts measured inert under -sm LAYER, where llama.cpp already splits by "
+     "free VRAM; under -sm tensor the default is an EVEN split "
+     "(llama-model.cpp:707, ne_s * (j+1)/n_devices) which on a 12 GB display "
+     "card left +317 MiB and produced 0.38 tok/s. And --fit being inert does "
+     "NOT give a hard load failure -- it gives a SILENT SPILL to host memory "
+     "that returns a working server 85x slow. The profile now computes -ts from "
+     "measured free VRAM and refuses when the budget cannot hold the weights",
+     "CORRECTIONS.md 33"),
+
+    ("nvfp4-ceiling-229376",
+     r"\$NVFP4_MAX_CTX = 229376|NVFP4.{0,80}ceiling.{0,40}229,?376|"
+     r"ceiling.{0,40}229,?376.{0,80}65,?643|65,?643-token request.{0,60}229,?376|"
+     r"NVFP4 ceiling is 229,?376",
+     "229,376 was certified with a 65,643-token request -- a QUARTER of its own "
+     "window. Given the arena's standard int(ctx * 0.5) slice it loads with "
+     "206 MiB free on device 1 and DIES on the request with cudaMalloc failed: "
+     "out of memory. The re-derived ceiling is 200,704, which took a "
+     "101,029-token request and finished with 692 MiB free on that card. A "
+     "depth that loads is not a depth that serves",
+     "CORRECTIONS.md 35"),
+
+    ("ctx-checkpoints-is-a-trade",
+     r"--ctx-checkpoints 0.{0,60}\b(is|as) an? (memory |real )?trade|"
+     r"RAM against re-prefill|"
+     r"RAM against re-prefill|"
+     r"--cache-ram 0.{0,40}--ctx-checkpoints 0.{0,60}(same family|one decision)|"
+     r"--ctx-checkpoints', '0'",
+     "on a hybrid model --ctx-checkpoints 0 is not a trade, it is a fault. The "
+     "Gated DeltaNet state cannot rewind to a shared prefix, so with no "
+     "checkpoint llama.cpp prints 'forcing full prompt re-processing due to "
+     "lack of cache data' and re-reads the whole prompt: three of three "
+     "requests in serve-20260829-125227.log, 51.6 s each at 47k. The default "
+     "costs 150.89 MiB per checkpoint, max 32, 8,192 tokens apart. It is a "
+     "DIFFERENT mechanism from --cache-ram, which stays and stays open",
+     "CORRECTIONS.md 39"),
+
+    ("their-build-is-worth-26",
+     r"\+?26\s*%%?\s*(decode|from the newer build|on (their|Unsloth's) build)|"
+     r"(their|Unsloth's) BUILD gave \+?26|"
+     r"[Tt]heir build (changed|gave|is worth) \+?26",
+     "the two binaries have NEVER been paired, so neither +26 % nor NULL is "
+     "supported. The +26 % came from one reading per side in different "
+     "boots, at a depth where the same arm with byte-identical counters "
+     "spans 48.9 % (CORRECTIONS 23). The run that appeared to refute it "
+     "measured ONE BINARY TWICE -- start() launched the module default while "
+     "every row recorded the pin (CORRECTIONS 41) -- and a null is exactly "
+     "what that produces. Say CONTESTED, and say that the pairing has not "
+     "been run",
+     "CORRECTIONS.md 40 and 41"),
+
+    ("template-file-is-studios-to-omit",
+     r"[Oo]nly the template FILE is Studio's to omit|"
+     r"template file[^\n]{0,60}Studio does not pass|"
+     r"--chat-template-file[^\n]{0,40}not in out",
+     "true about STUDIO, false about what we can serve. Studio omits it "
+     "safely because Studio's client never sends a system message after the "
+     "user turn; Claude Code sends one every session and Qwen3.8's own "
+     "template RAISES on it. Bundling the omission into -Beta and -Clone made "
+     "five hub icons answer HTTP 500 to every request -- fifteen in a row in "
+     "logs/serve-20260831-023636.log. The omission now belongs to "
+     "-StockTemplate, and a launch guard reads the final argv",
+     "CORRECTIONS.md 43, issue #58"),
+
+    ("dflash-has-no-case-on-nvfp4",
+     # The `.{0,30}` windows MISSED docs/results/README.md, which said
+     # "no case. +0.2 % against the head already in the file, and the sign
+     # flips" -- 48 characters between the number and the phrase. The rule
+     # reported 5 hits in 4 files and looked complete. Widened 2026-08-30 and
+     # given a fourth alternative that matches the LEVER NAME beside a verdict,
+     # so a rewording of the number cannot slip past on distance alone.
+     r"DFlash2 has no case on (this|the NVFP4) artifact|"
+     r"[Dd][Ff]lash.{0,40}\+0\.2 %|"
+     r"\+0\.2 %.{0,80}sign flips|"
+     r"DFlash2 on NVFP4[^\n]{0,40}no case",
+     "that verdict is WITHDRAWN as overstated. It rested on one run "
+     "(results/nvfp4-dflash-147456.jsonl) that gave DFlash2 none of the three "
+     "things it is known to want: ctx 147,456 -- above its 131,072 ceiling and "
+     "more than twice its measured best of 65,536 -- --spec-draft-n-max 3 "
+     "against the 4 measured best, and n-match 12, the window this project "
+     "records COLLAPSING on NVFP4 (acceptance 55.4 -> 22.1) while 24 wins. A "
+     "handicapped arm losing is not evidence the decoder loses. See issue #50 "
+     "and results/nvfp4-dflash-65536.jsonl for the re-measurement",
+     "OPEN-WORK-LEDGER.md, issue #50"),
+
+    ("build-ab-measured-null",
+     r"(the )?build (measured|is worth) (NULL|null|nothing)|"
+     r"\+?26 %.{0,40}(REFUTED|refuted)|"
+     r"paired.{0,30}(it is worth|worth) nothing",
+     "the run behind that sentence is VOID: every arm launched the module "
+     "default binary while every row recorded the binary the arm pinned "
+     "(CORRECTIONS 41). One binary measured twice yields null by "
+     "construction. The correct status is CONTESTED -- the two builds have "
+     "never run in one rotation",
+     "CORRECTIONS.md 40 and 41"),
+
+    ("sampler-is-the-flag-default",
+     r"llama\.cpp'?s? (own )?defaults? appl(y|ies).{0,120}temp 0\.80|"
+     r"we set \*\*none\*\*, so llama\.cpp|"
+     r"temp 0\.80 . top_k 40|"
+     r"--temp 0\.80.{0,40}--top-k 40",
+     "the served sampler is NOT the flag default. GET /props on the served port "
+     "returns temp 1.0, top_k 20, top_p 0.95 -- keys 2-4 of the artifact's own "
+     "metadata (general.sampling.*), which llama.cpp reads and applies. Studio "
+     "sends the same three off the same file, so we already agree on them. The "
+     "real gaps are min_p 0.05 vs 0.0, presence_penalty 0.0 vs 1.5 and "
+     "n_predict -1 vs 36,453. --help documents the flag default, not the served "
+     "value",
+     "CORRECTIONS.md 37"),
+
+    ("nmatch-24-independent",
+     r"(agree|arriv\w+|reach\w+|both).{0,60}24.{0,60}independent|"
+     r"independent\w*.{0,60}(agree\w*|24).{0,40}n-match|"
+     r"agree, and independently|"
+     r"[Tt]wo parties arriving at 24",
+     "24 IS on Studio's command line, but so are --spec-ngram-mod-n-min 48 and "
+     "--spec-ngram-mod-n-max 64, and --help gives 24/48/64 as llama.cpp's "
+     "defaults for all three. A UI renders every field including the untouched "
+     "ones, so an explicit 24 beside an explicit 48 and 64 is a printed default, "
+     "not a second opinion. This project's n-match 12 stands on its own paired "
+     "measurement and gains nothing from it",
+     "CORRECTIONS.md 38"),
+
+    ("beta-reasoning-effort",
+     r"--reasoning-effort['\"]?\s*not in out|"
+     r"assert ['\"]--reasoning-effort['\"] not in|"
+     r"-Beta.{0,90}(no|without|drops?|omits?).{0,20}--reasoning-effort|"
+     r"Studio.{0,60}(sets?|passes|sends).{0,20}no --reasoning-effort",
+     "-Beta shipped with no --reasoning-effort because Studio's command line "
+     "has none. Studio sends it PER REQUEST instead (reasoningEffort: medium in "
+     "chat_threads.settings_json); our clients send nothing, so the choice fell "
+     "to the chat template and the served boot log read 'Reasoning effort is "
+     "set to xhigh' -- the default this project rejected on 2026-08-24. Every "
+     "-Beta branch now emits --reasoning-effort medium. The guarding test "
+     "scanned the SOURCE, found the flag in the OTHER branch of the if/else, "
+     "and stayed green",
+     "CORRECTIONS.md 36"),
+
+    ("target-column-is-the-arms",
+     r"target=TARGET|target_mib=model_size_mib\(TARGET\)|"
+     r"'target=TARGET' in SRC",
+     "the target column recorded the MODULE DEFAULT for every row, so any arm "
+     "that overrode -m -- every NVFP4 arm -- was recorded as having run the Q4 "
+     "control's file, at the control's size. args carried the truth and no rate "
+     "is retracted, but a reader of the raw JSONL would read a two-artifact "
+     "head-to-head as a decoder sweep on one artifact. It is now resolved from "
+     "the last -m of server_argv(ctx, extra), which is the same last-wins answer "
+     "llama.cpp gives itself. The test that guarded it grepped the SOURCE TEXT "
+     "and so passed throughout",
+     "CORRECTIONS.md 34"),
+
+    ("fa-all-quants-decided",
+     r"FA_ALL_QUANTS`? rebuild for Q8 KV\?\s*\|\s*\*\*not needed|"
+     r"Is `?FA_ALL_QUANTS`? needed for Q8 KV\?\s*\|\s*\*\*No|"
+     r"Q8 KV is faster on the stock binary, so it was not needed",
+     "the answer is right and the row is wider than it. GGML_TYPE_Q8_0 is in "
+     "the always-compiled list at fattn.cu:340-352 and falls through to "
+     "return true with the flag ON or OFF, so a Q8 result cannot test this "
+     "option at all. What OFF actually removes is q4_1/q5_0/q5_1 as KV types "
+     "and, at fattn.cu:442-446, every asymmetric K!=V pair -- none of which "
+     "was ever run. Both builds are OFF. -fa auto degrades through a WARN at "
+     "llama-context.cpp:547 rather than failing, so -ctk q5_1 -ctv f16 boots "
+     "with flash attention silently off. Whether ON is worth a rebuild is "
+     "UNMEASURED; the correction is to the word 'decided'",
+     "CORRECTIONS.md 29"),
+
+    ("blackwell-4x-slower",
+     r"[Ff]our times slower|4x slow|4× slow|~?4x slower|"
+     r"22\.67 tok/s|22\.67 tokens",
+     "withdrawn as a HARDWARE verdict. 22.67 came from hardware_baseline.py at "
+     "draft acceptance 0.14870; 96.92 came from dflash2_arena at acceptance "
+     "60.2 -- ngram-mod is speculative and its tok/s tracks acceptance, so the "
+     "two were never comparable, and the 4070 SUPER never ran "
+     "hardware_baseline.py at all. What IS measured: the native sm_120a "
+     "rebuild takes prefill 146,155 -> 66,582 ms with acceptance byte-identical "
+     "in both, and per prefill token this card is 1.517 ms against the 4070 "
+     "SUPER's 0.798 -- 1.90x slower, matching 4,608 CUDA cores vs 7,168. "
+     "Decode across the two cards is UNMEASURED",
+     "CORRECTIONS.md 28"),
+
     ("decode-collapse-98304",
      r"2\.8\s*[-–]\s*5\.0 tok/s|decode collapses|13 of 16 measurements|"
      r"13/16 timeouts|the window we serve is the one that does not work|"
@@ -218,6 +438,30 @@ RULES = [
      "under test; valid within a depth only",
      "report 24 section 6"),
 ]
+
+
+# A rule that cannot match is worse than a missing rule: the audit still runs,
+# still prints, and still reports the tree clean of something it stopped looking
+# for. On 2026-08-24 a patch script widening `test-count` wrote `\\b` where it
+# meant `\b` -- legal regex for "a literal backslash, then b", which nothing in
+# this tree contains. The file imported, the audit ran, the rule was silent, and
+# reading the diff did not reveal it. Only executing the pattern does.
+#
+# So every rule is exercised at import, before anything is scanned. This costs
+# 26 regex compiles and is the cheapest guard in the repo.
+_DOUBLED_ESCAPE = re.compile(r"\\\\[bswdBSWD]")
+
+for _rid, _pattern, _why, _where in RULES:
+    try:
+        re.compile(_pattern)
+    except re.error as _exc:
+        raise SystemExit(f"audit rule {_rid!r} does not compile: {_exc}")
+    if _DOUBLED_ESCAPE.search(_pattern):
+        raise SystemExit(
+            f"audit rule {_rid!r} contains a doubled escape, so it matches a "
+            f"literal backslash rather than a character class. It would report "
+            f"the tree clean of something it is no longer looking for.")
+del _rid, _pattern, _why, _where
 
 
 def main():

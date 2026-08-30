@@ -33,6 +33,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+. (Join-Path $PSScriptRoot 'Get-GpuVram.ps1')   # the one place that asks the driver about a GPU (#50)
 $out = Join-Path $Root "results\spec-matrix-$Tag.jsonl"
 
 $srcToRewrite = @'
@@ -101,7 +102,10 @@ foreach ($cfg in $configs) {
   $log = Start-Server -SpecType $cfg.spec -NMax $cfg.n
   if (-not $log) { "FAILED TO START: $Tag $($cfg.spec) n=$($cfg.n)"; continue }
 
-  $vram = (nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader,nounits) -split '\s*,\s*'
+  # One named card. Unfiltered, this reads whichever GPU the driver lists
+  # first, which on a two-card machine is not the one serving (#50).
+  $g = Get-GpuVram
+  $vram = if ($g) { @($g.Used, $g.Free) } else { @($null, $null) }
 
   foreach ($pk in @('bench','code')) {
     $tg = @(); $dn = 0; $da = 0; $pp = @()

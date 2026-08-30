@@ -187,7 +187,10 @@ def main():
     ap.add_argument("--target", default="README.md")
     ap.add_argument("--scratch", default=r"D:\bench-scratch")
     ap.add_argument("--cfgdir", default=r"C:\AI\ocworker\cfg-local")
-    ap.add_argument("--model", default="local/qwen38")
+    # Follows the profile's --alias. The server announces the quant it is
+    # actually serving, so a transcript says afterwards which one answered
+    # -- `qwen38` did not, and there are two profiles now.
+    ap.add_argument("--model", default="local/Qwen3.8-27B-Q4_K_XL")
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--out", default=r"C:\AI\qwen38-tuning\results\edit-canary.jsonl")
     ap.add_argument("--round", choices=["trivial", "reasoned", "both"],

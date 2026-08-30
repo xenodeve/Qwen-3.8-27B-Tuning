@@ -44,7 +44,9 @@ One document per topic. Read in this order; each builds on the one before.
 | 31 | [Session record 2026-08-22](31-SESSION-RECORD-2026-08-22.md) | **Every measurement of that day with its conditions**, including the runs that turned out invalid | complete |
 | 32 | [**Benchmark status brief**](32-BENCHMARK-STATUS-BRIEF.md) | **The standalone hand-off** — the whole state with every number traced to its file, written to be read cold | **current** |
 | 33 | [**What the RTX 3090 pool actually gave us**](33-WHAT-THE-3090-POOL-ACTUALLY-GAVE-US.md) | **Eight techniques measured or closed in one session** — five wins, three retractions, no profile changed. The largest win was already switched on | **current** |
-| ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Twenty-seven published claims this project later contradicted with its own data, each with where the correction lives. **§25–§27 all share one shape: the conclusion was right and the stated mechanism was wrong** | current |
+| 34 | [**Blackwell bought headroom, not speed**](34-BLACKWELL-BOUGHT-HEADROOM-NOT-SPEED.md) | **The rebuild for the card that is actually installed**, and the retraction it forced. Per arm the 5060 Ti is 1.1–1.3× slower than the 4070 SUPER — but `dflash2+ngram` went from a median of 5.66 with two timeouts to **87.72 with none**, because it stopped being squeezed. Every Blackwell-gated path in this build is FP4, and FP4 does not fit | **current** |
+| 35 | [**Q2_K_XL, the MTP head that was already there, and the effort nobody had set**](35-Q2KXL-MTP-AND-THE-EFFORT-NOBODY-SET.md) | **Six configurations on one real task, zero files changed six times.** `UD-Q2_K_XL` carries `blk.64`, so `draft-mtp` runs with no sidecar and returns 743 MiB. `n_max 7` is +25 % wall clock on DFlash2 and −56 % on MTP, and the metadata says why. **Every server this project ever launched ran at `xhigh`;** `medium` is the default from now. A projection said ctx 163,840 would fit — a boot said 64/66 | **current** |
+| ⚠ | [**Corrections register**](CORRECTIONS.md) | **Read before quoting any number.** Thirty published claims this project later contradicted with its own data, each with where the correction lives. **§25–§27 all share one shape: the conclusion was right and the stated mechanism was wrong**; **§28 does not — two correctly measured numbers were made false by being put in one table**; **§29 is a third shape — a correct answer filed against a wider question than it was asked**; **§30 is a fourth — a two-point hypothesis published in a commit message, a layer nothing scans** | current |
 | ★ | [**Master report** (self-contained, for external review)](MASTER-REPORT-2026-08-19.md) | Everything above in one document that assumes no access to this machine | 2026-08-19 |
 | — | [Session state](SESSION-STATE.md) | restart notes — the interrupted run it describes is now complete | superseded |
 
@@ -93,6 +95,37 @@ including the runs that turned out invalid. [30](30-SYV-RTX3090-REFERENCE-REVIEW
 reviews an external RTX 3090 stack against our own files;
 [29](29-DFLASH2-AND-THE-PROMPT-THAT-FLATTERED-NGRAM.md) is the DFlash2 result and
 the prompt that hid it.
+
+[39](39-OPTIMISATION-GUIDE.md) is the **optimisation guide** — what is settled
+and must not be re-tested, the levers ranked by what they cost to try, the trades
+that need a decision and not just a number, and the six ways to waste a day here.
+Every line is tagged **MEASURED HERE** with the file its number came from,
+**VENDOR** for someone else's documented claim, or **UNMEASURED**. Start here if
+you want to make it faster; [38](38-NVFP4-PROFILE-REFERENCE.md) is the **complete
+reference for the NVFP4 profile**, written 2026-08-29 for a reader with no prior context: the machine,
+the binary, the full provenance chain from `Qwen/Qwen3.8-27B` through Unsloth's
+NVFP4 to the GGUF tier we serve, the exact resolved command line, what is
+measured and by what method, and — in its own section — everything that is
+**not**, starting with quality. It ends in six questions written to be handed to
+an outside reviewer. **Read this for the configuration that is fastest**;
+[37](37-DUAL-GPU-PROFILE-REFERENCE.md) is the **complete reference for the
+dual-GPU profile**, written 2026-08-27 to be read with no prior context: the
+hardware and its three biases, the build and the trap of a second one, every
+flag in the served invocation with the measurement behind it, the two arguments
+computed at launch (`-ts` and `-MaxCtx`) with the incidents that forced them,
+the eight guards that refuse to start, what is **structurally** blocked as
+against merely untuned, the two register verdicts that are weaker than they
+read, and a ranked list of what to fix next. **Start here** if you want to know
+what this configuration is; report 36 is the narrative of how it was found.
+
+[36](36-DUAL-GPU-FINDINGS.md) is the **dual-GPU report**, written 2026-08-27 to
+be handed to an outside model: hardware, build identity, exact command lines and
+error strings, every number with the run that produced it, and **five open
+questions about mechanism** we could not answer from the source -- why `-sm row`
+cannot load on this pair, why `-sm tensor` cannot host an external drafter, why
+DFlash2 loads at 16,384 and not at 147,456, why `llama_params_fit` is
+unimplemented for tensor parallelism, and why the tensor split defaults to even
+rather than capacity-weighted.
 
 [32](32-BENCHMARK-STATUS-BRIEF.md) is the **standalone hand-off** — the whole
 state of the benchmark with every number traced to its file, written to be read

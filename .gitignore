@@ -31,6 +31,9 @@ llama.cpp-cuda/
 llama.cpp/
 # PR #27342 build, staged beside 10472 so neither replaces the other (issue #17)
 llama.cpp-dflash2/
+# 1deefcca3 + the DFlash mirror patch, in a git worktree of llama.cpp/ so the
+# unpatched tree and its binaries stay untouched (issue #52, task #47)
+llama.cpp-mirror/
 *.zip
 *.dll
 *.exe
@@ -39,3 +42,13 @@ llama.cpp-dflash2/
 
 # Runtime lock: names a live PID, meaningless in a checkout
 qwen38-tuning/.port8080.lock
+logs/llama-tap/
+qwen38-tuning/logs/llama-tap/
+logs/llama-slots/
+qwen38-tuning/logs/llama-slots/
+
+# Copied third-party source trees, built locally. The PATCH is tracked
+# (qwen38-tuning/patches/) and the build script rebuilds the tree from
+# %USERPROFILE%\.unsloth; the 418 MB of sources and ~2 GB of objects are not
+# ours to carry.
+/llama.cpp-unsloth-mirror/

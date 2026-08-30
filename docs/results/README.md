@@ -1,5 +1,14 @@
 # tested — the register of what has actually been run
 
+> 🔴 **Every page in this folder now carries a banner naming the reasoning
+> effort its numbers were taken at.** Established 2026-08-24: the model's chat
+> template supplies `xhigh` with an unlimited thinking budget, the client sends
+> no effort field, and **nothing in this repo has ever overridden either** — not
+> one of the five `worker-*.ps1` profiles, and not `bench/dflash2_arena.py`,
+> which has zero references. Three pages carry exceptions where a run set the
+> flag deliberately; the rest are the default throughout
+> ([`05-runtime-flags.md`](05-runtime-flags.md)).
+
 **This folder answers one question: has X been tried, and what happened?**
 
 It exists because that question kept getting answered wrong. On 2026-08-21 the
@@ -42,7 +51,75 @@ know *why*, follow the link; if you only need to know *whether*, stop here.
 | [`06-prompt-and-quality.md`](06-prompt-and-quality.md) | corpus arms, grammar, reasoning effort, prompt cache |
 | [`07-telemetry-inventory.md`](07-telemetry-inventory.md) | **every value a run can yield**, which source it comes from, and what a restart would add |
 | [`08-rtx3090-transfer.md`](08-rtx3090-transfer.md) | **what transferred from the RTX 3090 scan** — 434 techniques, which were tried here and what happened |
-| [`09-hardware.md`](09-hardware.md) | **which card produced which numbers.** The GPU changed on 2026-08-23; read this before quoting any rate from 01–08 |
+| [`09-hardware.md`](09-hardware.md) | **which card produced which numbers.** The GPU changed on 2026-08-23 and a **second card was added 2026-08-26**; read this before quoting any rate from 01–08 |
+
+**Answered 2026-08-26, two cards — all in [`09-hardware.md`](09-hardware.md):**
+
+| question | verdict | raw |
+|---|---|---|
+| Does `--fit` work across two devices? | **yes** — *no changes needed*, splits by free VRAM 41:59 | boot log |
+| Is the 5060 Ti's slot really x4? | **yes** — gen4 **x4** under load. The *generation* downtrains at idle; the width never does | 49 samples, 34 busy |
+| Does `-sm row` work on this pair? | **no** — `device CUDA0 does not support split buffers`, fails at model load | `logs/dflash2-both-row-*.log` |
+| Does the second card speed up `UD-Q2_K_XL`? | **prefill +57.4 %** [+56.0, +60.0]. **Decode +1.5 %** [+1.1, +2.1] with speculation off | `dual-gpu-16384.jsonl`, `dual-gpu-nospec-16384.jsonl` |
+| Is the −78.3 % speculative decode figure a hardware result? | **no** — it measures how much the model repeated itself ([CORRECTIONS 32](../reports/CORRECTIONS.md)) | same |
+| Does 28 GB make `UD-Q4_K_XL` resident? | **yes, to 229,376** — `66+0` at every rung including the served 147,456; one layer spills at 262,144 | `bench/ctx-ceiling-dual-q4*.jsonl` |
+| What does the second card buy `UD-Q4_K_XL`? | **+79.9 %** [+77.3, +82.2] — it is the residency cliff: `55+11` becomes `66+0` | `dual-gpu-q4-nospec-16384.jsonl` |
+| Noise floor, two-card machine, ctx 16,384 | **under 0.8 %** per arm across three boots. Not transferable to depth ([CORRECTIONS 23](../reports/CORRECTIONS.md)) | all of the above |
+| Should the served profile move to Q4? | **UNDECIDED — the developer's call.** Costs about a third of raw decode; quality has never been measured here | — |
+
+**Arm sets in `bench/dflash2_arena.py` added for the two-card work.** Named here
+so nobody rebuilds one that exists — `--arms <name>`:
+
+| set | what it compares | answered |
+|---|---|---|
+| `dual-gpu` | one card vs both, `ngram-mod`, layer split | yes — and its decode figure is [retracted](../reports/CORRECTIONS.md) §32 |
+| `dual-gpu-nospec` | the same with speculation **off**, so the rate cannot follow the text | yes, **+1.5 %** |
+| `dual-split` | `layer` vs `-sm tensor` vs `-ts 1,1` | yes, **tensor +59.5 %** |
+| `dual-ubatch` | `-ub` 128 / 256 / 512 / 1024 on the tensor split | yes, **1024, +10.1 % prefill** |
+| `dual-kv` | `q4_0` vs `q8_0` KV on the tensor split | yes, **q4_0 — q8_0 cannot load at depth** |
+| `dual-depth` | the split, at the served 147,456 | yes, **tensor +65.4 %** |
+| `dual-decoder` | `ngram-mod` vs none vs `draft-mtp` at depth | yes, **ngram-mod; MTP needed the computed `-ts`** |
+| `dual-drafter` | tensor+`ngram` vs layer+`DFlash2` vs layer+`ngram` | yes, **tensor −29.2 % over layer; DFlash2 fails at depth** |
+| `dual-mtp` | `ngram-mod` vs `draft-mtp,ngram-mod` vs none, on the served config | **partly — MTP voided, it copies the prompt** |
+
+**Instrument added the same week:** `bench/gpu_device.py` and
+`scripts/Get-GpuVram.ps1` are the only two places that ask the driver about a
+GPU, pinned by UUID; a test forbids `--query-gpu` anywhere else. See
+[CORRECTIONS §33](../reports/CORRECTIONS.md).
+
+**Tuned 2026-08-26, issue #52 — the two-card configuration, `UD-Q4_K_XL`:**
+
+| lever | verdict | raw |
+|---|---|---|
+| `-sm layer` vs **`-sm tensor`** | **tensor, +59.5 % at 16,384 and +65.4 % at 147,456** [+64.2, +67.3]. Also leaves 5,313 MiB free against 2,827. **EXPERIMENTAL in llama.cpp's own help** | `dual-split-16384.jsonl`, `dual-depth-147456.jsonl` |
+| `-ts` ratio | **no lever.** `-ts 1,1` against the free-VRAM default of 41:59 is +1.8 % [+0.6, +4.1], inside the floor | `dual-split-16384.jsonl` |
+| `-sm row` | **cannot load.** `device CUDA0 does not support split buffers` | `logs/dflash2-both-row-*.log` |
+| `-ub` 128 / 256 / 512 / **1024** | **1024.** Decode flat; **prefill +10.1 %**, ranges do not overlap | `dual-ubatch-16384.jsonl` |
+| KV `q4_0` vs `q8_0` | **q4_0 stays** on speed — q8_0 is −0.3 % at 16,384, inside any floor. 🟡 **The "cannot load at 147,456" half is CONFOUNDED, flagged 2026-08-27:** that run's `Meta() model buffer size` is 8,065.29 MiB, exactly half the model, so it used the EVEN split — the configuration retracted in [CORRECTIONS 33](../reports/CORRECTIONS.md). The arithmetic says it would probably fit with the computed `-ts`. Not re-run — [results 03](03-memory-and-kv.md) | `dual-kv-16384.jsonl` |
+| `-mg` | **not applicable.** It selects a card for `-sm none` or `-sm row`; neither is in play | llama.cpp `--help` |
+| `--fit` under `-sm tensor` | **inert.** `llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort`. `-ngl auto` still gives 66/66 | `logs/dual-profile-boot-verify.log` |
+| Noise floor at **147,456** | **under 2 %** per arm across three boots | `dual-depth-147456.jsonl` |
+| Tuned Q4 on two cards vs served Q2 on one | **parity.** 32.4/33.9/32.3 against 32.1/32.0/32.0, ranges overlap. Before the split was tuned the same comparison said −34 % | both |
+| **Does the tuned dual profile work on the developer's machine?** | 🔴 **NO, until 2026-08-26 evening.** `serve-dual-lan.bat` decoded at **0.38 tok/s** -- `-sm tensor` splits EVENLY without `-ts`, and the 12 GB card is the DISPLAY GPU, leaving **+317 MiB** and spilling to host memory. Now computed at launch from measured free VRAM with a reserve on the display card: **25.8 / 42.7 / 78.3 tok/s, both cards at 95 %** ([CORRECTIONS 33](../reports/CORRECTIONS.md)) | `logs/serve-20260826-232107.log`, `logs/bat-dual-fixed.log` |
+| Does **DFlash2** work on the dual split? | **No.** `draft-dflash` aborts at `ggml-backend-meta.cpp:1522` exactly as `draft-mtp` does. **No external drafter loads under `-sm tensor`** -- the Meta backend cannot host a second model. `ngram-mod` needs no weights and is the only speculative option | `logs/dflash-dual.log` |
+| Can the tuned profile actually be started? | **yes** — `.\serve.ps1 -Dual`, booted end to end, 66/66 on the Meta device, `/health` ok, a real completion answered | `logs/dual-profile-boot-verify.log` |
+| decoder on the tuned dual config, ctx 147,456 | **`ngram-mod`, and it is the only one that works.** `none` is -13.3 % [-13.8, -13.1] with each arm spreading 2.1 %; **`draft-mtp` CANNOT LOAD under `-sm tensor`** -- `GGML_ASSERT(bufs.back() != nullptr)` in `ggml-backend-meta.cpp:1522` | `dual-decoder-147456.jsonl` |
+| the floor a verdict was compared against | **now printed.** `NOISE_FLOOR_PCT` is 13.6 -- Ada at ctx 16,384 -- and it called that tight -13.3 % "within noise". The constant is unchanged; the report states it and each arm's own spread, and names the third state | `harness.observed_spread_pct` |
+| **How deep can the context actually go?** | **262,144 -- `n_ctx_train` -- with `-UBatch 512`.** Verified by pushing a **135,233-token request** through each rung, because loading is not surviving: 262,144 at `-ub 512` once loaded, answered `/health`, then died on the first real request with `CUDA error: out of memory ... cuMemSetAccess`. Survivors, free MiB display-card/other after the request: 147,456→1,998/2,040 · 196,608→1,248/1,208 · 229,376→1,071/500 · **262,144 @ ub512→821/452** | `logs/survive-c*.log` |
+| Is 262,144 comfortable? | **No.** The run that died had 336 MiB free on the second card, the one that survived had 488 -- the line sits between them and the desktop decides which side you land on. 147,456 finishes with about 2,000 MiB on each card | same |
+| **Do the .bat files themselves work?** | 🔴 **NO, all four were dead on arrival — fixed 2026-08-29.** They carried `echo PowerShell 7 ^^(pwsh^^) was not found` inside an `if errorlevel 1 ( ... )` block. In cmd, `^^` is an escaped caret, so the `(` after it opens a block cmd cannot close, and cmd parses the whole block before running any of it: **`was was unexpected at this time`, before a single command ran.** Every test passed, because each one read the file as text or invoked `serve.ps1` directly — **neither of those is cmd.** Now `serve-dual-nvfp4.bat` boots to `n_ctx 147456` and answers a 70,322-token request at 40.14 tok/s. Guarded by `test_a_bat_must_parse_in_cmd.py`, which runs **every** `.bat` through real cmd with the launch line neutered | `bench/tests/test_a_bat_must_parse_in_cmd.py` |
+| **How deep can NVFP4 actually be SERVED?** | **200,704, not the 229,376 first recorded** — [CORRECTIONS 35](../reports/CORRECTIONS.md). 229,376 was certified with a 65,643-token request, a **quarter** of its window; given a half-window one it loads with **206 MiB** free on device 1 and dies with `cudaMalloc failed: out of memory`. This project had already measured 336 dying and 488 surviving, and 206 is below both. `serve-dual-nvfp4-deep.bat` serves 200,704, verified end to end: 101,029-token request answered, 1,009 / 692 MiB free | `logs/serve-*.log`, [results 02](02-decoders.md) |
+| **Does the split-mode verdict survive the artifact change?** | **YES — and it is the only verdict this session tested that did.** On NVFP4 at 147,456 with the served decoder, `-sm layer` is **−31.0 % [−32.9, −29.6] RESOLVED**: 31.3 / 31.4 / 30.1 against tensor's 44.5 / 45.2 / 44.9, baseline spread 1.6 %, **both arms `66+0`** so it is the split and not a spill. The `+65.4 %` it replaces was `UD-Q4_K_XL`, 2026-08-26, speculation OFF on both sides. **The sampler question is answered too:** `set_sampler: backend sampling not supported with SPLIT_MODE_TENSOR; using CPU` is **absent from every layer log** — backend sampling is live there — **and layer is still 31 % slower**. Also acceptance 58.8 vs 45.4 and `ngram-mod` accepted length 17.54 vs 5.88, so the two splits are not decoding the same tokens ([CORRECTIONS 32](../reports/CORRECTIONS.md)) | `dflash2-arena.jsonl`, [results 02](02-decoders.md) |
+| **How deep can the context go WITH vision?** | **200,704 — the profile's cap — and every rung below it.** Each was asked for a half-window request from the arena's corpus AND an image on top of that context, which is what pasting a screenshot into a long conversation does; the earlier probes were a small picture against an empty context and proved nothing about this. All four passed: 200,704 took 91,428 tokens then a picture, finishing **464**/1,187 MiB free · 180,224 → 534/1,703 · 163,840 → 817/2,057 · 147,456 → 1,068/2,413. ⚠️ **464 MiB is the thinnest margin of the four**, between the 336 seen dying and the 488 seen surviving on a *different* configuration. The budget check refusing to start is the safety, not the margin. The ladder stops at the cap: 229,376 dies without the tower already | `logs/vl-*.log`, [results 02](02-decoders.md) |
+| **Does the vision projector load under `-sm tensor`?** | **YES, and the prediction that it would not was WRONG.** The reasoning — a projector is a second model and `-sm tensor` has never hosted one, `draft-dflash` aborts in `ggml-backend-meta.cpp` — does not carry to `mmproj`. `-mm mmproj-BF16.gguf` on the **unpatched served binary** loaded and answered a real 512×512 PNG correctly at **65,536, 147,456 AND 200,704**: *"Blue fills most; a yellow circle is in the middle."* Free after: 2,465/4,230 · 1,205/2,450 · **614**/1,294 MiB. ⚠️ **Those are after a TINY request** — vision beside a large text prompt is untested, and 614 MiB sits between the 488 that survived and the 336 that died. Without `-mm`, any image is HTTP 500 `image input is not supported`. **Now folded into `serve-dual-nvfp4{,-lan}.bat` rather than a separate icon** — it costs headroom, not window, and that pair was booted through cmd and shown a picture it had not seen before: `n_ctx 147456`, correct answer, text path still fine, free 1,206 / 2,450 MiB. The deep pair stays text-only | `logs/vision-*.log`, [results 02](02-decoders.md) |
+| **Can the NVFP4 pair actually be started, end to end?** | **YES, booted 2026-08-29.** `worker-q4-dual.ps1 -Nvfp4` came up, announced itself as `Qwen3.8-27B-NVFP4-MTP` on `/v1/models`, and **survived a 70,322-token request, generating 200 real tokens** — prose, not a copy of the prompt. Decode read **32.56 tok/s**, prefill 717.2, finishing with 1,787/1,870 MiB free. ⚠️ **That rate is a boot check, not a measurement** — one unpaired reading at `n_predict` 200 against the sweep's 512, taken with the desktop holding more than it did during the sweep. **The number to quote is the paired +63.1 %**, not this. **Two faults found by running it:** the profile's budget guard correctly REFUSED a second boot while a leaked server still held both cards (it works), and the first probe fed a prompt with no instruction and got **1 token and empty content** — a fourth ad-hoc probe differing from the arena that already exists. The verification now uses `arena.filler(int(ctx*0.5), 'real-code-vendor')`, the sweep's own slice | `logs/verify-nvfp4-boot.log` |
+| **Is there anything faster than what we serve at 147,456?** | **YES — NVFP4 with a baked-in MTP head, +63.1 % [+58.3, +65.6] RESOLVED.** `NVFP4-MTP-VERY-LOW` + `draft-mtp,ngram-mod` at `n-match 24` decodes 39.4 / 42.6 / 42.6 against 24.9 / 25.7 / 25.7 for the served `UD-Q4_K_XL` + `ngram-mod` n-match 12, three paired rounds rotated, baseline spread 3.3 %. **No patch, no sidecar drafter, served binary**, and it leaves ~400 MiB MORE headroom. **Quality UNMEASURED and it gates shipping — no default changed** — [results 02](02-decoders.md) | `nvfp4-final-147456.jsonl` |
+| Is NVFP4 fast because of the artifact? | **No — the artifact ALONE is a loss.** NVFP4 + `ngram-mod` without MTP is **−22.4 %**: n-gram acceptance falls 55.4 → 22.1 because that file writes text the n-gram cannot predict. MTP fills exactly that gap. **The pairing is the result, neither half is** | `nvfp4-vs-q4-147456.jsonl` |
+| Does the n-gram tuning transfer across artifacts? | **No.** On NVFP4, `n-match 24` is **+27.1 % over the 12 that won on `UD-Q4_K_XL`**, and `map-k` — which declined **100 %** of its drafts on the Q4 at this depth — recovers to **+15.4 %**. A verdict does not transfer across artifacts any more than across depths | `nvfp4-ngram-retune-147456.jsonl` |
+| Does MTP's prompt-copying belong to MTP? | **No, to the ARTIFACT.** NVFP4's head reports `copied_frac [0.0, 0.0, 0.0]` and `predicted_n 512` in every round where Unsloth's head at the same depth reports `[0.519, 0.0, 0.23]`. Open for weeks; answered | `nvfp4-vs-q4-147456.jsonl` |
+| DFlash2 on NVFP4 | **~~no case~~ — WITHDRAWN 2026-08-30. It works.** The `+0.2 %` arm was given none of what DFlash2 wants: ctx 147,456, `--spec-draft-n-max 3`, and `n-match 12` — the window the rows above record collapsing on this artifact (55.4 → 22.1) while 24 wins. **Re-measured at 65,536 / `n_max` 4 / `n-match` 24: +67.9 % [+65.8, +71.5] RESOLVED**, acceptance back to 50.0. At the served 147,456: 44.48 / 44.56 / 44.23 against MTP's pooled 42.77 over six rounds and two boot series spanning 9.3 % — **+4.0 %, under the floor and across boots so NOT resolved**, but DFlash2's worst round beats MTP's best. It still costs a sidecar drafter, the mirror patch, a binary we do not serve and ~950 MiB more headroom than MTP; **what it buys is consistency, not speed** | `nvfp4-dflash-65536.jsonl`, `nvfp4-dflash-147456-n4.jsonl` |
+| Is `UD-Q4_K_XL` better than `UD-Q2_K_XL`? | **UNMEASURED HERE.** The only remaining argument for the switch, and it rests on an external ladder | — |
+
 
 ---
 
@@ -57,7 +134,7 @@ act on and one you can only cite.
 `qwen38-tuning/results/`, it is not a measurement and says so.
 
 **Before quoting anything, read
-[`../reports/CORRECTIONS.md`](../reports/CORRECTIONS.md)** — twenty-seven claims this
+[`../reports/CORRECTIONS.md`](../reports/CORRECTIONS.md)** — twenty-eight claims this
 project published and later contradicted. The rows here reflect the corrections;
 older reports may not.
 

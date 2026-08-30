@@ -1,5 +1,22 @@
 # 07 — Every value a run can yield, and where it comes from
 
+> 🔴 **Every number on this page was measured at `reasoning_effort: xhigh` with
+> an unlimited thinking budget.** That is the model's chat-template
+> default — the client sends no effort field, and **no `worker-*.ps1` profile and
+> nothing in `bench/` has ever set the flag** (established 2026-08-24 from a boot
+> log: [`05-runtime-flags.md`](05-runtime-flags.md)).
+> Artificial Analysis prices this model's `medium` **one point** below `xhigh` on
+> the agentic axis and `low` **six** below that
+> ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+> so **effort is a live confound here, not a settled background condition.**
+>
+> **The served default became `medium` on 2026-08-24** — all five
+> `worker-*.ps1` profiles and `dflash2_arena.server_argv` now set it, and the
+> arena records `effort` on every row. **So this banner describes what is
+> already on the page, not what will be added to it.** Anything measured after
+> that date states its own level, and a figure from before it cannot be
+> compared with one from after without saying which is which.
+
 Written 2026-08-21 to answer one question directly: **what can we actually
 measure, so that model tuning is driven by data rather than by whichever number
 happened to be printed?**

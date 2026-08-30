@@ -36,6 +36,8 @@ import time
 import urllib.request
 from pathlib import Path
 
+import gpu_device
+
 ROOT = Path(r"C:\AI\qwen38-tuning")
 BASE = "http://127.0.0.1:8080"
 
@@ -70,12 +72,15 @@ def sample():
 
 
 def _free_vram():
-    """Free VRAM on the card, so the ratio can be read against headroom."""
+    """Free VRAM on the SERVED card, so the ratio can be read against headroom.
+
+    The previous form took `splitlines()[0]`, which on a two-card machine is
+    whichever card the driver listed first -- here the retired 4070 SUPER. It
+    did not raise; it returned a plausible number for the wrong hardware, and
+    the bare `except` below would have hidden it either way (issue #50).
+    """
     try:
-        out = subprocess.run(["nvidia-smi", "--query-gpu=memory.free",
-                              "--format=csv,noheader,nounits"],
-                             capture_output=True, text=True).stdout.strip()
-        return int(out.splitlines()[0])
+        return gpu_device.free_vram()
     except Exception:
         return None
 

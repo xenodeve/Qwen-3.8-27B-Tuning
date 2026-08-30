@@ -9,6 +9,301 @@ hundred lines.
 
 ---
 
+## 2026-08-25 → 27 — a second GPU, a profile that ran 85× slow, and the four times a launcher lied
+
+**Shipped on `build/blackwell-sm120`, ~20 commits, all pushed, nothing merged.**
+Issues [#50](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/50),
+[#51](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/51),
+[#52](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/52) — all left open.
+Tests **507 → 734**.
+
+### The launcher, before any of it
+
+`serve.ps1` plus **six** double-click launchers, on two independent axes: one
+card or two, loopback or exposed, and now a `mtp` pair. Each holds **no serving
+flag** — the profile owns them all. One window means one server: a Win32 job
+object with `KILL_ON_JOB_CLOSE`, verified by killing the launcher and watching
+the server go with it. Nothing stands between llama.cpp and the console, which
+is why colour survives.
+
+### A second card arrived, and every instrument was wrong
+
+The retired **RTX 4070 SUPER 12 GB** went back in beside the 5060 Ti.
+`nvidia-smi --query-gpu` answers **per card**, so eleven call sites began
+reading something other than what they claimed — and the two languages failed
+differently. **Python raised** (`ValueError` on a two-line answer, loud, safe).
+**PowerShell did not**: `-split` returned four elements and `[0]`/`[1]` became
+the *4070's* numbers, so `Show-ServerStatus.ps1` would have reported the model
+resident on a card with nothing loaded on it.
+
+One chokepoint per language — `bench/gpu_device.py`, `scripts/Get-GpuVram.ps1` —
+pinned by **UUID, not index**, and a test forbids `--query-gpu` anywhere else.
+[CORRECTIONS §33](docs/reports/CORRECTIONS.md).
+
+### What two cards bought
+
+`UD-Q4_K_XL` is 16.69 GiB and had been refused on one 16 GB card at every depth.
+Across two it is resident to **262,144 — `n_ctx_train`**. The second card is
+worth **+79.9 %** to it, because on one card it spills eleven layers.
+
+Then the levers, none of which had ever been swept:
+
+| lever | verdict |
+|---|---|
+| `-sm tensor` | **+59.5 %** at 16,384 and **+65.4 %** at 147,456 over the default `layer` |
+| `-ts` ratio | **not a lever in `layer`, decisive in `tensor`** — see below |
+| `-ub` | **1024**, +10.1 % prefill, decode flat |
+| KV `q8_0` | free at 16,384, **cannot load at 147,456** |
+| `-sm row` | cannot load: `device CUDA0 does not support split buffers` |
+| `-mg` | not applicable — it scopes to `none`/`row` |
+
+### The profile shipped, and then ran at 0.38 tok/s
+
+`serve-dual-lan.bat` decoded at **0.38 tok/s** against the 32.4 it advertised.
+**`-sm tensor` splits EVENLY when given no ratio** (`llama-model.cpp:707`), the
+cards are 12 GB against 16, and **the 12 GB card draws the display** — leaving
+**+317 MiB**. The driver paged to host memory and every token went through PCIe.
+
+**Two of this project's own claims caused it**, both retracted the day they were
+written ([CORRECTIONS §33](docs/reports/CORRECTIONS.md)): *"`-ts` is not a
+lever"* (measured under `layer`, generalised) and *"`--fit` being inert makes it
+a hard load failure"* (**reasoned from the word `abort` in a log line** — it is
+a silent spill).
+
+**Fixed by computing `-ts` at launch** from measured free VRAM minus a reserve
+on whichever card holds memory, and by **refusing** when the budget cannot hold
+the run. After: **25.8 / 42.7 / 78.3 tok/s, both cards at 95 %**.
+
+### Then the guard was wrong twice more
+
+It compared the budget against the **weights alone**, so it approved every
+context — including 262,144, which OOM'd. Fixed to count KV(ctx) and
+compute(ub), and to name what *would* fit.
+
+And a **successful load is not a successful run**: 262,144 at `-ub 512` loaded,
+reported `66+0`, answered `/health`, then died on the first real request with
+`cuMemSetAccess ... out of memory`. Every depth was re-tested with a **135,233
+token** request, counting only depths that answered.
+**`-Ctx 262144 -UBatch 512` survives** — with 452 MiB spare, against 2,000 at
+147,456. [`traps.md`](docs/agents/traps.md) 18.
+
+### Speculative decoders, and one claim that was too strong
+
+`draft-mtp` **does** run under `-sm tensor` — this project recorded otherwise
+and an outside review prompted the probe that disproved it. Only a drafter
+loaded from a separate file fails, and **the two failures raise different
+assertions**: `ggml-backend-meta.cpp:1522` (buffer alloc, OOM-shaped) against
+`:543` (graph split axis, at negligible memory pressure).
+
+`DFlash2` on the **layer** split at 16,384 is **42.26 / 43.65 tok/s — the
+fastest configuration measured anywhere in this work** — and unavailable at the
+depth we serve. MTP has **no usable rate**: every paired round was voided
+because the generations copy the prompt.
+
+### Serving, as the developer met it
+
+- **The model announces itself** as `Qwen3.8-27B-Q4_K_XL` / `-Q2_K_XL`, not
+  `qwen38`. The survey found `bench/edit_canary.py` — the only client naming a
+  model — would have broken.
+- **`Waiting for API response` is prefill, not thinking.** `stream:false` shows
+  nothing for 59.4 s; `return_progress` streams a percentage from 1.4 s but is a
+  **request** field the client must send. `--sse-ping-interval` 30 → **5**.
+- **The firewall is wider than the rule we wrote**: two `Query User` popup rules
+  allow any port from any remote on Public, and every adapter here is Public.
+  **Nothing narrowed — the developer's call.**
+  [`05-OPERATING-GUIDE`](docs/reports/05-OPERATING-GUIDE.md) §3b.
+
+### What this cost in method
+
+**Four launcher lies, all found by running it, none by reading it**
+([`traps.md`](docs/agents/traps.md) 17). **Eight assertions that measured the
+shape of a file**, two of them green for the wrong reason — one for days
+([`traps.md`](docs/agents/traps.md) 16). And the arena **retried an impossible
+arm three times per sweep** until the developer asked why
+([`traps.md`](docs/agents/traps.md) 19).
+
+### Left open on purpose
+
+**Quality.** Every argument for `UD-Q4_K_XL` over `UD-Q2_K_XL` rests on a
+bits-per-weight ladder and an external campaign; **neither is our number**, and
+this project has never measured quality on its own artifacts. No default
+changed — both profiles ship.
+
+---
+
+## 2026-08-24 (second half) — two forum posts, a compile flag nobody could reach, and a measurement that still will not resolve
+
+**Shipped on `build/blackwell-sm120`, 7 commits, PR #42, none merged.** Issues
+[#43](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/43) and
+[#44](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/44).
+
+**Two saved pages, and the numbers in them were the least useful part.** A
+r/LocalLLM thread and HF discussion #26, both on our exact RTX 5060 Ti 16 GB.
+Captured in [`researchs/reddit-5060ti-quant-thread`](docs/researchs/reddit-5060ti-quant-thread/README.md)
+and [`researchs/hf-discussion-5060ti-mtp`](docs/researchs/hf-discussion-5060ti-mtp/README.md).
+
+**What the first one actually bought: `GGML_CUDA_FA_ALL_QUANTS` is `OFF` in both
+our builds.** A commenter opened with *"IMPORTANT: compile with it ON"* and a
+`cache-type-k q5_0 / cache-type-v q4_1` line. That line is not slow on our
+binaries — `fattn.cu:340-352` makes `q4_1`/`q5_0`/`q5_1` unsupported KV types
+when the flag is off, and `:442-446` refuses every asymmetric K≠V pair. **The
+flag was closed here long ago on the reason "Q8 KV is faster on the stock
+binary" — and `GGML_TYPE_Q8_0` is in the always-compiled list, so that result
+could not test it.** [`CORRECTIONS §29`](docs/reports/CORRECTIONS.md). Half the
+failure is silent: `-fa auto` WARNs and continues, so `-ctk q5_1 -ctv f16` boots
+with flash attention off and returns a number.
+
+**The second gave us the only outside paired MTP curve on this card** —
+2.08× at 2,500 tokens decaying to **1.72× at 25,400** — plus the third and
+fourth independent confirmations that the template default is `xhigh`, and a
+`Vulkan-instead-of-CUDA` incident that is our own `sm_89`-on-`sm_120` fault one
+layer up. **Checked every lever it names against our profile; none needed
+changing.**
+
+### The measurement, and four instrument faults found on the way to it
+
+**#44 asked whether `draft-mtp` earns its place at ctx 147,456.** The first
+attempt returned **18 rows, 0 measurable** — every generation 9 tokens against a
+512 budget. Four separate things had to be fixed before a number existed:
+
+**`TARGET_LAYERS = 65`** was a constant commented *"64 blocks plus the MTP
+head"* — the count for `UD-IQ2_XXS`, which has no MTP head. `UD-Q2_K_XL` has one
+at `blk.64` and reports 66. Replaced by reading the count out of the log.
+
+**The `except` clobbered `row["note"]`**, so the real diagnosis — *generations
+too short, `predicted_n=[9,9,9]`* — was overwritten by a complaint about layer
+counting. **A harness that deletes its own evidence cannot be debugged**, fixed
+in `real_task_bench` that morning and still live here.
+
+**A 512-token verbatim copy of the prompt passed every gate.** The first row on
+the new corpus read **195.13 tok/s** with `ngram-mod` accepting 1,911 of 1,912
+drafted tokens in runs of 32.85 — the model was continuing the corpus, not
+answering. **The highest figure this project has ever recorded, and it was a copy
+rate.** Killed after one row; `copied_window_fraction` now gates on the output,
+never on the counters, because `ngram-mod` is one of the arms under test.
+
+**And the 9 tokens were not a bug at all.** Not the window — a 48-token prompt
+runs the full budget at the same ctx. Not the length — seven cold points go
+**512, 1, 1, 512, 512, 512, 9**, which is not monotonic. `filler` cuts at exactly
+`n * 3` characters and **where the cut lands** decides it. Confirmed by changing
+the text instead: the same seven lengths on
+[`real-code-vendor`](qwen38-tuning/bench/corpora/build-vendor-corpus.py), 11
+files of `llama.cpp`'s `gguf-py`, complete **7 of 7** including 70,322 tokens.
+
+### What the run says, and why it is not a verdict
+
+Six paired rounds, arms rotated through every position twice, `--ignore-eos` on
+both depths. **At ctx 147,456 adding `draft-mtp` costs 13.5 % and 1,490 MiB** —
+45.09 against `ngram-mod`'s 52.11, spreads 0.5 % and 1.3 % over six distinct
+boots. Acceptance is *higher* with MTP (54.5 against 42.9) and it is still
+slower, because **MTP spends 3,861 ms drafting for 783 accepted tokens where
+`ngram-mod` spends 2 ms for 859.**
+
+**It does not settle it.** Both arms ran forced, and forcing is not neutral for
+MTP. The one natural round, at 98,304, gives MTP **+127 %** — opposite sign, with
+**both depth and forcing changed between the two numbers.** Both missing cells
+are blocked by a different guard. Next: a natural paired sweep at 32,768 /
+65,536 / 98,304 and read the trend. [`results 02`](docs/results/02-decoders.md).
+
+### Three invariants, and two of them are about my own reasoning
+
+**Two points look like a line.** *"The boundary is prompt length, between 43k and
+64k"* went into a **commit message** from two points, and five more refuted it
+the same hour. [`CORRECTIONS §30`](docs/reports/CORRECTIONS.md) — a commit
+message is a layer this project treats as durable and **nothing scans it**.
+
+**A probe that reuses the prompt cache is not a controlled experiment.** The
+first version of that sweep left `cache_prompt` on; requests 2–7 processed 3,532
+to 4,389 tokens instead of their own length. **The tell was in a column already
+being printed.**
+
+**A number recorded before its condition existed cannot be compared later.**
+`ignore_eos` is the fifth provenance column and the first added *before* rather
+than after a comparison was made without it.
+
+**Validation:** suite **390 → 426**, all red-first; 399 links, 0 broken; audit
+green with two new rules. The served profile was **not modified**.
+
+---
+
+## 2026-08-24 — the card was never running its own kernels, and the model was never asked to think less
+
+**Shipped on `build/blackwell-sm120`, 22 commits, PR #42, none merged.** Argued in
+[report 34](docs/reports/34-BLACKWELL-BOUGHT-HEADROOM-NOT-SPEED.md) and
+[report 35](docs/reports/35-Q2KXL-MTP-AND-THE-EFFORT-NOBODY-SET.md).
+
+**The build was wrong and nothing said so.** Every binary this project had ever
+benchmarked was `CMAKE_CUDA_ARCHITECTURES=89` on an `sm_120` card. Rebuilt as
+`llama.cpp-blackwell` with a `CMakeCache` diff proving **345 entries identical and
+the architecture list the only differing value** — the first configure attempt did
+NOT have that property and defaulted three flags the Ada build never used, caught
+before a single object compiled. Prefill **146,155 → 66,582 ms** with draft
+acceptance byte-identical at 0.14870 in both.
+
+**Retracted the day-old headline.** *"4× slower than the 4070 SUPER"*
+([CORRECTIONS §28](docs/reports/CORRECTIONS.md)) divided a `hardware_baseline`
+figure at acceptance 14.87 by an arena figure at 60.2. What is actually
+measurable: **1.90× slower at prefill**, matching 4,608 CUDA cores against 7,168.
+**The card bought VRAM, not speed.**
+
+**What the VRAM bought is real.** `dflash2+ngram` went from a median of **5.66
+tok/s with two timeouts in six rounds to 87.72 with none** — the drafter did not
+change, it stopped being squeezed into the 45–376 MiB band.
+
+**Blackwell gives us nothing else.** Every Blackwell-gated path in this build is
+MXFP4/NVFP4; `mmq-config-blackwell.cuh` falls through to the Ampere table for
+every other type. **There is no flag to sweep for.** NVFP4 weights are the only
+lever and the smallest published file is 13.59 GiB against 15,172 MiB free —
+**closed by developer decision on the numbers, nothing downloaded.**
+
+**Six real-task runs, zero files changed, six times.** Two artifacts two bpw
+classes apart and four decoders. `UD-Q2_K_XL` carries `blk.64`, so `draft-mtp`
+runs with **no `-md`** and returns 743 MiB — a configuration this project had
+never run, because every earlier `draft-mtp` figure fed a 1.3 GB sidecar to an
+artifact that had none. `n_max 7` is **+25 % wall clock on DFlash2 and −56 % on
+MTP**, and `qwen35.nextn_predict_layers = 1` says why.
+
+**Every server this project ever launched ran at `reasoning_effort: xhigh` with an
+unlimited thinking budget** — never chosen, never set by any of five worker
+profiles or by the arena. `results/05` had predicted the consequence on
+2026-08-18 and the four real-task runs landed inside the predicted band.
+**`medium` is the served default now**, chosen on the agentic axis where it costs
+one point and `low` costs six.
+
+**Serving:** `scripts/worker-q2kxl-mtp.ps1`, `UD-Q2_K_XL` at ctx **147,456**,
+66/66 resident, boot-verified. **First production data, 33 turns of real use:**
+decode median **37.36 tok/s**, generation median **95 tokens**, **0 of 33 hit the
+8,192 cap**, acceptance 0.5165, high-water **75,841 of 147,456 with
+`truncated = 0`**.
+
+### Four invariants this session paid for
+
+**A VRAM projection is not a residency verdict.** ctx 163,840 was proposed from
+buffers measured at 98,304 and spills to 64/66 — and `--fit` **spills rather than
+refuses**, which reads as success in every field except the layer count. Three
+buffers that look fixed scale with context: target compute, MTP KV at **4.00
+KiB/token exactly**, MTP compute. ~290 MiB per 32,768 tokens.
+
+**Two numbers can both be right and their ratio still false.** `compare_cards.py`
+now withholds a ratio on mismatched acceptance, mismatched corpus, or a median
+taken over the survivors of a timed-out arm.
+
+**A row that does not name its conditions cannot be compared.** Four separate
+fixes — `exe`+`cuda_archs`, `env`, `target`+`target_mib`, `effort` — each added
+*after* a comparison had been made without it. The real-task harness reads the
+model and build out of the server's own boot line.
+
+**A harness that deletes its own evidence cannot be debugged.** `real_task_bench`
+destroyed the worker transcript with the scratch root on every run; the first
+FAIL that needed reading was undiagnosable. Transcripts now live outside the
+deleted tree.
+
+**Validation:** suite **253 → 390**, all red-first; 366 links, 0 broken; audit
+self-check mutation-proved after a patch script silently disarmed one of its
+rules. **No existing worker profile was modified** except to add the effort flag.
+
+---
+
 ## 2026-08-23 — eight techniques from the RTX 3090 pool, and the biggest one was already on
 
 **The pool had one row left open.** `08-rtx3090-transfer.md` called

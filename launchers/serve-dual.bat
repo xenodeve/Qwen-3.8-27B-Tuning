@@ -1,0 +1,75 @@
+@echo off
+REM ============================================================================
+REM  Start the worker  --  BOTH GPUs, UD-Q4_K_XL, loopback only, this machine
+REM
+REM  Double-click this. The server runs IN this window and its output is this
+REM  window's output -- prompt timings, cache reuse, speculation counters,
+REM  warnings.
+REM
+REM  Ctrl+C stops the server. So does closing this window. There is one
+REM  process, not a server beside a log-watcher.
+REM
+REM  WHAT THIS ONE IS FOR. UD-Q4_K_XL is 16.69 GiB and does not fit on one
+REM  16 GB card at any depth -- it spills 11 layers and decodes 11.7 tok/s.
+REM  Across both cards it is fully resident to 229,376 and runs at 32.4 / 32.6
+REM  / 33.1 tok/s at the served 147,456, which is PARITY with the single-card
+REM  profile's 32.1 / 32.0 / 32.0. Issue #52.
+REM
+REM  WHAT IT COSTS, AND IT IS NOT NOTHING.
+REM    * Roughly 130 W more. Both cards work; both draw power.
+REM    * It needs BOTH cards installed. With one it refuses to start rather
+REM      than quietly serving something else, and the message says which UUID
+REM      it could not find.
+REM    * QUALITY has never been measured here on this project's own artifacts.
+REM      Every reason to prefer this artifact comes from a bits-per-weight
+REM      ladder and an external campaign, neither of which is our number.
+REM
+REM  So this is not a strictly better serve.bat. Which icon is right is a
+REM  decision, which is why there are four and none implies another.
+REM
+REM  It holds no configuration. The flags live in
+REM  qwen38-tuning\scripts\worker-q4-dual.ps1 and only there; a copy here
+REM  would be a third place to drift.
+REM
+REM
+REM  THE WINDOW IS COMPUTED AT LAUNCH, NOT FIXED. This asks for the deepest
+REM  context the free VRAM supports, capped at the model's own 262,144. It is
+REM  not a constant: 262,144 loaded on this machine when the desktop held about
+REM  1,600 MiB and ran out of memory at 2,575, so the number moves with what
+REM  you have open. The window it settled on is printed when it starts.
+REM
+REM  It also spends the micro-batch before the context -- halving -ub frees
+REM  about a gigabyte across the pair for roughly 3.5 percent of prefill, where
+REM  the same memory bought with context costs tens of thousands of tokens.
+REM
+REM  AND IT LEAVES LESS ROOM. At full depth a large request finishes with a few
+REM  hundred MiB spare, against about 2,000 at the 147,456 default. A run with
+REM  336 MiB free died on its first request; one with 488 survived 135,233
+REM  tokens. Deep is measured, not comfortable.
+REM
+REM  %~dp0 is this file's own folder, and this file lives in launchers\,
+REM  so the paths below climb one level to reach the repository root. %CD% is not it when the file is opened
+REM  from a shortcut or from a shell that started somewhere else.
+REM ============================================================================
+
+setlocal
+cd /d "%~dp0.."
+
+where pwsh >nul 2>nul
+if errorlevel 1 (
+    echo.
+    echo PowerShell 7 ^(pwsh^) was not found, and this needs it.
+    echo Install it with:  winget install Microsoft.PowerShell
+    echo.
+    pause
+    exit /b 1
+)
+
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\serve.ps1" -Dual -MaxCtx
+set RC=%ERRORLEVEL%
+
+if not "%RC%"=="0" (
+    echo.
+    echo serve.ps1 exited with code %RC%.
+    pause
+)

@@ -41,6 +41,23 @@ End to end after the change, with the server log at zero exceptions:
 
 Before the change the same two harnesses produced 50 consecutive failures.
 
+## It must not be bundled with anything, 2026-08-31
+
+The flag spent a week inside the `else` branch of `-Beta` in
+`worker-q4-dual.ps1`, because `-Beta` borrows Unsloth Studio's thinking mechanism
+and Studio passes no template file. Two unrelated concerns in one `if/else`.
+`-Clone` rebuilds its command line from scratch and never had it either.
+
+**Five hub icons -- 7, 8, 9, A and B -- then answered HTTP 500 to every Claude
+Code request**, fifteen in a row in `logs/serve-20260831-023636.log`.
+
+Studio omits the file safely because Studio's client never sends a late system
+message. **Copying that omission reproduces a client incompatibility, not a
+baseline** -- the same shape as CORRECTIONS 36, on the same switch. The omission
+now lives on its own switch, `-StockTemplate`, and the profile refuses to launch
+when the final `argv` lost the flag any other way. See CORRECTIONS 43 and
+issue #58.
+
 ## Regenerating it
 
 The template belongs to the model, so it must be re-derived if the artifact changes.

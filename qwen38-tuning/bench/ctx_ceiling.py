@@ -33,11 +33,13 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import gpu_device
+from provenance import resolve_exe
 from harness import parse_layer_split
 import depth_sweep as D
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
-EXE = r"C:\AI\llama.cpp-cuda\llama-server.exe"
+EXE = resolve_exe(r"C:\AI\llama.cpp-cuda\llama-server.exe")
 BASE = "http://127.0.0.1:8080"
 
 
@@ -50,10 +52,19 @@ def kill():
 
 
 def vram():
-    out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.free",
-                          "--format=csv,noheader,nounits"],
-                         capture_output=True, text=True).stdout.strip()
-    return [int(x) for x in out.split(",")]
+    """[used, free] summed over the cards this process was pinned to.
+
+    Not the served card alone. This script is launched with
+    CUDA_VISIBLE_DEVICES already exported, so on a two-card run the served
+    card's free memory is a fraction of the headroom the run actually had --
+    which is what made the Q4 ladder print `free 4130` at ctx 131,072 when
+    there was more (issue #50, #51).
+
+    The sum is a CEILING: a layer cannot straddle two cards, so free memory
+    does not really add. Residency comes from the layer split, not from here.
+    """
+    used, free = gpu_device.visible_vram()
+    return [used, free]
 
 
 def boot(model, ctx, kv, tag, extra=()):

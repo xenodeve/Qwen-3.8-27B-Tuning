@@ -225,7 +225,7 @@ RoPE setting making depth worse. Fix the measurement first, then tune.
 | `--check-tensors` | off | never used | *Predicted zero speed;* a correctness gate for aggressive quants |
 | `--warmup / --no-warmup` | on | never varied | *Predicted zero on steady state.* Relevant only to load-time accounting |
 | `--perf / --no-perf` | off | never used | internal libllama timings. *Predicted zero effect, useful instrumentation* |
-| build: `FA_ALL_QUANTS` | off | decided | Q8 KV is faster on the stock binary, so it was not needed |
+| build: `FA_ALL_QUANTS` | off | **open** | the Q8 result that closed this cannot test it — `Q8_0` compiles either way. Unlocks `q4_1`/`q5_0`/`q5_1` + asymmetric K≠V; **none run** ([`CORRECTIONS` §29](CORRECTIONS.md)) |
 | build: CUDA arch list | prebuilt | never varied | binary ships `500…900`. *Predicted small* — a build targeting only `890` (Ada) could differ, unmeasured |
 | backend: CUDA vs Vulkan | CUDA | never compared | *Predicted CUDA wins,* untested |
 
@@ -447,7 +447,7 @@ cannot stop talking about it.
 | forks — PrismML | required for Bonsai g128 `Q2_0` | never built |
 | forks — `ik_llama.cpp` | never evaluated | low-bit-focused fork; *predicted plausible gain on IQ1/IQ2, entirely unmeasured* |
 | other engines — vLLM / SGLang / TensorRT-LLM / ExLlamaV3 | **none evaluated** | *Predicted: different residency and batching behaviour on 12 GB.* ExLlamaV3 in particular targets exactly this class of card. No local evidence either way |
-| compile flags | prebuilt binary | `FA_ALL_QUANTS` decided against; CUDA arch list untested |
+| compile flags | prebuilt binary | `FA_ALL_QUANTS` off in both builds, **reopened** (§29); CUDA arch list untested |
 
 ### 16.2 Host and OS
 

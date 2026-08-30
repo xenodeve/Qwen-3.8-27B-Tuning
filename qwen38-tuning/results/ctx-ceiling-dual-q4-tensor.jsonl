@@ -1,0 +1,5 @@
+{"quant": "q4", "kv": "q4_0", "extra": "-sm tensor", "tag": "dual-tensor", "ctx": 147456, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 25632, "vram_used": 22204, "vram_free": 5845, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "-sm tensor", "tag": "dual-tensor", "ctx": 196608, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 26293, "vram_used": 22489, "vram_free": 5560, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "-sm tensor", "tag": "dual-tensor", "ctx": 229376, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 27532, "vram_used": 23379, "vram_free": 4670, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "-sm tensor", "tag": "dual-tensor", "ctx": 262144, "loaded": false, "free_before": 26850}
+{"quant": "q4", "kv": "q4_0", "extra": "-sm tensor", "tag": "dual-tensor", "kind": "SUMMARY", "deepest_resident_ctx": 229376, "ladder": [147456, 196608, 229376, 262144]}

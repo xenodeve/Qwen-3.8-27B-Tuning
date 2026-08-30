@@ -16,6 +16,12 @@ verdicts computed over the rows above them.
 | `deep-quality.jsonl` | retrieval at depth — **Q4 only, still** |
 | `stability-gate.jsonl` | 100 turns, prefix invalidated every tenth |
 | `kv-kernel-screen.jsonl` | which KV types have a fast kernel |
+| `served-ablation-deep-ignoreeos.jsonl` | **the served decoder against its own ablations**, 6 paired rounds at ctx 98,304 and 147,456 with `--ignore-eos`. At 147,456 `draft-mtp` costs **13.5 % and 1,490 MiB**; `ignore_eos` is `true` on every row, so **acceptance here is not comparable with a natural row's** ([results 02](../../docs/results/02-decoders.md)) |
+| `served-ablation-147456.jsonl` | the same arms before the guards were fixed — **18 rows, 0 measurable.** Kept because the void is the evidence: every generation ran 9 tokens against a 512 budget |
+| `served-ablation-vendor.jsonl` | **one row, killed after it.** 195.13 tok/s with `ngram-mod` accepting 1,911 of 1,912 drafted tokens — the model was copying the prompt, not answering it. The reason `copied_frac` exists |
+| `DIAG-length-real-code-deep.jsonl` | the cold-cache prompt-length sweep that refuted [`CORRECTIONS` §30](../../docs/reports/CORRECTIONS.md), plus the `ignore_eos` row |
+| `DIAG-length-real-code-vendor.jsonl` | the same seven lengths on a corpus nobody here wrote — **7 of 7 complete**, including 70,322 tokens |
+| `DIAG-q2kxl-98304.jsonl` | the one **natural** paired round, 1 round only. `draft-mtp+ngram` **58.31** against `ngram-mod` 25.64 — opposite sign to the forced run, and why #44 is still open |
 
 ---
 

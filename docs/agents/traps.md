@@ -270,7 +270,70 @@ stores its incident history, and a bespoke script starts with none of it.
 parallel one is genuinely warranted, list which of the host module's guards you
 are choosing not to inherit, and say why in the file.
 
-Eleven of these thirteen produced **a plausible number or a clean exit**, not
+## 14. A probe that reuses the prompt cache is not a controlled experiment
+
+**What happened, 2026-08-24.** Eighteen arena rows at ctx 147,456 were voided
+because every generation produced 9 tokens against a 512-token budget. To find
+where that starts, a one-off script booted once and swept the prompt from 49,152
+to 73,728 requested tokens, ascending, **with `cache_prompt: True`** -- left on
+because the arena sets it and it was copied without thought.
+
+It came back **512 / 1 / 1 / 484 / 512 / 1 / 1**: not monotonic in length, and
+briefly readable as a finding about depth.
+
+**The tell was in a column already being printed.** `prompt_n` read 43,162 on
+the first request and then **3,532 to 4,389** on every one after. Each later
+prompt shared its prefix with the cached one, so the server processed only the
+delta -- the requests were not the lengths they were labelled with. **The
+variable under test was the cache.**
+
+Re-run with `cache_prompt: False`, `prompt_n` tracks the requested length and
+the numbers change.
+
+**The rule.** A sweep whose inputs share a prefix must turn prefix reuse **off**,
+or reboot between points. And when a probe copies settings from the harness,
+list which ones are *measurement policy* rather than defaults -- `cache_prompt`
+is there so the arena's timed generations skip a cold prefill they already paid
+for, which is correct for the arena and wrong for anything varying the prompt.
+
+---
+
+## 15. Two points look like a line
+
+**What happened, minutes later.** With the cache off, two clean points existed:
+a 43,162-token prompt generated the full 512, a 64,210-token prompt generated 9.
+The conclusion written down -- **in a commit message** -- was *"the boundary is
+prompt length, between 43k and 64k"*.
+
+**Seven points refuted it.**
+
+```
+43,162 -> 512   46,909 -> 1   51,038 -> 1   54,310 -> 512
+57,780 -> 512   60,831 -> 512   64,210 -> 9
+```
+
+Failure is not monotonic in length, so length is not the variable. `filler` cuts
+the corpus at exactly `n * 3` characters, so **each length ends at a different
+point in the source** -- and what decides the outcome is where the cut lands.
+
+**Confirmed by changing the text instead of the length.** The same seven lengths
+on `real-code-vendor`, 11 files of `llama.cpp`'s `gguf-py`, complete **7 of 7**,
+including 70,322 tokens -- deeper than the 64,210 that collapsed. Same model,
+same ctx, same greedy sampler, same day.
+
+**The rule.** Two points fit infinitely many curves, and the one the mind
+supplies is a straight line through them. **A monotonic hypothesis needs a
+monotonic test**: sample the interval before naming a threshold, and prefer
+changing the *other* variable -- here the corpus -- over adding more points along
+the one you already suspect.
+
+**And do not put an unverified boundary in a commit message.** Commit messages
+are the layer this project treats as durable; a hypothesis written there reads
+as a result to everyone who comes after.
+
+---
+
+Fifteen of these nineteen produced **a plausible number or a clean exit**, not
 an error. That is the signature to watch for:
 
 - `split: 65+0` while the card thrashes at 32 MiB free
@@ -282,3 +345,195 @@ an error. That is the signature to watch for:
 
 **When something reports success, ask what it would have reported had it
 failed.** If the answer is "the same thing", you have not measured anything yet.
+---
+
+## 16. The assertion that measures the shape of the file, not the behaviour
+
+**What happened.** Over three sessions this suite grew **eight** assertions that
+could be broken by re-wrapping a line, renaming a local, or adding a comment —
+and **two of them passed for the wrong reason**, which is the half that matters.
+
+The red ones, each caused by an improvement:
+
+- required the literal `"-BindAddress"` *with the dash*, then went **blind**
+  when the call moved to a hashtable where the key has none
+- required `"0.0.0.0"` after a line offset; red when a function that *reads* the
+  socket was added above it
+- matched the first `Ctrl+C` in the file, which was a comment whose sentence
+  wrapped
+- forbade `--log-colors` anywhere; red on a comment explaining its absence
+- required the served GPU's UUID as a literal; red when that literal was
+  **de-duplicated** into `Get-GpuVram.ps1`
+- banned `| ForEach-Object` anywhere; red on an error handler listing installed
+  GPUs, a pipe with nothing to do with llama.cpp's output
+- required `if ($Dual)` before the first occurrence of the word *"artifact"*;
+  red because the word appears in a **parameter comment two hundred lines
+  above** the banner
+- matched `-ub 1024` as a literal in the argv; red when `-ub` became a
+  parameter the budget check also needed
+
+**The two that were green and should not have been:**
+
+`test_it_guards_the_port_before_launching` omitted `Invoke-RestMethod` — the
+thing the guard actually calls — and matched `Get-NetTCPConnection` in an
+unrelated status block. **Green for days.** It surfaced only when that block was
+moved to its own file for an unrelated reason.
+
+`test_the_dual_profile_uses_the_split_that_won` asserted `"-sm" in t and
+"tensor" in t` and was **green before the flag existed**, because the profile's
+header explains at length why `-sm row` cannot load and that `-sm tensor` was
+swept. Both tokens were in prose.
+
+**The rule.** Name the property, then ask *what could break this assertion
+without breaking the property*. If the answer is "wrapping a line", "renaming a
+variable" or "adding a comment", the assertion is measuring the file.
+
+**What actually works**, in order of preference:
+
+1. **Run the thing.** `serve.ps1 -WhatIf` resolves everything and exits without
+   touching the GPU, so the banner is observable behaviour. Every banner check
+   here now does that, and it is how the launcher was caught printing the wrong
+   artifact *and* a stale rate.
+2. **Assert on the value, not the spelling.** Read `-ub`'s argument; if it is a
+   variable, resolve its default. The profile still serves 1024 either way.
+3. **Scope to the invocation.** `t[t.index("& $Exe -m $Model"):]` cannot be
+   fooled by prose, which is what separates a flag that is *passed* from a flag
+   that is *discussed*.
+4. **One chokepoint, then forbid the pattern everywhere else.** `--query-gpu`
+   appears only in real calls, never in prose — so "no module but `gpu_device`
+   may contain it" is a property that cannot go blind or cry wolf.
+
+**Guarded by** nothing automatic. The suite cannot tell a good assertion from a
+bad one; only the question above can.
+
+---
+
+## 17. The launcher that describes configuration it does not own
+
+**What happened, three times.** `serve.ps1` selects a profile and then prints a
+description of it. Every time the profile changed, the description did not:
+
+- it printed **"closing this window stops the server"** when it did not —
+  killing the launcher left `llama-server` alive and answering (commit `b55699c`)
+- `-Dual -WhatIf` selected `worker-q4-dual.ps1` and printed **"artifact
+  UD-Q2_K_XL"** underneath the line that had just named the other file
+- it advertised **"20.9 tok/s"**, then **"32.4 / 32.6 / 33.1"** — the first from
+  before `-sm tensor`, the second from the *even* split that collapses to 0.38
+  under desktop load
+- with `-Mtp` it printed **two contradictory decoder lines four rows apart**: a
+  static one saying `draft-mtp` is NOT set, and the profile's own saying it is
+
+**Each was found by running it. None by reading it.**
+
+**The rule.** The component that knows what it was asked for is the one that
+should say so. The decoder line moved into the profile; the GPU line reads the
+driver rather than naming a card from memory. A launcher may **select** and
+**report what it read back** — it may not **describe**.
+
+**Guarded by** `bench/tests/test_the_dual_profile_serves_both_cards.py`, which
+runs `serve.ps1 -WhatIf` on both paths and reads the output a person sees.
+
+---
+
+## 18. A guard that models load time cannot promise a run
+
+**What happened.** The two-card profile computes its split from free VRAM and
+refuses when the budget cannot hold the model. Asked for `-Ctx 262144` with
+`-ub 512`, it **approved**. The server loaded, reported `66+0`, answered
+`/health` — and died the moment a real request arrived:
+
+```
+CUDA error: out of memory
+  current device: 1, in function alloc at ggml-cuda.cu:648
+  cuMemSetAccess(start_ptr, reserve_size, &access, 1)
+```
+
+llama.cpp allocates more once there is work to do. **A successful boot is not a
+successful run**, and a guard built on load-time arithmetic will keep saying yes
+to configurations that cannot serve.
+
+**Worse, the same guard had already been wrong once in the other direction**: its
+first version compared the budget against the *weights* alone, ignoring KV and
+compute, which meant it approved **every** context.
+
+**What settled it was re-testing every depth with a real request** — a 135,233
+token prompt — and counting only the depths that *answered*:
+
+```
+ctx 147,456 ub 1024  SURVIVED   free after 2,100/2,097 -> 1,998/2,040
+ctx 196,608 ub 1024  SURVIVED          1,436/1,258 -> 1,248/1,208
+ctx 229,376 ub 1024  SURVIVED          1,156/  550 -> 1,071/  500
+ctx 262,144 ub 1024  refused at load
+ctx 229,376 ub  512  SURVIVED          1,312/1,010 -> 1,249/  974
+ctx 262,144 ub  512  SURVIVED            919/  488 ->   821/  452
+```
+
+**The run that died had 336 MiB free on the second card; the one that survived
+had 488.** The line sits between them — close enough that what the desktop is
+doing decides which side you land on.
+
+**The rule.** When a resource check gates a long-running process, the acceptance
+test is the process doing its work, not the process starting. And say what the
+guard cannot promise: this one refuses the impossible and **does not promise
+comfort**, which is now written in the profile itself.
+
+**Guarded by** `bench/tests/test_the_dual_profile_serves_both_cards.py`
+(`test_the_profile_records_that_loading_is_not_surviving`) and by the profile's
+own header carrying the ladder.
+
+---
+
+## 19. Retrying a failure that cannot change
+
+**What happened.** An arm that could not load was booted again in every round.
+`layer-dflash-ngram` failed in about a second with `dflash requires ctx_other to
+be set`, and the sweep tried it twice more — each attempt costing a boot plus a
+full VRAM-release wait, for an outcome fixed by the argv.
+
+The developer named it: *"ทำไมเราต้องรอให้ run เสร็จด้วยในเมื่อ decoder ใช้ไม่ได้"*.
+
+**The rule, and its limit.** A failure that is a **capability** does not change
+between identical rounds, so try it once. A failure that is a **resource** can —
+and this project has one of each: `draft-dflash` under `-sm tensor` fails at a
+graph-split assertion at any memory pressure, while `draft-mtp` at 147,456
+failed on the even split and loads on the computed one.
+
+So the "dead" set is kept **per depth and per regime**, not globally. An arm that
+cannot load at 262,144 may load at 16,384, and inheriting the verdict across
+depths would skip a measurement that was available — which is exactly what
+happened: `draft-dflash` runs fine on the layer split at 16,384 and is the
+**fastest configuration measured anywhere in this work**.
+
+**And the skipped rounds still get a row.** Omitting them makes an impossible
+arm look *unpaired* — `report()` prints "NOT PAIRED (1 vs 3 rounds)" and the
+reader concludes the sweep was interrupted. The row says it was not retried, and
+carries the reason llama.cpp gave.
+
+**Guarded by** `bench/tests/test_a_row_names_the_cards_that_made_it.py`
+(`test_a_dead_arm_is_recorded_once_per_round_but_only_tried_once`).
+
+## Killing a process by NAME on a machine that runs two of them — 2026-08-29
+
+Clearing VRAM, an agent ran `Get-Process llama-server | Stop-Process -Force`
+several times. The count came back `1` every time and the memory never fully
+returned, which read as *"this process will not die"*.
+
+It was dying. **A different one was.** This machine runs two llama-servers —
+ours under `C:\AI\llama.cpp-blackwell\`, and Unsloth Studio's under
+`C:\Users\xenod\.unsloth\llama.cpp\build\bin\Release\`.
+
+Studio restarts its own server, so every pass killed **the developer's live
+session** and Studio brought it straight back. Nothing of ours was running at
+all by then. The symptom and the cause pointed in opposite directions: the loop
+looked like a stubborn process and was actually a wrong filter.
+
+**The rule.** Select what you mean to kill by something that identifies *yours* —
+here, `ExecutablePath` under the repository root — and **say out loud what you
+are leaving alone**, because silence there is indistinguishable from "there was
+nothing else". `qwen38-tuning/scripts/stop-our-servers.ps1` does both and
+supports `-WhatIf`; `test_stop_script_spares_other_servers.py` refuses the
+by-name form.
+
+**The wider version:** a selector that is *usually* unique is a selector that
+will one day match a second thing, and a process name is the least unique handle
+available.

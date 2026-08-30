@@ -1,6 +1,274 @@
 # 02 — Decoders (`--spec-type`)
 
+> 🔴 **Every number on this page was measured at `reasoning_effort: xhigh` with
+> an unlimited thinking budget.** That is the model's chat-template
+> default — the client sends no effort field, and **no `worker-*.ps1` profile and
+> nothing in `bench/` has ever set the flag** (established 2026-08-24 from a boot
+> log: [`05-runtime-flags.md`](05-runtime-flags.md)).
+> Artificial Analysis prices this model's `medium` **one point** below `xhigh` on
+> the agentic axis and `low` **six** below that
+> ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+> so **effort is a live confound here, not a settled background condition.**
+>
+> **The served default became `medium` on 2026-08-24** — all five
+> `worker-*.ps1` profiles and `dflash2_arena.server_argv` now set it, and the
+> arena records `effort` on every row. **So this banner describes what is
+> already on the page, not what will be added to it.** Anything measured after
+> that date states its own level, and a figure from before it cannot be
+> compared with one from after without saying which is which.
+
 Eleven values exist in build 10472. All eleven have been tried.
+
+> 🔴 **Every arm on this page was measured on the RTX 4070 SUPER 12 GB, and the
+> decoder ranking has since changed on the card that is installed.** Re-measured
+> at ctx 98,304 on the RTX 5060 Ti 16 GB, three rounds
+> (`results/decoders-98304-blackwell.jsonl`): **`dflash2+ngram` went from a
+> median of 5.66 tok/s with two timeouts in six rounds to 87.72 with none, and is
+> now the fastest arm** — ahead of the `ngram-mod` every worker profile serves.
+> Nothing about the drafter changed; it stopped being squeezed into the
+> **45–376 MiB** band that [`CORRECTIONS.md` §26](../reports/CORRECTIONS.md)
+> identified, and finishes with 2,842–3,183 MiB here.
+> **Read [`09-hardware.md`](09-hardware.md) before quoting any elimination on
+> this page as current.**
+
+## The served arm against its own ablations — 2026-08-24, issue #44
+
+**Six paired rounds, arms rotated so each ran in each position twice, two
+depths, `UD-Q2_K_XL`, `q4_0` KV, effort `medium`, `sm_120a` build.**
+`--ignore-eos` on **both** depths so one rule covers both.
+Raw: `results/served-ablation-deep-ignoreeos.jsonl`, 36 rows.
+
+| ctx | arm | median tok/s | spread | acceptance | free after |
+|---:|---|---:|---:|---:|---:|
+| 98,304 | `ngram-mod` | **27.82** | 0.3 % | 39.9 | 3,110 MiB |
+| 98,304 | `none` | 25.87 | 0.2 % | — | 3,114 |
+| 98,304 | `draft-mtp,ngram-mod` | **voided** | — | 64.3 | 1,859 |
+| 147,456 | `ngram-mod` | **52.11** | 1.3 % | 42.9 | 2,187 |
+| 147,456 | `draft-mtp,ngram-mod` | **45.09** | 0.5 % | 54.5 | 697 |
+| 147,456 | `none` | **voided** | — | — | 2,191 |
+
+**At the depth we serve, adding `draft-mtp` costs 13.5 % and 1,490 MiB.**
+`ngram-mod` alone is 52.11 against the served pair's 45.09, and leaves 2,187 MiB
+free against 697.
+
+### The counters say why, and it is not acceptance
+
+Acceptance is *higher* with MTP — 54.5 against 42.9 — and it is still slower.
+Round 1 at 147,456:
+
+```
+draft-mtp   decline  0.0 %   mean len 3.26   drafted 1037  accepted 783   t_draft 3861.675 ms
+ngram-mod   decline 86.3 %   mean len 16.62  drafted 1627  accepted 859   t_draft    2.051 ms
+```
+
+**MTP spends 3.86 seconds drafting to contribute 783 accepted tokens; `ngram-mod`
+spends 2 milliseconds to contribute 859.** Roughly 3.7 ms per drafted token,
+which is the MTP head's forward pass. Across three 512-token generations at
+~45 tok/s that drafting is ~11 % of wall clock, and the measured gap is 13.5 %.
+
+Removing MTP also gives `ngram-mod` more turns: alone it drafts 2,482 and accepts
+1,301, against 1,627/859 when it shares the slot.
+
+### Two boot-level facts worth keeping
+
+**Six boots, spread 0.2–1.3 %.** `free_before` differs every round, so these are
+distinct loads. `CORRECTIONS.md` §23 records the same arm spanning **48.9 %**
+across boots at 65,536 — that did not happen here, and the cause of that spread
+remains unattributed. **Do not read this as the spread being gone.**
+
+**The generations are deterministic.** `temp 0, top_k 1, seed 42` on a frozen
+prompt gives byte-identical `acceptance` and `copied_frac` in all six rounds. The
+0.2–1.3 % is boot and timing jitter, **not sampling variability** — six rounds
+here are six repeats, not six samples.
+
+### ⚠ This does NOT settle whether to drop `draft-mtp`
+
+**Both arms ran with the budget forced**, and forcing is not obviously neutral
+for MTP: past the point the model would have stopped, `draft-mtp` is drafting
+from a distribution the model did not choose to be in, while `ngram-mod` keeps
+matching context and is unaffected.
+
+The one **natural** measurement points the other way, hard —
+`results/DIAG-q2kxl-98304.jsonl`, one round, no forcing, same corpus and depth:
+
+| arm | natural, 1 round | forced, 6 rounds |
+|---|---:|---:|
+| `draft-mtp,ngram-mod` | **58.31** | voided |
+| `ngram-mod` | 25.64 | 27.82 |
+| `none` | 25.30 | 25.87 |
+
+**+127 % for MTP naturally at 98,304, against −13.5 % forced at 147,456.** Two
+things changed between those numbers — the depth and the forcing — so neither can
+be blamed. Acceptance agrees across the two conditions (63.5/64.3 for the pair,
+39.9/39.9 for `ngram-mod`), so the disagreement is in time, not in hit rate.
+
+**Both missing cells are blocked by a different guard.** Forced MTP at 98,304
+voids because one of its three generations copies 61.3 % of the prompt; natural
+MTP at 147,456 voids because the model stops after 9 tokens
+([results 06](06-prompt-and-quality.md)).
+
+**What would settle it:** a **natural** paired sweep at 32,768 / 65,536 / 98,304
+— three depths where `real-code-deep` generates without forcing — and read the
+*trend* toward 147,456 rather than measuring it there. This is consistent with
+what the register already holds: `draft-mtp` at **+81 % at 16K and −71 % at
+131,072** on `UD-IQ2_S`. Two artifacts now show the same shape, and the served
+window sits past the crossing on one of them.
+
+## `dflash2+ngram` on a REAL task — first measurement, 2026-08-24
+
+Every other number on this page is tok/s on a generated prompt. This is one run
+of `bench/real_task_bench.py` against a real open issue (`xeno-skills#306`) in a
+throwaway clone, ctx 98,304, on the native `sm_120a` build.
+**`results/real-task-dflash2ngram.jsonl`**, transcript preserved at
+`D:\bench-scratch\transcripts\xeno-skills-306-20260824-014053.stdout.txt`.
+
+**The server side is healthy.** Peak context **69,401 of 98,304** (70.6 %),
+`truncated = 0` on every turn, 45 turns across the session, no timeout.
+**The window was not the constraint and neither was the drafter.**
+
+**Speculation works on real work, which the synthetic corpus could not show.**
+Acceptance on the corpus is 0.614; here it ran **0.47–0.65**, same band.
+
+**But tok/s is not one number — it tracks turn length, and agent turns are
+short:**
+
+| generated tokens | tok/s | acceptance | mean accepted len |
+|---:|---:|---:|---:|
+| 324 | **19.68** | 0.479 | 3.47 |
+| 698 | 33.16 | 0.470 | 3.69 |
+| 8,192 *(hit the cap)* | **62.85** | 0.654 | 7.18 |
+
+**87.72 tok/s — this arm's corpus figure — is not what an agent loop gets.**
+A short turn is dominated by per-request overhead, and a coding agent is mostly
+short turns. Anywhere this project quotes a decoder rate as what the worker
+delivers, that gap applies.
+
+### The task itself FAILED, for a reason that is not about the decoder
+
+`changed_files = 0` after 537.7 s. The preserved transcript says why, and it is
+the shell:
+
+```
+$ ls -la
+Get-ChildItem: A parameter cannot be found that matches parameter name 'la'.
+
+$ ls -la . 2>/dev/null || dir /B
+Out-File: Could not find a part of the path 'D:\dev\null'.
+Get-ChildItem: Cannot find path 'D:\B' because it does not exist.
+```
+
+The worker emitted POSIX commands into PowerShell, spent its opening turns on
+that, recovered into correct cmdlets, then explored the repository for nine
+minutes and never reached an edit. **This is a worker/environment result, not a
+decoder result.**
+
+> ⚠️ **One task with no control proves nothing about the arm.** There is no
+> `ngram-mod` run of the same task to compare against, so this says the arm
+> *serves* real agent work correctly — it does not say it is better or worse
+> than the incumbent at it. That comparison needs the same task on both arms.
+
+## Four configurations on one real task — 2026-08-24
+
+`xeno-skills#306`, ctx 98,304, native `sm_120a`, `q4_0` KV, one run each.
+**Nothing completed the task. Zero files changed, four times out of four.**
+
+| artifact | decoder | outcome | ctx high-water | wall | files |
+|---|---|---|---:|---:|---:|
+| `UD-IQ2_XXS` | `dflash2+ngram` | FAIL | 69,401 | 537.7 s | 0 |
+| `UD-Q2_K_XL` | `dflash2+ngram` | **WINDOW_BOUND** | **98,303** | 1,019.3 s | 0 |
+| `UD-Q2_K_XL` | **`draft-mtp`** | FAIL | 85,782 | 855.8 s | 0 |
+| `UD-Q2_K_XL` | **`draft-mtp+ngram`** | FAIL | 82,696 | 947.2 s | 0 |
+
+**On task success this says one thing only: the task is beyond this model class
+at this window, whichever decoder runs it.** Four decoders and two artifacts is
+not a decoder question any more.
+
+### Decode rate, and why the short turns are the ones to read
+
+An agent loop is mostly short turns, and rate depends heavily on generation
+length ([above](#dflash2ngram-on-a-real-task--first-measurement-2026-08-24)). On
+the turns under ~400 tokens, which is most of them:
+
+| decoder on `UD-Q2_K_XL` | short-turn decode | acceptance | mean accepted len |
+|---|---|---|---|
+| **`draft-mtp+ngram`** | **54–67 tok/s** | 0.48–0.61 | 2.66–5.13 |
+| `draft-mtp` | 44–57 tok/s | 0.53–0.66 | 2.58–2.99 |
+| `dflash2+ngram` | 30–43 tok/s | 0.36–0.49 | 2.43–3.04 |
+
+**`draft-mtp+ngram` is the fastest arm measured on this artifact**, peaking at
+**67.25 tok/s**, against `dflash2+ngram`'s best of 42.83 on the same task. The
+separation is a consistent cluster across seven early turns, not one point.
+
+**Not a verdict.** One run per arm, turns are not paired, and different turns
+carry different prompts. The arena's paired protocol is what would settle it.
+
+### ⚠️ Both MTP arms ended in an 8,192-token runaway; `dflash2+ngram` did not
+
+The final generation of **each** MTP arm hit the request cap:
+
+```
+draft-mtp         ... 1237 · 4252 · 424 · 8192 tok   @ 26.19 tok/s
+draft-mtp+ngram   ... 2008 · 7170 ·  165 · 196 · 8192 tok   @ 26.60 tok/s
+```
+
+`dflash2+ngram` on the same artifact never exceeded 4,811 and terminated every
+generation. **This is the "stops stopping" signature
+([`researchs/superalesha-quant-ladder/`](../researchs/superalesha-quant-ladder/README.md))
+appearing on the MTP arms of an artifact that does not show it otherwise** —
+which, if it holds up, would be a cost of MTP rather than of the quantisation.
+Two observations, one per arm. Not established.
+
+### What MTP costs and returns, measured
+
+`UD-Q2_K_XL` carries `blk.64` in the file, so `--spec-type draft-mtp` needs **no
+`-md`** — a configuration this project had never run, because every earlier
+`draft-mtp` figure fed a separate 1.3 GB head to an artifact that lacked one.
+
+| | `dflash2+ngram` | `draft-mtp` |
+|---|---:|---:|
+| model, CUDA0 | 8,630.57 | **8,965.31** |
+| target KV | 1,728.00 | 1,728.00 |
+| MTP draft KV | — | 384.00 |
+| RS | 748.12 *(n_max 4)* | 598.50 *(n_max 3)* |
+| compute | 472.27 | 472.27 + 82.01 |
+| separate drafter | 1,393.90 | **0** |
+| **total on CUDA0** | **12,973** | **12,230** |
+| **free of the 15,172 llama.cpp sees** | 2,199 | **2,942** |
+
+**743 MiB returned, not the ~1,394 that removing the sidecar suggests.** The model
+buffer itself grows **334.74 MiB** once the head is used, and `--fit` raises its
+own target from 768 to 1,234 MiB for the 466 MiB MTP context.
+
+### `--spec-draft-n-max 7` — the ceiling, measured 2026-08-24
+
+`common.h:325` defaults `n_max` to **3**; `speculative.cpp:989` caps it at
+`block_size - 1`, and the boot log prints **`block_size=8`** for DFlash2, so **7**.
+Every DFlash2 figure this project holds was taken at **4**, a value the ledger
+records as *"chosen without knowing either number"*. Both arms accepted 7 with no
+`clamping to` warning, and the recurrent state came out at **1,197.00 MiB** =
+`149.62 x (1 + 7)`, confirming the formula at the ceiling rather than only at 4.
+
+| decoder | `n_max` | outcome | ctx high-water | wall | acceptance |
+|---|---:|---|---:|---:|---|
+| `dflash2+ngram` | 4 | **WINDOW_BOUND** | 98,303 | 1,019.3 s | 0.36–0.49 |
+| `dflash2+ngram` | **7** | FAIL | **87,390** | **762.3 s** | 0.37–0.44 |
+| `draft-mtp+ngram` | 3 | FAIL | 82,696 | 947.2 s | **0.48–0.61** |
+| `draft-mtp+ngram` | **7** | **WINDOW_BOUND** | **98,537** | **1,481.3 s** | 0.38–0.44 |
+
+**It helps one arm and hurts the other, and the mechanism is readable.**
+`dflash2+ngram` gets **25 % off the wall clock** and stops saturating the window.
+`draft-mtp+ngram` runs **56 % slower** and its acceptance falls from 0.48–0.61 to
+0.38–0.44 — because the metadata says `qwen35.nextn_predict_layers = 1`: the MTP
+head predicts **one** token ahead, so asking it for seven produces drafts that are
+mostly rejected and the verify cost is paid anyway. DFlash2's `block_size = 8`
+makes 7 its natural maximum.
+
+**Still zero files changed, six of six.** `n_max` moves wall clock and window
+pressure; it has not moved the outcome.
+
+*Raw: `results/real-task-q2kxl-draft-mtp*.jsonl`,
+`logs/dflash2-serve-draft-mtp*.log`. The two `dflash2+ngram` rows predate the
+provenance fix and do not name their model; the two MTP rows do.*
 
 > **Every figure on this page carries the same caveat.** The timed prompt is
 > **84.5 % duplicate lines** — one class repeated with a changing index, 962
@@ -442,3 +710,806 @@ rescued a decoder.
 
 Raw: `qwen38-tuning/results/mtp-recheck.jsonl`,
 `qwen38-tuning/results/step-w-long-generation.jsonl`.
+
+---
+
+## 🟢 The n-gram family on TWO cards at the served depth — measured 2026-08-27
+
+**Nothing in the family beats what we already ship.** `ngram-mod` at
+`--spec-ngram-mod-n-match 12` is the best arm at ctx 147,456, and this closes the
+two questions that had been open since the single-card sweep.
+
+`UD-Q4_K_XL`, `-sm tensor -ts 7819,15490 -ub 1024`, `q4_0` KV, corpus
+`real-code-vendor`, three paired rounds with arms rotated, greedy. Every arm
+`66+0` resident. Raw: `results/dual-ngram-family-147456.jsonl`.
+
+| arm | rounds (tok/s) | own spread | vs ours | verdict |
+|---|---|---:|---:|---|
+| **`ngram-mod` `n-match 12`** | **25.8 / 25.5 / 26.1** | 2.3 % | baseline | **shipped, and it wins** |
+| `n-match 16` | 20.5 / 20.7 / 21.4 | 4.5 % | **−19.2 %** [−20.7, −18.1] | RESOLVED loss |
+| `n-match 24` | 24.0 / 23.7 / 24.6 | 3.7 % | −6.7 % [−7.2, −5.8] | clears this run's spread, not the applied floor |
+| `ngram-map-k` (defaults) | 21.9 / 22.8 / 22.7 | 4.3 % | −12.9 % [−15.2, −10.6] | clears this run's spread, not the applied floor |
+| `ngram-map-k4v` (defaults) | 21.8 / 22.7 / 22.3 | 4.0 % | **−13.8 %** [−15.5, −11.2] | RESOLVED loss |
+
+**Two of these verdicts are the third state**, named for the first time in a
+real sweep: larger than anything this run's own arms did, smaller than a floor
+imported from other hardware at another depth. Neither noise nor resolved.
+
+### The counters say why, and they contradict the intuition
+
+**Better drafting did not become throughput.** `n-match 24` accepted **65.9 %**
+of its drafts at a mean accepted length of **22.45**, against our 12's **55.4 %**
+and **18.11** — better on both axes, and slower in every round. At this depth the
+**verify** cost dominates, and a longer draft that is more often right still
+loses.
+
+That matters beyond this table: it is the same wall any better-drafting
+speculator has to clear, including DFlash2 if it is ever made to load on this
+split.
+
+**`ngram-map-k` and `ngram-map-k4v` declined 100.0 % of their drafts** in all
+three rounds — acceptance is not low, it is **empty**. They pay the draft cost
+and keep nothing. Both won at 16,384 on the old single card; at 147,456 they are
+dead.
+
+### `ngram-cache` was excluded, not measured
+
+Its greedy hash `3EFE93950A8A980E` differs from a same-depth baseline of
+`04E5CAB1D14525C0` — **it changes the answer**, so it is not draft-and-verify
+whatever rate it would post.
+
+### 🔴 The first run of this sweep was VOID, and the reason is worth carrying
+
+It ran on `llama.cpp-dflash2`, built `CMAKE_CUDA_ARCHITECTURES=89` — **141
+`sm_89` cubins, no `sm_120a`, no PTX** — while a compute capability 12.0 card was
+visible and in use. Fifteen rows came back with `66+0` residency and plausible
+rates; every log read `CUDA : ARCHS = 890`. The arena's default binary was never
+updated when the second card arrived.
+
+Kept at `results/dual-ngram-family-147456-VOID-sm89-only-binary.jsonl` with its
+diagnosis. The hole is closed by `harness.archs_missing_for_gpus`, which now
+stops the arena on the **first** boot.
+
+**The voided run's baseline spread was 8.1 % and declining monotonically; the
+correct binary's is 2.3 %.** Not offered as a measurement of anything — the two
+are different binaries and each arm ran once per round — but it is why the first
+result should not have been trusted even before the cause was known.
+
+*Arm set `dual-ngram-family` in `bench/dflash2_arena.py`. It carries `-ts` via
+the `DUAL_TENSOR` constant, unlike `dual-decoder`, whose 147,456 rows ran the
+even split.*
+
+
+---
+
+## 🟢 DFlash2 LOADS under `-sm tensor` with a patched llama.cpp — 2026-08-27
+
+**The structural block described everywhere in this project is removed.** A
+local patch to `llama.cpp` at `1deefcca3` lets `draft-dflash` load beside the
+target on the tensor split, and the first unpaired figure is **57.46 tok/s**
+against **26.64** for the same binary with no speculation.
+
+**Every number in this section is ONE run of ONE prompt at ctx 16,384 with
+`-ub 128`. It is not a verdict.** The paired sweep has not been run.
+
+### What was actually wrong, found by instrumenting the assertion
+
+The failure was `ggml-backend-meta.cpp:543`,
+`GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0)` in `handle_per_row`,
+which names no tensor. Guessing which one cost a rebuild per guess, so the
+assertion was made to print first:
+
+```
+PER-ROW OP GOT AN AXIS-0 SOURCE
+  op      = TOP_K
+  tensor  = node_770
+  src[0]  = result_output   axis 0
+```
+
+**`result_output` is the logits.** They are axis 0 because `output.weight` is
+mapped to `SPLIT_AXIS_1` (`llama-model.cpp:517-519`), and a matmul against a
+weight split on axis 1 **distributes the vocabulary across the devices**.
+`TOP_K` needs a whole row to find a maximum, and each card holds a fraction of
+it.
+
+`--no-spec-draft-backend-sampling` does **not** avoid it. DFlash2 logs
+`sample_from_anchor=true` and puts its own selection into the graph regardless.
+
+### The patch, and why the narrow version failed
+
+Mirroring the output projection is the fix. **Scoping it to `LLM_ARCH_DFLASH`
+did nothing** — the drafter's `Meta()` buffer stayed at 786.35 MiB byte for byte
+across both builds, because **the failing logits belong to the target, not the
+drafter**. The condition was dropped:
+
+```cpp
+if (std::regex_match(tensor_name, pattern_output_weight)) {
+    return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+}
+```
+
+`qwen38-tuning/patches/dflash-mirror-output-1deefcca3.patch`. It duplicates the
+full vocabulary head on both cards.
+
+**Upstream already does exactly this, for one other architecture** — found
+2026-08-30 while re-reading the unpatched tree. The branch the patch replaces is
+not a bare `SPLIT_AXIS_1`; it is a conditional that mirrors first
+(`llama-model.cpp:583-588` in Unsloth's `build 10679` tree, unchanged from
+upstream):
+
+```cpp
+if (std::regex_match(tensor_name, pattern_output_weight)) {
+    if (is_dsv4) {
+        return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_MIRRORED);
+    }
+    return get_tensor_config_impl(GGML_BACKEND_SPLIT_AXIS_1);
+}
+```
+
+So mirroring the output projection under a tensor split is **an accepted shape
+in this codebase, already carried for DeepSeek V4** — our patch widens an
+existing exception rather than inventing one. That is an argument for proposing
+it upstream, and it is not evidence that our version is correct: DeepSeek V4's
+exception was presumably measured by whoever added it, and ours has been
+measured only here.
+
+### Is it lossless? Four comparisons, greedy, same prompt
+
+| comparison | result | what it rules out |
+|---|---|---|
+| patched vs served, tensor, **no speculation** | **IDENTICAL** | mirroring does not change the model |
+| **patched**, layer, nospec vs DFlash2 | **IDENTICAL** | the patch does not break speculation |
+| served, layer, nospec vs DFlash2 | **IDENTICAL** | speculation is lossless on this machine |
+| **patched, tensor, nospec vs DFlash2** | **DIFFERENT** | — |
+
+The only diverging configuration is speculation **under `-sm tensor`**, and the
+first three rows clear the patch of causing it.
+
+**Then the decisive control: the SHIPPED configuration already diverges the same
+way.** `-sm tensor` + `ngram-mod`, the unpatched served binary, against
+`-sm tensor` with no speculation: **DIFFERENT**, 831 chars against 871.
+
+**So this is the standard we already ship, not a new defect.** `-sm tensor`
+changes the reduction order when the target verifies a batch of k draft tokens
+instead of one, which moves the logits in their last bits and flips an argmax at
+a near-tie. [CORRECTIONS 32](../reports/CORRECTIONS.md) already records that
+splitting changes the text.
+
+### The rates, unpaired, one prompt, ctx 16,384, `-ub 128`
+
+| arm | tok/s |
+|---|---:|
+| **`-sm tensor` + `draft-dflash`** *(patched)* | **57.46** |
+| `-sm layer` + `draft-dflash` | 52.11 / 52.00 |
+| `-sm tensor`, no speculation | 26.64 / 28.58 |
+| `-sm tensor` + `ngram-mod` **(what we serve)** | 27.21 |
+| `-sm layer`, no speculation | 22.18 / 22.51 |
+
+**57.46 is the highest single figure this project has recorded**, against the
+previous best of 42.26 / 43.65 for `-sm layer` + `draft-dflash,ngram-mod` at the
+same depth.
+
+### What is NOT established
+
+- **Any of this at the served depth.** Everything here is 16,384. `draft-mtp` is
+  +81 % at 16K and −71 % at 131,072 on this same artifact, and the n-gram sweep
+  the same day showed better drafting **losing** at 147,456 because verify cost
+  dominates. **Expect this to shrink or invert with depth.**
+- **Whether it fits at depth.** DFlash2 costs 1,936 MiB resident and the
+  mirrored head duplicates the vocabulary projection; at 147,456 the served
+  configuration finishes with about 2,210 MiB free per card.
+- **Any paired number at all.** One run per arm, one prompt, `-ub 128` rather
+  than the served 1024.
+- **The patch is not upstream** and has not been reviewed by anyone but this
+  project.
+
+### The paired figure, real code, ctx 65,536 — measured 2026-08-27
+
+Patched binary, `-sm tensor -ts 7819,15490 -ub 1024`, corpus `real-code-vendor`,
+three paired rounds with arms rotated, greedy. Raw:
+`results/dual-dflash-tensor-65536.jsonl`.
+
+| arm | rounds (tok/s) | own spread | vs served | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| `ngram-mod` **(what we serve)** | 27.7 / 29.0 / 29.0 | 4.5 % | baseline | 48.8 | 3,256 MiB |
+| **`draft-dflash,ngram-mod`** | **57.8 / 58.3 / 66.7** | 15.6 % | **+113.1 %** [+101.0, +130.2] **RESOLVED** | 61.8 | 662 MiB |
+| `draft-dflash` alone | 33.2 / 33.6 / 35.6 | 7.2 % | **+19.4 %** [+15.9, +22.7] **RESOLVED** | 34.7 | 668 MiB |
+
+**The pairing more than doubles decode.** It is also the pairing, not the
+drafter, that does it: DFlash2 alone is worth +19.4 %, and the two together
++113.1 %. The counters say why — with both, `draft-dflash` is declined 0.0 % of
+the time at a mean accepted length of 2.39, and `ngram-mod` then carries long
+runs at a mean accepted length of **24.5** against 16.42 when it works alone.
+They are not redundant: the drafter keeps the sequence on a track the n-gram can
+then extend.
+
+**Two caveats that belong beside the number.** `dflash+ngram` spreads **15.6 %**
+across its own rounds — round three returned 66.75 against 57.8 and 58.3 — which
+is wider than any arm in the n-gram sweep and wider than the baseline here. And
+it finishes with **662 MiB** free against the baseline's 3,256: the speed is
+bought with almost all of the headroom.
+
+**Comparable to nothing else in this folder.** Both arms ran on the mirrored
+binary, which changes the target's split. The comparison inside this table is
+sound; a comparison from this table to any other row is not.
+
+### Which pairing to serve — three-way at ctx 65,536, 2026-08-27
+
+The comparison the previous table could not make: the incumbent against **both**
+rivals, all three loading at the same depth so it is a decoder comparison and not
+a depth comparison. Patched binary, `-sm tensor -ts 7819,15490 -ub 1024`,
+`real-code-vendor`, three paired rounds rotated. Raw:
+`results/dual-pairings-65536.jsonl`.
+
+| arm | rounds (tok/s) | spread | vs served | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| `ngram-mod` **(served today)** | 29.0 / 29.0 / 28.4 | 2.3 % | baseline | 48.8 | **3,256 MiB** |
+| `draft-mtp,ngram-mod` | 40.2 / 40.4 / 39.3 | 3.0 % | **+38.9 %** [+38.5, +39.6] | 54.6 | 2,220 MiB |
+| **`draft-dflash,ngram-mod`** | **65.1 / 64.3 / 63.8** | 2.0 % | **+123.8 %** [+121.9, +125.1] | 61.8 | 668 MiB |
+
+Both RESOLVED, both intervals barely more than a point wide, every arm spreading
+under 3 %. **DFlash2 beats MTP by a wide margin at this depth** — 64 against 40.
+
+**🟢 MTP did NOT copy the prompt this time.** At 147,456 every round of the
+`dual-mtp` set was voided with `copied_window_fraction [0.519, 0.0, 0.23]`. Here
+it reports `draft-mtp decline 0.0 %` at a mean accepted length of 2.58 and a
+clean rate in all three rounds. **Whether that is the depth or the corpus is not
+established** — the earlier void was at a different depth *and* through a
+different arm set.
+
+**The counters show two different machines.** With MTP, `ngram-mod` is declined
+98.5 % of the time and extends to a mean of 20.78 when it fires. With DFlash2 it
+is declined only 90.4 % and reaches **24.5**. The drafter that keeps the
+sequence on a more predictable track is the one that lets the n-gram do more
+work, and that is where the difference lives — not in the drafter's own accepted
+length, which is 2.58 against 2.39, essentially the same.
+
+**Read the free-VRAM column as part of the result.** 3,256 → 2,220 → 668 MiB.
+The ranking on speed is the exact reverse of the ranking on headroom, and
+headroom is what keeps a spill from happening silently.
+
+### The same three arms at the SERVED depth, 147,456 — 2026-08-27
+
+Unpatched, served binary. Same arm set, same corpus, three rounds rotated. Raw:
+`results/dual-pairings-147456.jsonl`.
+
+| arm | result |
+|---|---|
+| `ngram-mod` **(served today)** | **27.6 / 27.6 / 27.6 tok/s**, spread **0.1 %** |
+| `draft-mtp,ngram-mod` | **NOT MEASURABLE, all three rounds** — copies the prompt |
+| `draft-dflash,ngram-mod` | **cannot load**, tried once and skipped thereafter |
+
+**At the depth this project actually serves, `ngram-mod` is the only decoder
+that produces a usable number.** There is nothing to switch to.
+
+**MTP's copying is DEPTH-DEPENDENT, and that is new.** The void reproduces
+byte-for-byte — `copied_window_fraction [0.519, 0.0, 0.23]`, the identical
+triple recorded weeks earlier through a different arm set — while the same arm,
+same corpus and same rounds at **65,536 report `decline 0.0 %` and a clean rate
+in all three**. Previously the void was confounded with the arm set that
+produced it; it no longer is. **Whether it is the depth itself or something that
+scales with it is not established.**
+
+**The baseline's 0.1 % spread is worth noticing on its own.** Three rounds at
+27.57 / 27.55 / 27.58 on a 147,456-token window is the tightest series in this
+register, and it is the same configuration whose first (voided) measurement
+today spread 8.1 % on a binary with no Blackwell kernels.
+
+### What this means for what to serve
+
+| you want | your options |
+|---|---|
+| the deepest window (~250,000 via `-MaxCtx`) | `ngram-mod`, ~27–29 tok/s. **Nothing else runs.** |
+| 65,536 | `draft-dflash,ngram-mod` at **+123.8 %**, or `draft-mtp,ngram-mod` at +38.9 % without a patch |
+
+**Any speculative gain beyond `ngram-mod` costs the context window**, and the
+only lever that could change that is freeing VRAM: KV is 18.00 KiB/token, so
+every 16,384 tokens is 288 MiB, and the display card holds 1,600–2,600 MiB.
+
+### 🔴 Unsloth's build 10679 does NOT remove the patch — probed 2026-08-30
+
+**The question.** Studio ships its own `llama-server`
+(`~/.unsloth/llama.cpp/build/bin/Release/llama-server.exe`, `version 0.3.0-dev,
+build 10679 (b84725557)`, *"Compiled by the Unsloth team"*), 180 build numbers
+newer than ours. If DFlash2 already runs there under `-sm tensor`, the
+unreviewed mirror patch above could be dropped.
+
+**Answer: no. It aborts on the same file and the same line.**
+
+Their source *has* DFlash2 — the drafter loads (`general.architecture = dflash`,
+`general.name = Qwen3.8-27B-DFlash2`, `dflash.block_count 5`,
+`dflash.block_size 8`), the graph reserves, and the speculator initialises:
+
+```
+common_speculative_impl_draft_dflash: adding speculative implementation 'draft-dflash'
+  - n_max=2, n_min=0, p_min=0.00
+  - block_size=8, mask_token_id=248070, n_extract=5, sample_from_anchor=true
+D:\a\llama.cpp\llama.cpp\src\ggml\src\ggml-backend-meta.cpp:543:
+GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0) failed
+```
+
+`D:\a\llama.cpp\llama.cpp` is a GitHub-runner path — that is their build, not a
+local one. **It is the identical assertion this section opens with**, reached
+after `sample_from_anchor=true` puts the selection into the graph, exactly as
+recorded above.
+
+**The control is what makes this a result.** The same command line, changing
+only the binary to `C:\AI\llama.cpp-mirror\build-mirror\bin\llama-server.exe`
+(`build 10499 (1deefcca3)`, patched):
+
+```
+common_speculative_impl_draft_dflash: adding speculative implementation 'draft-dflash'
+srv  llama_server: model loaded
+srv  llama_server: listening on http://127.0.0.1:8098
+```
+
+So the command was right and **the binary is the only difference**. Both arms:
+`-sm tensor`, `n_ctx 16384` on target and drafter, `kv_unified 'false'`,
+`--spec-draft-n-max 2`, port 8098, one boot each, run back to back with VRAM
+cleared first.
+
+Reading the source agrees with the logs. In `ggml/src/ggml-backend-meta.cpp`,
+the `case GGML_OP_TOP_K:` block is **byte-identical** in the two trees — ours at
+line 976, theirs at 1010 — and both route to `handle_per_row`, which carries the
+same `GGML_ASSERT(src_ss[0].axis != GGML_BACKEND_SPLIT_AXIS_0)`: ours at 565,
+theirs at 543. The 22-line offset is our own debug instrumentation
+(`PER-ROW OP GOT AN AXIS-0 SOURCE`, quoted earlier in this section) sitting
+above it, not a difference in the check.
+
+**Consequence.** `qwen38-tuning/patches/dflash-mirror-output-1deefcca3.patch`
+stays required. Their tree is still the better rebase base — it *contains*
+DFlash2, which upstream `master` does not — but rebasing onto it does not buy
+the tensor split, and `Add p_min in DFlash2` is ours to carry either way.
+
+**Not established:** any rate on their build. Nothing was measured past load,
+because nothing loaded.
+
+Raw: terminal only. The evidence quoted here is the whole of it.
+
+### 🟢 MTP beats DFlash2 under `-sm layer` — one binary, three rounds, 2026-08-30
+
+Issue #56. **Read the correction first: this was published as a two-build
+comparison and it is not one.** `dflash2_arena.start()` built its command line
+without the arm's environment, so every arm launched the module default binary
+while every row recorded the binary the arm had pinned (`CORRECTIONS.md` §41).
+The run is void as a build A/B and `results/layer-pairings-65536.jsonl` is
+renamed `VOID-layer-pairings-65536-one-binary-twice.jsonl`.
+
+**What survives is the half that was never supposed to vary the binary.** The
+three arms labelled `b10499` asked for the served binary, got the served binary,
+and carried no `PATH` override — so they are what they claim to be: a three-arm
+decoder comparison on `llama.cpp-blackwell`, three rounds, rotated. The three
+labelled `b10679` ran the served **executable** with Studio's DLL directory
+prepended to `PATH`, which is a chimera and is not quoted anywhere.
+
+ctx 65,536, `UD-Q4_K_XL`, `-sm layer -ub 1024`, `q4_0` KV, effort `medium`, both
+cards, `real-code-vendor`, greedy. Every row 66+0 resident.
+
+| arm | rounds (tok/s) | own spread | median | free after |
+|---|---|---:|---:|---:|
+| `ngram-mod` | 23.00 / 23.13 / 22.62 | 2.2 % | 23.00 | 4,408 MiB |
+| **`draft-mtp,ngram-mod`** | 39.52 / 38.40 / 38.67 | 2.9 % | **38.67** | 2,690 |
+| `draft-dflash,ngram-mod` | 36.34 / 35.16 / 36.49 | 3.8 % | 36.34 | 2,184 |
+
+**Both drafters roughly double decode, and that is the RESOLVED part.** Against
+`ngram-mod`: MTP **+69.6 %** [+66.0, +71.8], DFlash2 **+57.1 %** [+52.0, +61.3].
+Both clear the 13.6 % floor in every round.
+
+**MTP is ahead of DFlash2 in all three rounds, but the margin does not clear the
+floor** — **+8.0 %** [+6.0, +9.2]. Consistent in sign and larger than either
+arm's own spread, so it is worth recording; **not RESOLVED**. Read it as *MTP is
+not behind*, not as *MTP wins by 8 %*.
+
+**This is the reverse of the tensor-split ordering, and it is the finding.**
+Under `-sm tensor` on the patched mirror, at this same depth and corpus,
+`draft-dflash,ngram-mod` beat `draft-mtp,ngram-mod` **64 against 40**. Under
+`-sm layer` DFlash2 is the slower of the two. **So DFlash2's advantage looks
+like a property of the tensor split rather than of the drafter.** Nothing here
+contradicts the +123.8 % table; it says where that number lives.
+
+> **Do not compare a row above to a row in the `dual-pairings` tables.** Those
+> are `-sm tensor` on the **patched mirror**, which mirrors the target's output
+> projection and therefore changes the target's own split. These are `-sm layer`
+> on the **unpatched served binary**. Two variables move between them.
+
+**Also established, and not affected by the fault:** DFlash2 runs under
+`-sm layer` on the served, unpatched binary — no mirror patch needed. The patch
+is a tensor-split requirement, not a DFlash2 requirement.
+
+**What this run says about the two builds: nothing.** `+26 % from the newer
+build` is neither confirmed nor refuted here and remains **contested** — see
+`CORRECTIONS.md` §41.
+
+
+### 🔴 `--spec-draft-n-max 7` is WORSE than 4 where DFlash2 is fastest — 2026-08-30
+
+Issue #56. Every DFlash2 figure this project holds, the +123.8 % table included,
+was taken at `n_max 4` — a value the ledger records as *"chosen without knowing
+either number"*. `common.h:325` defaults it to 3; `speculative.cpp:989` clamps at
+`block_size - 1`, and this drafter's `block_size` is 8, so the ceiling is 7. A
+single measurement on 2026-08-24 took **25 % off DFlash2's wall clock** at 7 and
+made it the largest unclaimed lever on the list.
+
+**It does not reproduce here. 7 is slower than 4 in every round.**
+
+Four arms, one rotation, three rounds. ctx 65,536, `UD-Q4_K_XL`,
+**patched mirror**, `-sm tensor -ts 7819,15490 -ub 1024`, `q4_0` KV, effort
+`medium`, both cards, `real-code-vendor`, greedy. All twelve rows 66+0 resident,
+none skipped, none voided, **one binary across every row**. Raw:
+`results/tensor-draft-depth-65536.jsonl`.
+
+| arm | rounds (tok/s) | own spread | median | free after |
+|---|---|---:|---:|---:|
+| `ngram-mod` | 27.27 / 26.72 / 26.31 | 3.6 % | 26.72 | 3,073 MiB |
+| `draft-mtp,ngram-mod` n3 | 38.13 / 37.64 / 36.39 | 4.8 % | 37.64 | 2,037 |
+| **`draft-dflash,ngram-mod` n4** | 57.42 / 54.81 / 55.72 | 4.8 % | **55.72** | 479 |
+| `draft-dflash,ngram-mod` **n7** | 52.69 / 52.64 / 51.58 | 2.1 % | 52.64 | **171** |
+
+**7 against 4: −6.5 %** [−8.2, −4.0], consistent in sign in all three rounds,
+**not RESOLVED** — the margin is under the 13.6 % floor, though it is larger than
+n7's own 2.1 % spread. **And it is not only slower: it costs 308 MiB**, finishing
+with 171 MiB where 4 finishes with 479. There is no axis on which 7 is the better
+choice here.
+
+**Why the earlier reading does not carry.** That measurement was `-sm layer`, on
+an unpatched binary, against a prompt the same page records as **84.5 % duplicate
+lines**, and it was scored on wall clock and window high-water rather than
+decode rate. Three things differ; this run changes none of them relative to the
++123.8 % table it is meant to extend.
+
+**Keep `--spec-draft-n-max 4`.** The served `-Dflash` profile uses **2**, chosen
+for headroom at 131,072, and nothing here argues against that either — at 65,536
+n7 already finishes with 171 MiB, and 131,072 needs 1,152 MiB more KV.
+
+#### DFlash2 beats MTP by half again on this split
+
+| comparison | delta | verdict |
+|---|---|---|
+| `dflash` n4 vs `mtp` n3 | **+49.8 %** [+45.6, +53.1] | **RESOLVED** |
+| `dflash` **n7** vs `mtp` n3 | **+39.9 %** [+38.2, +41.8] | **RESOLVED** |
+| `mtp` n3 vs `ngram-mod` | **+39.7 %** [+38.3, +40.9] | **RESOLVED** |
+| `dflash` n4 vs `ngram-mod` | **+109.2 %** [+105.1, +111.8] | **RESOLVED** |
+
+**Even the worse DFlash2 setting beats MTP by 40 %.** And the incumbent
+comparison reproduces the earlier three-way: +109.2 % here against +123.8 %
+there, a different boot series on the same binary and depth.
+
+#### The split mode is the variable, not the drafter
+
+The same two decoders, same depth, same corpus, same `-ub`, same draft depths,
+measured five hours apart:
+
+| arm | `-sm layer`, served binary | `-sm tensor`, patched mirror |
+|---|---:|---:|
+| `ngram-mod` | 23.00 | 26.72 |
+| `draft-mtp,ngram-mod` | **38.67** | 37.64 |
+| `draft-dflash,ngram-mod` n4 | 36.34 | **55.72** |
+
+**MTP does not move — 38.67 against 37.64. DFlash2 gains half again.** So the
+ordering reversal between the two tables is DFlash2 rising, not MTP falling.
+
+> **What this cannot separate.** `-sm tensor` and the mirror patch travel
+> together: DFlash2 cannot load on the tensor split without the patch, and the
+> patch mirrors the target's output projection, which changes the *target's* own
+> split. `ngram-mod` — which involves no drafter at all — also moves +16 %
+> between the two columns, so the patched binary is doing something on its own.
+> **The missing measurement is `mtp+ngram` and `ngram-mod` on the mirror under
+> `-sm layer`**, which needs no patch to load and would isolate the split mode
+> from the binary. It has not been run.
+---
+
+## NVFP4 with a baked-in MTP head — the fastest thing measured on this machine
+
+### The head-to-head against what we serve, ctx 147,456 — 2026-08-29
+
+Three paired rounds, arms rotated every round, real vendor code, served binary
+`llama.cpp-blackwell` (`sm_120a` + `sm_89`). Raw: `results/nvfp4-final-147456.jsonl`.
+
+| arm | rounds | spread | vs baseline |
+|---|---|---|---|
+| `q4-ngram-base` — `UD-Q4_K_XL` + `ngram-mod` n-match 12 **(serving today)** | 24.90 / 25.73 / 25.73 | **3.3 %** | baseline |
+| `nvfp4-mtp+nm24` — NVFP4 VERY-LOW + `draft-mtp,ngram-mod` n-match 24 | **39.43 / 42.61 / 42.55** | 8.1 % | **+63.1 % [+58.3, +65.6] RESOLVED** |
+
+The bracket is the per-round pairing, not a confidence interval: +58.3, +65.6,
++65.4. The floor applied was 13.6 % (`NOISE_FLOOR_PCT`, Ada @ 16,384) and this
+run's own baseline spread was 3.3 %, so the result clears both.
+
+**This run exists because +41.2 % and +27.1 % were measured in different runs.**
+Multiplying them is the cross-boot comparison `CLAUDE.md` forbids. **+63.1 % is
+the only figure that may be quoted for this pairing**; the two components below
+are recorded for mechanism, not for arithmetic.
+
+**It needs nothing.** No mirror patch, no sidecar drafter, no unreviewed binary
+— the MTP head is inside the file and it runs on the served executable. It also
+leaves **more** headroom than the incumbent: 2,393–2,400 MiB free against
+1,998–2,026.
+
+### Why it is not the artifact alone — the same artifact WITHOUT MTP is a loss
+
+Raw: `results/nvfp4-vs-q4-147456.jsonl`, same depth, three rounds rotated.
+
+| arm | rounds | vs baseline |
+|---|---|---|
+| `q4-ngram-base` | 24.44 / 25.58 / 25.66 | baseline |
+| `nvfp4-ngram` — NVFP4 + `ngram-mod` alone | 17.76 / 22.73 / 18.26 | **−22.4 % RESOLVED** |
+| `nvfp4-mtp+ngram` — n-match 12 | 34.96 / 35.97 / 35.90 | +41.2 % RESOLVED |
+
+**`ngram-mod` acceptance falls 55.4 → 22.1 on NVFP4.** That artifact writes text
+the n-gram cannot predict, and on its own that is a **loss**, not a gain. MTP
+fills exactly the gap the n-gram stopped covering. **Neither half is the
+result; the pairing is.**
+
+**The MTP head in this file does not copy the prompt.** `copied_frac
+[0.0, 0.0, 0.0]` and `predicted_n 512` in every round, against `[0.519, 0.0, 0.23]`
+for Unsloth's head at the same depth. **The copying recorded for weeks as a
+property of `draft-mtp` is a property of the ARTIFACT.**
+
+### The n-gram family, re-tuned ON NVFP4 — the verdict did not transfer
+
+Raw: `results/nvfp4-ngram-retune-147456.jsonl`, `draft-mtp` held fixed.
+
+| n-gram | rounds | vs nm12 | acceptance |
+|---|---|---|---|
+| `ngram-mod` n-match 12 (the tuned value on `UD-Q4_K_XL`) | 32.84 / 32.43 / 36.51 | baseline | 49.6 |
+| `ngram-mod` n-match 16 | 37.53 / 37.42 / 37.36 | +11.6 % | 50.7 |
+| **`ngram-mod` n-match 24** | **43.10 / 42.99 / 42.93** | **+27.1 % RESOLVED** | **58.8** |
+| `map-k` | 39.01 / 38.96 / 39.23 | +15.4 % RESOLVED | 54.5 |
+| `map-k4v` | 38.82 / 37.22 / 38.55 | +12.4 % | 50.9 |
+
+**`n-match 24` LOST on `UD-Q4_K_XL` at this exact depth, and `map-k` declined
+100 % of its drafts there in all three rounds.** Both recover here. See the
+n-gram-family section above for the contradicted measurement and task #40, whose
+verdict has been narrowed to `UD-Q4_K_XL` only.
+
+**The rule this establishes:** this project already holds that *a verdict at one
+depth does not transfer to another*. **It does not transfer across artifacts
+either.** "The n-gram family is swept, nothing left" was generalised past what
+it measured.
+
+### 🟢 DFlash2 DOES work on NVFP4 — the "+0.2 %" was a configuration artifact, 2026-08-30
+
+Issue #50. **This retracts a verdict this page carried.** `draft-dflash` beside
+NVFP4 was written up as **+0.2 % and the sign flips — no case here**, and that
+sentence is withdrawn: the run behind it gave DFlash2 none of the three things
+it is now known to want.
+
+| | the discredited run | here |
+|---|---|---|
+| ctx | 147,456 | **65,536**, its measured best |
+| `--spec-draft-n-max` | 3 | **4**, measured best 2026-08-30 |
+| `--spec-ngram-mod-n-match` | 12 | **24**, NVFP4's own tuned window |
+
+**All three were already written down on this page** — the n-gram retune records
+`n-match 12` collapsing on this artifact, acceptance 55.4 → 22.1, in the same
+section that drew the conclusion. **A handicapped arm losing is not evidence the
+decoder loses.**
+
+#### At 65,536 — RESOLVED against the incumbent
+
+Two arms, three rounds rotated, `NVFP4 VERY-LOW`, patched mirror,
+`-sm tensor -ts 7819,15490 -ub 1024`, `q4_0` KV, effort `medium`, both cards,
+`real-code-vendor`, greedy. Every row 66+0 resident. Raw:
+`results/nvfp4-dflash-65536.jsonl`.
+
+| arm | rounds (tok/s) | spread | median | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| `ngram-mod` nm24 | 26.60 / 26.73 / 27.35 | 2.8 % | 26.73 | 38.1 | 4,970 MiB |
+| **`draft-dflash,ngram-mod`** nm24 n4 | 45.62 / 44.32 / 45.49 | 2.9 % | **45.49** | **50.0** | 2,828 |
+
+**+67.9 %** [+65.8, +71.5], consistent in sign, clears the floor in every round —
+**RESOLVED**. Acceptance is **50.0** against the discredited run's 22.1, which is
+the mechanism: the window was starving the n-gram, not the drafter failing.
+
+#### At 147,456, the depth we serve — level with MTP, and far steadier
+
+One arm, three rounds, everything else held at what MTP's rows held. Raw:
+`results/nvfp4-dflash-147456-n4.jsonl`.
+
+| | rounds (tok/s) | spread | median | acceptance | free after |
+|---|---|---:|---:|---:|---:|
+| **`draft-dflash,ngram-mod`** n4 | 44.48 / 44.56 / 44.23 | **0.7 %** | **44.48** | 61.8 | 1,450–1,462 MiB |
+| `draft-mtp,ngram-mod` n3, **6 rounds over 2 boot series** | 39.43 / 42.61 / 42.55 / 43.10 / 42.99 / 42.93 | 9.3 % | 42.77 | 58.8 | **2,393–2,433** |
+
+**+4.0 % on medians — under the 13.6 % floor, and across boots. NOT resolved.**
+
+**What is stronger than that percentage: the ranges do not overlap.** DFlash2's
+worst round, 44.23, is above MTP's best, 43.10 — three rounds beating six, from
+different boots. And DFlash2's own spread is **0.7 % against 9.3 %**, one of the
+tightest series in this register.
+
+> **Why a cross-boot comparison is admissible here specifically.** The
+> comparator is not one reading. It is six rounds across two independent boot
+> series (`nvfp4-final-147456.jsonl`, `nvfp4-ngram-retune-147456.jsonl`) at the
+> same artifact, depth, window and `n_max`, spanning **9.3 %** — not the 48.9 %
+> `CORRECTIONS.md` §23 measures at worst, and not the single reading per side
+> that produced the retracted `+26 %` (§40). **It is still not a paired
+> measurement**, and calling this a win requires the two decoders in one
+> rotation.
+
+#### The trade, and it runs against stripping the head
+
+DFlash2 costs about **950 MiB** more headroom than MTP at this depth — 1,450
+against 2,400 — for 4 % that does not clear the floor.
+
+That reverses the case for a head-less NVFP4 file.
+`esatapedico/...-BUDGET` is 134 MiB smaller and `...-STARVED` 257 MiB
+(`researchs/nvfp4-dflash2-hf-survey-2026-08-30.md`), but replacing the baked-in
+head with an external drafter **spends 950 MiB at runtime to save 134–257 MiB on
+disk**. The MTP head itself is only **133 MiB** of the file, read from its own
+header: 15 tensors in `blk.64`, of 14,174 MiB.
+
+**What DFlash2 offers on this artifact is consistency, not speed.** 0.7 % against
+9.3 % is a real property and the reason to keep the option; 4 % is not a reason
+to pay 950 MiB.
+
+**What would settle it:** both decoders in one rotation at 147,456. That turns
+"disjoint ranges across boots" into a number this project's rules can act on.
+
+### ~~DFlash2 on NVFP4 — no better than the head already in the file~~ — SUPERSEDED, see above
+
+Raw: `results/nvfp4-dflash-147456.jsonl`, paired against `nvfp4-mtp+ngram`.
+
+| arm | rounds | verdict |
+|---|---|---|
+| `nvfp4-mtp+ngram` | 35.66 / 34.02 / 35.80 | baseline |
+| `nvfp4-dflash+ngram` | 37.04 / 36.90 / 31.96 | **+0.2 %, and the sign flips** |
+
+It also costs a sidecar drafter (~600–700 MiB: free falls 2,238–2,305 → 1,638–1,644)
+and the mirror patch, and the patched binary is not the one we serve. **On this
+artifact there is no case for DFlash2.**
+
+### What is NOT established, and it gates shipping
+
+**Quality has never been measured on this project's own artifacts, and the
+proposal swaps the MODEL FILE, not a flag.** `ngram-mod`'s acceptance halving
+from 55.4 to 22.1 is direct evidence that NVFP4 *writes differently*, not merely
+faster. **No default has been changed.** Also unmeasured: `MID-HIGH` has no rate at all,
+and no depth above 147,456 has a **paired** one.
+
+### The deep rung, re-derived against a half-window request — 2026-08-29
+
+The first ladder certified **229,376** because it survived a 65,643-token
+request. That is a **quarter** of its own window. Given the arena's standard
+`int(ctx * 0.5)` slice, one boot per rung through the profile:
+
+| ctx | prompt | outcome | free after |
+|---|---|---|---|
+| 229,376 | 114,688 | **loaded, answered `/health`, DIED** — `cudaMalloc failed: out of memory` on device 1, having loaded with **206 MiB** free there | — |
+| **200,704** | 100,352 | survived 91,428 tokens, 37.59 tok/s | 1,133 / **654** MiB |
+| 180,224 | 90,112 | survived 83,127 tokens, 29.28 tok/s | 1,379 / 1,174 MiB |
+| 163,840 | 81,920 | survived 76,741 tokens, 28.69 tok/s | 1,458 / 1,601 MiB |
+
+**Those three rates are single unpaired readings at three different depths on
+three different prompts.** They are not a depth-versus-speed curve and must not
+be read as one — they are here because a rung that answers is the evidence that
+it survives. [CORRECTIONS 35](../reports/CORRECTIONS.md).
+
+**200,704 is what `serve-dual-nvfp4-deep.bat` serves**, verified by booting that
+launcher: `n_ctx 200704`, a 101,029-token request answered, 1,009 / 692 MiB free.
+
+### The split mode, ON NVFP4 — tensor still wins, by 31 % — 2026-08-29
+
+The `+65.4 %` for `-sm tensor` was measured on `UD-Q4_K_XL`, on 2026-08-26,
+**with speculation off on both sides**. This session had already shown twice that
+a verdict does not survive an artifact change, so it was re-run on the artifact
+and the decoder we would actually serve. Raw: `results/dflash2-arena.jsonl`,
+ctx 147,456, three paired rounds rotated, real vendor code.
+
+| arm | tok/s | spread | residency | free after |
+|---|---|---|---|---|
+| `-sm tensor -ts <computed>` **(baseline)** | 44.5 / 45.2 / 44.9 | **1.6 %** | `66+0` | 2,403–2,404 MiB |
+| `-sm layer` (no `-ts`) | 31.3 / 31.4 / 30.1 | 4.2 % | `66+0` | 1,610 MiB |
+
+**`-sm layer` is −31.0 % [−32.9, −29.6] RESOLVED.** Both arms fully resident, so
+this is the split and not a spill. **The verdict transfers.**
+
+**And the mechanism that made it worth asking is now answered too.** Every
+tensor-split boot prints `set_sampler: backend sampling not supported with
+SPLIT_MODE_TENSOR; using CPU`, one line after `draft-mtp` announces
+`backend_sampling=1`. **That line is ABSENT from every layer log** — backend
+sampling is live on that side — **and layer is still 31 % slower.** Whatever the
+CPU sampler fallback costs, it is smaller than what the tensor split buys.
+
+Two other differences worth recording, neither of them the headline:
+
+- **draft acceptance is 58.8 on tensor against 45.4 on layer**, and `ngram-mod`'s
+  accepted length is **17.54 against 5.88**. The two splits produce different
+  logits — [CORRECTIONS 32](../reports/CORRECTIONS.md) already records that
+  splitting changes the text — so they are not decoding the same tokens.
+- tensor leaves **~790 MiB more free**, matching the direction found on
+  `UD-Q4_K_XL` (5,313 against 2,827 there).
+
+`-sm row` remains unavailable: `device CUDA0 does not support split buffers`,
+about one second, every attempt. Not re-run.
+
+### Vision LOADS under `-sm tensor` — the prediction was wrong — 2026-08-29
+
+**Predicted to fail and it does not.** The reasoning was that the projector is a
+second model and `-sm tensor` had never hosted one: `draft-dflash` aborts in
+`ggml-backend-meta.cpp`, which is the whole reason DFlash2 needs a patched
+binary. That reasoning does not carry to `mmproj`.
+
+`mmproj-BF16.gguf` (931,146,432 bytes, ships with the NVFP4 repo, byte-identical
+to Unsloth's), passed as `-mm`, on the **served unpatched binary**, one boot per
+depth, each answering a real 512×512 PNG — a blue field with a yellow circle —
+through `/v1/chat/completions`:
+
+| ctx | loaded | answer | free after |
+|---|---|---|---|
+| 65,536 | yes | *"Blue fills most; a yellow circle is in the middle."* | 2,465 / 4,230 MiB |
+| **147,456** | yes | identical, correct | 1,205 / 2,450 MiB |
+| **200,704** | yes | identical, correct | **614** / 1,294 MiB |
+
+The free-VRAM column above is after a **tiny** request, which says nothing about
+a screenshot pasted into a long conversation. That was measured next.
+
+### How deep the context goes WITH vision — 200,704, the profile's cap — 2026-08-29
+
+Every rung asked for **both**, in one session: a half-window request from the
+arena's frozen corpus, and **then an image on top of that context**. A rung
+passes only if both succeed — getting the text and dying on the picture is the
+failure a person would actually hit.
+
+| ctx | half-window prompt | then an image | free at load → after text → after image |
+|---|---|---|---|
+| **200,704** | 91,428 tokens, 28.21 tok/s | correct | 605/1,365 → 509/1,189 → **464**/1,187 |
+| 180,224 | 83,127 tokens, 32.47 tok/s | correct | 819/1,881 → 559/1,703 → 534/1,703 |
+| 163,840 | 76,741 tokens, 27.73 tok/s | correct | 966/2,235 → 850/2,057 → **817**/2,057 |
+| 147,456 | 70,322 tokens, 44.16 tok/s | correct | 1,218/2,591 → 1,094/2,413 → 1,068/2,413 |
+
+**All four survived.** The picture was a third distinct one — green field, yellow
+triangle — so a right answer is not a cached one. **The four rates are single
+unpaired readings at four depths on four prompts and are NOT a depth curve.**
+
+**200,704 is the answer, and the margin there is the thinnest of the four.**
+464 MiB sits between the 336 this project has seen die on a first request and
+the 488 seen survive — both on a *different* configuration, so read that as a
+neighbourhood, not a line. What actually stands between a grown desktop and a
+spill is the profile's budget check, which **refuses rather than spilling**.
+
+The ladder stops at 200,704 because the profile caps there
+([CORRECTIONS 35](../reports/CORRECTIONS.md)); 229,376 already dies **without**
+the tower, and 888 MiB more cannot help.
+
+**Without `-mm` the server returns HTTP 500 to any image** — `image input is not
+supported` — which is what a real Claude Code session hit five times.
+
+### `--spec-draft-n-max` 2 against 3, decided by ordinary use — 2026-08-29
+
+`-Beta` carried Unsloth Studio's `--spec-draft-n-max 2` for one afternoon. The
+developer said it felt slower. It is.
+
+**Not from the rate** — the two sessions were different prompts on different
+boots, which this project does not compare. **From the counters**, which are a
+property of the run and not of the boot:
+
+| | drafts | draft tokens | tokens per draft | mean ACCEPTED length | acceptance |
+|---|---|---|---|---|---|
+| `n-max 3` | 297 | 891 | 3 | **2.80** | 0.60 |
+| `n-max 2` | 887 | 1,774 | 2 | **2.12** | 0.54 |
+
+**The acceptance rate barely moved. The accepted LENGTH fell 24 %**, which is
+what a shorter draft buys: every verify step advances less far. Decode read
+43–45 tok/s in the first session and 25–33 in the second.
+
+This is exactly what the per-position acceptance predicted —
+`(0.690, 0.448, 0.284)`, so the third draft position lands **28 %** of the time
+and cutting it costs. **The prediction is now measured.** Reverted to 3, which
+is also llama.cpp's own default.
+
+Studio's UI documents 2 for MTP on a GPU. **A default from another product is
+still a verdict from another configuration.**
+
+**And the n-gram bounds did nothing — a different verdict, and it matters.**
+`n-min 48 / n-max 64` rode in with the same bundle, and both sessions record
+`ngram-mod: #gen drafts = 0` on either side. **The n-gram never fired once**, so
+that change was **inert: not better, not worse, never exercised.** It has been
+reverted to 16 / 32 as well, to keep the bundle readable — but the register must
+not say "reverted" for both as if 48 / 64 had been tried and beaten. One LOST;
+the other was NEVER RUN.
+
+`16 / 32` therefore remains a deviation from llama.cpp's defaults with no
+measurement behind it, carried through an older sweep where they were *held
+constant* rather than chosen. What would settle it is a workload where an
+n-gram fires at all, and this project does not have one — the same blocker as
+the tier-2 question about dropping `ngram-mod` entirely.

@@ -1,5 +1,22 @@
 # 04 — Context depth: what is resident where, and how fast
 
+> 🔴 **Every number on this page was measured at `reasoning_effort: xhigh` with
+> an unlimited thinking budget — the cold-start row below asks *about* the flag but was itself taken at that default, so it is covered rather than excepted.** That is the model's chat-template
+> default — the client sends no effort field, and **no `worker-*.ps1` profile and
+> nothing in `bench/` has ever set the flag** (established 2026-08-24 from a boot
+> log: [`05-runtime-flags.md`](05-runtime-flags.md)).
+> Artificial Analysis prices this model's `medium` **one point** below `xhigh` on
+> the agentic axis and `low` **six** below that
+> ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+> so **effort is a live confound here, not a settled background condition.**
+>
+> **The served default became `medium` on 2026-08-24** — all five
+> `worker-*.ps1` profiles and `dflash2_arena.server_argv` now set it, and the
+> arena records `effort` on every row. **So this banner describes what is
+> already on the page, not what will be added to it.** Anything measured after
+> that date states its own level, and a figure from before it cannot be
+> compared with one from after without saying which is which.
+
 **The model is not the limit.** The loader reports `n_ctx_train = 262144` with no
 scaling engaged at 163,840 — no YaRN, no rope extension. Every depth this
 project has tried is inside the native window. **12 GB of VRAM is the only
@@ -347,3 +364,158 @@ Raw: `qwen38-tuning/results/iq2s-prefill-microbatch.jsonl`,
 | Then why is it fast? | **Prefill throughput.** 54,478 tokens at 4.97 s to first byte is ~11,000 tok/s against our 900; the second big call reuses the prefix and drops to 1.41 s | report 26 |
 | End to end for the same `hi` | **19.4 s on the gateway against ~171 s of local prefill** | report 26 |
 
+
+## 🟢 How far the context must come down for DFlash2 on the tensor split — 2026-08-27
+
+**65,536.** With the mirrored build (`patches/dflash-mirror-output-1deefcca3.patch`),
+`-sm tensor` + `draft-dflash,ngram-mod` + `-ub 1024`, `-ts` computed at each rung
+from what was actually free:
+
+| ctx | budget | loads | survives a real request | free after, per card |
+|---:|---:|---|---|---|
+| 147,456 | 22,162 MiB | **no** | — | — |
+| 98,304 | 22,722 MiB | **no** | — | — |
+| **65,536** | **22,727 MiB** | **yes** | **yes — 34,278 tokens** | **692 / 600 MiB** |
+
+**The failure changed shape, and that is the result.** Both refusals are
+`ggml-backend-meta.cpp:1544`, `GGML_ASSERT(bufs.back() != nullptr)`, preceded by
+`cudaMalloc failed: out of memory` allocating 1,077.43 MiB on device 1. That is
+the **buffer-allocation** assertion — plain OOM. The old block was
+`ggml-backend-meta.cpp:543`, a **graph-split axis** assertion that no amount of
+freeing could move. **DFlash2 under `-sm tensor` is now a memory question.**
+
+The arithmetic agrees. At 147,456 the demand is 16,130 weights + 2,592 KV +
+2,048 compute + ~1,936 for the drafter = **22,706 MiB against a 22,162 budget**,
+before counting the duplicated vocabulary head the patch adds.
+
+**692 and 600 MiB is not a comfortable place to sit.** The profile's own
+measured line is that 336 MiB free on the second card died on its first request
+and 488 survived. 600 clears it, and the served 147,456 configuration finishes
+with about **2,000 MiB** on each card. Depth is bought with the margin that
+keeps a spill from happening silently.
+
+### 🔴 The 167.51 tok/s from that ladder is VOID, and it was my own instrument
+
+The ladder's rate came from an ad-hoc script whose prompt was **one code block
+repeated to fill the window** — close to 100 % duplicate lines — with
+`ngram-mod` in the arm. `ngram-mod` turns repetition into throughput, and this
+project has retracted a figure for exactly that reason twice
+([CORRECTIONS 2](../reports/CORRECTIONS.md), [32](../reports/CORRECTIONS.md)).
+
+`bench/harness.py` already contains `generation_is_original` and
+`copied_window_fraction`, and `dflash2_arena.py` already carries the real-code
+corpus. **The script used none of them.** A guard that exists and is not called
+is worse than one that does not exist, because its absence leaves no trace in
+the number.
+
+The fit result above stands — loading and surviving are not rate measurements.
+The rate is being re-taken through the arena with the `dual-dflash-tensor` arm
+set, paired and rotated, at this depth.
+
+## The ceiling for DFlash2 + ngram-mod, with the memory knobs spent — 2026-08-27
+
+**131,072.** Not the ~200,000 that was asked for, and every term in the shortfall
+is now measured rather than estimated.
+
+`-sm tensor`, computed `-ts`, **`-ub 512`** and **`--spec-draft-n-max 2`**, the
+two knobs that return memory without touching the window:
+
+| ctx | result |
+|---:|---|
+| 200,704 | **no** — at `-ub 1024/n-max 4`, `-ub 512/n-max 2` and `-ub 256/n-max 1` alike |
+| 163,840 | **no** |
+| 147,456 | **loads, then DIES on the first real request** |
+| **131,072** | **loads and answers a 53,592-token request.** prefill 692.6 tok/s, free **634 / 530 MiB** |
+
+**147,456 is the exact trap this project documented.** It answers `/health`, it
+reports a healthy split, and it dies when a real request arrives. A ladder that
+checked liveness rather than work would have published it as the ceiling.
+
+### The budget, with every term measured
+
+| term | MiB |
+|---|---:|
+| weights | 16,130 |
+| KV at 200,704, 18.00 KiB/token | 3,528 |
+| compute, 2 × ubatch at 1024 | 2,048 |
+| DFlash2 drafter, resident | 1,936 |
+| **the mirror patch** | **1,080** |
+| runtime reserve | 768 |
+| **total** | **25,490** |
+| budget measured that hour | ~22,830 |
+
+**The mirror costs 1,080 MiB** — measured 2026-08-27, served binary against
+patched, same ctx, same `-ub`, no drafter: 6,964 MiB free against 5,884. That is
+**3.75 rungs of 16,384 tokens**, so the entry fee for DFlash2 on the tensor split
+is about sixty thousand tokens of context before the drafter itself is counted.
+
+**And the shortfall is not total memory, it is one card.** All three
+configurations at 200,704 failed on the same allocation — **786.35 MiB on
+device 1**, which is the drafter's own Meta buffer. Under the computed `-ts` the
+5060 Ti carries about 70 % of the weights, so it is the card with no room left.
+Lowering `-ub` and `n-max` returns memory to both cards and not enough to that
+one.
+
+### 634 / 530 MiB is not a comfortable place to sit
+
+The measured line in this project is that **336 MiB free on the second card died
+on its first request and 488 survived**. 530 clears it by 42 MiB. The served
+`ngram-mod` configuration at 147,456 finishes with about **2,210 MiB**.
+
+### 🔴 The `decode 0 tok/s` in that ladder is an instrument gap, not a result
+
+The generation ended immediately and the script reported the zero as a rate.
+`harness.generation_is_measurable` exists for exactly this and the ad-hoc script
+did not call it — **the second time in one day** that a guard already in the
+repository was skipped by a script written beside it. The fit result stands;
+there is no decode figure at 131,072.
+
+### What would actually reach 200,000
+
+1. **Move the display to the iGPU.** It frees 1,600–2,600 MiB on device 0, and
+   under a proportional `-ts` that shifts roughly 970 MiB of weights off
+   device 1 — about half the shortfall. Necessary, probably not sufficient.
+2. **Make the mirror cheaper.** The patch mirrors the output projection for
+   every architecture because `TOP_K` cannot take axis-0 logits. Teaching
+   `handle_per_row` to gather instead would return the whole 1,080 MiB, but that
+   is a change inside ggml rather than a mapping choice.
+3. **Accept that 200,000 and DFlash2 do not fit on this hardware** and choose
+   between the window and the rate.
+
+## A smaller drafter moves the DFlash2 ceiling to 163,840 — measured 2026-08-27
+
+**131,072 → 163,840**, one full rung, and it clears the 147,456 the dual profile
+serves by default. `-sm tensor`, computed `-ts`, `-ub 512`,
+`--spec-draft-n-max 2`, patched binary, a real 53,592-token request through every
+rung that loaded.
+
+| drafter | on disk | 200,704 | 163,840 | free after, per card |
+|---|---:|---|---|---|
+| `z-lab` `Q4_K_M` *(what the launcher ships)* | 1,090 MiB | no — wanted **786.35 MiB** on device 1 | *not run* | — |
+| `andrew-paul` `Q3_K_M` *(imatrix)* | 874 MiB | no | **loads, survives** | 956 / **353** MiB |
+| **`HermiHg` `Q2_K_S-MIX`** *(imatrix, mixed 2–3 bit)* | **535 MiB** | no — wanted **538.42 MiB** | **loads, survives** | **1,080 / 630 MiB** |
+
+**The failing allocation tracks the drafter's file size, measured rather than
+assumed:** 786.35 MiB for `Q4_K_M`, **538.42 MiB** for `Q2_K_S-MIX`. That is the
+buffer this project has been fighting since the 200,704 attempt, and it is a
+straight function of which file you load.
+
+**Prefer the smaller one, and it is not close.** `Q3_K_M` finishes with **353
+MiB** free on the second card — *below* the line this project measured, where
+336 MiB died on its first request and 488 survived. It survived this one.
+`Q2_K_S-MIX` finishes with **630 MiB**, and is 339 MiB lighter besides. The
+larger drafter buys nothing here and spends the margin.
+
+**200,704 is still out of reach** on all three, so the developer's ~200,000 ask
+remains unmet by the drafter alone. What is left is the display card:
+KV is 18.00 KiB/token, every 16,384 tokens is 288 MiB, and freeing 1,600–2,600
+MiB shifts weights off device 1 under a proportional `-ts`.
+
+### 🔴 Still no decode figure at this depth
+
+Both surviving rungs report **one token predicted** — the generation ended
+immediately, so there is no rate. **This time the script said `NOT MEASURABLE`
+instead of printing the zero**, which is the guard that was missing when the same
+thing produced a "0 tok/s" earlier today. The fit stands; the rate does not
+exist. Measuring it needs `ignore_eos` or a prompt that elicits a long answer,
+through the arena rather than an ad-hoc script.

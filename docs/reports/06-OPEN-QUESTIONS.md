@@ -208,7 +208,7 @@ Q4 and **reopened by the artifact change**.
 | Does Q3 overtake Q4 at depth? | **No** — settled before Experiment A |
 | ↺ Is 256K usable? | **Reachable now, not usable for a loop** — 1.71 tok/s behind an 11-minute prefill, but no host paging (report 11 §3) |
 | Does the hybrid re-prefill bug affect us? | **No** — append-only turns evaluate ~40–50 tokens |
-| Is `FA_ALL_QUANTS` needed for Q8 KV? | **No** — Q8 is faster on the stock b10472 binary |
+| Is `FA_ALL_QUANTS` needed **for Q8 KV**? | **No** — `Q8_0` is in the always-compiled list, so the flag never applied. **Still open for `q4_1`/`q5_0`/`q5_1` and asymmetric K≠V** ([`CORRECTIONS` §29](CORRECTIONS.md)) |
 | Does MTP change output? | **No** — byte-identical greedy across every speculative config |
 | Is 3× achievable *from speculation*? | **No** — 1.30–1.47×. It was achievable from **residency**: 3.2× |
 | Does Bonsai run on our binary? | **Its headline `Q2_0` does not** — that is g128 and needs the PrismML fork; mainline's `Q2_0` is group-64 (report 08 §1) |

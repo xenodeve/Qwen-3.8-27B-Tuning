@@ -44,6 +44,30 @@ def load_jsonl(path):
 _LAYER_RE = None
 
 
+def _assignment_passes(log_text):
+    """The layer-assignment lines, split into passes.
+
+    llama.cpp emits several reserve passes and each restarts at layer 0, so a
+    pass boundary is simply where the index stops increasing. Shared by
+    `parse_layer_split` and `target_layer_count` so the two can never disagree
+    about where one pass ends and the next begins.
+    """
+    global _LAYER_RE
+    if _LAYER_RE is None:
+        import re
+        _LAYER_RE = re.compile(
+            r"load_tensors: layer\s+(\d+) assigned to device (\w+)")
+
+    pairs = _LAYER_RE.findall(log_text)
+    if not pairs:
+        raise ValueError("no layer-assignment lines found; was -lv 5 passed?")
+
+    devices = [d for _, d in pairs]
+    idx = [int(i) for i, _ in pairs]
+    bounds = [0] + [i for i in range(1, len(idx)) if idx[i] <= idx[i - 1]] + [len(idx)]
+    return [devices[a:b] for a, b in zip(bounds, bounds[1:])]
+
+
 def parse_layer_split(log_text, total=None, expect_layers=None):
     r"""Count GPU vs CPU layer placement from a verbose llama.cpp load report.
 
@@ -72,24 +96,16 @@ def parse_layer_split(log_text, total=None, expect_layers=None):
     used; a size no pass has raises rather than falling back to another pass.
 
     (\w+) rather than (\S+) because the device token carries a trailing comma
-    ("CUDA0,"), which made an exact == "CPU" comparison match nothing.
+    ("CUDA0,"), which made an exact == "CPU" comparison match nothing. The same
+    pattern is why `Meta()` arrives as `Meta`.
+
+    THREE device tokens are possible, not two. `-sm tensor` aggregates the cards
+    into a virtual `Meta` device and assigns every layer to it; a layer there is
+    resident. Anything else still raises, which is how this function reported
+    `-sm tensor` as unreadable rather than guessing at it.
     """
-    global _LAYER_RE
-    if _LAYER_RE is None:
-        import re
-        _LAYER_RE = re.compile(
-            r"load_tensors: layer\s+(\d+) assigned to device (\w+)")
-
-    pairs = _LAYER_RE.findall(log_text)
-    if not pairs:
-        raise ValueError("no layer-assignment lines found; was -lv 5 passed?")
-
-    devices = [d for _, d in pairs]
-    idx = [int(i) for i, _ in pairs]
-
-    # Split into passes first: a pass boundary is where the index stops rising.
-    bounds = [0] + [i for i in range(1, len(idx)) if idx[i] <= idx[i - 1]] + [len(idx)]
-    passes = [devices[a:b] for a, b in zip(bounds, bounds[1:])]
+    passes = _assignment_passes(log_text)
+    devices = [d for p in passes for d in p]
 
     if expect_layers is not None:
         matching = [p for p in passes if len(p) == expect_layers]
@@ -101,7 +117,14 @@ def parse_layer_split(log_text, total=None, expect_layers=None):
         last = matching[-1]
     else:
         last = passes[-1] if total is None else devices[-total:]
-    gpu = sum(1 for d in last if d.startswith("CUDA"))
+    # "Meta" is `-sm tensor`: llama.cpp logs "creating a Meta device for tensor
+    # parallelism from 2 devices" and assigns every layer to `Meta()`, which is
+    # the two cards aggregated. A layer there is ON the GPUs. The parser refused
+    # such a log on 2026-08-26 -- "unexpected devices: ['Meta']" -- and that was
+    # the right refusal: it did not know what the token meant and said so rather
+    # than counting it as CPU, which would have reported a fully resident model
+    # as spilled (issue #52).
+    gpu = sum(1 for d in last if d.startswith("CUDA") or d.startswith("Meta"))
     cpu = sum(1 for d in last if d == "CPU")
     if gpu + cpu != len(last):
         raise ValueError(
@@ -109,6 +132,83 @@ def parse_layer_split(log_text, total=None, expect_layers=None):
             f"unexpected devices: {sorted(set(last) - {'CPU'} - {d for d in last if d.startswith('CUDA')})}"
         )
     return gpu, cpu
+
+
+def target_layer_count(log_text):
+    """How many layers the TARGET model has, read from its own load report.
+
+    Replaces a caller-side constant. `dflash2_arena` hardcoded 65 -- "64 blocks
+    plus the MTP head" -- which was the count for `UD-IQ2_XXS`, an artifact with
+    no MTP head at all. `UD-Q2_K_XL` has one at `blk.64` and reports 66, so
+    every row it produced raised instead of recording a split (issue #44).
+
+    THE TARGET IS THE MODEL WITH THE MOST LAYERS. True of every configuration
+    this project runs: the DFlash2 drafter is 6 against a target's 65 or 66, and
+    with `draft-mtp` there is no second model at all. If a drafter ever carries
+    more layers than its target this inverts -- stated here rather than assumed,
+    because a wrong answer would look like a healthy split for the wrong model,
+    which is the fault `expect_layers` was added to prevent in the first place.
+
+    Raises on a log with no assignment lines rather than returning a default:
+    the caller feeds this straight into `parse_layer_split`, and a guessed count
+    there is exactly the silent fallback that function refuses.
+    """
+    passes = _assignment_passes(log_text)
+    return max(len(p) for p in passes)
+
+
+COPIED_FRACTION_LIMIT = 0.5
+
+
+def copied_window_fraction(output, prompt, n=12):
+    """Fraction of the output's n-word windows that appear verbatim in the prompt.
+
+    A generation that reproduces its own prompt is not a decode measurement, and
+    it is the failure mode `generation_is_measurable` cannot see: that guard
+    counts TOKENS, and a 512-token copy passes it (issue #44).
+
+    n=12 because `--spec-ngram-mod-n-match 12` is what every worker profile
+    serves, so twelve is the width at which copying actually pays the decoder.
+    The same idiom as `window_repetition_pct` above, which measures repetition
+    WITHIN one text; this measures overlap BETWEEN two.
+
+    Returns 0.0 when the output is shorter than one window. Returning 1.0 there
+    would void every short answer as a copy, and "no window" is an absence of
+    evidence, not evidence of copying.
+    """
+    ow = (output or "").split()
+    if len(ow) < n:
+        return 0.0
+    pw = (prompt or "").split()
+    seen = {tuple(pw[i:i + n]) for i in range(len(pw) - n + 1)}
+    windows = [tuple(ow[i:i + n]) for i in range(len(ow) - n + 1)]
+    return sum(1 for w in windows if w in seen) / len(windows)
+
+
+def generation_is_original(contents, prompt, limit=COPIED_FRACTION_LIMIT, n=12):
+    """True when EVERY timed generation said something the prompt did not.
+
+    ALL of them, not the median -- a row is one paired datapoint, and a median
+    over one answer and one copy measures neither. `generation_is_measurable`
+    refuses a mixed row for the same reason.
+
+    Missing content voids the row rather than passing it. A believable number
+    with no evidence behind it is the one outcome this project treats as worse
+    than a crash.
+
+    THE LIMIT IS A FIRST GUESS. 0.5 separates the two populations observed on
+    2026-08-24 -- verbatim continuations of `real-code-vendor` scoring near 1.0
+    against answers scoring near 0 -- and was not derived. The fraction is
+    recorded on the row either way, so a later run can move it on evidence.
+    """
+    if not contents:
+        return False
+    for c in contents:
+        if c is None:
+            return False
+        if copied_window_fraction(c, prompt, n) > limit:
+            return False
+    return True
 
 
 def project_prefill_seconds(pp_tok_s, ctx_tokens):
@@ -359,6 +459,52 @@ def cache_reuse_pct(timings):
 
 
 NOISE_FLOOR_PCT = 13.6   # measured restart-to-restart peak-to-peak; report 04 s0
+#
+# THAT CONSTANT IS ADA, AT CTX 16,384, AND IT DOES NOT TRANSFER.
+# CLAUDE.md says so and CORRECTIONS 23 measured 48.9 % at 65,536 on the same
+# card. On 2026-08-26 the two-card machine measured UNDER 2 % at 147,456, and
+# the arena consequently printed
+#
+#     none  [28.1, 28.1, 28.7]  -13.3% [-13.8, -13.1]  within noise
+#
+# for an effect whose rounds agree to 2 % and whose sign never moves.
+#
+# The constant is NOT changed here. Every verdict in docs/results/ was reached
+# against 13.6, and moving it would silently re-interpret all of them. What is
+# added instead is the ability to SAY what a run's own arms actually spread, so
+# a reader can see when the applied floor is the thing doing the rejecting.
+
+
+def observed_spread_pct(rounds):
+    """Peak-to-peak spread of one arm's own rounds, as a percentage of its
+    minimum. None when there are fewer than two rounds.
+
+    None rather than 0.0 on purpose: one reading has no spread, and 0.0 reads
+    as "perfectly stable" -- the strongest possible claim from the weakest
+    evidence, which is the shape this project keeps catching.
+    """
+    vals = [v for v in (rounds or []) if v]
+    if len(vals) < 2:
+        return None
+    lo, hi = min(vals), max(vals)
+    return (hi - lo) / lo * 100.0
+
+
+def classify_against_floors(delta_pct, observed_spread_pct, floor_pct=NOISE_FLOOR_PCT):
+    """Which of the three states an effect is in, named rather than collapsed.
+
+    `paired_deltas` answers resolved / not-resolved against ONE floor. That
+    hides the case the two-card work ran into: an effect larger than anything
+    this run's own arms did, and smaller than a floor imported from different
+    hardware at a different depth. It is neither "noise" nor "resolved", and
+    calling it either is a claim the evidence does not support.
+    """
+    mag = abs(delta_pct)
+    if mag >= floor_pct:
+        return "resolved"
+    if observed_spread_pct is not None and mag > observed_spread_pct:
+        return "clears this run's spread, not the applied floor"
+    return "within noise"
 
 
 def paired_deltas(baseline_rounds, candidate_rounds, floor_pct=NOISE_FLOOR_PCT):
@@ -805,6 +951,98 @@ def assert_deletable(path, scratch_root):
 # fixed token count, because a 4,096-token window is full long before 32,767.
 WINDOW_SATURATION = 0.98
 
+
+
+
+def archs_missing_for_gpus(log_text, compute_caps):
+    """Which visible GPUs the loaded CUDA backend carries no cubin for.
+
+    `log_text` is a boot log, or any slice of one containing llama.cpp's
+    `system_info` line -- it prints `CUDA : ARCHS = 890,1200`, the architectures
+    the ggml-cuda actually loaded was compiled for. `compute_caps` are the
+    capabilities the driver reports, in the form "8.9", "12.0", and they are
+    PASSED IN. This module never asks the driver anything and a test forbids it;
+    `gpu_device.visible_compute_caps` is the one place allowed to.
+
+    Returns the capabilities with no matching architecture, empty when covered.
+
+    THE INCIDENT. On 2026-08-27 a sweep ran on a binary built with
+    CMAKE_CUDA_ARCHITECTURES=89 while an RTX 5060 Ti of capability 12.0 was
+    visible and in use. cuobjdump lists 141 sm_89 cubins in that DLL, no
+    sm_120a, and no PTX to fall back on. Fifteen rows came back at ctx 147,456
+    with 66+0 residency and plausible rates. The serving profiles carry a
+    build guard; the arena did not, and its default exe was never updated when
+    the second card arrived.
+
+    OBSERVATION, NOT PREDICTION. Reading cubins out of a DLL needs cuobjdump at
+    a hardcoded CUDA path and describes what a process WOULD load. This reads
+    what it DID load, from the run's own log, and costs one regex.
+
+    A log with no ARCHS line RAISES. Returning "nothing missing" for a log that
+    never said what it carried would report clean on precisely the evidence
+    that is absent -- the shape this project keeps catching.
+    """
+    import re
+
+    m = re.search(r"ARCHS\s*=\s*([0-9,]+)", log_text)
+    if not m:
+        raise ValueError(
+            "no `CUDA : ARCHS = ...` line in this log -- cannot tell which "
+            "architectures the backend was compiled for, so coverage is "
+            "unknown rather than clean")
+    if not compute_caps:
+        raise ValueError("no visible GPUs given -- nothing to check coverage against")
+
+    # 890 is capability 8.9, 1200 is 12.0: major*100 + minor*10.
+    present = {int(x) for x in m.group(1).split(",") if x}
+
+    missing = []
+    for cap in compute_caps:
+        major, _, minor = str(cap).partition(".")
+        code = int(major) * 100 + int(minor or 0) * 10
+        if code not in present:
+            missing.append(str(cap))
+    return missing
+
+def residency_note(base_splits, arm_splits):
+    """None when an arm is comparable to the baseline on residency, else why not.
+
+    Both arguments are the layer splits each side actually ran at, one per
+    round, as `parse_layer_split` read them from llama.cpp's own load report --
+    "66+0" for fully resident, "55+11" for eleven layers on the CPU.
+
+    WHY A REPORT NEEDS THIS. `dflash2_arena.run_arm` has always recorded
+    `row["split"]` and printed it live, and `report()` never read it. An arm
+    that spilled was paired against a resident baseline and the difference was
+    handed to whatever the arm varied. That is a believable number produced by
+    a broken comparison, which is the one thing this project refuses.
+
+    Observation beats prediction here. A launch-time budget check has to model
+    the allocator, and this project has twice found its model wrong -- once
+    counting weights alone, once ignoring the allocations that happen after
+    load. A split is measured, so it catches a spill from any cause.
+
+    ABSENCE IS NOT A SPILL. Rows predating the field, and fault rows, carry
+    None. Two unknowns compare as equal, so old sweeps are not retro-voided; a
+    known against an unknown does not, because that is a real difference in
+    what was verified rather than a matching pair.
+    """
+    def distinct(xs):
+        return sorted({(s or "unknown") for s in xs})
+
+    base = distinct(base_splits)
+    arm  = distinct(arm_splits)
+
+    # An arm whose own rounds disagree cannot be averaged: the mean hides the
+    # round that spilled. Checked before the comparison, because "which split"
+    # has no answer for it.
+    if len(arm) > 1:
+        return "residency moved between rounds: %s" % "/".join(arm)
+    if len(base) > 1:
+        return "baseline residency moved between rounds: %s" % "/".join(base)
+    if arm != base:
+        return "split %s vs baseline %s" % (arm[0], base[0])
+    return None
 
 def classify_outcome(verify_exit, changed_files, ctx_high_water, n_ctx,
                      saturation=WINDOW_SATURATION):

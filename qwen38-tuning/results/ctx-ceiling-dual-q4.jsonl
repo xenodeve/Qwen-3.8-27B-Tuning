@@ -1,0 +1,6 @@
+{"quant": "q4", "kv": "q4_0", "extra": "", "tag": "dual", "ctx": 16384, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 15983, "vram_used": 10115, "vram_free": 5936, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "", "tag": "dual", "ctx": 32768, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 15983, "vram_used": 10373, "vram_free": 5678, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "", "tag": "dual", "ctx": 65536, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 15983, "vram_used": 10889, "vram_free": 5162, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "", "tag": "dual", "ctx": 98304, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 15983, "vram_used": 11405, "vram_free": 4646, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "", "tag": "dual", "ctx": 131072, "loaded": true, "gpu_layers": 66, "cpu_layers": 0, "resident": true, "free_before": 15983, "vram_used": 11921, "vram_free": 4130, "kv_mib": null}
+{"quant": "q4", "kv": "q4_0", "extra": "", "tag": "dual", "kind": "SUMMARY", "deepest_resident_ctx": 131072, "ladder": [16384, 32768, 65536, 98304, 131072]}

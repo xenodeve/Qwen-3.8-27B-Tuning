@@ -1,7 +1,73 @@
 # 05 — Runtime flags: threads, placement, sampling
 
+> 🔴 **Every number on this page was measured at `reasoning_effort: xhigh` with
+> an unlimited thinking budget, except the `reasoning_effort` sweep below, which sets `low`/`medium`/`xhigh` explicitly.** That is the model's chat-template
+> default — the client sends no effort field, and **no `worker-*.ps1` profile and
+> nothing in `bench/` has ever set the flag** (established 2026-08-24 from a boot
+> log: [`05-runtime-flags.md`](05-runtime-flags.md), this page).
+> Artificial Analysis prices this model's `medium` **one point** below `xhigh` on
+> the agentic axis and `low` **six** below that
+> ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+> so **effort is a live confound here, not a settled background condition.**
+>
+> **The served default became `medium` on 2026-08-24** — all five
+> `worker-*.ps1` profiles and `dflash2_arena.server_argv` now set it, and the
+> arena records `effort` on every row. **So this banner describes what is
+> already on the page, not what will be added to it.** Anything measured after
+> that date states its own level, and a figure from before it cannot be
+> compared with one from after without saying which is which.
+
 Two full sweeps of this surface found **nothing above the 13.6 % drift floor**.
 That is the headline of the page: the flags are not where the wins are.
+
+## Environment knobs — the surface nobody had looked at
+
+`grep getenv ggml/src/ggml-cuda/` at `1deefcca3` finds **twelve** runtime knobs
+that are not command-line flags. Until 2026-08-24 the arena could not test one:
+arms carried argv only, so trying an env var meant re-running the whole sweep
+with it exported — a comparison **across boots**, which `CLAUDE.md` forbids.
+Arms now carry an env mapping and every row records it.
+
+### `GGML_CUDA_GRAPH_OPT` — MEASURED 2026-08-24, NOT RESOLVED
+
+Off unless asked for, and never asked for here:
+
+```c
+static bool enable_graph_optimization = [] {
+    const char * env = getenv("GGML_CUDA_GRAPH_OPT");
+    return env != nullptr && atoi(env) == 1;      // ggml-cuda.cu:4330
+}();
+```
+
+It further requires CUDA graphs in use and **exactly one device**
+(`ggml-cuda.cu:4342`) — both true here. Decode at batch 1 is a long run of small
+kernels, which is the case graph optimisation exists for, so this was the
+runtime knob most likely to move the number that matters.
+
+RTX 5060 Ti, ctx 98,304, corpus `real-code-deep`, three rounds, arms alternated
+within each round, **identical argv on both arms** — the incumbent `ngram-mod`
+window — so the variable is the only difference:
+
+| | round 1 | round 2 | round 3 | |
+|---|---:|---:|---:|---|
+| `graph-opt-off` | 79.4 | 82.3 | 84.6 | spread 6.6 % |
+| `graph-opt-on` | 84.0 | 76.6 | 89.3 | spread **16.6 %** |
+| paired delta | **+5.8 %** | **−6.9 %** | **+5.6 %** | mean +1.4 % |
+
+**`within noise / inconsistent`** by `harness.paired_deltas`, which resolves an
+effect only when it is consistent in sign across rounds *and* above the floor.
+It is neither. **And it did not reduce variance either** — the treated arm is the
+wider of the two.
+
+> ⚠️ **A null here means "no effect OR not applied".** Nothing in argv, the boot
+> banner or the log echoes `GGML_CUDA_GRAPH_OPT` back, so there is no independent
+> confirmation llama.cpp read it. Both readings are consistent with this data and
+> the register must not collapse them.
+
+*Raw: `results/graph-opt-98304-blackwell.jsonl`, 6 rows. Eleven knobs untried —
+`GGML_CUDA_DISABLE_FUSION`, `GGML_CUDA_CUBLAS_COMPUTE_TYPE`,
+`GGML_CUDA_REGISTER_HOST`, `GGML_CUDA_NO_PINNED`, `GGML_OP_OFFLOAD_MIN_BATCH`
+and the rest are single- or multi-GPU knobs listed but not swept.*
 
 ## Placement and scheduling — all inert
 
@@ -387,6 +453,75 @@ probe was far too short to see.
 
 *Raw: `results/reasoning-effort-sweep.jsonl` (note: UTF-8 BOM, read with
 `utf-8-sig`).*
+
+### 🔴 2026-08-24 — the prediction above landed, and nothing has ever set the flag
+
+**Every server this project has launched runs at `xhigh` with an unlimited
+thinking budget**, because the template supplies both and nothing overrides them.
+Read out of a boot log, not inferred:
+
+```
+init: chat template, example_format: '<|im_start|>system
+Reasoning effort is set to xhigh. Please think carefully through the task,
+validate key assumptions, consider plausible alternatives, and prioritize
+correctness, consistency, and clarity in the final answer.
+init: chat template, thinking = 1
+srv eval_llama_c: reasoning budget: tokens=-1
+```
+
+The client sends no `reasoning_effort` field — the level comes from the
+template's own default. And:
+
+| | sets a reasoning flag? |
+|---|---|
+| `worker-5060ti.ps1` | **no** |
+| `worker-iq2s-2slot.ps1` | **no** |
+| `worker-iq2s-fast.ps1` | **no** |
+| `worker-iq2s-quality.ps1` | **no** |
+| `worker-iq2xxs-deep.ps1` | **no** |
+| `bench/dflash2_arena.py` | **no — zero references** |
+
+**So does every measurement on this page, and every real-task run.**
+
+**The section above predicted this on 2026-08-18** — *"an external review reports
+xHigh taking 15 minutes where medium takes 3"* — and the four real-task runs of
+2026-08-24 all landed in that band:
+
+| artifact + decoder | wall | outcome | files |
+|---|---:|---|---:|
+| `IQ2_XXS` `dflash2+ngram` | **537.7 s** | FAIL | 0 |
+| `Q2_K_XL` `draft-mtp` | **855.8 s** | FAIL | 0 |
+| `Q2_K_XL` `draft-mtp+ngram` | **947.2 s** | FAIL | 0 |
+| `Q2_K_XL` `dflash2+ngram` | **1,019.3 s** | WINDOW_BOUND | 0 |
+
+9 to 17 minutes each, `reasoning_content` dominating the stream, zero files
+changed four times out of four.
+
+> ⚠️ **This is a hypothesis with a named mechanism, not a result.** No run at a
+> lower effort has been made on these artifacts, so "xhigh is why they failed"
+> is unproven. What IS established: the flag exists
+> (`--reasoning-effort minimal|low|medium|high|xhigh`, plus
+> `--reasoning-budget N`), nothing here has ever set it, and the level in force
+> is the most expensive one the template offers.
+
+**The two items under *Never tried* below are now the highest-value untried
+things on this page**, and the first of them costs one flag.
+
+**And the level to try first is `medium`, not `low`.** Artificial Analysis
+prices the three levels of this model on both of its indices
+([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+and they disagree about where the cost sits:
+
+| Qwen3.8-27B | Intelligence Index | **Agentic Index** |
+|---|---:|---:|
+| `xhigh` | 52 | **51** |
+| `medium` | 44 | **50** |
+| `low` | 43 | 44 |
+
+**On the agentic axis — the one this project's metric sits on — `xhigh` to
+`medium` costs one point and `medium` to `low` costs six.** The general axis
+is the other way round. Full-precision through an API, so the ranking may
+transfer and the absolute numbers do not.
 
 ## Never tried
 

@@ -1,5 +1,22 @@
 # 06 — Prompt, output format, quality
 
+> 🔴 **Every number on this page was measured at `reasoning_effort: xhigh` with
+> an unlimited thinking budget, except the rows that state `-rea off` or `--reasoning-budget 0`.** That is the model's chat-template
+> default — the client sends no effort field, and **no `worker-*.ps1` profile and
+> nothing in `bench/` has ever set the flag** (established 2026-08-24 from a boot
+> log: [`05-runtime-flags.md`](05-runtime-flags.md)).
+> Artificial Analysis prices this model's `medium` **one point** below `xhigh` on
+> the agentic axis and `low` **six** below that
+> ([`researchs/artificial-analysis`](../researchs/artificial-analysis/README.md)),
+> so **effort is a live confound here, not a settled background condition.**
+>
+> **The served default became `medium` on 2026-08-24** — all five
+> `worker-*.ps1` profiles and `dflash2_arena.server_argv` now set it, and the
+> arena records `effort` on every row. **So this banner describes what is
+> already on the page, not what will be added to it.** Anything measured after
+> that date states its own level, and a figure from before it cannot be
+> compared with one from after without saying which is which.
+
 > **Read this page knowing its limit.** `run_retry_bench.py` sends a **35-token**
 > developer message and grades one reply. The worker that ships is a full Claude
 > Code instance whose fixed prefix measured **39,762–40,648 tokens** across four
@@ -34,6 +51,112 @@ rate: one fenced `python` block, nothing else.
 is the fastest arm and it accepts 15 of 30. It answers wrong, quickly.
 
 *Raw: `results/retry-bench.jsonl`. Reports 10, 12, 13, 15, 22.*
+
+## The benchmark prompt at depth — three texts, and two ways a row can lie
+
+**Measured 2026-08-24, issue #44.** The arena builds its prompt as
+`filler(int(ctx * 0.5), regime)`, which returns `n * 3` characters of a frozen
+corpus with one instruction line appended. At ctx 147,456 that is ~64,200 tokens
+of real Python followed by *"# Explain what `vram_settled` guards against, then
+write a test for it."*
+
+**Eighteen rows at ctx 147,456 produced nothing.** Every generation ran **9
+tokens against a 512-token budget** and stopped on EOS.
+`generation_is_measurable` voided all eighteen, which is the guard working.
+
+### It is not the window, and it is not the length
+
+One boot at ctx 147,456, cold prefix cache, varying only the prompt:
+
+| prompt tokens | generated | stop |
+|---:|---:|---|
+| 48 | 512 | limit |
+| 43,162 | 512 | limit |
+| 46,909 | **1** | eos |
+| 51,038 | **1** | eos |
+| 54,310 | 512 | limit |
+| 57,780 | 512 | limit |
+| 60,831 | 512 | limit |
+| 64,210 | **9** | eos |
+
+**Failure is not monotonic in length.** `filler` cuts at exactly `n * 3`
+characters, so each length ends at a different point in the source — and what
+decides the outcome is **where the cut lands**, not how much was taken. A cut
+that leaves the model somewhere it reads as finished makes EOS the greedy
+continuation of the appended instruction.
+
+The context setting is exonerated twice over: a 48-token prompt and a
+43,162-token prompt both run the full budget at the same ctx 147,456.
+
+### Changing the text, not the length, confirms it
+
+`real-code-vendor.txt` — 11 files of `llama.cpp`'s `gguf-py`, 597,630 chars,
+`sha256[:16] d3a3e9920244ecb0`, built by
+[`corpora/build-vendor-corpus.py`](../../qwen38-tuning/bench/corpora/build-vendor-corpus.py).
+Real Python by people who have never seen this repository.
+
+**The same seven lengths complete 7 of 7**, including **70,322 tokens** — deeper
+than the 64,210 that collapsed. Same model, same ctx, same greedy sampler, same
+hour.
+
+### And then the new corpus lied in the other direction
+
+The first arena row taken on it:
+
+```
+draft-mtp+ngram  195.13 tok/s  acc 100.0
+  ngram-mod  decline 24.1 %  mean len 32.85  n_gen 1912  n_acc 1911
+  draft-mtp  decline  0.0 %  mean len  3.84  n_gen   57  n_acc   54
+```
+
+**1,911 of 1,912 drafted tokens accepted, in runs averaging 32.85.** Not
+speculation succeeding — `ngram-mod` drafts by matching text already in the
+context, so a continuation that reproduces its own prompt is what it predicts
+perfectly. The generated text says so plainly:
+
+```
+# ==== gguf-py/gguf/constants.py ====
+from __future__ import
+```
+
+The model was **continuing the corpus, not answering the instruction**. Three of
+the seven sweep lengths did this and four produced a real answer, and the length
+guard passed all seven because it counts tokens. **195.13 tok/s is a copy rate**,
+and it would have been the highest figure this project has ever recorded.
+
+**Guarded since:** `harness.copied_window_fraction` measures 12-word windows of
+the generation found verbatim in the prompt — 12 because
+`--spec-ngram-mod-n-match 12` is what every worker profile serves, so that is the
+width at which copying actually pays the decoder. Every generation must clear it,
+not the median. The **0.5 limit is a first guess** separating the two populations
+observed that day and was not derived; `copied_frac` is on every row so it can
+move on evidence.
+
+**The guard is on the output, never on the counters.** Voiding rows where
+`ngram-mod`'s `mean_acc_len` is high would be circular: it is one of the arms
+under test, and a guard that rejects rows where it does well cannot be used to
+find out whether it does well.
+
+### What this leaves
+
+| text | hash | covers ctx | usable at 147,456 |
+|---|---|---:|---|
+| `real-code.txt` | frozen evidence | ~30,600 | no — depth guard raises |
+| `real-code-deep.txt` | `1a3ae4b813dd8447` | ~135,000 by chars | **only with `--ignore-eos`** |
+| `real-code-vendor.txt` | `d3a3e9920244ecb0` | ~199,200 | generates, but rows may be copies |
+
+`--ignore-eos` forces the budget; the same 64,210-token prompt then runs 512
+tokens and the text is an answer, opening `<think>` and reasoning about
+`vram_settled`. It is **off by default and stamped on every row**, because past
+the point the model would have stopped it decodes text it did not choose to
+write — so a forced row's **draft acceptance is not comparable** with a natural
+row's. Arm against arm within one forced run is unaffected: every arm decodes
+under the same rule.
+
+**Rows are compared within a corpus, never across.** Three hashes, three regimes.
+
+*Raw: `results/DIAG-length-real-code-deep.jsonl`,
+`results/DIAG-length-real-code-vendor.jsonl`. Traps 14 and 15.*
 
 ## The format failure, and what was tried against it
 

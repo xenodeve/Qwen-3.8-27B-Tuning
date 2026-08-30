@@ -11,10 +11,20 @@ THE GUARD BELOW IS THE POINT OF THIS FILE, not the flags.
   returns only sm_89 cubins. This card is sm_120, so the driver JIT-compiles the
   Ada PTX and produces kernels tuned for neither architecture.
 
-  Measured 2026-08-23 at ctx 98,304, same corpus and flags as the old card:
+  Measured at ctx 98,304 by bench/hardware_baseline.py, same corpus and flags,
+  JIT build against native build -- draft acceptance came out byte-identical at
+  0.14870 in both, so speculation is held fixed and this is the kernels alone:
 
-      prefill 44K    146,155 ms   against    35,301 ms on the 4070 SUPER
-      decode          22.67 tok/s against     96.92 tok/s
+      prefill 44K    146,155 ms  ->  66,582 ms      2.20x faster
+      decode          22.67 tok/s -> 25.63 tok/s    +13.1 %, one unpaired read
+
+  Do NOT compare either decode figure to the 96.92 tok/s in the decoder sweep.
+  That came from dflash2_arena at draft acceptance 60.2 against these runs'
+  14.87, and ngram-mod's rate tracks acceptance directly (CORRECTIONS 28).
+  The prefill numbers ARE comparable across cards, and say this: 1.517 ms per
+  prefill token here against 0.798 on the 4070 SUPER. Correctly built, this card
+  is 1.90x SLOWER at prefill than the 12 GB card it replaced -- 4,608 CUDA cores
+  against 7,168, 448 GB/s against 504. It bought VRAM, not speed.
 
   Allocation was byte-identical -- model 6,521.13, KV 1,728.00, RS 149.62,
   compute 472.27, 65+0, no OOM -- and --fit left 6,150 MiB free against 2,047 on
@@ -95,8 +105,13 @@ $ErrorActionPreference = 'Stop'
 
 # ---- the guard ---------------------------------------------------------------
 # Reads the actual code objects out of the shipped ggml-cuda.dll. A binary
-# without sm_120 SASS runs on this card through PTX JIT and is ~4x slow with no
-# error anywhere, so refusing is the only honest option.
+# without Blackwell SASS runs on this card through PTX JIT, which measured 2.20x
+# the prefill time with no error anywhere, so refusing is the only honest option.
+#
+# The match is a SUBSTRING one on purpose: llama.cpp's cmake rewrites 120 to 120a
+# and the cubins are named sm_120a. An exact 'sm_120' test would reject a
+# correctly built binary. (When this guard was written 120a was not known -- that
+# it worked on the first native build was luck. It is deliberate now.)
 $dll = Join-Path (Split-Path $Exe -Parent) 'ggml-cuda.dll'
 $cuobjdump = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\cuobjdump.exe'
 
@@ -104,7 +119,7 @@ if (-not (Test-Path $Exe)) {
     Write-Host "FATAL: no server at $Exe" -ForegroundColor Red
     Write-Host "  Build it:  cmake --build <dir> --target llama-server" -ForegroundColor Yellow
     Write-Host "  with       -DCMAKE_CUDA_ARCHITECTURES=`"89;120`"" -ForegroundColor Yellow
-    Write-Host "  The Ada-only builds in llama.cpp-cuda and llama.cpp-dflash2 are 4x slow here." -ForegroundColor Yellow
+    Write-Host "  The Ada-only builds in llama.cpp-cuda and llama.cpp-dflash2 JIT here." -ForegroundColor Yellow
     exit 1
 }
 
@@ -112,12 +127,14 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
     $elf = & $cuobjdump --list-elf $dll 2>$null
     $hasBlackwell = $elf | Select-String -Quiet 'sm_120'
     if (-not $hasBlackwell) {
-        $arches = ($elf | Select-String -Pattern 'sm_\d+' -AllMatches |
+        # \w not \d: a Blackwell cubin is sm_120a, and \d+ would print it as
+        # "sm_120" -- naming the very architecture it is complaining is absent.
+        $arches = ($elf | Select-String -Pattern 'sm_\w+' -AllMatches |
                    ForEach-Object { $_.Matches.Value } | Sort-Object -Unique) -join ', '
-        Write-Host "FATAL: $dll has no sm_120 SASS (found: $arches)" -ForegroundColor Red
-        Write-Host "  This card is sm_120. The driver would JIT the Ada PTX and run ~4x slow" -ForegroundColor Yellow
-        Write-Host "  with nothing in the log to say so -- measured 22.67 tok/s against 96.92" -ForegroundColor Yellow
-        Write-Host "  on the older, SMALLER card. See issue #40." -ForegroundColor Yellow
+        Write-Host "FATAL: $dll has no Blackwell SASS (found: $arches)" -ForegroundColor Red
+        Write-Host "  This card is sm_120. The driver would JIT the Ada PTX, which measured" -ForegroundColor Yellow
+        Write-Host "  146,155 ms prefill against 66,582 for the native build -- 2.20x -- with" -ForegroundColor Yellow
+        Write-Host "  nothing in the log to say so. See issues #40 and #41." -ForegroundColor Yellow
         Write-Host "  Rebuild with -DCMAKE_CUDA_ARCHITECTURES=`"89;120`"," -ForegroundColor Yellow
         Write-Host "  or pass -IKnowTheBuildIsWrong to launch anyway (never for a measurement)." -ForegroundColor Yellow
         if (-not $IKnowTheBuildIsWrong) { exit 1 }
@@ -138,4 +155,5 @@ if ((Test-Path $dll) -and (Test-Path $cuobjdump)) {
     --spec-type ngram-mod `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
     --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `
+    --reasoning-effort medium `
     --host 127.0.0.1 --port $Port

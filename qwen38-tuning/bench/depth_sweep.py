@@ -25,12 +25,14 @@ import hashlib, json, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import gpu_device
+from provenance import resolve_exe
 from harness import (median, parse_layer_split, project_prefill_seconds,
                      completion_timeout_s, vram_settled, VRAM_MIN_RISE_MIB,
                      draft_acceptance)
 
 ROOT = Path(r"C:\AI\qwen38-tuning")
-EXE = r"C:\AI\llama.cpp-cuda\llama-server.exe"
+EXE = resolve_exe(r"C:\AI\llama.cpp-cuda\llama-server.exe")
 import glob as _glob, os as _os
 def _c(repo, fn, size=None):
     """Resolve a cached artifact to a path. See the note in model_arena.ARMS:
@@ -237,10 +239,9 @@ def wait_for_vram_release(floor_mib=None, limit_s=120, poll_s=3):
 
 
 def vram():
-    o = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.free",
-                        "--format=csv,noheader,nounits"],
-                       capture_output=True, text=True).stdout.strip()
-    return [int(x) for x in o.split(",")]
+    """[used, free] on the served card -- see `gpu_device` (issue #50)."""
+    used, free = gpu_device.vram()
+    return [used, free]
 
 
 def start(ctx, extra, tag):

@@ -928,6 +928,941 @@ a hypothesis.** It should not be written into a rule the way this one was.
 
 ---
 
+## 28. "The 5060 Ti is 4× slower than the 4070 SUPER" — half that comparison was between two different instruments
+
+**Where it was published**, on 2026-08-23, in `docs/results/09-hardware.md`, the
+open-work ledger, issue #40 and the commit that shipped them:
+
+> | | 5060 Ti (Ada PTX, JIT) | 4070 SUPER (native SASS) |
+> | prefill, 43,898 tokens | **146,155 ms** | 35,301 ms |
+> | decode | **22.67 tok/s** | 96.92 tok/s |
+>
+> **Four times slower with three times the headroom.**
+
+**Measured 2026-08-24**, by reading where each number came from.
+
+```
+96.92 tok/s   results/decoders-98304.jsonl  -- dflash2_arena, 6 rounds, median of 3
+              every one of its six ngram-mod rows records:   acceptance 60.2
+
+22.67 / 25.63 logs/dflash2-hwbase-98304*.log -- hardware_baseline.py, 1 generation
+              both runs record:            draft acceptance 0.14870 (40 / 269)
+```
+
+**`ngram-mod` is a speculative decoder, and its tok/s tracks draft acceptance
+directly.** 60.2 % against 14.87 % is a four-fold difference in how much
+speculation is doing, produced by the two tools building their prompts
+differently — `hardware_baseline.py` takes the first 150,000 *characters* of
+`real-code-deep`, the arena builds its prompt its own way. **Neither number is
+wrong. Putting them in the same table was.**
+
+`hardware_baseline.py` was written *after* the card was swapped, so **the 4070
+SUPER never ran it.** There was no same-instrument figure to compare against, and
+the table filled the gap with the nearest available number instead of saying so.
+
+**What survives, and what does not.**
+
+- ✅ **The prefill row was fine, and now has a control.** `35,301 ms` is the cold
+  turn-1 of 44,255 tokens, same corpus, same ctx, same decoder
+  (`08-rtx3090-transfer.md` §6), and **prefill does not involve speculation at
+  all**. Per token: 4070 SUPER **0.798 ms**, 5060 Ti JIT 3.330, 5060 Ti native
+  **1.517**.
+- ✅ **The wrong-architecture finding stands and the rebuild confirmed it.** Same
+  script, same corpus, same flags, acceptance byte-identical at 0.14870 in both:
+  prefill **146,155 → 66,582 ms, 2.20× faster**. That comparison was always
+  clean because both sides came from the same instrument.
+- ❌ **"Four times slower" as a hardware verdict is withdrawn.** Correctly built,
+  the gap that is actually measurable is **1.90× at prefill**, and it is a
+  property of the silicon — 4,608 CUDA cores against 7,168, 448 GB/s against
+  504. **The 5060 Ti bought VRAM, not speed.**
+- ❌ **Decode across the two cards is unmeasured**, not slow and not fast. The
+  arena sweep on this card is the only thing that can answer it, row-for-row.
+
+**Why this one is worth its own entry.** Every other correction in this register
+came from re-reading the project's own data. This one came from re-reading its
+own *plumbing*: two numbers, both correctly measured, both correctly recorded,
+made false by being placed side by side. **The failure was in the table, not in
+the instrument** — which is why nothing anywhere flagged it, and why the result
+row now carries `exe` and `cuda_archs` (`bench/tests/test_exe_provenance.py`) so
+at least the *binary* can never again go unrecorded.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `blackwell-4x-slower`.
+
+---
+
+## 29. "`FA_ALL_QUANTS` is not needed" — true of Q8, and Q8 is the one KV type the flag does not gate
+
+**Where it was published**, in three places, each stating the same reason:
+
+> `reports/05-OPERATING-GUIDE.md:153` — | `FA_ALL_QUANTS` rebuild for Q8 KV? | **not needed** -- Q8 is faster on the stock binary | 02 SS3.1 |
+> `reports/06-OPEN-QUESTIONS.md:211` — | Is `FA_ALL_QUANTS` needed for Q8 KV? | **No** -- Q8 is faster on the stock b10472 binary |
+> `reports/16-OPTIMIZATION-SURFACE.md:228` — | build: `FA_ALL_QUANTS` | off | **decided** | Q8 KV is faster on the stock binary, so it was not needed |
+
+**Read out of the tree 2026-08-24**, `ggml/src/ggml-cuda/fattn.cu:340-352`:
+
+```c
+        case GGML_TYPE_Q4_1:
+        case GGML_TYPE_Q5_0:
+        case GGML_TYPE_Q5_1:
+#ifndef GGML_CUDA_FA_ALL_QUANTS
+            return false;
+#endif
+        case GGML_TYPE_Q4_0:
+        case GGML_TYPE_Q8_0:
+        case GGML_TYPE_BF16:
+            return true;
+```
+
+**`GGML_TYPE_Q8_0` falls through to `return true` whether the flag is on or
+off.** A Q8 measurement is structurally incapable of testing this option. The
+answer to the question asked -- *is it needed for Q8?* -- is right. The row that
+records it says **`decided`**, and what that forecloses is a different set
+entirely: `q4_1`, `q5_0`, `q5_1`, and, at `fattn.cu:442-446`, **every asymmetric
+K!=V pair**, none of which was ever run.
+
+The caveat was on the page the decision came from.
+`researchs/Deep Research/deep-research-optimization2.md:138` scopes the flag to
+*"Only for asymmetric/non-stock KV experiments"* -- precisely the experiments the
+`decided` row then closed.
+
+**Verified state of both binaries**, `CMakeCache.txt`:
+
+```
+llama.cpp/build-blackwell   GGML_CUDA_FA_ALL_QUANTS:BOOL=OFF
+llama.cpp/build-dflash2     GGML_CUDA_FA_ALL_QUANTS:BOOL=OFF
+```
+
+**And the failure is half-silent.** `-fa auto` is the default
+(`llama-context.cpp:3534`); an unsupported KV type resolves through
+`llama-context.cpp:547`, which emits `LLAMA_LOG_WARN(... "set to disabled")` and
+**continues**. A quantized *V* cache then hard-fails at
+`llama-context.cpp:3607-3610` -- but `-ctk q5_1 -ctv f16` boots, runs with flash
+attention silently off, and returns a number.
+
+**What is NOT claimed:** that turning the flag on would help. No KV type it
+unlocks has ever been measured here, on either card. The correction is to the
+word **`decided`**, not to the flag's value.
+
+Found because an outside operator on the same RTX 5060 Ti 16 GB opened a config
+with *"IMPORTANT: Compile llama.cpp with `GGML_CUDA_FA_ALL_QUANTS=ON`"* and a
+`q5_0`/`q4_1` KV pair -- a line our binaries cannot express. Captured in
+[`researchs/reddit-5060ti-quant-thread/`](../researchs/reddit-5060ti-quant-thread/README.md).
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `fa-all-quants-decided`.
+
+---
+
+## 30. "The boundary is prompt length, between 43k and 64k" — there is no boundary, and the claim was published in a commit message
+
+**Where it was published**, 2026-08-24, in the body of commit `6b717f7`:
+
+> so the window is fine and the boundary is prompt length, between 43k and 64k.
+
+Written from **two points**: a 43,162-token prompt generating the full 512-token
+budget at ctx 147,456, and a 64,210-token prompt generating 9 and stopping on
+EOS.
+
+**Refuted the same hour by five more points.** Same boot, cold prefix cache,
+varying only the prompt (`results/DIAG-length-real-code-deep.jsonl`):
+
+```
+43,162 -> 512   46,909 ->   1   51,038 ->   1   54,310 -> 512
+57,780 -> 512   60,831 -> 512   64,210 ->   9
+```
+
+**Failure is not monotonic in length**, so length is not the variable. `filler`
+cuts the corpus at exactly `n * 3` characters, so each length ends at a different
+point in the source, and **where the cut lands** is what decides it.
+
+**Confirmed by changing the other variable.** The same seven lengths on
+`real-code-vendor` — 11 files of `llama.cpp`'s `gguf-py`, a codebase nobody here
+wrote — complete **7 of 7**, including **70,322 tokens**, deeper than the length
+that collapsed. Same model, same ctx, same greedy sampler
+(`results/DIAG-length-real-code-vendor.jsonl`).
+
+**Two points fit infinitely many curves and the mind supplies the straight one.**
+Recorded as [`traps.md` 15](../agents/traps.md), together with 14 — the first
+version of that sweep left `cache_prompt` on, so requests 2 through 7 processed
+3,532 to 4,389 tokens instead of their own length and the variable under test was
+the cache.
+
+**The second half of this entry is the part worth keeping.** The claim went into
+a **commit message**, which is a layer this project treats as durable: a
+hypothesis written there reads as a result to everyone who comes after, and
+nothing in the tooling scans commit bodies. The register, the reports and the
+results pages all have a place to mark a claim unverified. A commit message does
+not. **Do not put an unverified boundary in one.**
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `prompt-length-boundary`.
+
+---
+
+## 31. "RTX 5060 Ti — PCIe gen5 x8" — the card can; this machine gives it gen4 **x4**
+
+**Where it was published.** [`09-hardware.md`](../results/09-hardware.md), the
+two-card comparison table at the top, from 2026-08-23 until 2026-08-26.
+
+**What it was.** A specification, copied from the card. It was never measured on
+this machine, and nothing on the page said so — it sat in a table beside rows
+that *were* measurements (`11,069 MiB in all 552 logs`, the byte-identical
+buffer sizes), which is what made it read as one.
+
+**What the machine actually does.** Sampled once a second through a real
+generation, 49 samples, 34 with the GPU busy:
+
+| | idle | **peak under load** | driver's `link.width.max` |
+|---|---|---|---|
+| RTX 5060 Ti | gen1 x4 | **gen4 x4** | 16 |
+| RTX 4070 SUPER | gen4 x16 | **gen4 x16** | 16 |
+
+**The generation recovered under load and the width never did.** gen1 → gen4 is
+the driver's power state, which is why an idle reading proves nothing either
+way. **x4 is the slot.** The card that carries the model has about
+**7.9 GB/s** where the other has **31.5 GB/s**.
+
+**Why it matters and where it does not.** It bounds anything that moves data
+between host and device or between the cards: model load time, and any
+configuration that splits a model. It does **not** explain decode on one card,
+which never touches the link — and the measurement below says so directly:
+splitting the model across both cards changed raw decode by **+1.5 %**
+[+1.1, +2.1], which a starved link would not permit.
+
+**The general form.** A specification and a measurement do not belong in the
+same table without a column saying which is which. This page now labels that
+row *as measured under load on this machine*, and the two-card section states
+the idle reading beside the loaded one so nobody re-derives the wrong
+conclusion from `nvidia-smi` at rest.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `pcie-gen5-x8`.
+
+---
+
+## 32. "`solo` decodes at 165 tok/s and splitting costs 78 %" — that figure is a measure of how much the model repeated itself
+
+**Where it nearly went.** Nowhere — it was caught inside the session that
+produced it, 2026-08-26, before any doc quoted it. It is recorded because the
+number was **stable to 0.8 % across three rotated rounds** and looked exactly
+like a resolved result.
+
+**What was measured.** `dual-gpu` arm set, ctx 16,384, `UD-Q2_K_XL`,
+`ngram-mod`, three paired rounds:
+
+```
+solo-5060ti-base   [165.1, 164.6, 163.9] tok/s
+both-layer         [ 35.9,  35.8,  35.6] tok/s    -78.3 %  [-78.3, -78.3]  "RESOLVED"
+```
+
+**Why it is not a hardware number.** The two arms **decoded different text.**
+`ngram-mod` accepted **93.3 %** on one card and **58.5 %** on two. Counting
+distinct lines in what each actually produced:
+
+| | distinct lines / total | most-repeated line |
+|---|---|---|
+| `solo` | **24 / 47** | ×13 |
+| `both-layer` | **30 / 47** | ×6 |
+
+**The single-card arm fell into a tighter repetition loop, and `ngram-mod`
+converted that repetition into throughput.** 165 tok/s is the model producing
+degenerate output quickly.
+
+**This is not a sampling artifact that more rounds would average away.**
+`SAMPLER` is already greedy — `temperature 0.0, top_k 1, seed 42` — and each
+arm reproduced itself across boots to within 0.8 %, with byte-identical
+speculation counters. The text differs because **splitting a model across
+devices changes the order of the reductions and therefore the logits.** On a
+split model you cannot decode the same tokens as on one card. **No speculative
+decode rate will ever be a clean comparison between these two configurations.**
+
+**The existing guard did not catch it, and was not built to.**
+`copied_window_fraction` reported `[0.0, 0.0, 0.0]` — correctly. It compares the
+output against the **prompt**, and this output copies *itself*. Self-repetition
+is a different failure with the same consequence for a speculative rate.
+
+**What the clean measurements say.** Two of them, both content-independent:
+
+| | one card | two cards | |
+|---|---:|---:|---|
+| prefill, identical 6,621-token prompt | 801.97 / 813.52 / 811.45 | **1252.36 / 1269.06 / 1298.27** | **+57.4 %** [+56.0, +60.0] |
+| decode, speculation **off** | 32.1 / 32.0 / 32.0 | 32.5 / 32.7 / 32.5 | **+1.5 %** [+1.1, +2.1] |
+
+Prefill is the same tokens either way. With speculation off every token costs
+exactly one forward pass whatever the token is. Neither can be moved by what
+the model chose to write.
+
+**The general form, and it is the one to carry.** **A speculative decode rate
+is partly a measurement of how predictable the output is.** Any arm comparison
+in which the two arms can produce different text is measuring the text as well
+as the arm — and the more repetitive arm wins. Compare prefill, or compare with
+speculation off, or accept that the number is about both.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `speculative-rate-is-not-hardware`.
+
+---
+
+## 33. "`-ts` is not a lever" and "`--fit` being inert makes it a hard load failure" — both wrong, and together they shipped a server that ran 85× slow
+
+**Where they were published.** [`09-hardware.md`](../results/09-hardware.md) and
+`qwen38-tuning/scripts/worker-q4-dual.ps1`, both written 2026-08-26, both
+retracted the same day by the developer running the thing.
+
+**What happened.** `serve-dual-lan.bat` decoded at **0.38 tok/s** — against the
+**32.4** the profile advertises. Task Manager showed the **RTX 5060 Ti at 0 %
+and 45 °C** while the **RTX 4070 SUPER ran at 88 %**, holding **11.6 of its
+12.0 GB** with **0.7 GB spilled into shared host memory**. Prefill collapsed
+too: **16.4 tok/s on a 330-token prompt** where the tuned figure is 973.
+
+### The first wrong claim: "`-ts` is not a lever"
+
+Measured, and true — **in `-sm layer`**, where llama.cpp already splits by free
+VRAM. The register generalised it to the two-card configuration as a whole.
+
+Under `-sm tensor` it is the opposite. `llama-model.cpp:707`:
+
+```c
+int64_t high = tensor_split_scan.back() == 0.0f ?
+    ne_s * (j+1)/ud->n_devices : ne_s * tensor_split_scan[j]/tensor_split_scan.back();
+```
+
+**With no ratio given, tensor mode splits EVENLY** — `ne_s * (j+1)/n_devices`,
+capacity ignored entirely.
+
+These cards are not even. **12 GB against 16 GB, and the 12 GB card is the
+display GPU** — `explorer.exe`, Windows Terminal, the browser and the NVIDIA
+overlay all live on it, about **1,600 MiB** at rest. From the incident's own
+boot log, the Meta buffers are **per card**: 8,065 model + 1,296 KV + 1,024
+compute = **10,385 MiB each**.
+
+| | total | desktop | demand | left |
+|---|---:|---:|---:|---:|
+| RTX 4070 SUPER | 12,282 | 1,579 | 10,385 | **+317 MiB** |
+| RTX 5060 Ti | 16,311 | 49 | 10,385 | +5,876 MiB |
+
+**317 MiB is not headroom.** One browser tab put it over, the driver paged to
+host memory, and every token went through PCIe.
+
+### The second wrong claim: "an over-large context is a hard load failure"
+
+`--fit` really is inert here — the log says so on every boot:
+
+```
+W common_fit_params: failed to fit params to free device memory:
+  llama_params_fit is not implemented for SPLIT_MODE_TENSOR, abort
+```
+
+The profile's header then reasoned that this made an over-large context *"a
+hard load failure … the better failure of the two"*. **It does not.** It is a
+**silent spill** that returns a working server, correct output, and 0.38 tok/s.
+That is the believable-wrong-number failure `CLAUDE.md`'s north star names,
+reasoned into a header **from a mechanism rather than measured**, and shipped.
+
+### Why no benchmark caught it
+
+**The instrument recorded the sum.** `free_for_env` reports free VRAM across
+the arm's cards, and `gpu_device.total_vram` says in its own docstring that the
+sum is a ceiling because a layer cannot straddle two cards. **The per-card
+headroom on the smaller card was never in any row.** With 5,876 MiB spare on
+one card and 317 on the other, the sum looks comfortable.
+
+And the sweeps ran with the desktop quiet. The configuration fit by ~300 MiB on
+a machine nobody was using, and did not on the machine it was built for.
+
+### The fix, and why it is not a ratio
+
+A hardcoded ratio is a bandaid: the desktop's appetite is not constant. The
+profile now **computes `-ts` at launch** from what `nvidia-smi` reports free,
+minus a reserve on whichever card already holds memory — that card is drawing
+the display and it will want more. Proportional-to-budget is what makes it
+safe: both cards run out together instead of one spilling while the other idles.
+
+It **refuses** when the budget cannot hold the weights, because `--fit` will
+not and llama.cpp will not.
+
+**Measured after the fix, same machine, desktop running:**
+
+| `-ts` | decode | 4070 free |
+|---|---|---|
+| even (the default) | **0.38 tok/s** | +317 MiB |
+| `2,3` | 31–33 tok/s | 1,511 MiB |
+| `1,2` | 28–30 tok/s | 2,792 MiB |
+| **computed — `7819,15490`** | **25.8 / 42.7 / 78.3 tok/s** | **2,921 MiB** |
+
+Both cards at **95 %**, 111 W and 119 W — against 88 % / 0 % before.
+
+### The general form
+
+**A verdict about a flag carries the configuration it was measured in.** `-ts`
+was measured inert under one split mode and recorded as inert, full stop. And
+**a failure mode reasoned from a log line is a hypothesis** — *"abort"* in
+`common_fit_params` was read as *"the load will abort"* when it means *"the
+fitting step gave up"*. The thing that settled it was a person running it.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`.
+
+---
+
+## 34. The `target` column named the wrong model whenever an arm overrode `-m`
+
+**Instrument fault, found 2026-08-29. Nothing published from it is retracted.**
+
+`new_row` recorded `target=TARGET, target_mib=model_size_mib(TARGET)` — the
+module default — for **every** row, including arms that load a different file by
+putting their own `-m` at the end of the argv. Four result files carry it:
+
+```
+arm:        nvfp4-mtp+nm24
+target:     ...\Qwen3.8-27B-UD-Q4_K_XL.gguf        <- the CONTROL's file
+target_mib: 17093.08
+args:       ... -m ...\Qwen3.8-27B-NVFP4-MTP-VERY-LOW.gguf   <- what ran
+```
+
+Affected: `nvfp4-vs-q4-147456.jsonl`, `nvfp4-ngram-retune-147456.jsonl`,
+`nvfp4-dflash-147456.jsonl`, `nvfp4-final-147456.jsonl`. **The rows are not
+wrong about their rates** — `args` carries the truth, the arm labels carry the
+distinction, and the report reads `args`. **No number changes.** What a reader
+of the raw JSONL would conclude does: that a head-to-head between two artifacts
+was a comparison of decoder flags on one artifact.
+
+**Why the field did not catch it.** Its own comment says *"two files on this
+machine share the name UD-Q2_K_XL and differ by 808 MiB, so the path alone is
+not an identity"* — it was added to defend against exactly this, and was blind
+to the single way an arm can change its model. And the test that guarded it
+asserted the **source text** `'target=TARGET' in SRC`, which passes for as long
+as the fault exists. **A source shape is not a behaviour.**
+
+**Fixed** by reading the last `-m` off `server_argv(ctx, extra)` — the same
+last-wins answer llama.cpp gives itself, and unable to drift from the argv that
+launches. `-md` is a different token, so a speculative arm's drafter is not
+mistaken for its target. Tests:
+`bench/tests/test_a_row_names_the_model_that_made_it.py` (four cases, red first)
+and `test_target_provenance.py`, whose grep was rewritten to assert on the row.
+
+### The general form
+
+**A provenance column added after an incident inherits only the incident's
+imagination.** This one anticipated the cache moving and not the arm choosing.
+And **a test that greps the source passes on the shape it was written against,
+not on the behaviour it was written for**. This is the second time in three
+days that asserting on file text rather than on a resolved value cost
+something here: on 2026-08-28 an argv refactor turned twelve source-shape
+assertions red while the profile served an identical command line, and
+`bench/tests/_invocation.py` was written to stop it. That reader guards the
+PowerShell launcher; this column had its own grep and was not covered.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `target-column-is-the-arms`.
+
+---
+
+## 35. "The NVFP4 ceiling is 229,376" — it loads there and dies on a real request
+
+**Retracted 2026-08-29, the same day it was written, by this project's own data.**
+
+The figure came from a depth ladder that pushed a **65,643-token** request
+through each rung. 229,376 answered, so it was recorded as the ceiling and the
+`-Deep` launcher was built on it. **65,643 is a quarter of 229,376.**
+
+Asked instead for the arena's standard slice — `int(ctx * 0.5)`, the size every
+measured row in this project uses — the same rung fails:
+
+| ctx | prompt | outcome | free after |
+|---|---|---|---|
+| **229,376** | 114,688 | **loaded, answered `/health`, DIED on the request** — `ggml_backend_cuda_buffer_type_alloc_buffer: allocating 20.00 MiB on device 1: cudaMalloc failed: out of memory` | — |
+| **200,704** | 100,352 | survived 91,428 tokens | 1,133 / **654** MiB |
+| 180,224 | 90,112 | survived 83,127 tokens | 1,379 / 1,174 MiB |
+| 163,840 | 81,920 | survived 76,741 tokens | 1,458 / 1,601 MiB |
+
+**229,376 loads with 680 / 206 MiB free.** This project had already measured
+**336 MiB dying** on a first request and **488 surviving**. 206 is below both.
+The number was there in the load report and was not read.
+
+**Fixed:** `$NVFP4_MAX_CTX` is **200,704**, which is what `-Deep` serves and
+what the cap enforces. Verified by booting `serve-dual-nvfp4-deep.bat` itself:
+`n_ctx 200704`, a **101,029-token** request answered, finishing 1,009 / 692 MiB
+free.
+
+### The general form
+
+**A depth that loads is not a depth that serves, and a rung tested with a small
+prompt is a rung tested at a different depth.** This project already holds that
+*loading is not surviving* and tests every rung with a real request — the rule
+held, and the request was a quarter of the window it was certifying. **The size
+of the probe is part of the claim.** A window is not a place to put one small
+prompt: a session that needs 200,704 tokens will fill it.
+
+Note what did *not* fail: **the profile's budget guard refused a boot** when a
+leaked server still held both cards, rather than spilling. The instrument that
+was wrong was the ladder's prompt.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nvfp4-ceiling-229376`.
+
+---
+
+## 36. `-Beta` dropped `--reasoning-effort` and served at `xhigh` for an afternoon
+
+**Retracted 2026-08-29, the same day it shipped, after the developer said the
+server "felt much slower" than Unsloth Studio serving the same file.**
+
+`-Beta` was built to borrow Studio's thinking mechanism — the GGUF's own chat
+template steered by flags, instead of our `qwen38-late-system.jinja`. Studio
+passes no template file, so `-Beta` passed none. It also passes no
+`--reasoning-effort`, so `-Beta` passed none. **The second inference was wrong.**
+
+Studio sends the effort **per request**, not on the command line:
+`reasoningEffort: "medium"` in `chat_threads.settings_json` for both n-max
+threads in `~/.unsloth/studio/studio.db`. We serve llama.cpp's own webui and
+Claude Code, and **neither sends one**. With no flag and no client value, the
+choice falls to the template, whose default this project measured and rejected
+on 2026-08-24. The served boot log said so on line 298:
+
+```
+init: chat template, example_format: '<|im_start|>system
+Reasoning effort is set to xhigh. Please think carefully through the task, ...
+```
+
+`docs/results/05-runtime-flags.md` records an outside review putting xHigh at
+**15 minutes where medium takes 3** for 90 % of the result, and this project's
+own four real-task runs under that default came in at **537.7 / 855.8 / 947.2 /
+1,019.3 s**. Decode was healthy throughout — 33.48 tok/s at depth 48,501 in the
+same log — which is why it read as a slow server rather than as a fault.
+
+**Fixed:** `worker-q4-dual.ps1` emits `--reasoning-effort medium` in the `-Beta`
+branch as well. Verified by `-WhatIf`, not by reading the source.
+
+### The general form
+
+**Copying a configuration copies the assumptions of the client that sends the
+rest of it.** Studio omits the effort flag because its own UI supplies it every
+request; we have no such client, so the same omission means something else
+entirely. This is the second time in one day that borrowing a Studio value
+imported a workload assumption with it — `--cache-ram 0` is the other, and it is
+still in place.
+
+### And the test that was green through all of it
+
+`test_every_worker_profile_sets_the_effort` scans each `worker-*.ps1` for
+`--reasoning-effort` and asserts `medium`. The flag **is** in the file, in the
+non-`-Beta` branch of an `if/else`, so the scan passed for every switch
+combination — including the one where the other branch runs. **A source scan
+cannot see which branch a switch takes.** The dry run can, and
+`test_every_switch_combination_still_sets_the_effort` now resolves the argv
+through `-WhatIf` for five switch combinations. `test_beta_profile.py` had also
+asserted the flag was *absent*; that assertion encoded the bug.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `beta-reasoning-effort`.
+
+---
+
+## 37. "We set no sampler, so llama.cpp's defaults apply" — the artifact carries its own, and llama.cpp uses them
+
+**Retracted 2026-08-29 by asking the running server instead of reading `--help`.**
+
+Written into `docs/reports/39-OPTIMISATION-GUIDE.md` and the Studio research
+note the same day: our profile passes no `--temp`, `--top-k` or `--min-p`, so
+the binary's documented defaults were quoted as what we serve —
+`temp 0.80 · top_k 40 · top_p 0.95 · min_p 0.05` — and every one of them was
+said to differ from Studio's.
+
+`GET /props` on the served port says otherwise:
+
+```
+temperature       1.0
+top_k             20
+top_p             0.95
+min_p             0.05
+```
+
+`temp` and `top_k` are not the flag defaults. They are keys **2, 3 and 4 of the
+artifact's own metadata** — `general.sampling.top_k = 20`,
+`general.sampling.top_p = 0.95`, `general.sampling.temp = 1.000000`, printed in
+every boot log this project has taken since the file was downloaded. llama.cpp
+reads them and applies them, and Studio sends the same three because it reads
+the same file. **We already agree with Studio on the sampler's three main
+terms.**
+
+What genuinely differs is narrower: `min_p` **0.05** against their **0.0**,
+`presence_penalty` **0.0** against their **1.5**, and `n_predict` **-1,
+unlimited** against their **36,453**.
+
+### The general form
+
+**`--help` documents the flag default, not the served value.** Anything a model
+file can carry — a sampler, a rope scaling, a chat template — is a value the
+loader can override before a request ever arrives, and reading the flag
+documentation returns a plausible wrong number for it. The server publishes what
+it actually holds; `/props` is one HTTP call and this project had never made it.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `sampler-is-the-flag-default`.
+
+---
+
+## 38. "Two parties arrived at `--spec-ngram-mod-n-match 24` independently"
+
+**Retracted 2026-08-29, hours after it was written, then corrected a second time.**
+
+Unsloth Studio's command line carries `--spec-ngram-mod-n-match 24`, the value
+this project measured at +27.1 % over the 12 every other profile serves. That
+was written up as the strongest outside support any decoder verdict here had.
+
+The first retraction said Studio never sets it. **That was also wrong** — it is
+on their command line, explicitly. The real objection is the company it keeps:
+the same line carries `--spec-ngram-mod-n-min 48 --spec-ngram-mod-n-max 64`, and
+`--help` on the served binary gives
+
+```
+--spec-ngram-mod-n-min N     (default: 48)
+--spec-ngram-mod-n-max N     (default: 64)
+--spec-ngram-mod-n-match N   (default: 24)
+```
+
+**All three are llama.cpp's defaults.** A UI that builds a command line writes
+out every field including the ones its user left alone, so an explicit 24 beside
+an explicit 48 and 64 is a rendered default, not a choice. Had they tuned
+n-match they would have moved the other two off 48 / 64 as well.
+
+### The general form
+
+**A value on someone else's command line is not a second opinion until you have
+checked it against the default.** Independent agreement means two parties
+choosing; agreeing with a default is agreeing with nobody. This project's own
+`n-match 12` remains a measured deviation with a paired number behind it, and it
+stands on that measurement alone.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nmatch-24-independent`.
+
+---
+
+## 39. `--ctx-checkpoints 0` was grouped with `--cache-ram 0` as one memory decision — they are not one decision
+
+**Retracted 2026-08-29 by the developer noticing that Studio answered a first
+prompt while ours did not.**
+
+Both were copied from Unsloth Studio into the `-Beta` bundle and written up
+together as *"RAM against re-prefill"*, a single trade needing a single answer.
+They are different mechanisms and only one of them was costing anything.
+
+`--cache-ram` is the **host store for evicted prompts** — it carries a
+conversation across a slot change. `--ctx-checkpoints` is the **per-slot
+mechanism for rewinding state**, and on this artifact it is not optional.
+Qwen3.8-27B is hybrid: Gated DeltaNet recurrent state beside attention KV, and
+the recurrent half cannot be rewound to a shared prefix. Without a checkpoint to
+restore from, llama.cpp gives up on the whole prompt and says so:
+
+```
+forcing full prompt re-processing due to lack of cache data
+(likely due to SWA or hybrid/recurrent memory)
+```
+
+`serve-20260829-125227.log` — the `-Beta` boot — served **three** requests and
+printed that line on **all three**: 17,881 tokens, then 46,998, then 46,997.
+The last two are the same conversation, read again from the first token,
+**51.6 s at ~911 tok/s before a character came back.**
+
+The same binary, same artifact, same day, checkpoints at their default
+(`serve-20260829-073741.log`):
+
+```
+context checkpoints enabled, max = 32, min spacing = 8192
+restored context checkpoint (pos_min = 321, n_past = 322, size = 150.890 MiB)
+```
+
+forced full re-processing **once** in the whole session; its turns prefilled
+13, 29, 285, 829 and 1,358 tokens.
+
+**Fixed:** `--ctx-checkpoints 0` is out of the `-Beta` bundle. `--cache-ram 0`
+stays and remains the developer's open question. Cost of the default: 150.89
+MiB per checkpoint, at most 32, no closer than 8,192 tokens apart — about six at
+the depth we serve, in host RAM.
+
+### The general form
+
+**Two flags that a third party sets together are not one setting.** The bundle
+took Studio's line as a position on memory; it was two positions, and the one
+that mattered was never argued on its own. And Studio pays less for it than we
+do — its own logs show a 39,616-token prefix being reused with checkpoints off,
+which this project cannot yet explain. **`--kv-unified` is the candidate: we set
+it, they do not.** That is one boot to test and is not tested here.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ctx-checkpoints-is-a-trade`.
+
+---
+
+## 40. "`+26 % from the newer build` is refuted" — the refutation ran one binary twice
+
+**Published** 2026-08-30, in this file, in `docs/results/02-decoders.md`, in
+`serve-hub.bat`, in two launcher `.bat` files, in an arena comment and in a test
+docstring — all within about an hour of the run that supposedly established it.
+
+**Contradicted the same morning**, by §41 below: the arena launched the module
+default binary for every arm while recording the binary each arm had pinned. The
+"two builds" were one. **A null result is exactly what one binary measured twice
+produces**, so the data cannot refute anything.
+
+**Restored state: `+26 % from the newer build` is CONTESTED, as it was before.**
+One reading per side, icon 9 against icon A at roughly matched depth, 33.00
+against 41.58, in different boots, against a measured 48.9 % same-arm drift at
+depth (§23). The developer's own near-200K logs point the other way — 43.56
+against 44.77 at ~30,300 and 33.69 against **32.51** at ~104,035 — and are also
+two boots. **Neither side of this has ever been paired. That is the whole
+status.**
+
+### The tell, and that it was written down and explained away
+
+Every arm reported draft counters identical **to the digit** across the two
+"builds" — `ngram-mod` acceptance 46.3, decline 98.9 %, mean length 15.9, the
+same three numbers on both sides, in every round. That was noticed, reported to
+the developer in writing, and explained as normal greedy determinism on a fixed
+prompt.
+
+It is also precisely what one binary measured twice looks like. **The
+explanation offered was available; the check that would have separated the two
+was one line of `nvidia-smi` or one look at a running process, and it was not
+made until the arms started failing for an unrelated reason.**
+
+### What was reverted
+
+`serve-hub.bat`, both `*-theirbuild*.bat` launchers, the arena's `build-ab`
+comment and `test_beta_on_their_build.py`'s docstring are back to **contested**
+— not `+26 %`, and not `null`. The audit rule is rewritten to flag both forms.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`.
+
+---
+
+## 41. `start()` launched the module default while every row named the pin
+
+**The fault.** `dflash2_arena.start()` built its command line without the arm's
+environment:
+
+```python
+args = server_argv(ctx, extra)                      # env NOT passed
+p = subprocess.Popen(args, ..., env=launch_env(env or {}))
+```
+
+`server_argv` with no `env` resolves `arm_exe(None)` to the module `EXE`. So
+every arm ran the default binary, while `new_row` recorded `arm_exe(env)` — the
+binary the arm had asked for. **The two columns could disagree, and did.**
+
+**This is §34 in its third appearance** — a column recording a module default
+while something else ran — one seam below the one §34's test covers.
+
+### Why the existing guard did not fire
+
+`test_build_ab_arm_set.py` was written for exactly this failure and its first
+assertion says so: *"does the row name the binary that arm actually used"*. It
+asserts on `server_argv` and on `new_row`, and **both were correct**. The seam
+that decides what runs is `start()`, and nothing asserted on it.
+
+**The general form, now stated where it will be read: a test that asserts on the
+function which BUILDS a command has not tested the function which RUNS it.**
+
+### How it was found
+
+Not by a test and not by the numbers. By reading the command line of a
+`llama-server` left running after the sweep was stopped:
+
+```
+C:\AI\llama.cpp-blackwell\llama-server.exe ... --alias Qwen3.8-27B-arena
+```
+
+`--alias Qwen3.8-27B-arena` is the arena's own; `llama.cpp-blackwell` is not what
+that arm pinned. The arms had begun failing to load — `draft-dflash` under
+`-sm tensor` aborts on an unpatched binary — and the investigation into *that*
+is what surfaced this.
+
+**Every earlier tensor DFlash2 result is unaffected.** Those runs reached the
+mirror by **exporting** `QWEN38_LLAMA_EXE`, which makes the module `EXE` the
+mirror at import time. That is why exporting worked and pinning did not, and why
+the fault survived until an arm set pinned instead of exporting.
+
+### What it voided
+
+| file | why |
+|---|---|
+| `VOID-layer-pairings-65536-one-binary-twice.jsonl` | the two "builds" were one; the three `b10679` arms additionally ran the served executable with Studio's DLL directory prepended to `PATH` |
+| `VOID-tensor-draft-depth-65536-wrong-binary.jsonl` | `draft-dflash` arms aborted because the unpatched binary ran |
+
+Renamed rather than deleted: they are the evidence for this entry.
+
+**Salvaged, and re-derived rather than re-quoted:** the three `b10499` arms of
+the first file asked for the served binary, got it, and carried no `PATH`
+override. They stand as a three-arm decoder comparison on one binary
+(`results/02-decoders.md`), which is what they always were.
+
+**Fixed:** `server_argv(ctx, extra, env=env, verify=True)` in `start()`.
+`verify=True` so a pin at a path that is not there stops the run instead of
+silently becoming the default one boot later.
+`tests/test_start_launches_the_arms_binary.py` captures the argv handed to
+`subprocess.Popen` and asserts the process uses the arm's binary, that the
+launched argv and the recorded `exe` column cannot disagree, that the arm's
+environment still reaches the child, and that a missing pin refuses.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`,
+and by the source assertion in that test file.
+## 42. The withdrawn "DFlash2 has no case on NVFP4" stayed in three files — and the rule written to catch it missed one
+
+**The claim.** `results/nvfp4-dflash-147456.jsonl` read **+0.2 % with the sign
+flipping** for `draft-dflash,ngram-mod` against `draft-mtp,ngram-mod`, and that
+became *"DFlash2 has no case on this artifact"*.
+
+**It was withdrawn on 2026-08-30**, in the same session that produced it, because
+the arm had been given none of what DFlash2 wants — ctx 147,456 against its
+measured best of 65,536, `--spec-draft-n-max 3` against 4, and `n-match 12`, the
+window this project's own register records collapsing on NVFP4 (acceptance
+55.4 → 22.1) while 24 wins. Re-measured with all three: **+67.9 % [+65.8,
++71.5] RESOLVED** at 65,536 (`nvfp4-dflash-65536.jsonl`), and at the served
+147,456 44.48 / 44.56 / 44.23 against MTP's pooled 42.77 — **+4.0 %, under the
+floor and across boots, so not resolved**, with disjoint ranges
+(`nvfp4-dflash-147456-n4.jsonl`).
+
+### The retraction reached the prose and not the tables
+
+The withdrawal was written into `OPEN-WORK-LEDGER.md`, `results/02-decoders.md`
+and `reports/38-NVFP4-PROFILE-REFERENCE.md` — every place that *argues*. Three
+places that merely *state* kept the refuted verdict for a further day:
+
+| where | what it still said |
+|---|---|
+| `39-OPTIMISATION-GUIDE.md`, the table headed **"Settled. Do not re-test these"** | `+0.2 % and the sign flips` |
+| `results/README.md`, the register row | `no case.` |
+| `dflash2_arena.py`, the `nvfp4-ngram-retune` comment | the figure, as the reason the set held `draft-mtp` |
+
+**The first is the worst of the three**, and not because it is the most read.
+Its heading instructs the reader **not to check**. A stale row anywhere else
+invites a second look; a stale row there forbids one.
+
+### The guard missed a site, and reported a number that looked complete
+
+`scripts/audit-stale-claims.py` rule `dflash-has-no-case-on-nvfp4` was written in
+the same session as the retraction. Two of its three alternatives are distance
+patterns:
+
+```python
+r"dflash.{0,30}\+0\.2 %|"
+r"\+0\.2 %.{0,30}sign flips",
+```
+
+`results/README.md` wrote *"no case. +0.2 % against the head already in the file,
+and **the sign flips** across rounds"* — **48 characters** between the number and
+the phrase. The rule printed **5 hits in 4 files** and three of those five were
+documents *describing* the retraction, which is expected and documented. So the
+output read as a worked list with nothing left in it.
+
+**This is the north star in its documented shape: the instrument returned a
+believable number rather than a failure.** A guard whose recall is unknown reports
+a count, and a count is indistinguishable from completeness.
+
+### How it was actually found
+
+Not by the audit, and not by anyone auditing. The developer asked whether the
+ideas in an external discussion (`club-3090` #1076) had been adopted here. Its
+`superfast`/`ultrafast` tiers turn on KV precision, so the check was *"is our KV
+type really settled?"* — which opens `39-OPTIMISATION-GUIDE.md` §1 at the `KV
+type` row. **The refuted row is four lines below it.**
+
+**The general form:** a retraction is not finished when the documents that argue
+have been updated. The summary tables are what a reader in a hurry trusts, they
+are written to be terse, and terseness is exactly what survives a correction
+unread.
+
+**Fixed 2026-08-30.** All three sites now carry the withdrawal. The rule's
+windows are widened to 40 and 80 characters and it has a fourth alternative that
+matches the **lever name beside a verdict** rather than the number, so a
+rewording cannot slip past on distance alone.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `dflash-has-no-case-on-nvfp4`.
+
+## 43. "Only the template FILE is Studio's to omit" — true about Studio, false about what we can serve
+
+**The claim**, written into `bench/tests/test_beta_profile.py` on 2026-08-29 as
+the closing line of the docstring that fixed [§36](#36):
+
+> Only the template FILE is Studio's to omit.
+
+It was the conclusion of getting the *opposite* mistake right. `-Beta` had
+dropped `--reasoning-effort` to match Unsloth Studio's command line, and served
+at `xhigh` for an afternoon because Studio sends the effort in every **request**
+and no client of ours does. The lesson drawn was: restore the effort, keep the
+template omission. **Half of it was correct.**
+
+### What the omission actually does
+
+Qwen3.8's own chat template counts the contiguous leading run of `system` and
+`developer` messages (line 47) and **raises** on any that appear later:
+
+```jinja
+line 110:  {{- raise_exception('System message must be at the beginning.') }}
+```
+
+Claude Code sends exactly that — its `SessionStart` hook output arrives as a
+`role: "system"` message of 25–33 KB appended after the user turn. Issue #4
+fixed it on 2026-08-21 with `templates/qwen38-late-system.jinja`, the model's own
+template with that one line rendering an ordinary system turn instead.
+
+**Studio omits the file safely because Studio's client never sends a late system
+message. Ours does.** Copying the omission does not reproduce a command line; it
+reproduces a client incompatibility. **That is §36's mechanism exactly, a second
+time, on the same switch.**
+
+### What it cost
+
+`--chat-template-file` lived inside the `else` branch of `-Beta`:
+
+```powershell
+$thinkArg = if ($Beta) { ...no template file... } else { ...template file... }
+```
+
+Two unrelated concerns in one either/or. The `$Clone` branch rebuilds `argv` from
+scratch and never had it either. **Five hub icons — 7, 8, 9, A and B — returned
+HTTP 500 to every Claude Code request.** `logs/serve-20260831-023636.log` carries
+**fifteen consecutive** `Jinja Exception: System message must be at the
+beginning.` before the client stopped retrying. The server was healthy
+throughout: eight minutes earlier it had finished a generation over 5,607
+`draft-mtp` calls.
+
+### The four-case reproduction
+
+Against the running server, `max_tokens 1`:
+
+| messages | |
+|---|---|
+| leading `system` only | **200** |
+| two **leading** `system` | **200** |
+| `system` **after** a user message | **500** |
+| `system` second, `user` first | **500** |
+
+**Message position is the whole cause** — the same finding issue #4 recorded with
+a recording proxy, rediscovered because the fix had been lost rather than because
+it was ever in doubt.
+
+### How it was found, and what that says
+
+Not by a test, not by the audit. **By the developer remembering that this was
+fixed once** — *"ถ้าจำไม่ผิด version ก่อนเช่น Profile Single GPU ต่างๆเราแก้ไปแล้วนะ"* —
+and by their refusing the first repair offered, which was to stop using Claude
+Code with those icons. That would have preserved a copy of somebody else's
+command line at the cost of the only client this project serves.
+
+**The general form: a flag omitted "to match them" is only safe if you also have
+what compensates for it on their side.** Studio compensates in its client, twice
+now — the effort per request in §36, the message shape here. Neither compensation
+is visible in a command line, which is why copying one is not a baseline.
+
+### Fixed 2026-08-31, issue #58
+
+`--chat-template-file` left `$thinkArg` and became `$templateArg`, applied to the
+computed command line **and** to `$Clone`'s. The omission moved to an explicit
+`-StockTemplate`, so Studio's template behaviour is still reachable by someone
+who means it. **And a guard now reads the FINAL `argv`** — a branch written later
+that rebuilds it, as `$Clone` does, fails loudly instead of serving 500s.
+
+`bench/tests/test_chat_template_travels.py` sweeps **every** switch combination a
+launcher can produce, because asserting the two branches that broke would pass
+today and miss the third.
+
+**Guarded by** `bench/tests/test_chat_template_travels.py` and the profile's own
+launch guard; `scripts/audit-stale-claims.py`, rule `template-file-is-studios-to-omit`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":
