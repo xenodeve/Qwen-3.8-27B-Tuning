@@ -19,7 +19,7 @@ session can recover state without re-deriving it.
 
 1. **`docs/OPEN-WORK-LEDGER.md`** — what is open, including MD-only items that
    no issue tracks. The 🔴 UNTRACKED rows are the highest miss-risk.
-2. **`docs/reports/CORRECTIONS.md`** — thirty claims this project published
+2. **`docs/reports/CORRECTIONS.md`** — forty-two claims this project published
    and later contradicted with its own data. **Read it before quoting any number.**
 3. **`docs/agents/traps.md`** — the ways of WORKING that failed here. Corrections
    tells you which figures to distrust; this tells you which of your own
@@ -181,7 +181,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 
 1. **`docs/OPEN-WORK-LEDGER.md`** — อะไรค้างอยู่ รวมของที่มีแต่ใน MD ไม่มี issue
    แถวที่ติด 🔴 UNTRACKED คือกลุ่มที่หลุดง่ายที่สุด
-2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 30 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
+2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 42 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
    ด้วยข้อมูลตัวเอง **อ่านก่อนยกตัวเลขไหนไปใช้**
 3. **`docs/agents/traps.md`** — *วิธีทำงาน* ที่เคยพลาดที่นี่ CORRECTIONS บอกว่าตัวเลขไหน
    ห้ามเชื่อ ส่วนอันนี้บอกว่าสัญชาตญาณข้อไหนของตัวเองห้ามเชื่อ **สิบห้าจากสิบเก้ากับดักในนั้น

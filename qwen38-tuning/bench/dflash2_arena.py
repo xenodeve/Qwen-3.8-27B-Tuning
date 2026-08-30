@@ -1033,6 +1033,11 @@ ARM_SETS = {
     # configuration, and DFlash2 beside it added +0.2 % with the sign flipping
     # while costing 650 MiB of headroom and a patched binary.
     #
+    # THAT +0.2 % IS RETRACTED (CORRECTIONS 42) and this comment is kept only
+    # as the reason the set was BUILT that way. The arm it describes ran at
+    # n-match 12 -- the very window this set was measuring -- so it never
+    # tested DFlash2 at the 24 that won. See NVFP4_DFLASH_65536.
+    #
     # Costs only boots -- none of these settings moves an allocation.
     "nvfp4-ngram-retune": [
         ("mtp+nm12-base", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 12),

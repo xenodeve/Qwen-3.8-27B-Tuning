@@ -3,7 +3,7 @@
 Everything below is either **MEASURED HERE** (with the file its number came
 from), **VENDOR** (someone else's documented claim, useful and unverified), or
 **UNMEASURED** (a lever nobody has pulled). Nothing is a recommendation from
-memory, and the tags are not decoration — this project has published thirty-five
+memory, and the tags are not decoration — this project has published forty-two
 claims it later contradicted with its own data
 ([`CORRECTIONS.md`](CORRECTIONS.md)).
 
@@ -48,7 +48,7 @@ These cost nothing and they are the reason most of the numbers here survived.
 | `-ub` | **1024.** Decode flat, **prefill +10.1 %** | MEASURED, `dual-ubatch-16384.jsonl` |
 | the artifact | **NVFP4 VERY-LOW + baked-in MTP, +63.1 %** over `UD-Q4_K_XL` + `ngram-mod` | MEASURED, `nvfp4-final-147456.jsonl` |
 | the artifact **alone** | **−22.4 %.** NVFP4 without MTP is a *loss*; n-gram acceptance falls 55.4 → 22.1 | MEASURED, `nvfp4-vs-q4-147456.jsonl` |
-| DFlash2 on NVFP4 | **+0.2 % and the sign flips.** Costs a sidecar, a patch, and a binary we do not serve | MEASURED, `nvfp4-dflash-147456.jsonl` |
+| ~~DFlash2 on NVFP4~~ **RETRACTED 2026-08-30 — not settled** | The `+0.2 % and the sign flips` behind this row was a **handicapped arm**: ctx 147,456, `--spec-draft-n-max 3`, and `n-match 12` — the window the row two above records collapsing on this artifact (55.4 → 22.1) while 24 wins. Re-measured with 65,536 / `n_max` 4 / `n-match` 24 it is **+67.9 % [+65.8, +71.5] RESOLVED**. At the served 147,456: 44.48 / 44.56 / 44.23 against MTP's pooled 42.77 — **+4.0 %, under the floor and across boots, so NOT resolved**, though the ranges are disjoint. **What it buys is consistency — 0.7 % spread against 9.3 % — for ~950 MiB** | MEASURED, `nvfp4-dflash-65536.jsonl`, `nvfp4-dflash-147456-n4.jsonl`, [`CORRECTIONS.md`](CORRECTIONS.md) §42 |
 | depth ceiling | **200,704** with a half-window request; 229,376 loads and dies | MEASURED, [`CORRECTIONS.md`](CORRECTIONS.md) §35 |
 | vision | **works at every depth we serve**, 888 MiB, on the unpatched binary | MEASURED, [results 02](../results/02-decoders.md) |
 

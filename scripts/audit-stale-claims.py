@@ -250,9 +250,16 @@ RULES = [
      "CORRECTIONS.md 40 and 41"),
 
     ("dflash-has-no-case-on-nvfp4",
+     # The `.{0,30}` windows MISSED docs/results/README.md, which said
+     # "no case. +0.2 % against the head already in the file, and the sign
+     # flips" -- 48 characters between the number and the phrase. The rule
+     # reported 5 hits in 4 files and looked complete. Widened 2026-08-30 and
+     # given a fourth alternative that matches the LEVER NAME beside a verdict,
+     # so a rewording of the number cannot slip past on distance alone.
      r"DFlash2 has no case on (this|the NVFP4) artifact|"
-     r"dflash.{0,30}\+0\.2 %|"
-     r"\+0\.2 %.{0,30}sign flips",
+     r"[Dd][Ff]lash.{0,40}\+0\.2 %|"
+     r"\+0\.2 %.{0,80}sign flips|"
+     r"DFlash2 on NVFP4[^\n]{0,40}no case",
      "that verdict is WITHDRAWN as overstated. It rested on one run "
      "(results/nvfp4-dflash-147456.jsonl) that gave DFlash2 none of the three "
      "things it is known to want: ctx 147,456 -- above its 131,072 ceiling and "

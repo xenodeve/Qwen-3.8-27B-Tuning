@@ -1697,6 +1697,79 @@ environment still reaches the child, and that a missing pin refuses.
 
 **Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`,
 and by the source assertion in that test file.
+## 42. The withdrawn "DFlash2 has no case on NVFP4" stayed in three files — and the rule written to catch it missed one
+
+**The claim.** `results/nvfp4-dflash-147456.jsonl` read **+0.2 % with the sign
+flipping** for `draft-dflash,ngram-mod` against `draft-mtp,ngram-mod`, and that
+became *"DFlash2 has no case on this artifact"*.
+
+**It was withdrawn on 2026-08-30**, in the same session that produced it, because
+the arm had been given none of what DFlash2 wants — ctx 147,456 against its
+measured best of 65,536, `--spec-draft-n-max 3` against 4, and `n-match 12`, the
+window this project's own register records collapsing on NVFP4 (acceptance
+55.4 → 22.1) while 24 wins. Re-measured with all three: **+67.9 % [+65.8,
++71.5] RESOLVED** at 65,536 (`nvfp4-dflash-65536.jsonl`), and at the served
+147,456 44.48 / 44.56 / 44.23 against MTP's pooled 42.77 — **+4.0 %, under the
+floor and across boots, so not resolved**, with disjoint ranges
+(`nvfp4-dflash-147456-n4.jsonl`).
+
+### The retraction reached the prose and not the tables
+
+The withdrawal was written into `OPEN-WORK-LEDGER.md`, `results/02-decoders.md`
+and `reports/38-NVFP4-PROFILE-REFERENCE.md` — every place that *argues*. Three
+places that merely *state* kept the refuted verdict for a further day:
+
+| where | what it still said |
+|---|---|
+| `39-OPTIMISATION-GUIDE.md`, the table headed **"Settled. Do not re-test these"** | `+0.2 % and the sign flips` |
+| `results/README.md`, the register row | `no case.` |
+| `dflash2_arena.py`, the `nvfp4-ngram-retune` comment | the figure, as the reason the set held `draft-mtp` |
+
+**The first is the worst of the three**, and not because it is the most read.
+Its heading instructs the reader **not to check**. A stale row anywhere else
+invites a second look; a stale row there forbids one.
+
+### The guard missed a site, and reported a number that looked complete
+
+`scripts/audit-stale-claims.py` rule `dflash-has-no-case-on-nvfp4` was written in
+the same session as the retraction. Two of its three alternatives are distance
+patterns:
+
+```python
+r"dflash.{0,30}\+0\.2 %|"
+r"\+0\.2 %.{0,30}sign flips",
+```
+
+`results/README.md` wrote *"no case. +0.2 % against the head already in the file,
+and **the sign flips** across rounds"* — **48 characters** between the number and
+the phrase. The rule printed **5 hits in 4 files** and three of those five were
+documents *describing* the retraction, which is expected and documented. So the
+output read as a worked list with nothing left in it.
+
+**This is the north star in its documented shape: the instrument returned a
+believable number rather than a failure.** A guard whose recall is unknown reports
+a count, and a count is indistinguishable from completeness.
+
+### How it was actually found
+
+Not by the audit, and not by anyone auditing. The developer asked whether the
+ideas in an external discussion (`club-3090` #1076) had been adopted here. Its
+`superfast`/`ultrafast` tiers turn on KV precision, so the check was *"is our KV
+type really settled?"* — which opens `39-OPTIMISATION-GUIDE.md` §1 at the `KV
+type` row. **The refuted row is four lines below it.**
+
+**The general form:** a retraction is not finished when the documents that argue
+have been updated. The summary tables are what a reader in a hurry trusts, they
+are written to be terse, and terseness is exactly what survives a correction
+unread.
+
+**Fixed 2026-08-30.** All three sites now carry the withdrawal. The rule's
+windows are widened to 40 and 80 characters and it has a fourth alternative that
+matches the **lever name beside a verdict** rather than the number, so a
+rewording cannot slip past on distance alone.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `dflash-has-no-case-on-nvfp4`.
+
 ---
 
 ## What has NOT been contradicted
