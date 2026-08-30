@@ -21,9 +21,22 @@ spread is inside the 13.6 % noise floor. *No lever can raise tok/s while the
 window stays 128K, because the cost is the cache and the cache is fixed by the
 window.* (Report 19.)
 
+> 🔴 **Refuted 2026-08-21, and this plan's ordering rests on it.** Report 19
+> carries its own correction banner: `--spec-type ngram-mod` returned
+> **81.46 tok/s at 131,072** — same artifact, same cache, same `65+0` —
+> against a control of 26.5 beside it, **+213 %**. A lever *can* raise
+> throughput with the window fixed. What survives is the plateau **across
+> artifacts**: at a given depth every resident arm ties, so prefer the
+> largest artifact that stays resident.
+
 **2. The current failure is format, not reasoning.** 41.5 % (V3 `IQ1_M`) to
 58.3 % (V3 `IQ2_XXS`) of corpus attempts emit **no fenced code block at all**,
-having looped inside the reasoning block until the token cap.
+and the token cap is reached.
+
+> ⚠️ **The original wording — *"having looped inside the reasoning block"* —
+> is retracted, [`CORRECTIONS.md` §12](../reports/CORRECTIONS.md).** A full
+> trace scores **0.00 % line repetition** and ends on `stop`; the model does
+> not loop. **The format finding itself is unaffected.**
 
 Together these say: at the target depth the remaining wins are **VRAM → deeper
 residency**, and **quality → fewer wasted attempts**. Pure throughput tuning at

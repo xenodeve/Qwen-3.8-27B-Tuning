@@ -66,9 +66,10 @@ RULES = [
      "plan 04 P0, step W"),
 
     ("test-count",
-     r"\b(?:81|89|92|98)\s+tests\b",
-     "the suite is 103 tests",
-     "bench/README.md"),
+     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246)\s+tests?\b",
+     "the suite is 253 tests -- but a DATED report quoting its own count is a "
+     "historical record and correct as written; only operational docs must be current",
+     "bench/README.md, CLAUDE.md"),
 
     ("reasoning-loops",
      r"loop(?:s|ing)?\s+(?:inside|in)\s+(?:the\s+)?reasoning|reasons?\s+until\s+the\s+budget",
@@ -87,6 +88,22 @@ RULES = [
      "DFlash 2 does not load on build 10472 at all -- that screen could not "
      "have run; llama.cpp support needs PR #27342",
      "CORRECTIONS.md 18"),
+
+    ("real-code-absolute-rate",
+     r"(?:78\.9|105\.4|100\.5)[^\n]{0,40}tok/s|"
+     r"real.code[^\n]{0,60}(?:78\.9|105\.4)",
+     "an absolute real-code tok/s figure is not comparable across runs before "
+     "the corpus was frozen -- the prompt was built from bench/ source that "
+     "was edited between runs; only paired within-round deltas survive",
+     "CORRECTIONS.md 20"),
+
+    ("iq2s-never-loaded",
+     r"IQ2_S[^\n]{0,80}(?:never (?:been )?loaded|untested rung)|"
+     r"(?:never (?:been )?loaded|untested)[^\n]{0,60}IQ2_S",
+     "UD-IQ2_S has 38+ measured rows across six result files, dozens of logs "
+     "and four worker profiles; it was given up for IQ2_XXS on purpose, to "
+     "free VRAM for a drafter",
+     "CORRECTIONS.md 19"),
 
     ("qwen-code-16796",
      r"16,?796|32,?768[^\n]{0,40}[Qq]wen [Cc]ode|[Qq]wen [Cc]ode[^\n]{0,40}32,?768",
@@ -108,6 +125,49 @@ RULES = [
      "rows before 2026-08-21 06:12 measured acceptance on the FIRST of five "
      "timed generations while tg_med is the median of all five",
      "CORRECTIONS.md 11"),
+
+    ("nmatch-12-independent",
+     r"n-match 12[^\n]{0,60}(?:same cap|chosen independently)|"
+     r"(?:same cap|chosen independently)[^\n]{0,50}n-match|"
+     r"tuned profile already uses[^\n]{0,60}n-match",
+     "measured 2026-08-22 (sweep-ngram-nmatch.jsonl, 12 rows, paired): the "
+     "llama.cpp default n_match=24 is +34.6 % RESOLVED over the 12 we ship and "
+     "8 is -14.5 %. their LOOKUP_NMAX caps a longest-match search with recency "
+     "tie-breaks; ours is the hash key width of a keyless table with no length "
+     "dimension -- the two flags share a number and nothing else, so agreement "
+     "between them validated nothing",
+     "CORRECTIONS.md 21"),
+
+    ("real-task-zero-diff",
+     r"changed no files|0 PASS, 5 FAIL|the worker changed nothing|"
+     r"no mechanism is attached|diff_bytes.{0,12}0,",
+     "the five real-task rows measured where the harness LOOKED, not what the "
+     "worker did: OpenCode attaches to a server carrying the project root it "
+     "first started with, so with cwd= alone the worker edited C:/AI itself "
+     "while git diff in the clone stayed empty. reproduced and fixed "
+     "2026-08-23 -- with --dir the same task returns EDITED, 251 diff bytes, "
+     "in 32.8 s",
+     "CORRECTIONS.md 24"),
+
+    ("nmatch-24-at-depth",
+     r"(?:24|n-match 24)[^\n]{0,60}widen[^\n]{0,20}lead|"
+     r"widen its lead at depth|"
+     r"fuller table[^\n]{0,60}colliding",
+     "measured 2026-08-22 at ctx 65,536 (sweep-ngram-nmatch-65536.jsonl): the "
+     "optimum MOVES FROM 24 TO 16 and 24 becomes a null. the binding "
+     "constraint at depth is fire rate, not collision -- 24 fires 18 times "
+     "against 16's 39 for the same accepted length",
+     "CORRECTIONS.md 22"),
+
+    ("noise-floor-at-depth",
+     r"13\.6\s*%[^\n]{0,60}(?:noise|floor|drift)|"
+     r"(?:below|under)\s*13\.6\s*%|"
+     r"Effects below 13\.6",
+     "the 13.6 % floor was derived at ctx 16,384. at 65,536 the SAME arm with "
+     "byte-identical counters spans up to 48.9 % across boots, so 13.6 % there "
+     "would resolve pure drift. valid at 16,384; re-derive before using at "
+     "depth",
+     "CORRECTIONS.md 23"),
 
     ("greedy-hash-cross-depth",
      r"greedy[_ ]hash",

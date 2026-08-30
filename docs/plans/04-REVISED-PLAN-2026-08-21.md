@@ -58,6 +58,13 @@ But it is testable, it explains everything we have seen, and the test is cheap.
 
 ### The rung we own and have never measured
 
+> 🔴 **Retracted — [`CORRECTIONS.md` §19](../reports/CORRECTIONS.md).**
+> `UD-IQ2_S` has **38+ measured rows** across six result files, dozens of
+> logs and four worker profiles; it holds `65+0` at 131,072 with
+> `--fit-target 192` at 23.21/23.92 tok/s. **Anyone quoting "never loaded"
+> from here is quoting a plan, not a result.** What is genuinely untested is
+> whether it beats `UD-IQ2_XXS` **plus a drafter** on accepted tasks/hour.
+
 `Qwen3.8-27B-UD-IQ2_S.gguf` — **8.37 GB, already in the local cache since
 2026-08-20 01:36, never loaded once.** It sits between `UD-IQ2_XXS` (6.77 GiB,
 2.16 bpw) and pre-V3 `UD-IQ2_XXS` (8.39 GiB, 2.64 bpw): exactly the gap between
@@ -222,7 +229,13 @@ acceptance collapse `-ot` caused? Worth 22 % of decode if it lands.
 
 ### P2 — The bpw ladder, on the rung we already own
 
-`UD-IQ2_S`, 8.37 GB, never loaded. Three questions in one run:
+`UD-IQ2_S`, 8.37 GB (= 7.80 GiB; one file, two units — not two artifacts),
+never loaded. Three questions in one run:
+
+> **Executed. This paragraph is intent, and the intent was carried out.**
+> `v3-iq2s` now has 38+ measured rows across six result files and four
+> `worker-iq2s-*.ps1` profiles. Anyone quoting "never loaded" from here is
+> quoting a plan, not a result — [CORRECTIONS §19](../reports/CORRECTIONS.md).
 
 1. **Where is its residency ceiling?** Between `UD-IQ2_XXS` (131,072) and pre-V3
    (`58+7` at 131,072). If it holds `65+0` at 131,072 it changes the answer.

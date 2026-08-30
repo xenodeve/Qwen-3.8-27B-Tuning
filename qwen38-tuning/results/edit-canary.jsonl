@@ -1,0 +1,2 @@
+{"remote": "https://github.com/xenodeve/openclink", "target": "README.md", "outcome": "EDIT_NO_DIFF", "wall_s": 130.3, "rc": 1, "transcript": "D:\\bench-scratch\\transcripts\\canary-1787419037.stdout.txt", "diff_bytes": 0, "changed_files": 0, "diff_head": "", "round": "trivial"}
+{"remote": "https://github.com/xenodeve/openclink", "target": "README.md", "outcome": "EDIT_NO_DIFF", "wall_s": 60.2, "rc": 1, "transcript": "D:\\bench-scratch\\transcripts\\canary-1787419169.stdout.txt", "diff_bytes": 0, "changed_files": 0, "diff_head": "", "round": "reasoned"}

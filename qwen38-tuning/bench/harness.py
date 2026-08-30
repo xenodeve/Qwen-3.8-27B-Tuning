@@ -44,7 +44,7 @@ def load_jsonl(path):
 _LAYER_RE = None
 
 
-def parse_layer_split(log_text, total=None):
+def parse_layer_split(log_text, total=None, expect_layers=None):
     r"""Count GPU vs CPU layer placement from a verbose llama.cpp load report.
 
     Counts the FINAL assignment pass, found from the layer indices themselves.
@@ -62,6 +62,15 @@ def parse_layer_split(log_text, total=None):
 
     `total` is kept only as a fallback for logs whose indices cannot be read.
 
+    `expect_layers` names WHICH model you mean, and is required once a draft
+    model is loaded. Such a log carries several models' passes -- with the
+    DFlash2 drafter the order is drafter(6), target(65), target reserve(65),
+    drafter(6) -- so "the last pass" is the drafter, and this returned (6, 0)
+    for a 65-layer target on 2026-08-22 (issue #17). That is a healthy-looking
+    split describing the wrong model, in which a spill of the target could never
+    appear. Pass the target's layer count and the last pass of that size is
+    used; a size no pass has raises rather than falling back to another pass.
+
     (\w+) rather than (\S+) because the device token carries a trailing comma
     ("CUDA0,"), which made an exact == "CPU" comparison match nothing.
     """
@@ -78,12 +87,20 @@ def parse_layer_split(log_text, total=None):
     devices = [d for _, d in pairs]
     idx = [int(i) for i, _ in pairs]
 
-    start = 0
-    for i in range(len(idx) - 1, 0, -1):
-        if idx[i] <= idx[i - 1]:      # a pass boundary
-            start = i
-            break
-    last = devices[start:] if total is None else devices[-total:]
+    # Split into passes first: a pass boundary is where the index stops rising.
+    bounds = [0] + [i for i in range(1, len(idx)) if idx[i] <= idx[i - 1]] + [len(idx)]
+    passes = [devices[a:b] for a, b in zip(bounds, bounds[1:])]
+
+    if expect_layers is not None:
+        matching = [p for p in passes if len(p) == expect_layers]
+        if not matching:
+            raise ValueError(
+                f"no assignment pass has {expect_layers} layers; "
+                f"passes seen: {[len(p) for p in passes]}"
+            )
+        last = matching[-1]
+    else:
+        last = passes[-1] if total is None else devices[-total:]
     gpu = sum(1 for d in last if d.startswith("CUDA"))
     cpu = sum(1 for d in last if d == "CPU")
     if gpu + cpu != len(last):
@@ -239,6 +256,50 @@ def line_repetition_pct(text):
 # Written to check a benchmark prompt; its more valuable use turned out to be a
 # reasoning trace. Same function, the name the caller needs.
 filler_repetition_pct = line_repetition_pct
+
+
+def window_repetition_pct(text, n=24):
+    """Percentage of n-word windows that have already appeared earlier in the text.
+
+    The repetition measure that matches what `ngram-mod` actually sees.
+    `line_repetition_pct` above answers "how much of this is duplicated lines",
+    which is the right question for the tiled filler that produced instrument
+    fault 8. It is the wrong question for choosing a corpus, because ngram-mod
+    keys a hash on a window of n_match TOKENS (common/ngram-mod.cpp:15-25) and
+    never looks at a line.
+
+    The two disagree in both directions, and each disagreement matters:
+
+      - 43 files of this repo's own source score 18.9 % on lines, almost
+        entirely from `import sys`, `try:` and docstring delimiters. Those are
+        not n-gram hits: the 24 tokens surrounding each occurrence differ. Real
+        multi-file code always looks like this, and rejecting a corpus for it
+        would be rejecting honest text.
+      - Text tiled with a changing index -- exactly what `filler()` did -- can
+        have every line differ while its windows repeat almost perfectly. That
+        is the case that manufactures a fake n-gram verdict, and the line
+        metric can miss it.
+
+    PROXY, DELIBERATELY. Windows are n whitespace-separated words, not n llama
+    tokens: the tokenizer is not available here and loading it to score a corpus
+    would tie the measure to an artifact. Use this to rank candidate corpora
+    against each other and against a known-bad filler. It does not predict an
+    absolute hit rate and must not be quoted as one.
+    """
+    if n <= 0:
+        raise ValueError("window width must be positive, got %r" % (n,))
+    words = text.split()
+    if len(words) < n:
+        return 0.0
+    seen = set()
+    repeats = 0
+    total = len(words) - n + 1
+    for i in range(total):
+        w = tuple(words[i:i + n])
+        if w in seen:
+            repeats += 1
+        seen.add(w)
+    return round(100.0 * repeats / total, 2)
 
 
 def draft_acceptance(timings):
@@ -542,3 +603,209 @@ def check_output_contract(text):
         violations.append("usage example inside the block (__main__ guard)")
 
     return {"ok": not violations, "violations": violations, "blocks": len(blocks)}
+
+
+_SPEC_IMPL_RE = None
+
+
+def parse_spec_impl_stats(log_text):
+    """Per-implementation speculation counters, keyed by implementation name.
+
+    With a chained `--spec-type draft-dflash,ngram-mod` the summary line pools
+    both speculators:
+
+        draft acceptance = 0.46013 (352 accepted / 765 generated), mean len = 3.26
+
+    and the pooled number hides the finding. From the run behind report 29:
+
+        ngram-mod    : #calls(b,g,a) = 4, 542,  31, mean acc len = 18.00
+        draft-dflash : #calls(b,g,a) = 4, 511, 511, mean acc len =  2.91
+
+    `ngram-mod` was asked 542 times and produced a draft 31 times -- it declines
+    94.3 % of the time -- and `draft-dflash` was called exactly the 511 times
+    ngram declined. When ngram does fire it is worth six times more per draft.
+
+    The declines are `common/speculative.cpp:1993`: when the n-gram table misses
+    before `n_min` successors the whole draft is discarded, not truncated. So
+    `--spec-ngram-mod-n-min` is a fire-rate knob and `decline_pct` is how its
+    effect is read.
+
+    THE COUNTERS ARE CUMULATIVE and the server reprints them after every
+    completion, so the LAST block is the run and the first block is the first
+    task. Returns {} for a log that has no such lines at all -- absent is a
+    different fact from zero, and a log written below LOG_TRC has none.
+    """
+    global _SPEC_IMPL_RE
+    if _SPEC_IMPL_RE is None:
+        import re
+        _SPEC_IMPL_RE = re.compile(
+            r"statistics\s+(?P<name>[\w.-]+):\s*"
+            r"#calls\(b,g,a\)\s*=\s*(?P<cb>\d+)\s+(?P<cg>\d+)\s+(?P<ca>\d+),\s*"
+            r"#gen drafts\s*=\s*(?P<gd>\d+),\s*"
+            r"#acc drafts\s*=\s*(?P<ad>\d+),\s*"
+            r"#gen tokens\s*=\s*(?P<gt>\d+),\s*"
+            r"#acc tokens\s*=\s*(?P<at>\d+)"
+            r"(?:,\s*#mean acc len\s*=\s*(?P<mal>[\d.]+))?"
+            r"(?:.*?dur\(b,g,a\)\s*=\s*(?P<tb>[\d.]+),\s*(?P<td>[\d.]+),\s*(?P<ta>[\d.]+)\s*ms)?"
+        )
+
+    out = {}
+    for m in _SPEC_IMPL_RE.finditer(log_text):
+        g = m.groupdict()
+        n_call_draft = int(g["cg"])
+        n_gen_drafts = int(g["gd"])
+        # None, not 0.0: an implementation that was never asked has no decline
+        # rate, and reporting 0 % would read as "it always fired".
+        decline = (round(100.0 * (n_call_draft - n_gen_drafts) / n_call_draft, 1)
+                   if n_call_draft else None)
+        out[g["name"]] = {
+            "n_call_begin":  int(g["cb"]),
+            "n_call_draft":  n_call_draft,
+            "n_call_accept": int(g["ca"]),
+            "n_gen_drafts":  n_gen_drafts,
+            "n_acc_drafts":  int(g["ad"]),
+            "n_gen_tokens":  int(g["gt"]),
+            "n_acc_tokens":  int(g["at"]),
+            "mean_acc_len":  float(g["mal"]) if g["mal"] else None,
+            "t_begin_ms":    float(g["tb"]) if g["tb"] else None,
+            "t_draft_ms":    float(g["td"]) if g["td"] else None,
+            "t_accept_ms":   float(g["ta"]) if g["ta"] else None,
+            "decline_pct":   decline,
+        }
+    return out
+
+
+# A generation that produced almost nothing has not measured a decode rate. A
+# quarter of the requested budget is generous -- a model that answers in 300 of
+# 512 tokens has done real work; one that answers in 4 has not.
+MEASURABLE_FRACTION = 0.25
+
+
+def generation_is_measurable(timings, n_predict, fraction=MEASURABLE_FRACTION):
+    """True when every timed generation in a row actually generated.
+
+    INSTRUMENT FAULT, 2026-08-22. The draft-count sweep re-run at ctx 65,536
+    reported a tight, RESOLVED -56.5 % for the widest arm, with every arm
+    showing acceptance 0.0 and `mean len 1.0` -- which read as "speculation
+    stops working at depth". The server log said:
+
+        eval time = 112.32 ms /     4 tokens
+        eval time =  61.45 ms /     2 tokens
+
+    The generations produced two to four tokens against a 512-token budget: the
+    frozen corpus is ~28,000 tokens and the arena had asked for a 32,768-token
+    prompt, so the whole corpus was consumed and the model answered in a few
+    tokens. Three arms, six rows, a tight range and a resolved verdict, all
+    computed over noise.
+
+    The previous guard refused a rate of zero and let a rate over four tokens
+    through, so the failure arrived as a plausible number rather than as an
+    error. That is the one outcome this project treats as worse than a crash.
+
+    ALL samples must qualify, not the median: a row is one paired datapoint, and
+    a median over a good sample and a 3-token sample is not a measurement of
+    anything. That is how it got through the first time.
+    """
+    if not timings:
+        return False
+    floor = max(1, int(n_predict * fraction))
+    for t in timings:
+        n = t.get("predicted_n") or 0
+        r = t.get("predicted_per_second") or 0
+        if n < floor or r <= 0:
+            return False
+    return True
+
+
+# Live project checkouts. The real-task benchmark reads issues from these and
+# must never write to or delete anything under them: on 2026-08-22 MangaDock
+# had 333 uncommitted files on a feature branch and T4 Fastwork 440 plus four
+# stashes -- days of work existing nowhere else. The benchmark ends by deleting
+# what it made, so an unguarded path turns cleanup into destruction.
+PROTECTED_ROOTS = (
+    r"D:\Github",
+)
+
+
+def is_protected(path):
+    """True if `path` is a protected root or lives under one.
+
+    Case-insensitive, because Windows is, and a guard that `D:\\github\\x`
+    slips past is not a guard.
+    """
+    import os
+    p = os.path.normcase(os.path.abspath(str(path)))
+    for root in PROTECTED_ROOTS:
+        r = os.path.normcase(os.path.abspath(root))
+        if p == r or p.startswith(r + os.sep):
+            return True
+    return False
+
+
+def assert_deletable(path, scratch_root):
+    """Raise unless `path` is inside `scratch_root` and nothing is protected.
+
+    Checked BEFORE any delete, not after. Three ways to fail, each a real one:
+
+    - the path is a live checkout, or inside one;
+    - the path is outside the run's declared scratch root, so deleting it was
+      not something this run planned;
+    - the scratch root is itself protected, which would let every other check
+      pass while guarding nothing.
+
+    A relative path is refused rather than resolved, because what it names
+    depends on the working directory and that is not something a benchmark
+    controls.
+    """
+    import os
+    if not os.path.isabs(str(path)) or not os.path.isabs(str(scratch_root)):
+        raise ValueError("refusing a relative path: %r (root %r)" % (str(path), str(scratch_root)))
+    if is_protected(scratch_root):
+        raise ValueError("scratch root is protected: %r" % str(scratch_root))
+    if is_protected(path):
+        raise ValueError("refusing to delete a protected path: %r" % str(path))
+    p = os.path.normcase(os.path.abspath(str(path)))
+    r = os.path.normcase(os.path.abspath(str(scratch_root)))
+    if not (p == r or p.startswith(r + os.sep)):
+        raise ValueError("refusing to delete outside the scratch root: %r not under %r"
+                         % (str(path), str(scratch_root)))
+    return True
+
+
+# Within 2 % of the window counts as saturated. Proportional rather than a
+# fixed token count, because a 4,096-token window is full long before 32,767.
+WINDOW_SATURATION = 0.98
+
+
+def classify_outcome(verify_exit, changed_files, ctx_high_water, n_ctx,
+                     saturation=WINDOW_SATURATION):
+    """PASS / FAIL / WINDOW_BOUND for one real-task attempt.
+
+    WINDOW_BOUND exists because of a run on 2026-08-22 that reported
+
+        5 tasks: 0 PASS, 5 FAIL, 0 VOID
+        context high-water: min 32767  median 32767  max 41377
+
+    against a 32,768-token window, with every baseline green. It reads as a
+    verdict on the worker -- nought for five -- and it is not one. 32,767 is
+    `n_ctx - 1`, and the server log carried `exceeds the available context size
+    (32768 tokens)` six times. The tasks filled the window; the model was never
+    given room to finish.
+
+    Counting that as FAIL blames the model for a number the operator chose.
+
+    WINDOW_BOUND is not a worker failure and must never be totalled as one. It
+    is still a RESULT: it says this class of task does not fit that window,
+    which is the whole of the context-sizing question.
+
+    A PASS that also saturated stays a PASS -- it got there, and running close
+    to the edge is not a disqualification. An unknown high-water stays FAIL:
+    missing data is not evidence of a missing window, and excusing a failure on
+    absent evidence is how a benchmark stops reporting failures at all.
+    """
+    passed = (verify_exit == 0 and changed_files > 0)
+    if passed:
+        return "PASS"
+    if ctx_high_water is not None and n_ctx and ctx_high_water >= n_ctx * saturation:
+        return "WINDOW_BOUND"
+    return "FAIL"

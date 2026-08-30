@@ -28,10 +28,17 @@ WHAT IS MEASURED HERE, and what is inherited.
                     NOT ngram-map-k -- that wins at 16K and loses by 80 points
                     here.
 
-  --fit-target 768  left at the default deliberately. Lowering it to 192 does
-                    free ~576 MiB and does buy residency, and on IQ2_S at this
-                    depth it took prefill from 151 s to 825 s: the headroom it
-                    reserves is not slack.
+  --fit-target 768  ALREADY LOWERED, not a default. The default is 1024 MiB
+                    (common/common.h:473, fit_params_target). An earlier version
+                    of this header said "left at the default deliberately" and
+                    that was simply wrong -- corrected 2026-08-22 after reading
+                    the source.
+
+                    Lowering it further to 192 does free ~576 MiB and does buy
+                    residency, and on IQ2_S at this depth it took prefill from
+                    151 s to 825 s: the headroom it reserves is not slack.
+                    Whether 768 is the right point between 1024 and 192 has
+                    never been swept.
 
 NOT MEASURED: whether 131,072 is worth anything. The longest real task in our
 OpenCode corpus reached 13,741 tokens of conversation -- 10.5 % of this window.

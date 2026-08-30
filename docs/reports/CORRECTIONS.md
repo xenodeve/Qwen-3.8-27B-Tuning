@@ -1,6 +1,6 @@
 # Corrections register — every published claim this project later contradicted
 
-**Read this before trusting any number in reports 00–24.** These reports were
+**Read this before trusting any number in reports 00–32.** These reports were
 written as the work happened, and several of them state things the machine
 later disproved. Each report carries its own correction banner, but a banner
 only helps a reader who opened *that* report. This is the list in one place.
@@ -402,7 +402,7 @@ against `ngram-mod`'s 45.87 and 48.11, with **467–773 MiB free on every row** 
 comfortably above the line. The original −71 % was generous.
 
 **What is withdrawn instead is the DFlash 2 row.**
-`docs/tested/02-decoders.md` records *"drafter 1.06 GiB, screened, not
+`docs/results/02-decoders.md` records *"drafter 1.06 GiB, screened, not
 competitive on 12 GB"*. The artifact does not load at all on build 10472:
 
 ```text
@@ -417,6 +417,299 @@ screen.** The honest state is *cannot load, needs a newer llama.cpp*, and the
 claimed 2.7–3.4× makes it worth revisiting when the build moves.
 
 Report 28.
+
+---
+
+## 19. "`UD-IQ2_S` has never been loaded once" — it has, dozens of times
+
+**Where it was written.** `docs/OPEN-WORK-LEDGER.md`, as a 🔴 UNTRACKED row:
+*"8.37 GB, in the local cache since 2026-08-20 01:36, never loaded once."* From
+there it was copied into `docs/plans/06-REAL-TASK-BENCHMARK.md` twice on
+2026-08-22, including as the justification for which rung to benchmark first.
+
+**What contradicts it.** The repository's own results, which were already
+present when the row was written or shortly after:
+
+| evidence | count |
+|---|---|
+| result files carrying `v3-iq2s` rows | 6 (`iq2s-131072-residency`, `iq2s-prefill-microbatch`, `kv-iq2s-128k`, `prefill-kv-type`, `ctx-ceiling-q38`, `arena-v3`) |
+| measured rows, all `loaded: true` | 38+ |
+| server logs naming it | dozens — `arena-r1..r3-v3-iq2s`, `ceil-v3-iq2s-*`, `depth-iq2s-*` |
+| worker profiles serving it | 4 (`worker-iq2s-quality.ps1`, `-fast`, `-2slot`, `serve-v3-iq2s.ps1`) |
+
+Sample rows: 26.61 tok/s at ctx 98,304 with 400 MiB free; 49.84 tok/s at 32,768
+with 2,267 MiB free. `arena-v3.jsonl` records the artifact by full path,
+`Qwen3.8-27B-UD-IQ2_S.gguf`.
+
+**Two errors, and the second is the instructive one.**
+
+The row was **stale** — plausibly true on 2026-08-20 and falsified by work done
+after, with nobody returning to update it. That is the ordinary failure the
+ledger exists to catch and did not.
+
+The second error is mine and worse: **the claim was carried forward into a plan
+without being checked.** `CLAUDE.md` says to read this file before quoting any
+number, and the claim's register never improves by being repeated. A guess in a
+ledger row became the stated reason a benchmark would start with one artifact.
+It was caught by the developer, who remembered the actual history, not by any
+check in the repo.
+
+**What is actually open.** Not "has IQ2_S been tested" — it has, on throughput.
+The open question is the **trade**: `UD-IQ2_S` (7.80 GB) was given up for
+`UD-IQ2_XXS` (6.77 GB) **deliberately, to free VRAM for a drafter**, and the
+drafter — DFlash2 — only became loadable on 2026-08-22 (§18, issue #17). Both
+sides of that trade now exist and both fit. **Neither has a task-success
+number**, which is what `docs/plans/06-REAL-TASK-BENCHMARK.md` §3.5 is for.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `iq2s-never-loaded`.
+
+---
+
+## 20. The real-code benchmark prompt was built from the benchmark's own source
+
+**The claim.** Report 29's real-code figures — `ngram-mod` 53.0/52.5/49.3,
+`draft-dflash` 69.5/69.1/69.8, the pair 78.9/78.8/72.2 tok/s — read as
+properties of those decoders at ctx 16,384.
+
+**What contradicts it.** Re-running the pair with **byte-identical arguments**
+on 2026-08-22 produced **100.5 / 105.4 / 105.9 tok/s**. A 33 % gap on a project
+whose stated noise floor is 13.6 %.
+
+Not thermal: 49 °C, `SW Power Cap: Not Active`, `HW Thermal Slowdown: Not
+Active`, every throttle counter 0 µs. Not the arguments: the two runs' `args`
+fields are string-identical. Not the split: `65+0` in both.
+
+**The cause.** `dflash2_arena.filler(n, "real-code")` built its prompt by
+reading *this benchmark's own source* — `harness.py`, `depth_sweep.py`,
+`model_arena.py`, `opencode_corpus.py`, `kv_sweep.py` — and slicing the first
+`n * 3` characters.
+
+Between the two runs **3,045 bytes were appended to `harness.py`**
+(24,306 → 27,351) to add a stats parser. The prompt budget is 24,576
+characters, so the workload moved from *`harness.py` plus the first 270
+characters of `depth_sweep.py`* to *the first 24,576 characters of `harness.py`
+alone*. Different text, different n-gram hit rate, different acceptance.
+
+**I built a benchmark whose workload is generated from files I edit while
+running it.** Every real-code number was silently tied to the state of `bench/`
+at that instant.
+
+**What survives.** The **paired, within-round** verdicts of both runs, because
+one run sees one prompt: report 29's `draft-dflash` **+34.7 %** and the pair
+**+48.5 %** over `ngram-mod` still stand. What does not survive is any absolute
+rate quoted across runs, and any comparison between a pre- and post-edit run.
+
+**The fix.** `bench/corpora/real-code.txt` is the corpus frozen as a committed
+file, reconstructed from the tree at commit `674ea4b` — the state report 29 was
+measured on, so its numbers stay interpretable. Every row now carries
+`corpus`, a hash of that file. Verified: on the frozen corpus the pair measures
+**79.7 tok/s** against report 29's **78.9**, and the decline rate returns to
+**93.7 %** against **94.3 %**.
+
+**Guarded by** `bench/tests/test_corpus_frozen.py` (6 tests), which pins that
+the prompt is a pure function of the frozen file and that the hash is reported.
+
+---
+
+## 21. "`--spec-ngram-mod-n-match 12` — the same cap, chosen independently"
+
+**The claim.** [Report 30](30-SYV-RTX3090-REFERENCE-REVIEW.md), 2026-08-22, on
+the RTX 3090 stack's lookup patch: *"llama.cpp's `ngram-mod` is the same
+algorithm, and our tuned profile already uses `--spec-ngram-mod-n-match 12` —
+the same cap, chosen independently."* Written as reassurance: two projects
+reaching the same number was read as evidence the number was right.
+
+**What contradicts it.** The sweep the same report asked for.
+`results/sweep-ngram-nmatch.jsonl`, 12 rows, ctx 16,384, frozen corpus, three
+rounds, arms rotated and paired:
+
+| `n-match` | rounds (tok/s) | vs our 12 |
+|---:|---|---|
+| **24 — the llama.cpp default** | 94.5, 96.3, 94.2 | **+34.6 % [+31.4, +40.8] RESOLVED** |
+| 16 | 69.2, 69.7, 69.5 | −1.5 %, within the floor |
+| 12 — what we ship | 71.7, 73.3, 66.9 | baseline |
+| 8 | 56.7, 62.7, 61.5 | **−14.5 % [−20.9, −8.0] RESOLVED** |
+
+**The cause — two flags that share a number and nothing else.** Their
+`LOOKUP_NMAX` caps a *longest-match search* with ties broken by recency, so a
+lower cap really does bias toward recent matches. Our `n_match` is the **hash
+key width** of a keyless 4M-entry table (`common/ngram-mod.cpp:15-25`, `37-41`):
+there is no length dimension to cap and recency is unconditional at every value,
+because `add()` overwrites the slot. Lowering it does not buy recency. It buys
+**key collapse** — more distinct contexts folding onto one slot, each stealing
+the others' successor.
+
+The counters say it directly. At `8` ngram fires *more*: 43 drafts against 29 at
+`24`. Each draft is worth far less — mean accepted length **23.45 → 8.95**,
+accepted-token yield **651/921 → 342/1306** — and the draft calls needed for the
+same 512 tokens rise **475 → 649**.
+
+**What this does not retract.** The `+48.5 %` for `draft-dflash,ngram-mod` over
+`ngram-mod` alone, which was measured at `n-match 12` on both sides of the pair.
+Nor report 30's reading of *their* patch, which is accurate about their code.
+What is retracted is the inference that agreement between the two numbers
+validated ours.
+
+**Where it was already written down and not acted on.** The flag-semantics read
+of the same day states it plainly — *"n_match changes key SPECIFICITY only… you
+are buying only the 'shorter' half, and paying for it with key collapse"* — in
+`researchs/llamacpp-flag-semantics-2026-08-22.md`, misreading (3). Report 30's
+sentence was written anyway. **A source read does not correct a claim unless
+somebody goes back to the claim.**
+
+**Not yet a config change.** The verdict is ctx 16,384 and the served profiles
+run 65,536–98,304; this project's own rule is that a verdict at one depth does
+not transfer. The four `worker-*.ps1` scripts still carry `12` and stay that way
+until measured at depth — recorded as open work, not as a pending edit.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nmatch-12-independent`.
+
+---
+
+## 22. "The mechanism argues `n-match 24` should widen its lead at depth"
+
+**The claim.** Written 2026-08-22 in `results/02`, `results/08` and report 31
+§5b, after `n-match 24` measured +34.6 % RESOLVED at ctx 16,384: *"the mechanism
+argues 24 should widen its lead at depth — a fuller table means more distinct
+contexts colliding on a short key."* Labelled a hypothesis in every copy, and
+the recommendation that followed — *"pick `n-match 24`"* — was scoped to 16,384.
+
+**What contradicts it.** The same sweep at **ctx 65,536** on the deep corpus,
+`results/sweep-ngram-nmatch-65536.jsonl`, three paired rounds, every arm `65+0`:
+
+| `n-match` | ctx 16,384 | ctx 65,536 |
+|---:|---|---|
+| 24 | **+34.6 % RESOLVED** | **−9.7 %, null** |
+| 16 | −1.5 %, null | **+67.5 % RESOLVED** |
+| 12 (ours) | baseline | baseline |
+| 8 | −14.5 % RESOLVED | −14.5 %, null |
+
+**The optimum moved from 24 to 16 and the prediction pointed the other way.**
+
+**Why it was backwards.** The reasoning assumed the binding constraint at depth
+is key collision. It is **fire rate**. A longer key is a stricter requirement
+and a deeper window does not rescue it: at 65,536 `24` fires **18** times
+against `16`'s **39** — 97.0 % decline against 91.3 % — for almost the same
+accepted length (19.78 against 21.59). The specificity costs more hits than the
+collisions it avoids.
+
+**What this does not retract.** The 16,384 numbers, which were paired,
+replicated in a later round set, and correctly scoped. Nor `CORRECTIONS` §21 —
+our shipped `12` is beaten at *both* depths, by 24 at one and by 16 at the
+other. It is the second-worst arm at the depth we actually serve.
+
+**The lesson is one this repo already had written down.** `CLAUDE.md`: *"A
+verdict at one depth does not transfer to another."* The hypothesis was an
+argument for why *this* case would be the exception. **A mechanism story is not
+a measurement, and being able to tell one in either direction is exactly why the
+rule is stated without exceptions.**
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `nmatch-24-at-depth`.
+
+---
+
+## 23. The 13.6 % noise floor is a ctx 16,384 number
+
+**The claim.** Used project-wide as *the* drift floor —
+`harness.NOISE_FLOOR_PCT`, quoted in `CLAUDE.md`, the bench README and every
+report: *"Effects below 13.6 % are noise."* It was derived from 25 boots of one
+control config **at ctx 16,384**.
+
+**What contradicts it.** At ctx 65,536, decode is still deterministic at
+temperature 0 — every arm's per-implementation counters are byte-identical
+across all three rounds — so the entire spread below is the clock:
+
+| `n-match` | within-arm spread @ 16,384 | @ 65,536 |
+|---:|---:|---:|
+| 24 | 2.2 % | **23.5 %** |
+| 16 | 0.8 % | 10.3 % |
+| 12 | 9.5 % | **39.5 %** |
+| 8 | 10.6 % | **48.9 %** |
+
+**The same arm, unchanged in every counter, varies by up to 48.9 % between
+boots at 65,536.** A 13.6 % floor at that depth would resolve effects that are
+entirely drift.
+
+**What it does not invalidate.** Every verdict this project has resolved at
+16,384, where the floor was measured and where the observed within-arm spread
+is 0.8–10.6 %.
+
+**What it does invalidate.** Any future use of the 13.6 % figure at depth, and
+the magnitude of the one depth verdict taken so far — `n-match 16` at
+**+67.5 %** is directionally safe (its worst round beats every other arm's best
+by 32 %, which needs no floor) but **the number must not be quoted**.
+
+**Not fixed in code, deliberately.** Three rounds cannot re-derive a floor.
+`harness.paired_deltas` still defaults to 13.6 % and takes `floor_pct`
+explicitly; inventing a depth-scaled constant from this sample would be the
+same error one level up.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `noise-floor-at-depth`.
+
+---
+
+## 24. The five real tasks did not "change nothing" — the harness was watching the wrong tree
+
+**The claim.** Report 31 §6, report 32 §2, `results/real-task-bench.jsonl`, and
+every summary written from them: five real GitHub issues ran 1,427–2,400 s each,
+**changed no files**, three exiting `rc=0`, with a green baseline and
+`0 WINDOW_BOUND` — *"no mechanism is attached"*. It was treated as the project's
+central open question and reported as such to an external reviewer.
+
+**What contradicts it.** `bench/edit_canary.py`, run 2026-08-23 at ctx 16,384
+against a fresh clone of `openclink` with the instruction to append one word to
+`README.md`:
+
+| | `cwd=` only (as `real_task_bench` ran it) | with `--dir` |
+|---|---|---|
+| outcome | `EDIT_NO_DIFF` | **`EDITED`** |
+| rc | 1 | **0** |
+| diff_bytes | **0** | **251** |
+| wall clock | 130.3 s | **32.8 s** |
+| the live `C:\AI` tree | **modified** | untouched |
+
+**The first run edited `C:\AI\README.md` — the live repository.** Its transcript
+says so in its own words (*"Target file: `C:\AI\README.md`"*), and `git status`
+confirmed it: `M README.md`, first line ending in `CANARY`. **Reverted, verified
+clean.** The second run, with the directory pinned on the argv, produced a real
+diff **inside the clone** and left the live tree alone.
+
+**The cause, and it was written down two days earlier.**
+`bench/opencode_corpus.py:50-62`, dated 2026-08-21: OpenCode keeps a per-project
+server alive between invocations, `run` attaches to whichever is already
+listening, and **that server carries the project root it was first started
+with.** The same docstring records the same symptom — *"every answer landed in
+`C:\AI\qwen38-tuning` while the harness looked in the task directory and
+recorded 'no file written' on work the model had done correctly."*
+
+`opencode_corpus.py` defends itself by killing the server once before a run.
+**`real_task_bench.py` never did.** It passed `cwd=<clone>`, which OpenCode does
+not honour, and it is the driver that produced all five rows.
+
+**What is retracted.** Every conclusion drawn from those five rows about the
+model, the quantisation, the context window, or the workflow. `diff_bytes: 0`
+measured where the harness looked, not what the worker did. **Three tasks
+exiting `rc=0` was read as the worker deciding it was finished; it may equally
+have been the worker finishing correctly in the wrong tree.**
+
+**What survives.** The wall-clock times and the context high-water figures —
+those came from the process and the server, not from the diff. And the separate
+finding that decode collapses to **2.8–5.0 tok/s at ctx 98,304** stands on its
+own data (`results/sweep-ngram-nmatch-98304.jsonl`, 13 of 16 rows timing out).
+
+> **Two independent explanations for the same zero, and fixing one does not fix
+> the other.** The worker wrote to the wrong tree, *and* the served window is
+> too slow to finish a real task. The next real-task run must not change both at
+> once, or it will be unreadable.
+
+**The fix.** `edit_canary.worker_argv()` puts `--dir <absolute path>` on the
+command line and **raises on an empty directory rather than defaulting**, since
+defaulting is exactly how the live tree was edited. `real_task_bench.py` now
+calls it. Pinned by `bench/tests/test_worker_workdir.py`, which deliberately
+does **not** assert on `cwd` — `cwd` is the thing that looked right and was not,
+so a test built on it would have passed throughout the incident.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `real-task-zero-diff`.
 
 ---
 

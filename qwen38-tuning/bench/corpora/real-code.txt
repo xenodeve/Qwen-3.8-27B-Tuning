@@ -1,0 +1,1910 @@
+"""Measurement primitives for the tuning sweeps.
+
+Every function here replaces one that failed silently earlier in this project.
+Silence is the shared failure mode: a wrong median labelled "median", a dropped
+row that left a table looking complete, a layer count that did not add up. So
+these raise rather than guess.
+"""
+
+
+def median(samples):
+    """True median. Raises on empty input rather than inventing a number."""
+    if not samples:
+        raise ValueError("median of no samples")
+    s = sorted(samples)
+    mid = len(s) // 2
+    if len(s) % 2:
+        return s[mid]
+    return (s[mid - 1] + s[mid]) / 2
+
+
+def load_jsonl(path):
+    """Read a results file. utf-8-sig strips the BOM PowerShell writes.
+
+    A malformed line raises with its line number instead of being skipped:
+    the earlier `except JSONDecodeError: pass` is what let the BOM quietly
+    delete the baseline row from every table.
+    """
+    import json
+    from pathlib import Path
+
+    rows = []
+    with Path(path).open(encoding="utf-8-sig") as fh:
+        for lineno, line in enumerate(fh, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                raise ValueError(f"{path} line {lineno} is not valid JSON: {e}") from e
+    return rows
+
+
+_LAYER_RE = None
+
+
+def parse_layer_split(log_text, total=None, expect_layers=None):
+    r"""Count GPU vs CPU layer placement from a verbose llama.cpp load report.
+
+    Counts the FINAL assignment pass, found from the layer indices themselves.
+    llama.cpp emits several reserve passes -- 451 lines for a 40-layer MoE --
+    and each pass restarts at layer 0, so a pass boundary is simply the point
+    where the index stops increasing.
+
+    This replaces a hardcoded `total=65`, which was Qwen3.8-27B's 64 blocks plus
+    its MTP head and silently wrong for every other architecture. On the
+    35B-A3B MoE it reported "65 + 0" for a 41-layer model by slicing the last 65
+    lines across two passes. Those arms happened to be fully resident so the
+    conclusion held, but it held by luck: the same slice would have reported
+    65+0 with layers on the CPU. `block_count` is not a usable substitute
+    either -- Qwen3.8 logs 65 for 65 layers, the MoE logs 40 for 41.
+
+    `total` is kept only as a fallback for logs whose indices cannot be read.
+
+    `expect_layers` names WHICH model you mean, and is required once a draft
+    model is loaded. Such a log carries several models' passes -- with the
+    DFlash2 drafter the order is drafter(6), target(65), target reserve(65),
+    drafter(6) -- so "the last pass" is the drafter, and this returned (6, 0)
+    for a 65-layer target on 2026-08-22 (issue #17). That is a healthy-looking
+    split describing the wrong model, in which a spill of the target could never
+    appear. Pass the target's layer count and the last pass of that size is
+    used; a size no pass has raises rather than falling back to another pass.
+
+    (\w+) rather than (\S+) because the device token carries a trailing comma
+    ("CUDA0,"), which made an exact == "CPU" comparison match nothing.
+    """
+    global _LAYER_RE
+    if _LAYER_RE is None:
+        import re
+        _LAYER_RE = re.compile(
+            r"load_tensors: layer\s+(\d+) assigned to device (\w+)")
+
+    pairs = _LAYER_RE.findall(log_text)
+    if not pairs:
+        raise ValueError("no layer-assignment lines found; was -lv 5 passed?")
+
+    devices = [d for _, d in pairs]
+    idx = [int(i) for i, _ in pairs]
+
+    # Split into passes first: a pass boundary is where the index stops rising.
+    bounds = [0] + [i for i in range(1, len(idx)) if idx[i] <= idx[i - 1]] + [len(idx)]
+    passes = [devices[a:b] for a, b in zip(bounds, bounds[1:])]
+
+    if expect_layers is not None:
+        matching = [p for p in passes if len(p) == expect_layers]
+        if not matching:
+            raise ValueError(
+                f"no assignment pass has {expect_layers} layers; "
+                f"passes seen: {[len(p) for p in passes]}"
+            )
+        last = matching[-1]
+    else:
+        last = passes[-1] if total is None else devices[-total:]
+    gpu = sum(1 for d in last if d.startswith("CUDA"))
+    cpu = sum(1 for d in last if d == "CPU")
+    if gpu + cpu != len(last):
+        raise ValueError(
+            f"layer split {gpu}+{cpu} does not account for {len(last)} lines; "
+            f"unexpected devices: {sorted(set(last) - {'CPU'} - {d for d in last if d.startswith('CUDA')})}"
+        )
+    return gpu, cpu
+
+
+def project_prefill_seconds(pp_tok_s, ctx_tokens):
+    """Straight-line cold-prefill estimate. Ignores depth degradation by design."""
+    if pp_tok_s <= 0:
+        raise ValueError(f"prompt-processing rate must be positive, got {pp_tok_s}")
+    return ctx_tokens / pp_tok_s
+
+
+# The harness fills ~80 % of the window before timing anything; see
+# depth_sweep.run(). The budget has to cover that prefill, not the window.
+PREFILL_FILL_FRACTION = 0.8
+
+# Slowest cold prefill ever measured on a RESIDENT arm at 131,072 is 240.6
+# tok/s (AD-IQ1_M at 65+1). The slowest PATHOLOGICAL one is 8.56 tok/s
+# (`ot-ffn-1`, 644 MiB of FFN weights forced to CPU). 60 sits four times below
+# the legitimate worst case and seven times above the pathological one, so the
+# budget cannot truncate a real measurement and cannot sit an hour on a dead
+# arm. It is a floor, not an expectation.
+PREFILL_FLOOR_TOK_S = 60.0
+
+# Load, health poll, the five 160-token generations and the greedy probe.
+TIMEOUT_MARGIN_S = 300
+
+
+def completion_timeout_s(ctx, floor_tok_s=PREFILL_FLOOR_TOK_S,
+                         margin_s=TIMEOUT_MARGIN_S):
+    """Per-request HTTP budget for a sweep at this context depth.
+
+    Replaces a flat `timeout=3600`, which on 2026-08-21 spent a full hour --
+    01:34:36 to 02:34:36, to the second -- waiting on an arm whose prefill had
+    already collapsed to 8.56 tok/s and could never have finished. A budget
+    that does not know the depth is not a budget, it is a coincidence.
+    """
+    if ctx <= 0:
+        raise ValueError(f"context must be positive, got {ctx}")
+    prefill_tokens = ctx * PREFILL_FILL_FRACTION
+    return prefill_tokens / floor_tok_s + margin_s
+
+
+# A desktop compositor moves tens of MiB between polls. A 12 GB model unloading
+# moves thousands. 64 separates them with two orders of magnitude to spare.
+VRAM_SETTLE_TOL_MIB = 64
+
+
+# The smallest artifact this project loads is 7.80 GiB. Any real teardown frees
+# thousands of MiB, so demanding a tenth of that as proof of arrival is generous
+# and still cannot be met by a release that has not started.
+VRAM_MIN_RISE_MIB = 1024
+
+
+def vram_settled(free_readings, tol_mib=VRAM_SETTLE_TOL_MIB, need=2,
+                 floor_mib=None):
+    """True once free VRAM has stopped moving AND cleared `floor_mib`.
+
+    `kill()` used to sleep a flat 5 s. WDDM releases a 12 GB allocation in
+    stages, so the next arm started into VRAM the driver still held, passed
+    /health, and died on its first request with ConnectionResetError -- taking
+    out a queue step that had nothing to do with the arm that was slow.
+
+    One reading is never settled: that is the 5 s sleep restated.
+
+    `floor_mib` exists because "stopped moving" alone is ambiguous between
+    *release finished* and *release has not begun*: two polls taken before the
+    driver does anything agree perfectly. The caller knows how much was free
+    before the kill, so it can demand that the reading beat it -- which a
+    release that never started cannot do. The check is against the LATEST
+    reading, not the best one, so a transient spike mid-release is not arrival.
+    """
+    if len(free_readings) < max(2, need):
+        return False
+    window = free_readings[-need:]
+    if max(window) - min(window) > tol_mib:
+        return False
+    return floor_mib is None or free_readings[-1] >= floor_mib
+
+
+# The output contract every corpus arm is graded against. `check_output_contract`
+# grades exactly this: one fenced python block, nothing else. It has been the
+# whole developer message since the corpus was written.
+CONTRACT = ("You are a precise Python engineer. Reply with one fenced ```python "
+            "block containing only the requested code. No explanation, no usage "
+            "examples, no tests.")
+
+
+def compose_developer(skills):
+    """Build the developer message from injected skill text plus the contract.
+
+    Raised 2026-08-21: the real worker runs with `karpathy-guidelines` and `tdd`
+    in its prompt and the corpus sends CONTRACT alone, so every quality number
+    the project holds describes a configuration nobody ships.
+
+    Two rules, both load-bearing.
+
+    **The contract survives.** Replacing it would change two things at once --
+    skills added AND the format instruction removed -- and an arm that changes
+    two things cannot say which one moved the result. That is the fault that
+    made the grammar/`-rea off` pair unreadable.
+
+    **The contract goes last.** The injected skills contradict it directly: tdd
+    says write the failing test first, the contract says no tests; karpathy says
+    stop and ask when unclear, and a question is not a fenced block. Recency is
+    the only lever available for deciding which instruction wins, so the graded
+    requirement gets it.
+
+    Skill text is passed through verbatim. A paraphrase would measure the
+    paraphrase.
+    """
+    for s in skills:
+        if not isinstance(s, str):
+            raise TypeError(f"skill text must be str, got {type(s).__name__}")
+    sep = chr(10) * 2
+    return sep.join(list(skills) + [CONTRACT])
+
+
+def line_repetition_pct(text):
+    """Percentage of non-blank lines that are exact duplicates of an earlier line.
+
+    Instrument fault 8, 2026-08-21. `depth_sweep.filler()` repeats one class
+    definition with only a four-digit index changing -- 962 blocks at 147,456,
+    adjacent blocks 99.5 % identical. An n-gram decoder drafts from what is
+    already in the context, so that text is the most favourable input that could
+    be constructed for it, and every n-gram figure this project holds was
+    measured on it. Acceptance at 99-100 % across every depth is the tell.
+
+    This makes the property checkable. A filler intended to stand in for real
+    code should score low; the current one scores high, and the difference is
+    the size of the correction owed to the headline numbers.
+
+    Blank lines are excluded: they repeat in any text and would inflate every
+    score toward 100 % regardless of content.
+    """
+    lines = [l for l in text.splitlines() if l.strip()]
+    if not lines:
+        raise ValueError("cannot measure repetition of empty text")
+    seen = set()
+    repeats = 0
+    for l in lines:
+        if l in seen:
+            repeats += 1
+        seen.add(l)
+    return round(100.0 * repeats / len(lines), 2)
+
+
+# Written to check a benchmark prompt; its more valuable use turned out to be a
+# reasoning trace. Same function, the name the caller needs.
+filler_repetition_pct = line_repetition_pct
+
+
+def draft_acceptance(timings):
+    """Percentage of drafted tokens accepted, over EVERY timed generation.
+
+    Instrument fault 9, 2026-08-21. `depth_sweep.run()` reports `tg_med` as the
+    median of five generations and computed `acceptance` from the first one
+    alone, so the two columns described different requests. An arm could show
+    "acceptance: null" -- meaning the cold request drafted nothing -- while its
+    four warm requests drafted and were accepted, and its decode rate said so.
+
+    Weighted by drafts, not averaged over requests: a generation that drafted
+    nothing has no opinion about the acceptance rate and must not pull it toward
+    zero. Returns None when nothing was drafted anywhere, which is a different
+    fact from 0 % and has to stay distinguishable.
+    """
+    drafted = accepted = 0
+    for t in timings:
+        d = int(t.get("draft_n") or 0)
+        a = int(t.get("draft_n_accepted") or 0)
+        if a > d:
+            raise ValueError(f"accepted {a} > drafted {d}: not a measurement")
+        drafted += d
+        accepted += a
+    if not drafted:
+        return None
+    return round(100.0 * accepted / drafted, 1)
+
+
+NOISE_FLOOR_PCT = 13.6   # measured restart-to-restart peak-to-peak; report 04 s0
+
+
+def paired_deltas(baseline_rounds, candidate_rounds, floor_pct=NOISE_FLOOR_PCT):
+    """Per-round paired differences between two arms measured in alternating boots.
+
+    Two different models cannot share a boot, so the arms are alternated
+    (A/B/A/B) and paired by round. Pairing is what keeps the 13.6 % restart
+    drift inside each round instead of letting it land on whichever arm ran
+    later -- the exact failure that manufactured a "+11.6 %" speculative result
+    which reversed to -0.8 % against a fresh control.
+
+    Returns per-round percentages AND a range, never a single point, and marks
+    an effect `resolved` only when it is both larger than the drift floor and
+    consistent in sign across rounds. A mean of +40/-10 is not an effect.
+    """
+    if not baseline_rounds or not candidate_rounds:
+        raise ValueError("paired_deltas needs at least one round in each arm")
+    if len(baseline_rounds) != len(candidate_rounds):
+        raise ValueError(
+            f"arms are not paired: {len(baseline_rounds)} baseline rounds vs "
+            f"{len(candidate_rounds)} candidate rounds"
+        )
+
+    per_round = []
+    for i, (b, c) in enumerate(zip(baseline_rounds, candidate_rounds), 1):
+        if b <= 0:
+            raise ValueError(f"round {i} baseline must be positive, got {b}")
+        per_round.append(round(100.0 * (c - b) / b, 2))
+
+    mean_pct = round(sum(per_round) / len(per_round), 2)
+    same_sign = all(d > 0 for d in per_round) or all(d < 0 for d in per_round)
+    resolved = bool(
+        len(per_round) >= 2 and same_sign and abs(mean_pct) >= floor_pct
+    )
+    return {
+        "rounds": len(per_round),
+        "per_round_pct": per_round,
+        "mean_pct": mean_pct,
+        "min_pct": min(per_round),
+        "max_pct": max(per_round),
+        "consistent_sign": same_sign,
+        "resolved": resolved,
+        "floor_pct": floor_pct,
+    }
+
+
+def check_tool_call(tool_calls, spec):
+    """Score one assistant turn against an expected tool-call contract.
+
+    Returns every fault, not the first: the research asks for a required-field
+    OMISSION RATE and a MALFORMED-CALL RATE, and a boolean cannot distinguish
+    one dropped field from a model that answered in prose. Prose instead of a
+    call is the degradation this exists to catch -- the code corpus alone would
+    have scored it identically to a perfect call.
+    """
+    import json
+
+    errors = []
+    if not tool_calls:
+        return {"ok": False, "errors": ["no tool call emitted"], "args": None}
+
+    fn = (tool_calls[0] or {}).get("function") or {}
+    name = fn.get("name")
+    if name != spec["name"]:
+        errors.append("wrong function name %r, expected %r" % (name, spec["name"]))
+
+    raw = fn.get("arguments")
+    args = None
+    if isinstance(raw, dict):
+        args = raw
+    else:
+        try:
+            args = json.loads(raw or "")
+        except (json.JSONDecodeError, TypeError) as e:
+            errors.append("arguments are not valid JSON: %s" % e)
+
+    if isinstance(args, dict):
+        for field in spec.get("required", []):
+            if field not in args:
+                errors.append("required field %r missing" % field)
+    elif args is not None:
+        errors.append("arguments decoded to %s, expected an object" % type(args).__name__)
+
+    if len(tool_calls) > spec.get("max_calls", 1):
+        errors.append("%d calls emitted, expected at most %d"
+                      % (len(tool_calls), spec.get("max_calls", 1)))
+
+    return {"ok": not errors, "errors": errors, "args": args}
+
+
+def retry_economics(records, escalation_s, overhead_s):
+    """Turn per-task retry records into the units the decision is actually made in.
+
+    Each record is {"attempts": int, "accepted": bool, "wall_s": float}, where
+    `accepted` means the LOCAL worker eventually produced a passing patch. A task
+    the worker never got right is not lost -- it escalates to Q4 -- so every task
+    is merged, and escalation is charged as time rather than as a failure.
+
+    p2 is None, never 0, when nothing needed a retry: a rate over an empty
+    denominator reads as "retries never work" instead of "no retry happened".
+    """
+    if not records:
+        raise ValueError("retry_economics needs at least one task record")
+
+    n = len(records)
+    first_pass = retried = retried_ok = accepted = attempts_total = 0
+    censored = 0
+    wall = 0.0
+    for i, r in enumerate(records, 1):
+        a = int(r["attempts"])
+        ok = bool(r["accepted"])
+        if a < 1:
+            raise ValueError("record %d has %d attempts; a task cannot be "
+                             "accepted or rejected without being attempted" % (i, a))
+        attempts_total += a
+        wall += float(r["wall_s"])
+        # A task whose attempt ended at the token limit is CENSORED, not failed:
+        # the model was still writing. Counting it as a failure penalises the
+        # artifacts that reason longest, which is the same bias an undersized
+        # budget produces, one notch quieter -- at max_tokens 8192 the arms
+        # still truncate 1 to 7 times out of 60.
+        if r.get("censored"):
+            censored += 1
+            continue
+        if ok:
+            accepted += 1
+            if a == 1:
+                first_pass += 1
+        if a >= 2:
+            retried += 1
+            if ok:
+                retried_ok += 1
+
+    request_failed = sum(1 for r in records if r.get("request_failed"))
+    # A run whose requests mostly never reached the model is not a slow run.
+    # The earlier guard only fired when NO task recorded worker time, so a run
+    # that completed four tasks and then lost its server to a colliding queue
+    # still produced an ordinary-looking summary. 10 % is generous; anything
+    # above it means the machine, not the model, decided the outcome.
+    if n and request_failed / n > 0.10:
+        raise ValueError(
+            "%d of %d tasks failed before reaching the model (%.0f %%). The "
+            "server was unavailable for most of this run, so nothing here "
+            "describes the artifact." % (request_failed, n, 100.0 * request_failed / n))
+
+    decided = n - censored
+    if decided <= 0:
+        raise ValueError(
+            "all %d tasks were censored by the token budget; raise it and re-run "
+            "rather than reading a pass rate off nothing" % n)
+
+    if wall <= 0:
+        raise ValueError(
+            "no worker time recorded across %d tasks -- every request failed "
+            "before the model ran. Escalation and overhead are constants, so a "
+            "summary built from this would still print a plausible "
+            "merged_tasks_per_hour." % n)
+
+    escalations = decided - accepted
+    total_s = wall + escalation_s * escalations + overhead_s * n
+
+    # CAPABILITY and THROUGHPUT are reported apart, because summing them into
+    # one number is how four arms that all scored 27/30 came to look like a
+    # ranking. They differed only in wall clock -- 2,004 s to 4,572 s -- which
+    # is verbosity, not skill. `accepted_of_decided` is the capability axis;
+    # `wall_per_accepted_s` is the throughput axis; `merged_tasks_per_hour`
+    # remains for continuity and is the two of them multiplied together.
+    return {
+        "tasks": n,
+        "decided": decided,
+        "request_failures": request_failed,
+        "censored": censored,
+        # A verdict that one censored task could flip is not a verdict. Compare
+        # the best and worst case the censored tasks could produce.
+        "censoring_could_change_verdict": bool(
+            censored and accepted != accepted + censored),
+        "p1": round(100.0 * first_pass / decided, 1),
+        "p2": round(100.0 * retried_ok / retried, 1) if retried else None,
+        "accepted_of_decided": "%d/%d" % (accepted, decided),
+        "local_accept_pct": round(100.0 * accepted / decided, 1),
+        "attempts_per_accepted": round(attempts_total / accepted, 2) if accepted else None,
+        "escalations_per_100": round(100.0 * escalations / decided, 1),
+        "worker_wall_s": round(wall, 1),
+        "wall_per_accepted_s": round(wall / accepted, 1) if accepted else None,
+        "escalation_s": escalation_s,
+        "overhead_s": overhead_s,
+        "merged_tasks_per_hour": round(3600.0 * n / total_s, 1) if total_s else None,
+        "verified_tasks_per_hour": round(3600.0 * accepted / wall, 1) if wall else None,
+    }
+
+
+def marginal_rate(xs, ys, project_to=None):
+    """Least-squares slope of y against x, reported as a RATE (x units per y unit).
+
+    Written for the prefix-invalidation curve: y is the wall time of a turn
+    whose cache was thrown away, x is the tokens it had to re-evaluate. Wall
+    time also contains a decode of n_predict tokens, but that component is the
+    same at every point, so it lands in the intercept and leaves the slope
+    clean. Dividing a single point instead -- which is what this project did
+    first -- charges the whole decode to the prefill and understates the rate.
+
+    Three points minimum: two always fit a line exactly and report a perfect
+    residual, which reads as certainty rather than as having no evidence.
+    """
+    if len(xs) != len(ys):
+        raise ValueError("marginal_rate needs paired xs and ys, got %d and %d"
+                         % (len(xs), len(ys)))
+    n = len(xs)
+    if n < 3:
+        raise ValueError("marginal_rate needs at least 3 points, got %d" % n)
+
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    if sxx == 0:
+        raise ValueError("all x values are identical; no slope is defined")
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    slope = sxy / sxx
+    if slope <= 0:
+        raise ValueError("slope is %.6g; y must increase with x for a rate" % slope)
+    offset = my - slope * mx
+
+    syy = sum((y - my) ** 2 for y in ys)
+    r2 = 1.0 if syy == 0 else 1.0 - sum(
+        (y - (slope * x + offset)) ** 2 for x, y in zip(xs, ys)) / syy
+
+    out = {
+        "points": n,
+        "rate": round(1.0 / slope, 1),     # x units per unit of y
+        "offset_s": round(offset, 2),
+        "r2": round(r2, 4),
+    }
+    if project_to is not None:
+        out["project_to"] = project_to
+        out["projected_s"] = round(project_to * slope + offset, 1)
+    return out
+
+
+def check_output_contract(text):
+    """Did the reply obey the corpus's stated output format, before extraction?
+
+    The corpus prompt asks for one fenced ```python block containing only the
+    requested code, with no explanation, usage example or tests. The extractor
+    then takes the LARGEST fenced block, or the whole reply when there is no
+    fence -- which quietly repairs every violation and lets a disobedient reply
+    score exactly like an obedient one.
+
+    A review panel identified this as the capability aggressive quantization is
+    said to lose FIRST, ahead of closed algorithmic coding, and the corpus was
+    structurally unable to see it. This measures it as a separate rate. It is
+    deliberately NOT wired into pass/fail: redefining a passing task mid-project
+    would make every number collected before today incomparable.
+    """
+    import re
+
+    violations = []
+    blocks = re.findall(r"```[ \t]*(?:python|py)?[ \t]*\n(.*?)```", text or "", re.S)
+    if not blocks:
+        violations.append("no fenced python block")
+        return {"ok": False, "violations": violations, "blocks": 0}
+    if len(blocks) > 1:
+        violations.append("%d fenced blocks, expected 1" % len(blocks))
+
+    outside = re.sub(r"```[ \t]*(?:python|py)?[ \t]*\n.*?```", "", text, flags=re.S)
+    if outside.strip():
+        violations.append("prose outside the fence: %r"
+                          % outside.strip()[:60])
+
+    body = "\n".join(blocks)
+    if re.search(r"^\s*if\s+__name__\s*==", body, re.M):
+        violations.append("usage example inside the block (__main__ guard)")
+
+    return {"ok": not violations, "violations": violations, "blocks": len(blocks)}
+"""Context-depth sweep, with Q8 KV as an arm.
+
+This is the phase every planning document names as the one that can overturn the
+Q3-vs-Q4 verdict: KV grows with context, `--fit` then has less room for weights,
+and the layer split moves. Effects here are expected in tens of percent, which is
+above the 13.6% restart-drift floor measured in E9 — unlike the remaining flag
+tuning at 16K.
+
+Design notes:
+
+- **Cold prefill is measured once per depth** (a 256K prefill costs minutes; N=3
+  would cost an hour for one row). Decode is measured N=3 using `cache_prompt`,
+  so the deep prefill is paid once and the three generations reuse it. That also
+  matches how an agent actually behaves — one cold turn, then appends.
+
+- **Q8 KV is tested on the CURRENT build.** The deep-research report warns that a
+  quantized-KV Flash-Attention kernel that was not compiled falls back to a very
+  slow path. Rather than assume, measure: a catastrophic Q8 result IS the
+  evidence that the FA_ALL_QUANTS build is required, and a good one means it is not.
+
+- **Loading is allowed to fail.** At deep context the model may not fit at all.
+  A failure to start is a result, recorded as such, not an error to hide.
+"""
+import hashlib, json, subprocess, sys, time, urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from harness import (median, parse_layer_split, project_prefill_seconds,
+                     completion_timeout_s, vram_settled, VRAM_MIN_RISE_MIB,
+                     draft_acceptance)
+
+ROOT = Path(r"C:\AI\qwen38-tuning")
+EXE = r"C:\AI\llama.cpp-cuda\llama-server.exe"
+import glob as _glob, os as _os
+def _c(repo, fn, size=None):
+    """Resolve a cached artifact to a path. See the note in model_arena.ARMS:
+    `-hf` does an online etag check per launch and can stall on a busy link."""
+    h = _glob.glob(_os.path.expanduser("~/.cache/huggingface/hub/models--%s/snapshots/*/%s"
+                                       % (repo.replace("/", "--"), fn)))
+    if size is not None:
+        h = [x for x in h if _os.path.getsize(x) == size]
+    if len(h) > 1:
+        raise ValueError("%s/%s is ambiguous across %d snapshots; pin the byte "
+                         "count (the repo was republished in place)" % (repo, fn, len(h)))
+    return _os.path.abspath(h[0]) if h else None
+
+QUANTS = {"q4": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-Q4_K_XL.gguf", 17923394624),
+          "q3": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-Q3_K_XL.gguf", 13441059904),
+          "q2kxl": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-Q2_K_XL.gguf", 10676423744),
+          "iq2xxs": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-IQ2_XXS.gguf", 9010048064),
+          # Paths, not repo:tag -- see the note in model_arena.ARMS.
+          "iq1m": 'C:\\Users\\xenod\\.cache\\huggingface\\hub\\models--AtomicChat--Qwen3.8-27B-GGUF\\snapshots\\ca10ebceb1887be9d33b838770a36b39d75a8a4c\\Qwen3.8-27B-AD-IQ1_M.gguf',
+          "ornith9b": 'C:\\Users\\xenod\\.cache\\huggingface\\hub\\models--ornith-ai--Ornith-1.0-9B-GGUF\\snapshots\\3296bc7a404871a72ac3f1903f561459c09b5c17\\ornith-1.0-9b-Q6_K.gguf',
+          "bonsai-g64": 'C:\\Users\\xenod\\.cache\\huggingface\\hub\\models--prism-ml--Ternary-Bonsai-27B-gguf\\snapshots\\abbae723028d71be674e71e1a71201a6f43fab22\\Ternary-Bonsai-27B-Q2_g64.gguf',
+          # Dynamic V3. Pinned by byte count: the repo was republished in place
+          # on 2026-08-19 with identical filenames, so name alone is ambiguous.
+          "v3-iq1s": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-IQ1_S.gguf"),
+          "v3-iq1m": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-IQ1_M.gguf"),
+          "v3-iq2xxs": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-IQ2_XXS.gguf", 7266070528),
+          # The missing rung of the bits-per-weight ladder. 8.37 GB, in the
+          # cache since 2026-08-20 and never loaded. It sits between
+          # UD-IQ2_XXS (6.77 GiB, 2.16 bpw, 58.3 % contract) and pre-V3
+          # UD-IQ2_XXS (8.39 GiB, 2.64 bpw, 90 % accept) -- exactly the gap
+          # between "fails on format" and "works". See plan 04 section 0.
+          "v3-iq2s": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-IQ2_S.gguf", 8371970048),
+          "v3-q2kxl": _c("unsloth/Qwen3.8-27B-GGUF", "Qwen3.8-27B-UD-Q2_K_XL.gguf", 9828981664),
+          "bonsai-1bit": r"C:\Users\xenod\.cache\huggingface\hub\models--prism-ml--Bonsai-27B-gguf\snapshots\f10afb355f104535e3e3e98cf7ab7795c72bd292\Bonsai-27B-Q1_0.gguf",
+          "ornith9b-q8": r"C:\Users\xenod\.cache\huggingface\hub\models--ornith-ai--Ornith-1.0-9B-GGUF\snapshots\3296bc7a404871a72ac3f1903f561459c09b5c17\ornith-1.0-9b-Q8_0.gguf"}
+
+# MTP is a net LOSS on a resident target (report 10 s1: -7% on Q2_K_XL, because
+# the draft head's VRAM pushes six target layers back to the CPU). But KV grows
+# with depth and pushes layers off anyway, so the trade may invert again out
+# there. Controlled rather than hardcoded, so both can be measured.
+USE_MTP = True
+
+# Sampling for the TIMED generations.
+#
+# Default False = temperature 0.7, which is what a real turn looks like. That
+# is right for anything whose cost does not depend on what is being written.
+#
+# It is WRONG for n-gram speculation, whose whole mechanism is replaying token
+# sequences already present in the context: at 0.7 every round writes different
+# text, the hit rate follows the text, and the same arm measured twice on
+# 2026-08-20 returned +80.79 % and -30.56 %. Both passed the paired test,
+# because the 13.6 % floor was built for boot-to-boot VRAM drift and cannot
+# see variance that comes from the content.
+#
+# Set True to pin temperature 0 and a fixed seed so every round writes the SAME
+# text. Comparable only against other runs that also set it.
+FIXED_TEXT = False
+
+# How many tokens each TIMED generation produces. 160 since the harness was
+# written, and never questioned until 2026-08-21, when an external review of
+# this model reported speculation warming up over a long generation:
+#
+#   "By the time it came to output the actual response, the MTP had gotten
+#    extremely fast (91 tk/s vs 62 tk/s starting rate)"
+#
+# If a speculative decoder needs more than 160 tokens to reach its rate, then
+# every decoder number this project holds is understated -- and `draft-mtp`,
+# `draft-dflash`, eagle3 and dspark were all ELIMINATED on those numbers. The
+# value is recorded on every row so a short run can never be compared against a
+# long one by accident.
+N_PREDICT = 160
+MODEL = QUANTS["q4"]          # overridden by argv
+BASE = "http://127.0.0.1:8080"
+OUT = ROOT / "results" / "depth-sweep.jsonl"
+
+# ~55 tokens per repeat, so the filler scales predictably with the target depth.
+_BLOCK = '''
+class Handler{i:04d}:
+    """Processes records for shard {i}."""
+    def __init__(self, config, registry):
+        self.config = config
+        self.registry = registry
+        self.cache = {{}}
+
+    def process(self, item):
+        key = item.get("id")
+        if key in self.cache:
+            return self.cache[key]
+        result = self.registry.lookup(key).transform(item, self.config)
+        self.cache[key] = result
+        return result
+'''
+
+
+# Which filler the timed prompt is built from. Instrument fault 8, 2026-08-21:
+# the original repeats one class with a four-digit index -- 962 blocks at
+# 147,456, adjacent blocks 99.5 % identical, 84.5 % of non-blank lines exact
+# duplicates. An n-gram decoder drafts from context, so that is the best case
+# that can be constructed for it, and EVERY n-gram figure this project holds was
+# measured on it (acceptance 99-100 % at every depth is the tell).
+#
+#   "high"  the historic filler. Comparable to every earlier result.
+#   "low"   varied blocks, for an estimate that is not a synthetic best case.
+#
+# Recorded on every row so the two can never be silently compared.
+FILLER = "high"
+
+_NOUNS = ("record", "shard", "packet", "ledger", "token", "frame", "chunk",
+          "entry", "batch", "slice", "column", "digest", "segment", "envelope")
+_VERBS = ("resolve", "flush", "compact", "reconcile", "hydrate", "prune",
+          "annotate", "dispatch", "coalesce", "rewind", "seal", "probe")
+_TYPES = ("dict", "list", "set", "tuple", "bytes", "int", "float", "str")
+
+
+def _varied_block(i):
+    """A code-like block whose lines mostly do not recur.
+
+    Deterministic -- no RNG, because `--fixed-text` exists to make a sweep
+    reproducible and a random prompt would undo it. Variety comes from indexing
+    three word lists at different strides, so consecutive blocks share structure
+    (as real code does) without sharing lines.
+    """
+    n = _NOUNS[i % len(_NOUNS)]
+    v = _VERBS[(i * 5) % len(_VERBS)]
+    v2 = _VERBS[(i * 7 + 3) % len(_VERBS)]
+    t = _TYPES[(i * 3) % len(_TYPES)]
+    nl = chr(10)
+    q3 = chr(34) * 3
+    lines = [
+        f"def {v}_{n}_{i}(source, limit={i % 97 + 3}):",
+        f"    {q3}{v.capitalize()} every {n} in source, keeping at most limit.{q3}",
+        f"    staged: {t} = {t}()",
+        f"    for offset, item in enumerate(source):",
+        f"        if offset >= limit or item is None:",
+        f"            break",
+        f"        key = ({i} * offset) ^ hash(item)",
+        f"        staged = _{v2}(staged, key, item, depth={(i * 13) % 31})",
+        f"    return staged, offset if source else 0",
+        "",
+    ]
+    return nl.join(lines) + nl
+
+
+def filler(target_tokens):
+    """Roughly `target_tokens` of realistic source text (~3.6 chars/token)."""
+    out, approx = [], 0
+    i = 0
+    while approx < target_tokens * 3.6:
+        block = _varied_block(i) if FILLER == "low" else _BLOCK.format(i=i)
+        out.append(block)
+        approx += len(block)
+        i += 1
+    return "".join(out)
+
+
+# No default timeout. A flat one was the whole of instrument fault 6: 3600 s
+# is simultaneously absurd at 16K and arbitrary at 131,072, and on 2026-08-21
+# it sat exactly one hour on an arm whose prefill had already collapsed to
+# 8.56 tok/s. Callers size it with harness.completion_timeout_s(ctx).
+def post(path, payload, timeout):
+    req = urllib.request.Request(BASE + path, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
+def kill():
+    """Stop whatever listens on 8080, then wait for the GPU to actually free."""
+    free_before = vram()[1]
+    r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                        "$c=Get-NetTCPConnection -LocalPort 8080 -State Listen "
+                        "-ErrorAction SilentlyContinue; if($c){Stop-Process -Id "
+                        "$c.OwningProcess -Force; 'KILLED'}"],
+                       capture_output=True, text=True)
+    if "KILLED" not in (r.stdout or ""):
+        return                      # nothing was listening; nothing to wait for
+    # Something WAS resident, so free VRAM must rise. Without this floor a poll
+    # taken before the driver starts releasing looks identical to one taken
+    # after it finishes -- see harness.vram_settled.
+    wait_for_vram_release(floor_mib=free_before + VRAM_MIN_RISE_MIB)
+
+
+def wait_for_vram_release(floor_mib=None, limit_s=120, poll_s=3):
+    """Block until free VRAM stops moving, or `limit_s` elapses.
+
+    The flat `time.sleep(5)` this replaces is instrument fault 7. WDDM releases
+    a 12 GB allocation in stages; on 2026-08-21 the next arm started 5 s after
+    the kill, passed /health against VRAM the driver still held, and died on
+    its first /completion with ConnectionResetError -- destroying a queue step
+    that had nothing to do with the arm that was slow.
+
+    Returns the readings so a caller can record what it waited for. Timing out
+    is reported, never silent: a still-moving GPU is a fact the row should
+    carry, not something to paper over with another sleep.
+    """
+    readings = []
+    for _ in range(int(limit_s / poll_s)):
+        time.sleep(poll_s)
+        readings.append(vram()[1])
+        if vram_settled(readings, floor_mib=floor_mib):
+            return readings
+    print(f"    VRAM still moving after {limit_s}s: {readings[-4:]}", flush=True)
+    return readings
+
+
+def vram():
+    o = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.free",
+                        "--format=csv,noheader,nounits"],
+                       capture_output=True, text=True).stdout.strip()
+    return [int(x) for x in o.split(",")]
+
+
+def start(ctx, extra, tag):
+    kill()
+    free_before = vram()[1]
+    log = ROOT / "logs" / f"depth-{tag}.log"
+    ref = ["-m", MODEL] if MODEL.endswith(".gguf") else ["-hf", MODEL]
+    args = [EXE] + ref + ["--alias", "qwen38-q4", "-c", str(ctx),
+            "-ngl", "auto", "--fit", "on", "--fit-target", "768", "-fa", "on",
+            "-np", "1", "-t", "18", "-b", "2048", "-ub", "256",
+            "--no-mmproj-auto", "-lv", "5",
+            "--host", "127.0.0.1", "--port", "8080"] + (
+            ["--spec-type", "draft-mtp", "--spec-draft-n-max", "2"] if USE_MTP else []
+            ) + extra
+    fh = log.open("w", encoding="utf-8", errors="replace")
+    p = subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT)
+    for _ in range(90):                      # deep contexts allocate slowly
+        time.sleep(4)
+        if p.poll() is not None:
+            fh.close()
+            return None, None, log, free_before
+        try:
+            urllib.request.urlopen(BASE + "/health", timeout=3).read()
+            time.sleep(2); fh.flush()
+            return p, fh, log, free_before
+        except Exception:
+            pass
+    fh.close()
+    return None, None, log, free_before
+
+
+def kv_buffers(log):
+    """Pull the actual KV / recurrent-state allocations out of the load report."""
+    out = {}
+    for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+        for key, needle in (("kv_mib", "KV buffer size"),
+                            ("rs_gpu_mib", "CUDA0 RS buffer size"),
+                            ("rs_cpu_mib", "CPU RS buffer size")):
+            if needle in line and "=" in line:
+                try:
+                    v = float(line.split("=")[-1].strip().split()[0])
+                except ValueError:
+                    continue
+                out[key] = max(out.get(key, 0), v)
+    return out
+
+
+def run(ctx, extra, label, tag):
+    p, fh, log, free_before = start(ctx, extra, tag)
+    row = dict(ctx=ctx, label=label, args=" ".join(extra),
+               fixed_text=FIXED_TEXT, n_predict=N_PREDICT, filler=FILLER,
+               free_before=free_before)
+
+    if p is None:
+        row.update(loaded=False, note="server failed to start")
+        print(f"  {label:<26} ctx={ctx:<7} FAILED TO LOAD", flush=True)
+    else:
+        used, free = vram()
+        try:
+            gpu, cpu = parse_layer_split(log.read_text(encoding="utf-8", errors="replace"))
+        except ValueError as e:
+            gpu = cpu = None
+            print(f"    layer split unavailable: {e}")
+
+        # Everything below can raise: a timeout, a reset connection, a server
+        # that dies mid-request. Before 2026-08-21 the teardown sat at the end
+        # of the happy path, so ANY raise left a 12 GB server resident and the
+        # next queue step started into a GPU that was still full. The arm that
+        # failed is one lost row; the arm it took down with it was avoidable.
+        budget = completion_timeout_s(ctx)
+        try:
+            # Fill ~80% of the window; the rest is headroom for generation.
+            prompt = filler(int(ctx * 0.8))
+
+            t0 = time.time()
+            samp = ({"temperature": 0.0, "top_k": 1, "seed": 42} if FIXED_TEXT
+                    else {"temperature": 0.7})
+            r = post("/completion", dict({"prompt": prompt, "n_predict": N_PREDICT,
+                                          "cache_prompt": True}, **samp), timeout=budget)
+            cold_wall = time.time() - t0
+            t = r["timings"]
+
+            # Warm decode: same prefix + a short suffix, so the deep prefill is reused.
+            #
+            # A request that generated nothing reports 0.0 tok/s. That is missing
+            # data, not a slow result, and folding it into the sample is the same
+            # plausible-wrong-number failure the harness exists to prevent: with 3
+            # samples one zero survives, with two the median becomes 0. Take 5
+            # attempts and drop the duds, counting them.
+            def rate(tim):
+                # Both guards are needed. Checking predicted_n alone let a 0.0 tok/s
+                # sample through at ctx=65536 while empty_generations still read 0:
+                # a rate of zero is missing data whatever the token count says.
+                r = tim.get("predicted_per_second")
+                return r if tim.get("predicted_n") and r and r > 0 else None
+
+            warm = [rate(t)]
+            # Fault 9: acceptance used to come from `t` alone -- the FIRST of
+            # five generations -- while tg_med is the median of all five. The
+            # two columns described different requests.
+            all_timings = [t]
+            for i in range(4):
+                r2 = post("/completion",
+                          dict({"prompt": prompt + chr(10) + "# note %d" % i + chr(10),
+                                "n_predict": N_PREDICT, "cache_prompt": True}, **samp), timeout=budget)
+                all_timings.append(r2["timings"])
+                warm.append(rate(r2["timings"]))
+            dropped = sum(1 for v in warm if v is None)
+            warm = [v for v in warm if v is not None]
+            if not warm:
+                raise RuntimeError(f"ctx={ctx}: every generation produced 0 tokens")
+
+            g = post("/completion", {"prompt": "def fibonacci(n):", "n_predict": 60,
+                                     "temperature": 0.0, "top_k": 1, "seed": 42,
+                                     "cache_prompt": False}, timeout=budget)
+            row.update(
+                loaded=True, gpu_layers=gpu, cpu_layers=cpu,
+                vram_used=used, vram_free=free,
+                prompt_n=t["prompt_n"], pp_tok_s=round(t["prompt_per_second"], 1),
+                cold_prefill_s=round(t["prompt_ms"] / 1000, 1),
+                cold_wall_s=round(cold_wall, 1),
+                tg_med=round(median(warm), 2), tg_all=[round(v, 2) for v in warm],
+                empty_generations=dropped,
+                acceptance=draft_acceptance(all_timings),
+                # kept so rows written before 2026-08-21 06:12 stay comparable
+                acceptance_cold=(round(100.0 * t.get("draft_n_accepted", 0) / t["draft_n"], 1)
+                                 if t.get("draft_n") else None),
+                greedy_hash=hashlib.sha256(g["content"].encode()).hexdigest()[:16].upper(),
+                **kv_buffers(log))
+            print(f"  {label:<26} ctx={ctx:<7} gpu={gpu}/{cpu} pp={row['pp_tok_s']:<7} "
+                  f"prefill={row['cold_prefill_s']}s tg={row['tg_med']:<6} "
+                  f"kv={row.get('kv_mib','?')}MiB free={free}", flush=True)
+        except (TimeoutError, ConnectionError, OSError) as e:
+            # Record the abandonment as data. An arm too slow to finish inside
+            # its depth budget is a RESULT -- that is exactly what `-ot` on
+            # AD-IQ1_M was -- and a traceback that kills the queue is not.
+            row.update(loaded=True, gpu_layers=gpu, cpu_layers=cpu,
+                       vram_used=used, vram_free=free,
+                       note="abandoned after %.0fs: %s: %s"
+                            % (budget, type(e).__name__, e))
+            print(f"  {label:<26} ctx={ctx:<7} ABANDONED "
+                  f"({type(e).__name__} after {budget:.0f}s)", flush=True)
+        finally:
+            p.kill(); fh.close()
+
+    with OUT.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+    return row
+
+
+if __name__ == "__main__":
+    which = sys.argv[1] if len(sys.argv) > 1 else "f16"
+    if len(sys.argv) > 2:                      # e.g. `depth_sweep.py f16 q3`
+        MODEL = QUANTS[sys.argv[2]]
+        print(f"quant: {sys.argv[2]} -> {MODEL}")
+    quant = sys.argv[2] if len(sys.argv) > 2 else "q4"
+    if "nospec" in sys.argv:
+        USE_MTP = False
+        print("speculation: OFF")
+    spec = "mtp2" if USE_MTP else "nospec"
+
+    if which == "deep":
+        print("=== deep, F16 KV ===", flush=True)
+        for ctx in (65536, 131072):
+            run(ctx, [], f"F16 KV {quant}", f"{quant}-{spec}-deep-{ctx}")
+    elif which == "f16":
+        print("=== context depth, F16 KV ===", flush=True)
+        for ctx in (65536, 131072, 262144):
+            r = run(ctx, [], "F16 KV", f"{quant}-{spec}-f16-{ctx}")
+            if not r.get("loaded"):
+                print(f"  stopping: {ctx} did not load", flush=True)
+                break
+    else:
+        print("=== context depth, Q8_0 KV ===", flush=True)
+        for ctx in (65536, 131072, 262144):
+            r = run(ctx, ["-ctk", "q8_0", "-ctv", "q8_0"], "Q8_0 KV",
+                    f"{quant}-{spec}-q8-{ctx}")
+            if not r.get("loaded"):
+                print(f"  stopping: {ctx} did not load", flush=True)
+                break
+"""Cross-model arena: compare quantization ARMS under the paired-boot design.
+
+Why a new script rather than another sweep_runtime config: sweep_runtime varies
+FLAGS on one model, so every arm shares a boot. Two different quantizations
+cannot share a boot -- the weights differ -- so each arm change costs a restart,
+and report 04 measured a 13.6 % peak-to-peak spread across restarts of an
+UNCHANGED config. A control-first ordering here would measure that drift and
+call it quantization.
+
+The design alternates arms and pairs by round:
+
+    round 1:  A  B  C
+    round 2:  C  B  A      <- order reversed, so no arm always runs in the
+    round 3:  A  B  C         same position within a round
+
+Per-round representatives go to harness.paired_deltas, which refuses to call an
+effect real unless it clears the drift floor AND keeps its sign in every round.
+
+Residency is recorded, not assumed: the hypothesis under test is that a smaller
+artifact crosses the VRAM threshold, and --fit on derives the split from free
+VRAM at boot, which itself moved 9326-10530 MiB across recorded launches.
+
+Usage:
+    python model_arena.py --rounds 3
+    python model_arena.py --rounds 1 --arms q4-tuned,q2kxl-nomtp
+"""
+import argparse
+import hashlib
+import json
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from harness import median, parse_layer_split, paired_deltas
+
+ROOT = Path(r"C:\AI\qwen38-tuning")
+EXE = r"C:\AI\llama.cpp-cuda\llama-server.exe"
+PORT = 8080
+BASE_URL = "http://127.0.0.1:%d" % PORT
+
+# Flags every arm shares. Each won its own sweep on Q4 (report 01); they are held
+# CONSTANT here so the only variable across arms is the artifact itself.
+COMMON = ["-c", "16384", "-ngl", "auto", "--fit", "on", "--fit-target", "768",
+          "-fa", "on", "-np", "1", "-t", "18", "-b", "2048", "-ub", "256",
+          "--no-mmproj-auto", "-lv", "5"]
+
+MTP = ["--spec-type", "draft-mtp", "--spec-draft-n-max", "2"]
+
+def cached(repo, filename, size=None):
+    """Resolve a repo + exact filename to its path in the Hugging Face cache.
+
+    `size` is the exact byte count and it is NOT optional in spirit. Unsloth
+    replaced every file in Qwen3.8-27B-GGUF in place on 2026-08-19 -- same
+    filenames, new contents, new sizes -- so the cache now holds two snapshot
+    directories with identical filenames inside. Returning `hits[0]` would let
+    the pre-V3 arm and the V3 arm resolve to the same file and produce a
+    beautifully paired comparison of an artifact against itself, with nothing in
+    the output to show for it. This is the `PQ2_0` failure again, one directory
+    level up.
+
+    Raises on ambiguity rather than guessing. Returns None when the file is not
+    downloaded yet, so an arm for a pending candidate reports FAILED TO START
+    instead of crashing the sweep.
+    """
+    import glob
+    import os
+    root = os.path.expanduser("~/.cache/huggingface/hub/models--%s"
+                              % repo.replace("/", "--"))
+    hits = [h for h in glob.glob(os.path.join(root, "snapshots", "*", filename))
+            if os.path.exists(h)]
+    if size is not None:
+        hits = [h for h in hits if os.path.getsize(h) == size]
+    if not hits:
+        return None
+    if len(hits) > 1:
+        raise ValueError(
+            "%s/%s matches %d cached files (%s). Pass the exact byte count to "
+            "disambiguate -- the repo was re-published with the same filenames."
+            % (repo, filename, len(hits),
+               ", ".join("%s=%d" % (os.path.basename(os.path.dirname(h)),
+                                    os.path.getsize(h)) for h in hits)))
+    return os.path.abspath(hits[0])
+
+
+QWEN = "unsloth/Qwen3.8-27B-GGUF"
+BONSAI = "prism-ml/Ternary-Bonsai-27B-gguf"
+
+# The drafter is passed as a PATH. `-hfd repo:tag` resolved to an empty string
+# and the server exited with `common_speculative_init_result: loading draft
+# model ''` -- the same lesson as the target model, one flag later.
+DSPARK = ["-md", cached(BONSAI, "Ternary-Bonsai-27B-dspark-Q4_1.gguf") or "",
+          "--spec-type", "draft-dspark", "--spec-draft-n-max", "4",
+          "-ngld", "999"]
+
+# Arms carry their own repo. A single REPO constant would have resolved the
+# Bonsai quant tag against the Qwen repo and fetched the wrong artifact.
+# Every arm resolves to a PATH. `-hf repo:tag` was used until 2026-08-19, when
+# it stalled an unattended queue for eleven minutes: llama.cpp performs an
+# ONLINE etag check on each launch even for a fully cached file, and with a
+# large download saturating the link it logged
+# `common_pull_file: download failed ... retrying after 2 seconds` in a loop.
+# A boot that needs no network should not be able to fail because of one.
+# Pre-V3 byte counts, pinned so these arms can never silently resolve to the
+# Dynamic V3 file of the same name.
+_PREV3 = {
+    "UD-Q4_K_XL": 17923394624,
+    "UD-Q3_K_XL": 13441059904,
+    "UD-Q2_K_XL": 10676423744,
+    "UD-IQ2_XXS":  9010048064,
+    "UD-IQ2_M":   10319907904,
+    "UD-IQ3_XXS": 11913559104,
+}
+_Q = lambda fn: cached(QWEN, "Qwen3.8-27B-%s.gguf" % fn, _PREV3.get(fn))
+
+ARMS = {
+    "q4-tuned":      (None, _Q("UD-Q4_K_XL"), MTP),  # production control
+    "q2kxl-nomtp":   (None, _Q("UD-Q2_K_XL"), []),   # research: test MTP off first
+    "q2kxl-mtp2":    (None, _Q("UD-Q2_K_XL"), MTP),
+    "iq2xxs-nomtp":  (None, _Q("UD-IQ2_XXS"), []),
+    "iq2xxs-mtp2":   (None, _Q("UD-IQ2_XXS"), MTP),
+    # Q2_g64, NOT Q2_0. Prism ships two ternary packs: Q2_0 is g128 and needs
+    # their llama.cpp fork; Q2_g64 is the pack they describe as "matching the
+    # 64-value-group Q2_0 packing in llama.cpp", which is what our build has.
+    # Whether mainline actually serves it is the first thing these arms test.
+    # Fetched by exact filename, never by quant tag: `-hf repo:Q2_0` matches
+    # PQ2_0 by substring, and the two files are byte-for-byte the same size.
+    "bonsai-nospec": (None, cached(BONSAI, "Ternary-Bonsai-27B-Q2_g64.gguf"), []),
+    "bonsai-dspark": (None, cached(BONSAI, "Ternary-Bonsai-27B-Q2_g64.gguf"), DSPARK),
+    # Artifacts fetched with `hf download` by exact filename are addressed by
+    # PATH (repo=None -> -m). A `-hf repo:tag` reference would risk a second
+    # full download of a file already on disk, and tag matching is by substring
+    # -- which is how `:Q2_0` started fetching `PQ2_0.gguf` earlier today.
+    "iq1m-nomtp":    (None, 'C:\\Users\\xenod\\.cache\\huggingface\\hub\\models--AtomicChat--Qwen3.8-27B-GGUF\\snapshots\\ca10ebceb1887be9d33b838770a36b39d75a8a4c\\Qwen3.8-27B-AD-IQ1_M.gguf', []),
+    "ornith9b-nomtp":(None, 'C:\\Users\\xenod\\.cache\\huggingface\\hub\\models--ornith-ai--Ornith-1.0-9B-GGUF\\snapshots\\3296bc7a404871a72ac3f1903f561459c09b5c17\\ornith-1.0-9b-Q6_K.gguf', []),
+    "bonsai-g64":    (None, 'C:\\Users\\xenod\\.cache\\huggingface\\hub\\models--prism-ml--Ternary-Bonsai-27B-gguf\\snapshots\\abbae723028d71be674e71e1a71201a6f43fab22\\Ternary-Bonsai-27B-Q2_g64.gguf', []),
+
+    # --- resolved from the cache at import time; None until downloaded, which
+    # the arena reports as FAILED TO START instead of crashing the sweep ---
+
+    # Same size class as Unsloth's UD-IQ2_XXS (8,561 vs 8,592 MiB), different
+    # quantizer. The research asked for exactly this comparison and assumed it
+    # needed a second vendor's 9.9 GB file; it does not.
+    "adiq2xxs":      (None, cached("AtomicChat/Qwen3.8-27B-GGUF",
+                                   "Qwen3.8-27B-AD-IQ2_XXS.gguf"), []),
+    "iq2m-nomtp":    (None, _Q("UD-IQ2_M"), []),
+    "iq3xxs-nomtp":  (None, _Q("UD-IQ3_XXS"), []),
+
+    # MoE. 35B total, ~3B active per token. The research assumed these needed
+    # CPU expert offload at ~20 GiB; Unsloth's low-bit builds are 9.4-10.7 GiB,
+    # so the first question is simply whether they are RESIDENT -- 35B of
+    # capacity doing 3B of work per token with no PCIe traffic is a regime
+    # nothing else measured here can imitate. `-ncmoe` arms test the fallback.
+    "qwen36moe":     (None, cached("unsloth/Qwen3.6-35B-A3B-GGUF",
+                                   "Qwen3.6-35B-A3B-UD-IQ2_XXS.gguf"), []),
+    "qwen36moe-iq1": (None, cached("unsloth/Qwen3.6-35B-A3B-GGUF",
+                                   "Qwen3.6-35B-A3B-UD-IQ1_M.gguf"), []),
+    "qwen36moe-cpu": (None, cached("unsloth/Qwen3.6-35B-A3B-GGUF",
+                                   "Qwen3.6-35B-A3B-UD-IQ2_XXS.gguf"),
+                      ["--n-cpu-moe", "34"]),
+    "ornith35moe":   (None, cached("unsloth/Ornith-1.0-35B-GGUF",
+                                   "Ornith-1.0-35B-UD-IQ2_XXS.gguf"), []),
+    "ornith35-iq1s": (None, cached("unsloth/Ornith-1.0-35B-GGUF",
+                                   "Ornith-1.0-35B-UD-IQ1_S.gguf"), []),
+    "ornith35-cpu":  (None, cached("unsloth/Ornith-1.0-35B-GGUF",
+                                   "Ornith-1.0-35B-UD-IQ2_XXS.gguf"),
+                      ["--n-cpu-moe", "34"]),
+
+    "ornith9b-q8":   (None, cached("ornith-ai/Ornith-1.0-9B-GGUF",
+                                   "ornith-1.0-9b-Q8_0.gguf"), []),
+    # Prism's phone-class operating point: ternary at 1.125 bpw, 3.54 GiB.
+    "bonsai-1bit":   (None, cached("prism-ml/Bonsai-27B-gguf",
+                                   "Bonsai-27B-Q1_0.gguf"), []),
+    "gptoss20b":     (None, cached("unsloth/gpt-oss-20b-GGUF",
+                                   "gpt-oss-20b-Q4_K_M.gguf"), []),
+
+    # --- Unsloth Dynamic V3, published 2026-08-19T16:39:23Z, mid-session ---
+    # Every arm above this line is the PRE-V3 build of the same repo. The files
+    # were replaced in place: same names, different sizes and OIDs. Keeping both
+    # generations as separate arms is the only way the comparison stays honest,
+    # and it is why nothing here is addressed by `-hf repo:tag`.
+    #
+    #     UD-IQ2_XXS   9,010,048,064 -> 7,266,070,528
+    #     UD-Q2_K_XL  10,676,423,744 -> 9,828,981,664
+    #     UD-Q4_K_XL  17,923,394,624 -> 17,559,178,144
+    #     UD-IQ2_M     deleted; UD-IQ2_S added
+    #
+    # V3 also ships the 1-bit builds this project spent a day hunting for. At
+    # 5.77 GiB, IQ1_S leaves ~4.6 GB of headroom against the 1.18 GB the current
+    # production artifact leaves -- and four CPU-resident layers were measured to
+    # cost half the decode throughput on this card.
+    "v3-iq1s":   (None, cached(QWEN, "Qwen3.8-27B-UD-IQ1_S.gguf",  6192222208), []),
+    "v3-iq1m":   (None, cached(QWEN, "Qwen3.8-27B-UD-IQ1_M.gguf",  6729166848), []),
+    "v3-iq2xxs": (None, cached(QWEN, "Qwen3.8-27B-UD-IQ2_XXS.gguf", 7266070528), []),
+    "v3-iq2s":   (None, cached(QWEN, "Qwen3.8-27B-UD-IQ2_S.gguf",  8371970048), []),
+    "v3-q2kxl":  (None, cached(QWEN, "Qwen3.8-27B-UD-Q2_K_XL.gguf", 9828981664), []),
+    "v3-q4kxl":  (None, cached(QWEN, "Qwen3.8-27B-UD-Q4_K_XL.gguf", 17559178144), MTP),
+}
+
+
+CODE_PROMPT = """Here is a Python class:
+
+class LRUCache:
+    def __init__(self, cap):
+        self.cap = cap
+        self.data = {}
+        self.order = []
+    def get(self, k):
+        if k not in self.data:
+            return None
+        self.order.remove(k)
+        self.order.append(k)
+        return self.data[k]
+    def put(self, k, v):
+        if k in self.data:
+            self.order.remove(k)
+        elif len(self.data) >= self.cap:
+            victim = self.order.pop()
+            del self.data[victim]
+        self.data[k] = v
+        self.order.append(k)
+
+Rewrite this class exactly as given, but rename the attribute "order" to "usage" everywhere. Output the full class."""
+
+
+def post(path, payload, timeout=1800):
+    req = urllib.request.Request(BASE_URL + path, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
+def kill_server():
+    cmd = ("$c=Get-NetTCPConnection -LocalPort %d -State Listen "
+           "-ErrorAction SilentlyContinue; if($c){Stop-Process -Id "
+           "$c.OwningProcess -Force}" % PORT)
+    subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True)
+    time.sleep(6)
+
+
+def vram():
+    out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.free",
+                          "--format=csv,noheader,nounits"],
+                         capture_output=True, text=True).stdout.strip()
+    return [int(x) for x in out.split(",")]
+
+
+def start(tag, repo, quant, extra, round_no):
+    kill_server()
+    free_before = vram()[1]
+    log = ROOT / "logs" / ("arena-r%d-%s.log" % (round_no, tag))
+    if not repo and quant is None:
+        # cached() found nothing: the artifact is still downloading. Report it
+        # as a non-start rather than passing the literal string "None" to -m,
+        # which llama.cpp would treat as a filename and fail on obscurely.
+        fh = log.open("w", encoding="utf-8")
+        fh.write("artifact not present in the Hugging Face cache yet\n")
+        fh.close()
+        return None, None, log, free_before
+    ref = ["-hf", repo + ":" + quant] if repo else ["-m", quant]
+    args = ([EXE] + ref + ["--alias", tag] + COMMON + extra +
+            ["--host", "127.0.0.1", "--port", str(PORT)])
+    fh = log.open("w", encoding="utf-8", errors="replace")
+    p = subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT)
+    for _ in range(90):
+        time.sleep(4)
+        try:
+            urllib.request.urlopen(BASE_URL + "/health", timeout=3).read()
+            break
+        except Exception:
+            if p.poll() is not None:
+                fh.close()
+                return None, None, log, free_before
+    else:
+        fh.close()
+        return None, None, log, free_before
+    time.sleep(2)
+    fh.flush()
+    return p, fh, log, free_before
+
+
+def measure(reps):
+    """Decode on the code-rewrite prompt -- the probe every tuning decision in
+    this project was read from. An 11-token prompt stayed inside 9.86-11.90
+    tok/s across EVERY configuration tested and would resolve nothing (04 s3)."""
+    tg, pp, dn, da = [], [], 0, 0
+    for _ in range(reps):
+        r = post("/completion", {"prompt": CODE_PROMPT, "n_predict": 160,
+                                 "temperature": 0.7, "cache_prompt": False})
+        t = r["timings"]
+        if t["predicted_per_second"] <= 0:
+            raise ValueError("zero decode rate -- a dead sample, not a slow one")
+        tg.append(t["predicted_per_second"])
+        pp.append(t["prompt_per_second"])
+        dn += int(t.get("draft_n", 0))
+        da += int(t.get("draft_n_accepted", 0))
+    g = post("/completion", {"prompt": CODE_PROMPT, "n_predict": 120,
+                             "temperature": 0.0, "top_k": 1, "seed": 42,
+                             "cache_prompt": False})
+    h = hashlib.sha256(g["content"].encode()).hexdigest()[:16].upper()
+    return tg, pp, dn, da, h
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--rounds", type=int, default=3)
+    ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--arms", default="q4-tuned,q2kxl-nomtp,q2kxl-mtp2")
+    ap.add_argument("--out", default="arena-quant.jsonl")
+    args = ap.parse_args()
+
+    arms = [a.strip() for a in args.arms.split(",")]
+    for a in arms:
+        if a not in ARMS:
+            sys.exit("unknown arm %r; known: %s" % (a, ", ".join(ARMS)))
+
+    out = ROOT / "results" / args.out
+    out.parent.mkdir(parents=True, exist_ok=True)
+    per_round = dict((a, []) for a in arms)
+
+    for rnd in range(1, args.rounds + 1):
+        order = arms if rnd % 2 else list(reversed(arms))
+        print("\n===== round %d : %s =====" % (rnd, " -> ".join(order)), flush=True)
+        for tag in order:
+            repo, quant, extra = ARMS[tag]
+            p, fh, log, free_before = start(tag, repo, quant, extra, rnd)
+            if p is None:
+                print("  %-14s FAILED TO START -- see %s" % (tag, log.name), flush=True)
+                continue
+            used, free = vram()
+            try:
+                gpu, cpu = parse_layer_split(log.read_text(encoding="utf-8", errors="replace"))
+            except ValueError as e:
+                gpu = cpu = None
+                print("    layer split unavailable: %s" % e, flush=True)
+            try:
+                tg, pp, dn, da, h = measure(args.reps)
+            except Exception as e:
+                print("  %-14s MEASURE FAILED: %s" % (tag, e), flush=True)
+                p.kill()
+                fh.close()
+                continue
+
+            row = dict(round=rnd, arm=tag, repo=repo, quant=quant, mtp=bool(extra),
+                       vram_free_before=free_before, vram_used=used, vram_free=free,
+                       gpu_layers=gpu, cpu_layers=cpu,
+                       code_tok_s=[round(v, 2) for v in sorted(tg)],
+                       code_median=round(median(tg), 2),
+                       pp_median=round(median(pp), 1),
+                       draft_n=dn, draft_accepted=da,
+                       accept_pct=round(100.0 * da / dn, 1) if dn else None,
+                       greedy_hash=h)
+            per_round[tag].append(row["code_median"])
+            with out.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(row) + "\n")
+            print("  %-14s split %s+%s  free_before %s  free %s  code %s %s  "
+                  "pp %s  acc %s  %s"
+                  % (tag, gpu, cpu, free_before, free, row["code_median"],
+                     row["code_tok_s"], row["pp_median"], row["accept_pct"], h),
+                  flush=True)
+            p.kill()
+            fh.close()
+
+    kill_server()
+    print("\n===== PAIRED RESULT (baseline = %s) =====" % arms[0])
+    base = per_round[arms[0]]
+    for tag in arms[1:]:
+        if not base or len(per_round[tag]) != len(base):
+            print("  %-14s unpaired (%d vs %d rounds) -- not comparable"
+                  % (tag, len(base), len(per_round[tag])))
+            continue
+        d = paired_deltas(base, per_round[tag])
+        verdict = "RESOLVED" if d["resolved"] else "under drift floor / inconsistent sign"
+        print("  %-14s per-round %s  mean %+.2f%%  range %+.2f..%+.2f%%  -> %s"
+              % (tag, d["per_round_pct"], d["mean_pct"], d["min_pct"],
+                 d["max_pct"], verdict))
+        rec = dict(kind="PAIRED", baseline=arms[0], arm=tag,
+                   baseline_rounds=base, candidate_rounds=per_round[tag])
+        rec.update(d)
+        with out.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(rec) + "\n")
+
+
+if __name__ == "__main__":
+    main()
+"""Run the coding corpus through OpenCode against the local server.
+
+**This measures the worker that ships.** `run_retry_bench.py` sends a 35-token
+developer message to `/v1/chat/completions` and grades the reply for a fenced
+code block. Nothing in production does that: the real worker is OpenCode with a
+tool loop, and it does not answer with a code fence -- it **writes a file**.
+
+So the two harnesses do not merely differ in prompt size. They grade different
+shapes of work, and the failure this project has chased for two days -- 58.3 %
+"output contract pass", the model looping in its reasoning and never emitting a
+fence -- is a property of a task shape that OpenCode never asks for.
+
+Each task gets a **fresh empty directory**, so the worker cannot see another
+task's answer and a leftover file cannot be graded as a pass. The prompt names
+the file to write and nothing else; the grade comes from executing that file
+against the same hidden assertions `run_retry_bench.py` uses, so the two are
+comparable on the only axis that matters.
+
+    python bench/opencode_corpus.py --label lean-iq2xxs --tasks 10
+
+Assumes a server already listening on 8080 and an OpenCode config directory
+prepared with a provider pointing at it. Neither is started here: this measures
+a harness, and starting the thing under test from inside the measurement is how
+you end up measuring the starter.
+"""
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from tasks import TASKS
+from run_bench import verify
+
+ROOT = Path(r"C:\AI\qwen38-tuning")
+OPENCODE = r"C:\Users\xenod\.bun\bin\opencode.exe"
+
+# The lean profile, measured 2026-08-21: 99,073 -> ~4,650 tokens of prefix.
+# Every one of these was found by reading the binary's own flag table; none is
+# documented anywhere we could find.
+LEAN_ENV = {
+    "OPENCODE_DISABLE_CLAUDE_CODE": "1",        # broad: prompt AND skills
+    "OPENCODE_DISABLE_EXTERNAL_SKILLS": "1",
+    "OPENCODE_DISABLE_DEFAULT_PLUGINS": "1",
+}
+
+
+def kill_server():
+    r"""OpenCode keeps a per-project server alive between invocations.
+
+    `run` attaches to whatever is already listening, and that server carries the
+    project root it was first started with -- so a second task launched from a
+    different directory has its files written into the FIRST task's project.
+    Observed 2026-08-21: every answer landed in C:\AI\qwen38-tuning while the
+    harness looked in the task directory and recorded "no file written" on work
+    the model had done correctly.
+
+    `opencode run` takes no project argument -- the positional is the message --
+    so the only way to change the root is to make it start a fresh server.
+    """
+    subprocess.run(["powershell", "-NoProfile", "-Command",
+                    "Get-Process opencode -ErrorAction SilentlyContinue | "
+                    "Stop-Process -Force"], capture_output=True)
+    time.sleep(2)
+
+
+def run_task(task, workdir, cfgdir, model, timeout_s):
+    """One task in a directory emptied first, one OpenCode invocation.
+
+    The directory is SHARED across tasks and emptied between them, rather than
+    one directory per task. That is forced by OpenCode, not chosen: its server
+    persists between invocations and carries the project root it first started
+    with, `run` has no project argument, and killing the server per task costs a
+    cold boot that pushed a 37 s task past 150 s. Emptying is what keeps a
+    previous task's answer from being graded as this one's.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    for f in workdir.iterdir():
+        if f.is_file():
+            f.unlink()
+        else:
+            shutil.rmtree(f, ignore_errors=True)
+
+    target = f"{task['id']}.py"
+    prompt = (
+        f"{task['prompt']}\n\n"
+        f"Write the code to a file named exactly `{target}` in the current "
+        f"directory. Do not create any other file. Do not write tests. "
+        f"When the file is written, stop and report only the filename."
+    )
+
+    env = dict(os.environ)
+    env.update(LEAN_ENV)
+    env["OPENCODE_CONFIG_DIR"] = str(cfgdir)
+
+    # Stream the transcript to disk as it happens rather than collecting it and
+    # writing at the end. The first version of this function used
+    # capture_output=True, and when the run was killed mid-hang there was
+    # nothing on disk at all -- the same "record only on the happy path" fault
+    # that cost this project a queue step at 02:35 today.
+    o_path, e_path = workdir / "_stdout.txt", workdir / "_stderr.txt"
+    t0 = time.time()
+    with o_path.open("w", encoding="utf-8", errors="replace") as of,          e_path.open("w", encoding="utf-8", errors="replace") as ef:
+        proc = subprocess.Popen([OPENCODE, "run", "-m", model, prompt],
+                                cwd=str(workdir), env=env, stdout=of, stderr=ef,
+                                text=True, encoding="utf-8", errors="replace")
+        try:
+            rc = proc.wait(timeout=timeout_s)
+            note = ""
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=30)
+            rc = None
+            note = f"timeout after {timeout_s}s"
+    wall = time.time() - t0
+    out = o_path.read_text(encoding="utf-8", errors="replace")
+    err = e_path.read_text(encoding="utf-8", errors="replace")
+
+    produced = sorted(f.name for f in workdir.iterdir()
+                      if f.is_file() and not f.name.startswith("_"))
+    code_path = workdir / target
+    row = dict(task=task["id"], difficulty=task["difficulty"], wall_s=round(wall, 1),
+               rc=rc, files=produced, note=note,
+               # The corpus contract was "one fenced block, nothing else".
+               # OpenCode's is "one file, nothing else". Same intent, and this
+               # is the column that says whether it was honoured.
+               wrote_target=code_path.exists(),
+               extra_files=[f for f in produced if f != target])
+
+    if not code_path.exists():
+        tail = " / ".join(l.strip() for l in out.strip().splitlines()[-4:])
+        row.update(accepted=False,
+                   error="target file not written" + (f" | said: {tail[:200]}" if tail else " | no output at all"))
+        return row
+
+    code = code_path.read_text(encoding="utf-8", errors="replace")
+    ok, err_lines = verify(code, task["test"], task["id"], "oc")
+    row.update(accepted=bool(ok), code_chars=len(code),
+               error=None if ok else " | ".join(err_lines)[:300])
+    return row
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--label", required=True)
+    ap.add_argument("--model", default="local/qwen38")
+    ap.add_argument("--cfgdir", default=r"C:\AI\ocworker\cfg-local")
+    ap.add_argument("--work", default=r"C:\AI\ocworker\corpus")
+    ap.add_argument("--tasks", type=int, default=len(TASKS))
+    ap.add_argument("--timeout", type=int, default=900)
+    ap.add_argument("--out", default="results/opencode-corpus.jsonl")
+    args = ap.parse_args()
+
+    out = ROOT / args.out
+    out.parent.mkdir(parents=True, exist_ok=True)
+    work = Path(args.work)
+    cfgdir = Path(args.cfgdir)
+    if not (cfgdir / "opencode.json").exists():
+        raise SystemExit(f"no opencode.json in {cfgdir}")
+
+    # Once, not per task: this is what fixes the project root for every task
+    # that follows, and it is the only lever `run` gives us over it.
+    kill_server()
+
+    rows = []
+    print(f"label={args.label}  model={args.model}  tasks={args.tasks}", flush=True)
+    for t in TASKS[:args.tasks]:
+        r = run_task(t, work, cfgdir, args.model, args.timeout)
+        r["label"] = args.label
+        rows.append(r)
+        with out.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(r) + "\n")
+        mark = "PASS" if r["accepted"] else "fail"
+        extra = f"  +{r['extra_files']}" if r["extra_files"] else ""
+        print("  %-16s %-7s %-5s %6.1fs%s  %s"
+              % (t["id"], t["difficulty"], mark, r["wall_s"], extra,
+                 (r.get("error") or "")[:70]), flush=True)
+
+    n = sum(1 for r in rows if r["accepted"])
+    wrote = sum(1 for r in rows if r["wrote_target"])
+    clean = sum(1 for r in rows if r["wrote_target"] and not r["extra_files"])
+    wall = sum(r["wall_s"] for r in rows)
+    summary = dict(kind="SUMMARY", label=args.label, model=args.model,
+                   tasks=len(rows), accepted=n,
+                   wrote_target=wrote, single_file=clean,
+                   wall_s=round(wall, 1),
+                   tasks_per_hour=round(3600.0 * n / wall, 1) if wall else None)
+    with out.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(summary) + "\n")
+    print("\n%s: accepted %d/%d  wrote target %d/%d  single file %d/%d  "
+          "%.0f s total  %s accepted tasks/hour"
+          % (args.label, n, len(rows), wrote, len(rows), clean, len(rows),
+             wall, summary["tasks_per_hour"]), flush=True)
+
+
+if __name__ == "__main__":
+    main()
+"""KV-type sweep at a fixed context depth.
+
+At 128K the binding constraint is not the artifact, it is the cache: IQ2_XXS
+holds 65/65 layers at 16K and only 47/18 at 128K, because 3,264 MiB of Q8_0 KV
+is allocated from the same VRAM pool the weights live in. Every megabyte the
+cache gives back becomes a layer that stops crossing PCIe on every token.
+
+llama.cpp b10472 accepts many cache types, but only FOUR have a fast kernel in
+this build -- f16, bf16, q8_0 and q4_0, all around 1,180 tok/s prompt processing,
+against 144-170 for q5_1, q5_0, q4_1 and iq4_nl (see kv_kernel_screen.py). Only
+the four are worth a deep run; a 128K arm on q5_1 spent 15 minutes reaching 22 %
+of its window and was abandoned. That leaves q4_0 as the one type that halves the
+cache again below the q8_0 this project settled on for depth. `--no-kv-offload` is the other lever: it moves the
+cache to host memory entirely, trading PCIe latency on attention for weight
+residency on everything else. Which of those trades wins is not predictable from
+first principles -- it is measured here.
+
+Arms are alternated and paired by round, per the 13.6 % restart-drift floor.
+Depth is filled to ~80 % of the window and the cold prefill is paid once per
+boot, with warm decode measured over the reused prefix -- the shape of a real
+agent turn.
+
+WARNING about quality: shrinking the KV cache is not free at depth. This project
+measured q8_0 as quality-neutral against F16 at 64K and 128K *on Q4*; nothing
+below q8_0 has ever been quality-checked here, on any artifact. A fast row in
+this table is a throughput result and nothing else.
+
+Usage:
+    python kv_sweep.py --ctx 131072 --rounds 2
+    python kv_sweep.py --ctx 131072 --arms q8_0,q4_0 --rounds 3
+"""
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+import depth_sweep as D
+from harness import median, paired_deltas
+
+ROOT = Path(r"C:\AI\qwen38-tuning")
+
+# label -> extra server flags
+DRAFT_2B = r"C:\Users\xenod\.cache\huggingface\hub\models--empero-ai--Qwen3.8-2B-Distill-GGUF\snapshots\f4f73582d0b149595450c719b9a7521a03894f9c\Qwen3.8-2B-Q4_K_M.gguf"
+
+DFLASH2_DRAFTER = r"C:\Users\xenod\.cache\huggingface\hub\models--z-lab--Qwen3.8-27B-DFlash2-GGUF\snapshots\57ab3265056d4024870b0621cfc2c127537020ed\Qwen3.8-27B-DFlash2-Q4_K_M.gguf"
+
+MTP_DRAFTER = r"C:\Users\xenod\.cache\huggingface\hub\models--unsloth--Qwen3.8-27B-GGUF\snapshots\27af057ecb382ddfea5d12837360a8980560e3ed\MTP\mtp-Qwen3.8-27B-Q4_0.gguf"
+
+ARMS = {
+    "f16":      [],                                     # llama.cpp default
+    "q8_0":     ["-ctk", "q8_0", "-ctv", "q8_0"],       # the settled depth choice
+    "q5_1":     ["-ctk", "q5_1", "-ctv", "q5_1"],
+    "q4_1":     ["-ctk", "q4_1", "-ctv", "q4_1"],
+    "q4_0":     ["-ctk", "q4_0", "-ctv", "q4_0"],
+    "iq4_nl":   ["-ctk", "iq4_nl", "-ctv", "iq4_nl"],
+    # Not a cache type: the whole cache moves to host memory. Included because at
+    # depth the cache is what evicts the weights, and this is the only flag that
+    # attacks that directly.
+    "q8_0-nokvoff": ["-ctk", "q8_0", "-ctv", "q8_0", "--no-kv-offload"],
+    "q4_0-nokvoff": ["-ctk", "q4_0", "-ctv", "q4_0", "--no-kv-offload"],
+    "f16-nokvoff":  ["--no-kv-offload"],
+    # Added 2026-08-20 after report 18. Two levers that free VRAM without
+    # touching the cache TYPE, so they compose with the q4_0 row above.
+    #   --ctx-checkpoints defaults to 32 per slot and is pure speculative VRAM
+    #   if the client never rewinds; an agent with append-only turns never does.
+    #   Asymmetric KV keeps K at q8_0 (positional precision) and drops V to q4_0.
+    # Both verified to parse on build 10472 before use.
+    "q4_0-ckpt8":   ["-ctk", "q4_0", "-ctv", "q4_0", "--ctx-checkpoints", "8"],
+    "k8v4":         ["-ctk", "q8_0", "-ctv", "q4_0"],
+    "k8v4-ckpt8":   ["-ctk", "q8_0", "-ctv", "q4_0", "--ctx-checkpoints", "8"],
+
+    # ---- Layer screen, added 2026-08-20 -----------------------------------
+    # One arm per untouched lever from report 16, all stacked on the q4_0 KV
+    # control so every row is comparable to it. Report 16 recorded a PREDICTION
+    # for each; the point of running them is that a written prediction can be
+    # proved wrong, and the developer asked for the ones predicted inert too.
+    # Every flag below was verified to parse on build 10472 before being added.
+
+    # L4 tensor placement. Attention stays on GPU, the tail blocks' FFN goes to
+    # host. On an arm that is ALREADY 65+0 this can only cost; it is here to
+    # measure the cost, so the same flag can be read as a gain on an arm that is
+    # one or two layers short of residency.
+    "ot-ffn-tail":  ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "-ot", r"blk\.(5[0-9]|6[0-4])\.ffn_.*=CPU"],
+    # Qwen3.8 is hybrid Gated-DeltaNet: seven ssm_* tensors per block that the
+    # usual attention/FFN split ignores entirely.
+    "ot-ssm-tail":  ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "-ot", r"blk\.(5[0-9]|6[0-4])\.ssm_.*=CPU"],
+    "sm-tensor":    ["-ctk", "q4_0", "-ctv", "q4_0", "-sm", "tensor"],
+
+    # L5 memory and loading
+    "loadmode-none": ["-ctk", "q4_0", "-ctv", "q4_0", "--load-mode", "none"],
+    "no-host":      ["-ctk", "q4_0", "-ctv", "q4_0", "--no-host"],
+
+    # L6 KV, depth-specific
+    "swa-full":     ["-ctk", "q4_0", "-ctv", "q4_0", "--swa-full"],
+    "no-kv-unified":["-ctk", "q4_0", "-ctv", "q4_0", "--no-kv-unified"],
+    "cache-reuse":  ["-ctk", "q4_0", "-ctv", "q4_0", "--cache-reuse", "256"],
+
+    # L7 context geometry
+    "ctx-shift":    ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--context-shift", "--keep", "2048"],
+
+    # L8 kernels. -fa has been left at the build default on every run this
+    # project has ever done, which is a validity problem before it is an
+    # optimization: nothing has checked that it resolves the same way per arm.
+    "fa-off":       ["-ctk", "q4_0", "-ctv", "q4_0", "-fa", "off"],
+    "no-repack":    ["-ctk", "q4_0", "-ctv", "q4_0", "--no-repack"],
+    "no-op-offload":["-ctk", "q4_0", "-ctv", "q4_0", "--no-op-offload"],
+
+    # L9 decoders that need no drafter file and no download
+    "ngram-simple": ["-ctk", "q4_0", "-ctv", "q4_0", "--spec-type", "ngram-simple"],
+    "ngram-mod":    ["-ctk", "q4_0", "-ctv", "q4_0", "--spec-type", "ngram-mod"],
+    "ngram-map-k":  ["-ctk", "q4_0", "-ctv", "q4_0", "--spec-type", "ngram-map-k"],
+    "ngram-map-k4v":["-ctk", "q4_0", "-ctv", "q4_0", "--spec-type", "ngram-map-k4v"],
+    "ngram-cache":  ["-ctk", "q4_0", "-ctv", "q4_0", "--spec-type", "ngram-cache"],
+
+    # L10 slots -- predicted inert at one stream, and each slot costs KV
+    "np2":          ["-ctk", "q4_0", "-ctv", "q4_0", "-np", "2"],
+
+    # L11 CPU. Logical processors 0-11 are the six P-cores on this i5-13500,
+    # measured via PercentProcessorPerformance (144-179 vs 99-139 for 12-19).
+    "pcore-mask":   ["-ctk", "q4_0", "-ctv", "q4_0", "--cpu-mask", "0x0FFF"],
+    "prio-high":    ["-ctk", "q4_0", "-ctv", "q4_0", "--prio", "2"],
+    "poll-0":       ["-ctk", "q4_0", "-ctv", "q4_0", "--poll", "0"],
+
+    # L12 sampling offloaded to the GPU (experimental in this build)
+    "backend-samp": ["-ctk", "q4_0", "-ctv", "q4_0", "--backend-sampling"],
+
+    # ---- L9, the standalone MTP drafter and where to put it ---------------
+    # V3 removed the built-in head from IQ2_XXS and smaller (verified from the
+    # tensor list: v3-q2kxl loads blk.64.attn_*, v3-iq2xxs and v3-iq1s do not),
+    # and ships a 1.28 GiB drafter separately. This project measured MTP at
+    # -8.8 % on a resident target -- but that was with the head ON THE GPU,
+    # where its VRAM moved the split from 61+4 to 55+10. These three arms are
+    # the same drafter in three places, which is the comparison that verdict
+    # was never given.
+    "mtp-gpu":      ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "draft-mtp", "--spec-draft-n-max", "2",
+                     "-md", MTP_DRAFTER],
+    "mtp-cpu":      ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "draft-mtp", "--spec-draft-n-max", "2",
+                     "-md", MTP_DRAFTER, "--spec-draft-device", "none"],
+    "mtp-otd-cpu":  ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "draft-mtp", "--spec-draft-n-max", "2",
+                     "-md", MTP_DRAFTER, "-otd", ".*=CPU"],
+
+    # ---- L9 continued: the decoders that were never even attempted ---------
+    # draft-simple needs a separate small model with a MATCHING tokenizer.
+    # Qwen3.8-2B-Distill is the only same-family sibling on the Hub; if the
+    # vocab does not match, llama-server refuses at load and that is the answer.
+    "draft-simple": ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "draft-simple", "--spec-draft-n-max", "4",
+                     "-md", DRAFT_2B],
+    "draft-simple-cpu": ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "draft-simple", "--spec-draft-n-max", "4",
+                     "-md", DRAFT_2B, "--spec-draft-device", "none"],
+    # DFlash 2. The vendor says this needs unmerged PR #27342, and the stock
+    # loader may reject the architecture -- ONE boot settles it instead of
+    # committing to a source build on an assumption.
+    "dflash2":      ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "draft-dflash", "--spec-draft-n-max", "7",
+                     "-md", DFLASH2_DRAFTER],
+
+    # ---- L9: the n-gram tuning knobs, all still at their defaults ----------
+    # ngram-simple scored 31 % acceptance at defaults with a cold table. The
+    # lookup and draft lengths are the two knobs that decide whether a match is
+    # found at all, and neither has ever been moved.
+    "ngram-simple-wide": ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "ngram-simple",
+                     "--spec-ngram-simple-size-n", "6",
+                     "--spec-ngram-simple-size-m", "24"],
+    "ngram-mod-short":   ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "ngram-mod",
+                     "--spec-ngram-mod-n-match", "12",
+                     "--spec-ngram-mod-n-min", "16",
+                     "--spec-ngram-mod-n-max", "32"],
+    "ngram-mapk4v-wide": ["-ctk", "q4_0", "-ctv", "q4_0",
+                     "--spec-type", "ngram-map-k4v",
+                     "--spec-ngram-map-k4v-size-n", "6",
+                     "--spec-ngram-map-k4v-size-m", "24"],
+
+    # ---- L4 graded: how LITTLE has to move to buy one layer back? ----------
+    # ot-ffn-tail moved the FFN of ten blocks and freed 1,234 MiB at a cost of
+    # 61 % decode -- far more VRAM than needed and far more speed than anyone
+    # would pay. AD-IQ1_M is ONE layer short of 65+0 at 131,072 and needs about
+    # 125 MiB. These slice the same lever finely enough to find the smallest cut
+    # that clears the bar.
+    "ot-ffn-1":     ["-ctk", "q4_0", "-ctv", "q4_0", "-ot", r"blk\.64\.ffn_.*=CPU"],
+    "ot-ffn-2":     ["-ctk", "q4_0", "-ctv", "q4_0", "-ot", r"blk\.6[34]\.ffn_.*=CPU"],
+    "ot-ffn-4":     ["-ctk", "q4_0", "-ctv", "q4_0", "-ot", r"blk\.6[1-4]\.ffn_.*=CPU"],
+    # ssm_* freed 168 MiB for only 19 % at ten blocks -- a better rate per MiB
+    # than FFN, and 168 already clears the 125 MiB gap on its own.
+    "ot-ssm-4":     ["-ctk", "q4_0", "-ctv", "q4_0", "-ot", r"blk\.6[1-4]\.ssm_.*=CPU"],
+    "ot-ssm-10":    ["-ctk", "q4_0", "-ctv", "q4_0", "-ot", r"blk\.(5[5-9]|6[0-4])\.ssm_.*=CPU"],
+
+    # Combined arms for the >128K push, added 2026-08-21. The goal is the
+    # deepest window this card holds AND the highest tok/s in it, and those two
+    # are the same question: a CPU layer at depth costs more than four times the
+    # decode rate (AD-IQ1_M, 65+1 at 131,072, 6.08 tok/s). So the ssm slice buys
+    # residency and the n-gram arm buys throughput inside it -- neither alone
+    # answers the goal.
+    #
+    # ssm, not ffn. The ffn slice moved 644 MiB and dropped prefill from 240.6
+    # to 8.56 tok/s; ssm moves ~168 MiB and report 20 measured no throughput
+    # cost. It also CHANGES THE GREEDY HASH -- CPU and GPU floats differ -- so
+    # these arms are compared on speed only, never certified output-identical.
+    # VRAM the goal actually needs, freed WITHOUT moving weights, added
+    # 2026-08-21. D1 showed that at 163,840 the artifact worth having sits at
+    # 62+3 and needs ~576 MiB to get back to 65+0 -- and that the -ot route to
+    # those MiB destroys speculative acceptance (100 % -> 4 %). So the question
+    # is what else can pay for them.
+    #
+    # --fit-target is a RESERVE, not an allocation: the harness has passed 768
+    # since the first sweep and nothing has ever tested whether that number is
+    # right. If 384 is enough headroom, half the shortfall is free.
+    #
+    # -b / -ub size the compute buffers. Smaller batches mean less scratch VRAM
+    # and slower prefill -- a trade the goal can price, unlike the -ot trade
+    # which turned out not to be a trade at all.
+    #
+    # All carry ngram-mod, because the arm being compared against is the one
+    # that would ship, and D1 proved that adding speculation afterwards can
+    # reverse a verdict reached without it.
+    "fit-384-ngram":  ["-ctk", "q4_0", "-ctv", "q4_0", "--fit-target", "384",
+                       "--spec-type", "ngram-mod",
+                       "--spec-ngram-mod-n-match", "12",
+                       "--spec-ngram-mod-n-min", "16",
+                       "--spec-ngram-mod-n-max", "32"],
+    "fit-192-ngram":  ["-ctk", "q4_0", "-ctv", "q4_0", "--fit-target", "192",
+                       "--spec-type", "ngram-mod",
+                       "--spec-ngram-mod-n-match", "12",
+                       "--spec-ngram-mod-n-min", "16",
+                       "--spec-ngram-mod-n-max", "32"],
+    "ub128-ngram":    ["-ctk", "q4_0", "-ctv", "q4_0", "-ub", "128",
+                       "--spec-type", "ngram-mod",
+                       "--spec-ngram-mod-n-match", "12",
+                       "--spec-ngram-mod-n-min", "16",
+                       "--spec-ngram-mod-n-max", "32"],
+    "b1024ub128-ngram": ["-ctk", "q4_0", "-ctv", "q4_0", "-b", "1024", "-ub", "128",
+                       "--spec-type", "ngram-mod",
+                       "--spec-ngram-mod-n-match", "12",
+                       "--spec-ngram-mod-n-min", "16",
+                       "--spec-ngram-mod-n-max", "32"],
+    "fit192-ub128-ngram": ["-ctk", "q4_0", "-ctv", "q4_0",
+                       "--fit-target", "192", "-ub", "128",
+                       "--spec-type", "ngram-mod",
+                       "--spec-ngram-mod-n-match", "12",
+                       "--spec-ngram-mod-n-min", "16",
+                       "--spec-ngram-mod-n-max", "32"],
+    "ot-ssm-4-ngram":  ["-ctk", "q4_0", "-ctv", "q4_0",
+                        "-ot", r"blk\.6[1-4]\.ssm_.*=CPU",
+                        "--spec-type", "ngram-mod",
+                        "--spec-ngram-mod-n-match", "12",
+                        "--spec-ngram-mod-n-min", "16",
+                        "--spec-ngram-mod-n-max", "32"],
+    "ot-ssm-10-ngram": ["-ctk", "q4_0", "-ctv", "q4_0",
+                        "-ot", r"blk\.(5[5-9]|6[0-4])\.ssm_.*=CPU",
+                        "--spec-type", "ngram-mod",
+                        "--spec-ngram-mod-n-match", "12",
+                        "--spec-ngram-mod-n-min", "16",
+                        "--spec-ngram-mod-n-max", "32"],
+}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ctx", type=int, default=131072)
+    ap.add_argument("--rounds", type=int, default=2)
+    ap.add_argument("--arms", default="q8_0,q5_1,q4_0,q8_0-nokvoff")
+    ap.add_argument("--quant", default="iq2xxs")
+    ap.add_argument("--out", default="kv-sweep.jsonl")
+    ap.add_argument("--filler", choices=("high","low"), default="high",
+                    help="repetition of the timed prompt. high = the historic "
+                         "filler (84.5 %% duplicate lines, the best case an "
+                         "n-gram drafter can get); low = varied blocks (73 %%)")
+    ap.add_argument("--n-predict", type=int, default=160,
+                    help="tokens per timed generation. 160 is the historic "
+                         "default; longer runs test whether speculative "
+                         "decoders were measured before they warmed up")
+    ap.add_argument("--fixed-text", action="store_true",
+                    help="pin temperature 0 and a fixed seed for the TIMED "
+                         "generations, so every round writes the same text. "
+                         "Required for content-dependent arms such as ngram-*; "
+                         "results are comparable only to other --fixed-text runs.")
+    args = ap.parse_args()
+
+    arms = [a.strip() for a in args.arms.split(",")]
+    for a in arms:
+        if a not in ARMS:
+            sys.exit("unknown arm %r; known: %s" % (a, ", ".join(ARMS)))
+
+    D.MODEL = D.QUANTS[args.quant]
+    D.USE_MTP = False          # a loss on a resident target; report 10 s1
+    D.FIXED_TEXT = args.fixed_text
+    D.N_PREDICT = args.n_predict
+    D.FILLER = args.filler
+    D.OUT = ROOT / "results" / args.out
+    print("model: %s   ctx: %d   speculation: OFF" % (D.MODEL, args.ctx), flush=True)
+
+    per_round = dict((a, []) for a in arms)
+
+    for rnd in range(1, args.rounds + 1):
+        order = arms if rnd % 2 else list(reversed(arms))
+        print("\n===== round %d : %s =====" % (rnd, " -> ".join(order)), flush=True)
+        for tag in order:
+            row = D.run(args.ctx, ARMS[tag], "KV %s" % tag,
+                        "%s-kv-%s-r%d-%d" % (args.quant, tag, rnd, args.ctx))
+            tg = row.get("tg_med")
+            if row.get("loaded") and tg:
+                per_round[tag].append(tg)
+
+    D.kill()
+    print("\n===== PAIRED RESULT (baseline = %s) =====" % arms[0])
+    base = per_round[arms[0]]
+    out = ROOT / "results" / args.out
+    for tag in arms[1:]:
+        if not base or len(per_round[tag]) != len(base):
+            print("  %-14s unpaired (%d vs %d rounds) -- not comparable"
+                  % (tag, len(base), len(per_round[tag])))
+            continue
+        d = paired_deltas(base, per_round[tag])
+        verdict = "RESOLVED" if d["resolved"] else "under drift floor / inconsistent sign"
+        print("  %-14s per-round %s  mean %+.2f%%  range %+.2f..%+.2f%%  -> %s"
+              % (tag, d["per_round_pct"], d["mean_pct"], d["min_pct"],
+                 d["max_pct"], verdict))
+        rec = dict(kind="PAIRED", ctx=args.ctx, quant=args.quant,
+                   baseline=arms[0], arm=tag, baseline_rounds=base,
+                   candidate_rounds=per_round[tag])
+        rec.update(d)
+        with out.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(rec) + "\n")
+
+
+if __name__ == "__main__":
+    main()

@@ -18,7 +18,7 @@ open. Everything else is the detail behind it.
 ---
 
 **Before quoting any number:** [`docs/reports/CORRECTIONS.md`](docs/reports/CORRECTIONS.md)
-lists ten claims this project published and later contradicted with its own
+lists twenty-four claims this project published and later contradicted with its own
 measurements.
 
 ---
@@ -29,13 +29,13 @@ measurements.
 C:\AI\
 ├── README.md                  ← you are here
 ├── docs\                      what we know          → docs/README.md
-│   ├── reports\               findings, numbered 00-24
-│   ├── tested\                the register — has X been tried, what happened
+│   ├── reports\               findings, numbered 00-32
+│   ├── results\               the register — has X been tried, what happened
 │   ├── plans\                 what we intend to run next
 │   └── researchs\             external material, NOT our measurements
 ├── scripts\                   tools for the docs map → scripts/README.md
 └── qwen38-tuning\             the machine           → qwen38-tuning/README.md
-    ├── bench\                 the harness (103 tests)
+    ├── bench\                 the harness (253 tests)
     ├── scripts\               launch profiles and unattended queues
     ├── results\               raw JSONL, one row per boot
     ├── logs\                  server and driver logs
@@ -51,13 +51,13 @@ first.** If you land somewhere and are unsure, read that folder's README.
 
 1. **Never compare raw decode across boots.** Free VRAM at boot moves
    9,326–10,732 MiB and `--fit` follows it; the same control config spans
-   32.4–42.5 tok/s across 25 boots. **Effects below 13.6 % are noise.** Pair
+   32.4–42.5 tok/s across 25 boots. **Effects below 13.6 % are noise** — **at ctx 16,384, where that floor was measured.** At 65,536 the same arm with byte-identical counters spans up to **48.9 %** across boots, so re-derive before using it at depth (`CORRECTIONS.md` §23). Pair
    within a round.
-2. **Two orchestrators cannot share port 8080.** `scripts/swap-model.sh` takes a
+2. **Two orchestrators cannot share port 8080.** `qwen38-tuning\scripts\swap-model.sh` takes a
    lock. An armed queue once killed a running corpus and the summary still
    printed a plausible number.
 3. **Run the test gate before trusting any measurement:**
-   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — 103 tests.
+   `cd qwen38-tuning\bench ; python -m pytest tests\ -q` — 253 tests.
 
 Twelve more in [`docs/reports/04-MEASUREMENT-METHODOLOGY.md`](docs/reports/04-MEASUREMENT-METHODOLOGY.md) §7,
 each of which produced a believable wrong number.

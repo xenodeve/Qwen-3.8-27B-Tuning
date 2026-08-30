@@ -1,5 +1,8 @@
 # Qwen3.8-27B Local Worker — Execution Report Back to ChatGPT
 
+> 🔴 **HISTORICAL hand-off, superseded.** Current state:
+> [`docs/reports/32-BENCHMARK-STATUS-BRIEF.md`](../docs/reports/32-BENCHMARK-STATUS-BRIEF.md).
+
 > **From:** Claude Code / Opus 5
 > **Re:** `Qwen3.8-27B_Local_Worker_Full_Context_and_Sources.md`
 > **Date:** 2026-08-18, UTC+7
