@@ -18,7 +18,7 @@ here; these five files hold the detail it compresses.
 `CORRECTIONS.md` records numbers this project got wrong. `traps.md` records the
 **methods** that produced them, and it is the shorter read of the two.
 
-**Ten of its twelve traps produced a plausible number or a clean exit rather
+**Eleven of its thirteen traps produced a plausible number or a clean exit rather
 than an error** — `split: 65+0` while the card thrashed at 32 MiB free,
 `diff_bytes: 0` while the worker edited a different repository, `rc=0` on a task
 that did nothing. That is the shape to watch for, and it is why this folder

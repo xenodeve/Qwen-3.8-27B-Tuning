@@ -15,7 +15,7 @@ Six folders, and the difference between them matters. Beyond the four below,
 ---
 
 **Before quoting any number from `reports/`, read**
-[`reports/CORRECTIONS.md`](reports/CORRECTIONS.md) — twenty-four claims this project
+[`reports/CORRECTIONS.md`](reports/CORRECTIONS.md) — twenty-seven claims this project
 published and later contradicted. `python scripts\audit-stale-claims.py` finds
 every line in the tree that still matches one.
 

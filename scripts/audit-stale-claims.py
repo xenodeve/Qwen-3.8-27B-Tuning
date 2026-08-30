@@ -19,6 +19,14 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Extensions scanned. `.md` alone was the original scope and it left the four
+# `worker-*.ps1` profiles -- the things that actually run -- outside the audit
+# entirely, which is where the RTX 3090 scan found a false claim about
+# `--fit-target` on 2026-08-22. A stale claim in a served profile is worse than
+# one in a report: a report is read by someone deciding, a profile header is read
+# by someone about to launch.
+SCANNED_SUFFIXES = (".md", ".ps1", ".sh")
+
 SKIP_DIRS = (".git", "node_modules", "__pycache__", ".cache", ".venv", "researchs")
 
 RULES = [
@@ -66,8 +74,8 @@ RULES = [
      "plan 04 P0, step W"),
 
     ("test-count",
-     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246)\s+tests?\b",
-     "the suite is 253 tests -- but a DATED report quoting its own count is a "
+     r"\b(?:60|81|89|92|98|103|108|111|136|212|233|246|253|262|269|278)\s+tests?\b",
+     "the suite is 287 tests -- but a DATED report quoting its own count is a "
      "historical record and correct as written; only operational docs must be current",
      "bench/README.md, CLAUDE.md"),
 
@@ -138,6 +146,41 @@ RULES = [
      "between them validated nothing",
      "CORRECTIONS.md 21"),
 
+    ("fit-follows-boot-vram",
+     r"9,?326\s*[-–]\s*10,?7?3?2|`?--fit`? follows it|and `?--fit`? follows|"
+     r"free VRAM at boot moves",
+     "the range is right and the mechanism is not. 9,326-10,732 MiB is "
+     "nvidia-smi's view of the CARD; llama.cpp has reported 11,069 MiB free to "
+     "the process in all 552 logs this project has kept, and --fit reasons from "
+     "that one. 148 of 150 boots on our artifact say 'no changes needed'; the "
+     "2 that acted are n-7-clamp at 65,536. Pinning -ngl and --fit off changes "
+     "nothing measurable, verified 2026-08-23. The no-cross-boot rule stands; "
+     "its stated cause does not",
+     "CORRECTIONS.md 27"),
+
+    ("decode-collapse-98304",
+     r"2\.8\s*[-–]\s*5\.0 tok/s|decode collapses|13 of 16 measurements|"
+     r"13/16 timeouts|the window we serve is the one that does not work|"
+     r"neither residency nor speculation explains",
+     "the collapse belongs to the DFlash2 arms, not the window. Every row of "
+     "sweep-ngram-nmatch-98304 loaded the drafter, so depth and drafter were "
+     "never separated. Measured 2026-08-23 over six paired rounds: ngram-mod "
+     "alone -- what all four worker profiles serve -- returns 96.92 tok/s "
+     "median at ctx 98,304 with 6/6 rounds finishing, against 5.66 median and "
+     "2 timeouts for dflash2+ngram. Free VRAM 769-2,117 MiB without the "
+     "drafter vs 45-376 with it, no overlap",
+     "CORRECTIONS.md 26"),
+
+    ("chars-per-token-7",
+     r"7\.0\s*[-–]\s*7\.4|~?7 chars/token|chars per token is [^\n]{0,12}7|"
+     r"assumed 3 chars/token; real is ~7|it is 7\.0",
+     "chars/token is ~3.4, not 7. dflash2_arena.py:478 asks for "
+     "filler(int(ctx * 0.5)) -- half the window by design -- so ctx 98,304 "
+     "sends 147,456 chars, not 294,912. The published 6.83 dropped the 0.5. "
+     "The token counts and the '~40 % of N' conclusion are unaffected; the "
+     "explanation and the accusation against filler() are not",
+     "CORRECTIONS.md 25"),
+
     ("real-task-zero-diff",
      r"changed no files|0 PASS, 5 FAIL|the worker changed nothing|"
      r"no mechanism is attached|diff_bytes.{0,12}0,",
@@ -187,7 +230,7 @@ def main():
     for base, dirs, names in os.walk(ROOT):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for name in sorted(names):
-            if not name.endswith(".md"):
+            if not name.endswith(SCANNED_SUFFIXES):
                 continue
             path = os.path.join(base, name)
             rel = os.path.relpath(path, ROOT)

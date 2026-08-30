@@ -32,6 +32,23 @@ paging collapse out of reach entirely. Report 25.
 BEFORE POINTING A HARNESS HERE, MEASURE ITS REQUEST. scripts/bench-cold-start.py
 reports the largest prefill the server actually saw, per run. A window chosen
 from any other number is a guess, and this header is what one looks like.
+DO NOT SET -cram 0. Measured 2026-08-23, results/prompt-cache-swap.jsonl.
+
+  --cache-ram defaults to 8192 MiB and stores the WHOLE sequence state --
+  attention KV and recurrent together -- for a slot that goes idle
+  (server-context.cpp:261-274). It is what makes an agent switching between
+  tasks cheap, and no profile here had ever named it.
+
+  Two disjoint 44K conversations, A-B-A-B-A, one boot per arm:
+
+      -cram 8192   returning to A costs    118.2 ms at 100 % reuse
+      -cram 0      returning to A costs 40,596.0 ms at   0 % reuse
+
+  The cold turns agree to 0.35 %, so the arms are comparable. 343x.
+
+  It costs 898-928 MiB of HOST RAM per cached conversation, so roughly six fit
+  at this depth. Restore is a move, not a copy, and load() refuses any entry
+  whose common prefix is under 25 % of its length.
 #>
 param([int]$Ctx = 32768, [int]$Port = 8080)
 $ErrorActionPreference = 'Continue'

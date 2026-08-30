@@ -171,10 +171,23 @@ residency ladder. Tested at 8 and at the default.
 |---|---|---|
 | `-b 2048 -ub 256` | the standing default | — |
 | `-ub 128` | 2026-08-21 | `63+2` at 163,840 — frees some, not enough alone |
+| **`-ub` 256 / 128 / 64 at ctx 98,304** | **2026-08-23, priced** | compute buffer **472.27 → 428.27 → 406.27 MiB**; decode **−3.7 % (inconsistent) / −14.0 % RESOLVED**. See below |
 | `-b 1024 -ub 128` | queued (V2) | — |
 
 Smaller buffers trade prefill for VRAM. Unlike `-ot`, that is a trade whose price
 is visible in the `pp` column.
+
+**Now the price is measured, and it is bad.** A 4× cut in `-ub` returns
+**66 MiB** of compute buffer and costs **14.0 % of decode [−14.8, −13.7],
+RESOLVED** over three paired rounds against `ngram-mod` — the decoder every
+worker profile serves. `results/ubatch-98304.jsonl`,
+[`05-runtime-flags.md`](05-runtime-flags.md) for the full table and the
+disqualified `ub-128` round.
+
+**66 MiB is also not enough for the thing it was wanted for.** The arms that run
+out of VRAM are the ones loading DFlash2, which finish with 45–376 MiB free and
+are unreliable there ([`CORRECTIONS.md` §26](../reports/CORRECTIONS.md)); this
+moves them to 111–442, the same band.
 
 ## `-np` (parallel slots)
 

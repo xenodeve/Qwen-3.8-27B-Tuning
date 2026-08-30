@@ -63,6 +63,29 @@ Only `bench/tap.py` sees this, and it matters more than expected:
 - **`ttfb_s`** — time to first byte, which separates "the model is thinking"
   from "the harness is slow".
 
+### Two request fields the server already accepts and nothing here has ever set
+
+Read from source 2026-08-23, from the RTX 3090 scan's list of flags we have and
+have never used. Both are plain booleans on `/completion` — **no patch, no
+rebuild, no flag on the server command line.**
+
+| field | what it changes | source |
+|---|---|---|
+| **`"timings_per_token": true`** | the full `timings` object is attached to **every stream chunk**, not only the final response | `server-context.cpp:2016-2017`, `server-schema.cpp:20` |
+| **`"return_tokens": true`** | the response carries the generated **token ids**, not just text | `server-context.cpp:1774`, `server-schema.cpp:34` |
+
+**Why they matter for the recorder** (issues #30-#36). §6 below records that
+per-*period* attribution is unobservable because the speculation counters carry
+no timestamps and are only reprinted per request. `timings_per_token` does not
+add the counters, but it does give **one timestamped sample per token**, which
+is the finest clock the server offers and the natural spine for a phase-pure
+time unit. `return_tokens` replaces the greedy-hash comparison with an
+elementwise one: two arms can be compared token by token instead of by a single
+digest that says only same-or-different.
+
+**Neither has been measured**, including what `timings_per_token` costs the run
+it is recording — which is exactly the question #36 exists to ask.
+
 ---
 
 ## 3. Cumulative — `--metrics`

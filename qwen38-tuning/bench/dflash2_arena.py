@@ -176,6 +176,95 @@ ARM_SETS = {
         ("combo-n7-m24-both", _pair(_ngram(16, n_match=24), n_draft=7)),
     ],
 
+    # `-ub` / `--ubatch-size` -- one of the 48 flags from the RTX 3090 scan that
+    # exist here and have never been set. The scan's claim, unverified when
+    # written: n_ubatch is the single knob that sizes the worst-case compute
+    # buffer, because the reserve pass builds the prompt-processing graph at
+    # n_tokens = min(n_ctx, n_ubatch).
+    #
+    # THE VRAM HALF IS ALREADY ANSWERED, AND THE ANSWER IS "TOO SMALL".
+    # `ubatch_preflight.py`, 2026-08-23, one boot per value at ctx 98,304:
+    #
+    #   -ub 256 -> n_ubatch 256, compute buffer 472.27 MiB, 825 MiB free
+    #   -ub 128 -> n_ubatch 128, compute buffer 428.27 MiB, 869 MiB free
+    #   -ub  64 -> n_ubatch  64, compute buffer 406.27 MiB, 891 MiB free
+    #
+    # A 4x cut in ubatch returns **66 MiB**. The arms that need it -- the ones
+    # loading DFlash2 -- finish with 45-376 MiB free and are unreliable there
+    # (CORRECTIONS.md 26); 66 MiB moves them to 111-442, the same band. So this
+    # set does NOT use the drafter: pairing it with dflash would spend hours on
+    # timeouts to re-answer a question the preflight closed.
+    #
+    # WHAT IS LEFT TO MEASURE is the other direction. A smaller ubatch means
+    # more, smaller prompt-processing steps, and nothing here has ever measured
+    # what that costs. The baseline is `ngram-mod`, which is what all four
+    # worker profiles serve and which lands within 4 % over six boots -- a
+    # stable enough floor that a real -ub effect cannot hide in it.
+    #
+    # THE ARGV CARRIES -ub TWICE. server_argv() hardcodes 256 and appends the
+    # arm's extra after it, so these arms rely on llama.cpp keeping the LAST
+    # occurrence. tests/test_ubatch_arm_set.py pins the ordering; the preflight
+    # above proved the parser honours it, reading `n_ubatch` back out of the
+    # boot log. Without that check a set that silently ran three arms at 256
+    # would report a flat result -- which is how --spec-ngram-mod-n-min wasted
+    # twelve boots.
+    "ubatch": [
+        ("ub-256-base", ["--spec-type", "ngram-mod"] + NGRAM + ["-ub", "256"]),
+        ("ub-128",      ["--spec-type", "ngram-mod"] + NGRAM + ["-ub", "128"]),
+        ("ub-64",       ["--spec-type", "ngram-mod"] + NGRAM + ["-ub", "64"]),
+    ],
+
+    # Pinned allocation -- the RTX 3090 scan's *"highest value on this list for
+    # measurement integrity"*, and it is aimed at a constraint this project
+    # imposes on itself rather than at tok/s.
+    #
+    # `CLAUDE.md` forbids comparing raw decode across boots because free VRAM at
+    # boot moves 9,326-10,732 MiB and `--fit` follows it. `common/fit.cpp` only
+    # adjusts arguments the user did NOT set, so giving `-ngl` a number and
+    # turning `--fit` off leaves it nothing to do. If that lowers the
+    # boot-to-boot spread, the standing constraint becomes negotiable.
+    #
+    # THE EVIDENCE THAT MADE THIS WORTH A SWEEP, 2026-08-23. Three `-ub 128`
+    # boots logged byte-identical allocation -- same n_ubatch, same 428.27 MiB
+    # compute buffer, same `projected to use 8827 MiB vs 10919`, same
+    # `will leave 2091 >= 768` -- and `free_after`, sampled while the server
+    # ran, read 759, 757 and **1,214 MiB**. The round with 457 MiB more spare
+    # ran 6 % faster. Nothing in the experiment caused that.
+    #
+    # NEVER SWEPT, AND IT SHOULD NOT BE. The preflight closed the question more
+    # cheaply than ten boots could: `pinned` and `fit-auto-base` agree on every
+    # observable at ctx 98,304 -- 65+0, n_ctx 98304, model 6,521.13 MiB, KV
+    # 1,728.00, compute 472.27, free_after 1,427 -- because `--fit` had nothing
+    # to pin. Reading every log this project has kept says why: llama.cpp has
+    # reported **11,069 MiB free in all 552 of them**, and 148 of the 150 boots
+    # on our own artifact end in "no changes needed". `--fit` cannot follow a
+    # number it never sees change. CORRECTIONS.md 27, which retracts the stated
+    # cause of the no-cross-boot rule while leaving the rule itself standing.
+    #
+    # KEPT ANYWAY, for two reasons. The arms are the control if the boot picture
+    # ever changes -- another machine, another artifact, a depth where `--fit`
+    # does act, as it did twice for `n-7-clamp` at 65,536. And the test beside
+    # them pins the double-flag override that any future arm set will need.
+    #
+    # READ THE SPREAD, NOT THE MEDIAN if it is ever run. `paired_deltas` answers
+    # "which arm is faster", which is not the question. The question is whether
+    # `pinned` varies less across rounds, so the useful columns are the per-arm
+    # range and `free_after`.
+    #
+    # THE BASELINE PASSES NO OVERRIDE ON PURPOSE. server_argv() already
+    # hardcodes `-ngl auto --fit on`, which is the configuration every
+    # measurement in this project has used; restating it in the arm would let
+    # the baseline drift away from the prefix without the test noticing.
+    # tests/test_pinned_alloc_arm_set.py pins both halves, and
+    # `pinned_alloc_preflight.py` proves the pinned form boots before any sweep
+    # spends ten of them -- pinning removes llama.cpp's ability to back off, so
+    # anything `--fit` was quietly reducing becomes an OOM instead.
+    "pinned-alloc": [
+        ("fit-auto-base", ["--spec-type", "ngram-mod"] + NGRAM),
+        ("pinned",        ["--spec-type", "ngram-mod"] + NGRAM
+                          + ["-ngl", "65", "--fit", "off"]),
+    ],
+
     # `--spec-draft-p-min` -- MEASURED, NULL at these values. Kept so nobody
     # re-runs it, and because the counters carry a lesson the rate does not.
     #
@@ -426,16 +515,29 @@ def stop_server():
     wait_for_vram_release(floor_mib=resident_free + VRAM_MIN_RISE_MIB)
 
 
-def start(ctx, extra, tag, boot_s=240):
-    stop_server()
-    free_before = vram()[1]
-    log = ROOT / "logs" / ("dflash2-" + tag + ".log")
-    args = [EXE, "-m", TARGET, "--alias", "qwen38", "-c", str(ctx),
+def server_argv(ctx, extra):
+    """The exact command line `start()` launches, without launching it.
+
+    Extracted so a test can assert on what reaches llama-server rather than on
+    what an arm set intended. The two differ whenever an arm overrides a flag
+    this function hardcodes: `extra` is appended, so the argv carries the flag
+    twice and only llama.cpp's last-wins parsing (`common/arg.cpp`, plain
+    setters) decides which value is used. An arm set that got that backwards
+    would run every arm at the hardcoded value and report a flat sweep.
+    """
+    return [EXE, "-m", TARGET, "--alias", "qwen38", "-c", str(ctx),
             "-ngl", "auto", "--fit", "on", "--fit-target", "768", "-fa", "on",
             "-np", "1", "-t", "18", "-b", "2048", "-ub", "256",
             "-ctk", "q4_0", "-ctv", "q4_0",
             "--no-mmproj-auto", "-lv", "5",
-            "--host", "127.0.0.1", "--port", "8080"] + extra
+            "--host", "127.0.0.1", "--port", "8080"] + list(extra)
+
+
+def start(ctx, extra, tag, boot_s=240):
+    stop_server()
+    free_before = vram()[1]
+    log = ROOT / "logs" / ("dflash2-" + tag + ".log")
+    args = server_argv(ctx, extra)
     fh = log.open("w", encoding="utf-8", errors="replace")
     p = subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT)
     for _ in range(boot_s // 3):

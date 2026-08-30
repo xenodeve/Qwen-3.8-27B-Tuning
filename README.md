@@ -1,6 +1,12 @@
 # C:\AI — Local Coding Worker
 
-A Qwen3.8-27B coding agent running on one RTX 4070 SUPER (12 GB).
+A Qwen3.8-27B coding agent running on one **RTX 5060 Ti (16 GB)**.
+
+> **The card changed on 2026-08-23.** It was an RTX 4070 SUPER 12 GB, and
+> **every measurement in this repo predating that date was taken on the old
+> card.** What transfers and what does not:
+> [`docs/results/09-hardware.md`](docs/results/09-hardware.md).
+
 Claude Code → Xeno → OpenClink → OpenCode → `llama-server`.
 
 **Metric:** verified accepted coding tasks per hour — a task counts only if the
@@ -18,7 +24,7 @@ open. Everything else is the detail behind it.
 ---
 
 **Before quoting any number:** [`docs/reports/CORRECTIONS.md`](docs/reports/CORRECTIONS.md)
-lists twenty-four claims this project published and later contradicted with its own
+lists twenty-seven claims this project published and later contradicted with its own
 measurements.
 
 ---
@@ -49,9 +55,12 @@ first.** If you land somewhere and are unsure, read that folder's README.
 
 ## The three rules that matter most
 
-1. **Never compare raw decode across boots.** Free VRAM at boot moves
-   9,326–10,732 MiB and `--fit` follows it; the same control config spans
-   32.4–42.5 tok/s across 25 boots. **Effects below 13.6 % are noise** — **at ctx 16,384, where that floor was measured.** At 65,536 the same arm with byte-identical counters spans up to **48.9 %** across boots, so re-derive before using it at depth (`CORRECTIONS.md` §23). Pair
+1. **Never compare raw decode across boots.** The same control config spans
+   **32.4–42.5 tok/s across 25 boots**, and the **cause is unknown** — the old
+   explanation that `--fit` follows the boot VRAM is retracted, because
+   llama.cpp has reported 11,069 MiB free in all 552 logs and 148 of 150 boots
+   say *"no changes needed"* (`docs/reports/CORRECTIONS.md` §27).
+   **Effects below 13.6 % are noise** — **at ctx 16,384, where that floor was measured.** At 65,536 the same arm with byte-identical counters spans up to **48.9 %** across boots, so re-derive before using it at depth (`CORRECTIONS.md` §23). Pair
    within a round.
 2. **Two orchestrators cannot share port 8080.** `qwen38-tuning\scripts\swap-model.sh` takes a
    lock. An armed queue once killed a running corpus and the summary still

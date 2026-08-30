@@ -369,6 +369,60 @@ measured `draft-dflash,ngram-mod` **+48.5 %** ran *ngram-mod first, dflash as
 fallback*. Since dflash alone beat ngram alone by **+34.7 %**, "dflash first" is
 an obvious unmeasured configuration reachable only by reordering ten lines.
 
+## The decoders at the window we actually serve - tested 2026-08-23
+
+**The first measurement of any decoder at ctx 98,304 without a drafter loaded.**
+Every prior row at this depth ran `--spec-type draft-dflash,ngram-mod`, so
+"depth" and "drafter" had never varied independently -
+[`CORRECTIONS.md` 26](../reports/CORRECTIONS.md).
+
+`results/decoders-98304.jsonl`, 24 rows, six paired rounds, arms rotated each
+round, deep corpus sha `1a3ae4b813dd8447`.
+
+| arm | ok | timed out | tg samples | median | free MiB after load |
+|---|---:|---:|---|---:|---|
+| `none` | 6/6 | 0 | 33.53 / 33.55 / 33.58 / 33.80 / 34.15 / 34.76 | **33.69** | 800-1,935 |
+| **`ngram-mod`** | **6/6** | **0** | 96.14 / 96.40 / 96.80 / 97.04 / 98.85 / 98.88 | **96.92** | 769-2,117 |
+| `dflash2` | 5/6 | 1 | 0.64 / 47.31 / 49.31 / 52.82 / 53.62 | 49.31 | **45-376** |
+| `dflash2+ngram` | 4/6 | 2 | 1.46 / 4.53 / 6.78 / 93.29 | **5.66** | **153-240** |
+
+**`ngram-mod` at 98,304 is faster than the 75.2 median recorded at 16,384**, and
+`ngram-mod` is the decoder all four `worker-*.ps1` already run. Speculation is
+worth **+188 %** over none at this depth.
+
+> **Read the artifact before transferring this.** These rows are
+> **`UD-IQ2_XXS` at ctx 98,304**, and **no worker profile serves that
+> pairing** -- `worker-iq2xxs-deep` runs that artifact at 131,072, and
+> `worker-iq2s-quality` runs 98,304 on `UD-IQ2_S`, which is 1.1 GB larger.
+> What transfers directly is the decoder verdict. What does **not** transfer
+> without measurement is the rate.
+
+**The free-VRAM columns do not overlap, and that is the finding.** Arms without
+the drafter sit at 769-2,117 MiB, finish 12 times out of 12 and spread 3-4 %.
+Arms with it sit at 45-376 MiB every single time, time out 3 times in 12, and
+spread **146x** on identical flags - 0.64 to 93.29 tok/s.
+
+**The mechanism, as far as it is established.** With a model-based drafter
+`n_rs_seq` is 4, so the server writes `created speculative checkpoint ... size =
+149.626 MiB` - one full recurrent-state plane - every few generated tokens. With
+`ngram-mod` alone `n_rs_seq` is 0 and no such checkpoint exists. In the slow
+rounds the gap between checkpoints reaches **30.41 s** against a median 2.35 s
+in the fast ones, which is a stall rather than uniform slowness. Sampled live
+during a slow arm: `free 196 MiB, util_gpu 100 %, util_memory 3 %, 2820 MHz,
+70.18 W` - matching `gpu-trace-98304.jsonl`'s medians in every column.
+
+**Not established:** why some drafter rounds escape. 93.29 tok/s at 240 MiB free
+against 1.46 at 153. There is no clean threshold, only a band in which the
+outcome is unreliable.
+
+> **This reverses the ctx 16,384 verdict completely.** There
+> `draft-dflash,ngram-mod` is **+48.5 % RESOLVED**; here it is **-94 %** with a
+> one-in-four chance of not finishing. Nothing was shipped on the strength of
+> either - all four profiles still run `ngram-mod` alone, which this makes the
+> right choice at the served window rather than a cautious one.
+
+*Raw: `results/decoders-98304.jsonl`. Report 33, `CORRECTIONS.md` 26.*
+
 ## The decoder verdicts re-measured — tested 2026-08-21
 
 Two doubts stood against the eliminations. Both are now closed, and neither

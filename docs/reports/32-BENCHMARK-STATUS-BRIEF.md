@@ -37,10 +37,14 @@ number in §3 is tok/s and is therefore a proxy, not the metric.
 > context high-water figures survive, because they came from the process and the
 > server rather than from the diff.**
 >
-> **A second explanation is still live and independent of this one:** decode
-> collapses to **2.8–5.0 tok/s at ctx 98,304** (§3, added below), where a real
-> task would take hours. **Fixing the directory does not fix that**, and the next
-> real-task run must not change both at once.
+> **~~A second explanation is still live and independent of this one: decode
+> collapses to 2.8–5.0 tok/s at ctx 98,304~~ — RETRACTED
+> [CORRECTIONS §26](CORRECTIONS.md), 2026-08-23.** That collapse belongs to the
+> DFlash2 arms, not to the window. The profile the worker actually runs
+> (`ngram-mod` alone) returns **96.92 tok/s median at ctx 98,304, 6/6 rounds
+> finishing** — faster than the 75.2 recorded at 16,384. **So the directory
+> fault is now the only established explanation for the five zero-diff rows**,
+> and the next real-task run has one variable, not two.
 
 
 Five real GitHub issues were handed to a local coding agent backed by this
@@ -99,12 +103,30 @@ parsed from `qwen38-tuning/logs/dflash2-*.log`:
 (`offloaded 65/65 layers to GPU`). A 43,162-token prefill therefore takes about
 **9.7 minutes**. Real tasks reached 56,861–88,668 tokens of context.
 
-**Decode collapses with it, and that was not known when this brief was first
-written.** `results/sweep-ngram-nmatch-98304.jsonl`: **13 of 16 rows timed out**
-against a 26.8-minute budget, and the three that finished decoded at **2.8, 5.0
-and 4.2 tok/s** — against a median of **75.2** at ctx 16,384 and **52.1** at
-65,536, from 42 and 12 usable rows. Every arm was `65+0` with acceptance still
-59–77 %, so neither residency nor speculation explains it.
+**~~Decode collapses with it~~ — RETRACTED
+[CORRECTIONS §26](CORRECTIONS.md), 2026-08-23.**
+`results/sweep-ngram-nmatch-98304.jsonl` did show **13 of 16 rows timing out**
+against a 26.8-minute budget with the three survivors at **2.8, 5.0 and
+4.2 tok/s**. Those numbers are real. **What was wrong is attributing them to the
+window: all sixteen rows ran `--spec-type draft-dflash,ngram-mod`**, so depth
+and drafter never varied independently. Six paired rounds, same ctx, same
+corpus, arms alternated (`results/decoders-98304.jsonl`, 24 rows):
+
+| arm | ok | timed out | median tok/s | free MiB after load |
+|---|---:|---:|---:|---|
+| `none` | 6/6 | 0 | 33.69 | 800–1,935 |
+| **`ngram-mod` — the decoder every `worker-*.ps1` runs** | **6/6** | **0** | **96.92** | 769–2,117 |
+| `dflash2` | 5/6 | 1 | 49.31 | **45–376** |
+| `dflash2+ngram` | 4/6 | 2 | 5.66 | **153–240** |
+
+**The window is fine and always was** — 96.92 is above the 75.2 median at
+16,384. **Read the artifact with it:** these rows are `UD-IQ2_XXS` at ctx
+98,304, which **no profile serves** — `worker-iq2xxs-deep` runs that artifact
+at 131,072, `worker-iq2s-quality` runs 98,304 on the 1.1 GB larger
+`UD-IQ2_S`. The decoder verdict transfers; the absolute rate does not. The clause *"neither residency nor speculation
+explains it"* was exactly backwards: speculation explains it, and the sweep held
+it fixed. The prefill table above carries the same caveat, since its 74.3 was
+measured with the drafter loaded too.
 
 **A real task needs a median 259 added lines. At 4 tok/s that is hours.** That
 is **one of two independent reasons** the five real tasks produced nothing
@@ -203,8 +225,16 @@ and 74 tok/s is 15× below the shallow figure.
 
 ## 4. Corpus and instrument limits discovered
 
-**Chars per token is ~7.0–7.4, not 3.** `dflash2_arena.filler()` assumed 3, so
-every run labelled "ctx N" fed a prompt of about **40 % of N**:
+> 🔴 **The headline of this section was wrong and is retracted** —
+> [`CORRECTIONS.md` §25](CORRECTIONS.md), 2026-08-23. The table below is
+> correct; the sentence that used to introduce it was not. chars/token is
+> **~3.4**, measured against the server's own token counts, and the reason a
+> run fed ~40 % of its label is `dflash2_arena.py:478` —
+> `filler(int(ctx * 0.5), regime)`, which asks for half the window **by
+> design**. The "7.0–7.4" was `ctx × 3 ÷ tokens` with the 0.5 dropped.
+> `filler()`'s assumption of 3 is about 12 % low, not 2.3× wrong.
+
+**Every run labelled "ctx N" fed a prompt of about 40 % of N:**
 
 | labelled | actual prompt |
 |---:|---:|
@@ -326,7 +356,7 @@ No absolute-time flag exists. Server log aligns to wall clock at **±21 ms** via
 
 | fault | consequence |
 |---|---|
-| `filler()` assumed 3 chars/token; real is ~7 | every "ctx N" run fed ~40 % of N. **Labels wrong, allocations right.** |
+| ~~`filler()` assumed 3 chars/token; real is ~7~~ **RETRACTED, [CORRECTIONS §25](CORRECTIONS.md)** | every "ctx N" run fed ~40 % of N — **that part holds**, but because `dflash2_arena.py:478` asks for `int(ctx * 0.5)` by design. chars/token is **~3.4**, so `filler()` was never the fault and this was never an instrument fault. |
 | `filler()` silently truncated when the corpus was short | a run at 65,536 would have reported a plausible rate for a window it never filled. **Now raises.** |
 | `harness.parse_spec_impl_stats` overwrites on each match | kept only the last cumulative block; **every per-request breakdown was already in the logs and discarded** |
 | `dflash2_arena.py:439` uses `log.open("w")` | NTFS keeps the **original** creation time; **33 of 112 log files** have ctime 1,300+ s before last write. Anchoring on ctime misplaces a run by up to 21 minutes, silently |

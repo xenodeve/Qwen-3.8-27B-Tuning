@@ -3,7 +3,10 @@
 <!-- lang:en -->
 
 This repo is a **measurement project**, not a product. It exists to find the
-fastest usable configuration for Qwen3.8-27B on one RTX 4070 SUPER 12 GB, and
+fastest usable configuration for Qwen3.8-27B on one **RTX 5060 Ti 16 GB**
+(Blackwell, from 2026-08-23 -- it replaced an RTX 4070 SUPER 12 GB, and
+**every number recorded before that date belongs to the old card**:
+`docs/results/09-hardware.md`), and
 to record what was measured well enough that a later reader can tell a result
 from a guess.
 
@@ -16,11 +19,11 @@ session can recover state without re-deriving it.
 
 1. **`docs/OPEN-WORK-LEDGER.md`** — what is open, including MD-only items that
    no issue tracks. The 🔴 UNTRACKED rows are the highest miss-risk.
-2. **`docs/reports/CORRECTIONS.md`** — twenty-four claims this project published
+2. **`docs/reports/CORRECTIONS.md`** — twenty-seven claims this project published
    and later contradicted with its own data. **Read it before quoting any number.**
 3. **`docs/agents/traps.md`** — the ways of WORKING that failed here. Corrections
    tells you which figures to distrust; this tells you which of your own
-   instincts to. **Ten of its twelve traps produced a plausible number rather
+   instincts to. **Eleven of its thirteen traps produced a plausible number rather
    than an error.**
 4. **`docs/results/README.md`** — the register: has X been tried, what happened.
 5. **`docs/reports/START-HERE.md`** — the narrative, if you need the why.
@@ -40,8 +43,11 @@ noticed. So:
 
 - **No verdict before evidence.** A measurement names the file its number came
   from, or it is a hypothesis and says so.
-- **Never compare raw decode across boots.** Free VRAM at boot moves
-  9,326–10,732 MiB and `--fit` follows it. **Effects below 13.6 % are noise** — **at ctx 16,384, where that floor was measured.** At 65,536 the same arm with byte-identical counters spans up to **48.9 %** across boots, so re-derive before using it at depth (`CORRECTIONS.md` §23).
+- **Never compare raw decode across boots.** The spread is measured and the
+  **cause is unknown** — do not repeat the old explanation that `--fit` follows
+  the boot VRAM: llama.cpp has reported **11,069 MiB free in all 552 logs**, and
+  148 of 150 boots on our artifact say *"no changes needed"* (`CORRECTIONS.md`
+  §27). **Effects below 13.6 % are noise** — **at ctx 16,384, where that floor was measured.** At 65,536 the same arm with byte-identical counters spans up to **48.9 %** across boots, so re-derive before using it at depth (`CORRECTIONS.md` §23).
   Pair within a round, alternate the order.
 - **A verdict at one depth does not transfer to another.** `draft-mtp` is +81 %
   at 16K and −71 % at 131,072 on the same artifact.
@@ -70,7 +76,7 @@ Every folder has a `README.md` that says what is in it and what to read first.
 ## Commands
 
 ```powershell
-cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 253 tests — the gate
+cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 287 tests — the gate
 python scripts\check-doc-links.py                      # every link resolves
 python scripts\audit-stale-claims.py                   # superseded claims
 ```
@@ -158,7 +164,8 @@ sub-progress. One digest at the end, enumerating what ran and what did not.
 # CLAUDE.md — วิธีทำงานใน repository นี้
 
 repo นี้เป็น **โปรเจกต์วัดผล** ไม่ใช่ผลิตภัณฑ์ มีไว้เพื่อหา config ที่เร็วที่สุด
-ที่ใช้งานได้จริงของ Qwen3.8-27B บน RTX 4070 SUPER 12 GB ใบเดียว และเพื่อบันทึกสิ่ง
+ที่ใช้งานได้จริงของ Qwen3.8-27B บน **RTX 5060 Ti 16 GB** ใบเดียว
+(Blackwell ตั้งแต่ 2026-08-23 มาแทน RTX 4070 SUPER 12 GB — **ตัวเลขทุกตัวที่บันทึกก่อนวันนั้นเป็นของการ์ดใบเก่า**: `docs/results/09-hardware.md`) และเพื่อบันทึกสิ่ง
 ที่วัดได้ดีพอที่คนอ่านทีหลังจะแยกออกว่าอันไหนคือผลจริงอันไหนคือการเดา
 
 **agent คือวิศวกรหลักที่นี่** ทุกไฟล์ข้างล่างมีไว้ให้ session ใหม่กู้สถานะได้โดยไม่ต้องหาเอง
@@ -167,10 +174,10 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 
 1. **`docs/OPEN-WORK-LEDGER.md`** — อะไรค้างอยู่ รวมของที่มีแต่ใน MD ไม่มี issue
    แถวที่ติด 🔴 UNTRACKED คือกลุ่มที่หลุดง่ายที่สุด
-2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 24 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
+2. **`docs/reports/CORRECTIONS.md`** — ข้ออ้าง 27 ข้อที่โปรเจกต์นี้เผยแพร่แล้วหักล้าง
    ด้วยข้อมูลตัวเอง **อ่านก่อนยกตัวเลขไหนไปใช้**
 3. **`docs/agents/traps.md`** — *วิธีทำงาน* ที่เคยพลาดที่นี่ CORRECTIONS บอกว่าตัวเลขไหน
-   ห้ามเชื่อ ส่วนอันนี้บอกว่าสัญชาตญาณข้อไหนของตัวเองห้ามเชื่อ **สิบจากสิบสองกับดักในนั้น
+   ห้ามเชื่อ ส่วนอันนี้บอกว่าสัญชาตญาณข้อไหนของตัวเองห้ามเชื่อ **สิบเอ็ดจากสิบสามกับดักในนั้น
    คืนตัวเลขที่ดูสมเหตุสมผลออกมา ไม่ได้แจ้งความผิดพลาด**
 4. **`docs/results/README.md`** — ทะเบียนว่าอะไรถูกทดสอบแล้ว ผลเป็นอะไร
 5. **`docs/reports/START-HERE.md`** — เรื่องเล่าทั้งหมด ถ้าต้องการรู้ว่าทำไม
@@ -183,8 +190,10 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 และหลายข้อถูกเผยแพร่ไปก่อนที่ใครจะสังเกต ดังนั้น
 
 - **ไม่มีคำตัดสินก่อนมีหลักฐาน** การวัดต้องระบุไฟล์ที่ตัวเลขมาจาก ไม่งั้นคือสมมติฐานและต้องบอกว่าเป็นสมมติฐาน
-- **ห้ามเทียบ decode ดิบข้าม boot** VRAM ว่างตอน boot ขยับระหว่าง 9,326–10,732 MiB
-  และ `--fit` วิ่งตาม **ผลต่ำกว่า 13.6 % คือสัญญาณรบกวน — ที่ ctx 16,384 ซึ่งเป็นความลึกที่เพดานนี้ถูกวัด** ที่ 65,536 arm เดียวกันที่ counter เท่ากันทุกหลักแกว่งได้ถึง **48.9 %** ต้องหาเพดานใหม่ก่อนใช้ที่ความลึก (`CORRECTIONS.md` §23) ให้จับคู่ในรอบเดียวกันและสลับลำดับ
+- **ห้ามเทียบ decode ดิบข้าม boot** ความแกว่งวัดได้จริงแต่**ยังไม่รู้สาเหตุ** — อย่าใช้คำอธิบายเดิม
+  ที่ว่า `--fit` วิ่งตาม VRAM ตอน boot เพราะ llama.cpp รายงาน **11,069 MiB free เหมือนกันทั้ง 552 log**
+  และ 148 จาก 150 boot บนไฟล์ของเราบอกว่า *"no changes needed"* (`CORRECTIONS.md` §27)
+  **ผลต่ำกว่า 13.6 % คือสัญญาณรบกวน — ที่ ctx 16,384 ซึ่งเป็นความลึกที่เพดานนี้ถูกวัด** ที่ 65,536 arm เดียวกันที่ counter เท่ากันทุกหลักแกว่งได้ถึง **48.9 %** ต้องหาเพดานใหม่ก่อนใช้ที่ความลึก (`CORRECTIONS.md` §23) ให้จับคู่ในรอบเดียวกันและสลับลำดับ
 - **คำตัดสินที่ความลึกหนึ่งไม่โอนไปอีกความลึก** `draft-mtp` ได้ +81 % ที่ 16K แต่ −71 % ที่ 131,072 บนไฟล์เดียวกัน
 - **การถอนคำเป็นส่วนหนึ่งของงาน** เมื่อผลวัดขัดกับสิ่งที่เขียนไปแล้ว การถอนยังไม่จบ
   จนกว่าจะมีบรรทัดใน `docs/reports/CORRECTIONS.md` **และ** กฎใน `scripts/audit-stale-claims.py`
@@ -192,7 +201,7 @@ repo นี้เป็น **โปรเจกต์วัดผล** ไม่
 ## คำสั่ง
 
 ```powershell
-cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 253 test — ด่านหลัก
+cd qwen38-tuning\bench ; python -m pytest tests\ -q    # 287 test — ด่านหลัก
 python scripts\check-doc-links.py                      # ลิงก์ทุกเส้นต้องไปถึง
 python scripts\audit-stale-claims.py                   # ข้ออ้างที่ถูกแทนที่แล้ว
 ```

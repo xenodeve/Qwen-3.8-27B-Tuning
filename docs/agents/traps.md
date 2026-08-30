@@ -78,10 +78,20 @@ silently returned a shorter prompt than asked for.** A run at ctx 65,536 would
 have believed it measured a 65,536-token window, actually measured ~30,600,
 finished cleanly and written a plausible rate.
 
-**And the ratio was wrong too.** `filler` assumed 3 characters per token;
-measured, it is **7.0–7.4**. So every run labelled "ctx N" fed a prompt of about
-**40 % of N**. The allocations were right — `--ctx` sets those — but every depth
-label was wrong.
+**And every run labelled "ctx N" fed a prompt of about 40 % of N** — 6,621
+tokens at "16,384", 43,162 at "98,304". The allocations were right, since
+`--ctx` sets those; the depth labels were not.
+
+**But the reason is not the one this file gave until 2026-08-23**, and the
+difference matters. `dflash2_arena.py:478` is `filler(int(ctx * 0.5), regime)`:
+the arena asks for **half** the window on purpose, to leave room for the
+generation. `filler`'s assumption of 3 characters per token is close — measured
+against the server's own token counts it is **~3.4**, about 12 % low. The claim
+that it was 7.0–7.4 came from dividing by the full `ctx × 3` and dropping the
+0.5, and it is retracted in [`CORRECTIONS.md` §25](../reports/CORRECTIONS.md).
+**A wrong explanation bolted onto a right number is its own trap:** acting on
+that one would have meant "fixing" `filler` to send 2.3× more text, doubling
+every future prompt while the label stayed put.
 
 **The guard.** `bench/tests/test_corpus_depth.py`: `filler` now raises and names
 both sizes. **The general rule is in `CLAUDE.md` and worth repeating here:** an
@@ -198,11 +208,28 @@ invariant against `git ls-files` and **does not name any directory**, so a futur
 
 **What happened.** Five real tasks produced nothing. Two independent causes were
 found: the worker wrote to the wrong tree, **and** decode at the served ctx
-98,304 is **2.8–5.0 tok/s** against 75.2 at 16,384, with 13 of 16 measurements
-timing out.
+98,304 measured **2.8–5.0 tok/s** against 75.2 at 16,384, with 13 of 16
+measurements timing out.
 
-Either one alone fully explains a zero. **Fixing the directory does not make a
-task finishable at 4 tok/s.**
+Either one alone fully explains a zero, so both were written down and the rule
+was: fix one at a time.
+
+**Then the second one dissolved — and that is the sharper lesson.** Measured
+2026-08-23, all sixteen of those rows had loaded the DFlash2 sidecar, so *depth*
+and *drafter* never varied independently. Re-run with the arms alternated, the
+profile actually served (`ngram-mod` alone) returns **96.92 tok/s at ctx
+98,304**, faster than at 16,384, 6 rounds out of 6.
+[`CORRECTIONS.md` §26](../reports/CORRECTIONS.md).
+
+**So the trap has two halves, and the second is the one that bites.** Holding
+two live explanations is right. But **an explanation drawn from a sweep in which
+the suspected variable never changed is not an explanation** — it is the sweep's
+own constant, wearing the label of a finding. The tell was there to read: the
+sweep's title said `ngram-nmatch`, and every row's `args` field said
+`draft-dflash,ngram-mod`. Nobody looked at `args` for four days.
+
+**Ask of any second cause: what did this experiment hold fixed?** If the answer
+includes the thing you are blaming, you have not measured it.
 
 **Nothing guards this.** When a cause is found for a failure that cost hours,
 **keep looking until the arithmetic actually adds up.** The next run must not
@@ -212,14 +239,46 @@ change both variables at once, or it will be unreadable.
 
 ## The shape common to almost all of them
 
-Ten of these twelve produced **a plausible number or a clean exit**, not an
-error. That is the signature to watch for:
+## 13. The guard you need is often in the file you already imported
+
+**What happened, 2026-08-23.** A one-off script was written to measure decode at
+44K tokens, importing `dflash2_arena` on its first line for the corpus loader.
+It returned 71.76 tok/s. The arena, measuring the same thing properly an hour
+later, returned 96.4-98.9 over six boots.
+
+The 26 % gap has a cause and the cause was written down. `dflash2_arena.py:483`
+carries this comment, four lines above the code the script did not use:
+
+> FULL LENGTH, not a token or two. A 16-token warm turn paid the prefill but
+> left the n-gram table nearly empty, and the first TIMED generation of every
+> ngram arm then came in 35-40 % low
+
+The script had warmed the prefill and not the n-gram table, which is that
+paragraph exactly. It also skipped `harness.generation_is_measurable`, so its
+first attempt averaged 59- and 215-token generations against a 512-token budget
+and reported a median anyway.
+
+**This is trap 1 repeating inside one session.** There the hazard was documented
+two days earlier in a file a few hundred lines away. Here it was documented in
+the file the script imported, and the number it produced was plausible enough to
+be reported to the developer before the arena contradicted it.
+
+**The rule.** Before writing a new measurement script, read the docstrings and
+comments of the module you are importing from -- they are where this project
+stores its incident history, and a bespoke script starts with none of it.
+**Prefer extending the existing harness over writing a parallel one**; if the
+parallel one is genuinely warranted, list which of the host module's guards you
+are choosing not to inherit, and say why in the file.
+
+Eleven of these thirteen produced **a plausible number or a clean exit**, not
+an error. That is the signature to watch for:
 
 - `split: 65+0` while the card thrashes at 32 MiB free
 - `diff_bytes: 0` while the worker edits another repository
 - a full-length prompt reported for a window that was 40 % filled
 - `rc=0` on a task that did nothing
 - an audit rule containing a backspace, running fine
+- a bespoke script reporting 71.76 tok/s where the harness reports 96.9
 
 **When something reports success, ask what it would have reported had it
 failed.** If the answer is "the same thing", you have not measured anything yet.
