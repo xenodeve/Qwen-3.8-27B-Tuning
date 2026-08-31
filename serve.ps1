@@ -129,9 +129,10 @@ param(
     [switch]$TheirMirror,
     [switch]$TheirBuild,
     # Serve the artifact's own chat template rather than our one-line patch.
-    # The patch is what keeps Claude Code from getting HTTP 500 on every
-    # request; Unsloth Studio omits it safely because their client never sends
-    # a system message after the user turn. Issue #58.
+    # Without the patch every Claude Code request comes back HTTP 500.
+    # The reason lives in qwen38-tuning/templates/README.md and only there --
+    # it used to be written out in three places, which is how a rationale
+    # drifts. Issues #58 and #65.
     [switch]$StockTemplate,
     [switch]$MaxCtx,
     [switch]$Mtp,

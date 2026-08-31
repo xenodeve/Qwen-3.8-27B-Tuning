@@ -412,18 +412,14 @@ param(
     [int]$SsePingIntervalSec = 5,
     # Serve the artifact's OWN chat template, without our one-line patch.
     #
-    # The patch (templates/qwen38-late-system.jinja, issue #4) renders a system
-    # message that arrives after the user turn instead of raising on it. Claude
-    # Code sends exactly that -- its SessionStart hook output is a role:"system"
-    # message of 25-33 KB appended after the user turn -- so without the patch
-    # every request comes back HTTP 500, `System message must be at the
-    # beginning.`
+    # WHY THE REASON IS NOT WRITTEN HERE: it was, in three places -- this header,
+    # serve.ps1's, and templates/README.md -- and a rationale in three places
+    # drifts the moment one is edited. This repository already corrected that
+    # exact shape once (2649f4e). The README is the one copy; issue #65.
     #
-    # Unsloth Studio passes no template file, so `-Beta` and `-Clone` used to
-    # drop it as part of borrowing their command line. That is what this switch
-    # is for now: the omission is still reachable, but it has to be ASKED FOR.
-    # Choosing a thinking mechanism must not decide it -- see issue #58, and
-    # CORRECTIONS 36 for the first time -Beta silently dropped a flag.
+    # In one line: without the patched template every Claude Code request comes
+    # back HTTP 500. Unsloth Studio omits it safely because their client never
+    # sends a system message after the user turn, and ours does.
     [switch]$StockTemplate,
     # Micro-batch. A parameter rather than a literal because the budget check
     # below needs it: the compute buffer is about one -ub of MiB per card.
@@ -1478,12 +1474,25 @@ if ($Clone) {
 # reads the FINAL argv, so a branch written later -- $Clone rebuilds it from
 # scratch, and nothing stops another from doing the same -- fails loudly here
 # instead of serving HTTP 500 to every request until somebody reads a log.
+#
+# IT DOES NOT PREVIEW UNDER -WhatIf, AND THE OTHER FATAL IN THIS FILE DOES.
+# That difference is deliberate and it is the only reason this comment exists,
+# because from the code the two look like one of them is an oversight (#65).
+# The `-ts` budget FATAL reports the ENVIRONMENT -- busy cards, true this minute
+# and false the next -- so previewing anyway is useful and a test depends on it.
+# This one reports a CODING DEFECT: an argv that lost a flag is never fine, and
+# a preview of a command line nobody may run is not worth printing. What it owes
+# the reader instead is the array it actually built, so the defect is diagnosable
+# from the refusal alone.
 if (-not $StockTemplate -and ($argv -notcontains '--chat-template-file')) {
     Write-Host "FATAL: the command line lost --chat-template-file." -ForegroundColor Red
     Write-Host "  Without it Qwen3.8's own template RAISES on a system message that" -ForegroundColor Yellow
     Write-Host "  arrives after the user turn, which is what Claude Code sends, and" -ForegroundColor Yellow
     Write-Host "  every request returns HTTP 500. See issue #58 and #4." -ForegroundColor Yellow
     Write-Host "  Pass -StockTemplate if the omission is what you meant." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  what was actually built:" -ForegroundColor Yellow
+    Write-Host "    $Exe $($argv -join ' ')"
     exit 1
 }
 

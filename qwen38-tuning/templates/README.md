@@ -58,6 +58,30 @@ now lives on its own switch, `-StockTemplate`, and the profile refuses to launch
 when the final `argv` lost the flag any other way. See CORRECTIONS 43 and
 issue #58.
 
+## `qwen38-stock.jinja` — the artifact's own template, unmodified
+
+Added 2026-08-31, issue #65. It is the second file in this folder and it exists
+so the one-line claim above can be **checked offline, every test run**.
+
+Issue #58 asked for that difference to be *"verified in a test, not by hand"*,
+and the test written for it read `/props` from a live server. **`/props` reports
+the template the server is USING** — so a normally-booted profile hands back our
+own patched file, and the check can only run against a boot with
+`-StockTemplate`, which had never happened. **The criterion was written and never
+exercised.** It passed once, against a `-Beta` boot that happened to have no
+override, and then reported *zero* differing lines as if the patch had vanished.
+
+With the stock text checked in, `test_ours_differs_from_the_vendored_stock_by_exactly_one_line`
+runs with no server at all. The `/props` comparison stays as the stronger form
+when a `-StockTemplate` boot is available — it is the only thing that can catch
+**this file** drifting from the artifact.
+
+**Provenance:** extracted from `GET /props` on 2026-08-31 while
+`serve-20260831-023636.log` was serving `Qwen3.8-27B-NVFP4-MTP-VERY-LOW` with no
+`--chat-template-file` on its command line, so `/props` was reporting the GGUF's
+own text. 183 lines; it differs from `qwen38-late-system.jinja` at line 110 and
+nowhere else.
+
 ## Regenerating it
 
 The template belongs to the model, so it must be re-derived if the artifact changes.
