@@ -145,6 +145,103 @@ def test_the_profile_refuses_a_launch_that_lost_the_flag():
     assert m, "nothing refuses a launch whose final argv lost the template"
 
 
+# ------------------------------------------- the guard, made dirty on purpose
+
+STOCK = os.path.join(ROOT, "qwen38-tuning", "templates", "qwen38-stock.jinja")
+
+
+def test_the_guard_actually_fires_when_the_flag_is_gone():
+    """A positive control, because the test beside it cannot fail (issue #65).
+
+    `test_the_profile_refuses_a_launch_that_lost_the_flag` greps the SOURCE for
+    the guard. It would pass if the guard's body were `Write-Host "hello"`, and
+    with the shipped code the branch is unreachable -- $argv always carries the
+    flag unless -StockTemplate is passed. So the guard that is supposed to stop
+    a third recurrence had never been observed to fire.
+
+    This makes the detector dirty: a copy of the profile with $templateArg
+    removed from the argv assembly, run for real. The copy lives BESIDE the
+    original because the profile resolves paths from $PSScriptRoot, and a copy
+    in a temp directory would fail on something else long before reaching the
+    guard -- which would look like a pass.
+    """
+    src = io.open(PROFILE, encoding="utf-8", errors="replace").read()
+    broken_src = src.replace("+ $thinkArg + $templateArg + @(",
+                             "+ $thinkArg + @(")
+    assert broken_src != src, "the argv assembly changed shape; update this test"
+
+    broken = os.path.join(os.path.dirname(PROFILE), "_guard-positive-control.ps1")
+    try:
+        io.open(broken, "w", encoding="utf-8", newline="").write(broken_src)
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+             "-File", broken, "-WhatIf", "-Nvfp4", "-Vision"],
+            capture_output=True, text=True, timeout=180)
+        out = r.stdout + r.stderr
+    finally:
+        if os.path.exists(broken):
+            os.remove(broken)
+
+    assert r.returncode != 0, ("the guard did not refuse a launch that lost the "
+                               "flag", out)
+    assert "lost --chat-template-file" in out, out
+    # It must REFUSE, not preview. The first version of this line searched for
+    # the flag after the string "would run" -- which is absent when the guard
+    # fires, so `split` returned the whole output and matched the FATAL's own
+    # text. Assert on the preview banner itself; it is the thing that must not
+    # be there.
+    assert "WhatIf: would run" not in out, (
+        "it previewed the broken command line instead of refusing", out)
+
+
+def test_the_guard_prints_what_it_actually_built():
+    """Exiting without showing the argv leaves whoever hits it with nothing to
+    read. The other FATAL in this profile previews deliberately; this one must
+    not, so it owes the reader the array instead.
+
+    The region is cut at the guard's own `exit 1`, not by a character count.
+    The first version took `src[i:i+1200]`, which ran past the guard into the
+    `-WhatIf` block below it -- and that block prints `$argv`, so the assertion
+    passed while reading the wrong code. That is the leak this file's own
+    workflow warns about, in the test written to catch a leak.
+
+    And it asserts on a Write-Host, not on the token `$argv` -- which appears in
+    the guard's own CONDITION, so the looser version passed on the code that
+    tests whether the flag is missing rather than on any code that shows it.
+    Twice in one function, the assertion read something adjacent to its subject.
+    """
+    src = io.open(PROFILE, encoding="utf-8", errors="replace").read()
+    start = src.index("if (-not $StockTemplate")
+    body = src[src.index("{", start):src.index("exit 1", start)]
+    assert re.search(r"Write-Host[^\n]*\$argv", body), (
+        "the guard exits without printing the argv it built", body)
+
+
+# --------------------------------- the stock template, vendored so this is offline
+
+def test_the_stock_template_is_vendored():
+    """#58 asked for the one-line difference to be verified by a test rather
+    than by hand. The /props version of that check skips whenever a normal
+    profile is serving -- which is almost always -- so the criterion was written
+    and never exercised. A checked-in copy of the artifact's own template makes
+    it an offline assertion that runs every time."""
+    assert os.path.isfile(STOCK), STOCK
+    body = io.open(STOCK, encoding="utf-8", errors="replace").read()
+    assert RAISE in body, "the vendored copy is not the STOCK template"
+
+
+def test_ours_differs_from_the_vendored_stock_by_exactly_one_line():
+    a = io.open(STOCK, encoding="utf-8", errors="replace").read()
+    b = io.open(TEMPLATE, encoding="utf-8", errors="replace").read()
+    a = a.replace("\r\n", "\n").rstrip("\n").split("\n")
+    b = b.replace("\r\n", "\n").rstrip("\n").split("\n")
+    assert len(a) == len(b), ("different shapes; re-derive per templates/README.md",
+                              len(a), len(b))
+    differing = [i for i, (x, y) in enumerate(zip(a, b), 1) if x != y]
+    assert len(differing) == 1, ("exactly one line may differ", differing)
+    assert RAISE in a[differing[0] - 1], a[differing[0] - 1]
+
+
 # ------------------------------------------------------------ the file itself
 
 def test_the_template_exists_and_is_the_patched_one():
