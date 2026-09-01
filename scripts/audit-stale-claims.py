@@ -205,8 +205,14 @@ RULES = [
      "card left +317 MiB and produced 0.38 tok/s. And --fit being inert does "
      "NOT give a hard load failure -- it gives a SILENT SPILL to host memory "
      "that returns a working server 85x slow. The profile now computes -ts from "
-     "measured free VRAM and refuses when the budget cannot hold the weights",
-     "CORRECTIONS.md 33"),
+     "measured free VRAM and refuses when the budget cannot hold the weights. "
+     "AND, since 2026-09-01, the RATIO is a lever too on the artifact we serve "
+     "(CORRECTIONS 45): under -sm tensor on NVFP4 at ctx 147,456 it is -18.2 % "
+     "one point down and -18.9 % one point up, both RESOLVED, and one point "
+     "further voids the arm for copying the prompt. The old +1.8 % was -sm "
+     "LAYER on UD-Q4_K_XL, where both cards run the same kernel. Say which "
+     "split mode and which artifact",
+     "CORRECTIONS.md 33 and 45"),
 
     ("nvfp4-ceiling-229376",
      r"\$NVFP4_MAX_CTX = 229376|NVFP4.{0,80}ceiling.{0,40}229,?376|"

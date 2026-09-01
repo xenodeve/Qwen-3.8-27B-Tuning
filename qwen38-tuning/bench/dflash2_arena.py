@@ -1221,6 +1221,62 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "GGML_CUDA_ALLREDUCE": "none"}),
     ],
 
+    # The tensor-split RATIO on an NVFP4 artifact -- a different question from
+    # the one `-ts 1,1` answered.
+    #
+    # That row (results 09, "+1.8 %, noise", and the page carries a red
+    # retraction on the sentence after it) was measured under `-sm layer` on
+    # `UD-Q4_K_XL`, where BOTH cards run the same kernel and a ratio has nothing
+    # to buy. The same page closes native FP4 as "unreachable for us" and says
+    # exactly why: *"Native FP4 needs MXFP4 or NVFP4 weights. That is an artifact
+    # swap, not a flag."*
+    #
+    # The artifact was swapped. On NVFP4, `mmq.cu:131`
+    #
+    #     const bool use_native_fp4 = blackwell_mma_available(cc) &&
+    #         (src0->type == GGML_TYPE_MXFP4 || src0->type == GGML_TYPE_NVFP4);
+    #
+    # is true on the 5060 Ti and false on the 4070 SUPER, where
+    # blackwell_mma_available() is false by construction. The cards run DIFFERENT
+    # kernels over the same tensors, and `-sm tensor` splits every layer across
+    # both -- so no layer runs the fast path alone. Tilting the budget toward the
+    # Blackwell card is the only knob that changes that balance.
+    #
+    # Three points with the total held constant, so the proportion is the single
+    # variable and the claim -- that the line slopes -- can fail. Headroom is the
+    # binding limit: at runtime the 4070 holds ~11.2 GB of 12.0 and the 5060 Ti
+    # ~14.5 GB of 16.0, so `tilt-5060` is the largest push those numbers allow.
+    # If it OOMs, that is the answer to how far this can go.
+    "ts-ratio": [
+        ("control", ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("tilt-5060", ["-sm", "tensor", "-ts", "7309,16000", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("tilt-4070", ["-sm", "tensor", "-ts", "9009,14300", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The step between the served ratio and the one that broke.
+    #
+    # `ts-ratio` found the slope and its edge in one run: tilt-4070 at 61.3 % is
+    # -18.2 % [-20.6, -16.5] RESOLVED, and tilt-5060 at 68.6 % was VOIDED in all
+    # three rounds -- not for memory (it loaded 66+0 with 2,286 MiB free) but by
+    # the prompt-copy guard, copied_frac [0, 0, 0.539] reproducing to the digit.
+    # Acceptance peaks at the control too: 44.2 / 58.8 / 50.9 across the three.
+    #
+    # `push` is the voided ratio carried forward unchanged. The 5060 Ti was
+    # emptied to 14 MiB of 16,311 before this run, which should NOT matter --
+    # the arm was rejected for output, not for OOM. If it scores now, that
+    # reading was wrong and the void was memory pressure after all.
+    "ts-ratio-fine": [
+        ("control", ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("mid", ["-sm", "tensor", "-ts", "7573,15736", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("push", ["-sm", "tensor", "-ts", "7309,16000", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     # The MoE-offload family, at the depth that can see it.
     #
     # Measured twice at ctx 16,384 on a short synthetic prompt: the first pass

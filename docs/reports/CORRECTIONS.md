@@ -1296,7 +1296,7 @@ was measured inert under one split mode and recorded as inert, full stop. And
 `common_fit_params` was read as *"the load will abort"* when it means *"the
 fitting step gave up"*. The thing that settled it was a person running it.
 
-**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`.
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`, whose message now carries both corrections.
 
 ---
 
@@ -1900,6 +1900,43 @@ the served 147,456.
 
 **Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`,
 extended to flag the `null` and `refuted` phrasings as well.
+
+---
+
+## 45. "`-ts` is not a lever" — true on `UD-Q4_K_XL` under layer split, false on NVFP4
+
+**Published** in `docs/results/09-hardware.md` and carried into the open-work
+ledger as *"`-ts` is not a lever (+1.8 %, inside the floor)"*.
+
+**Where it came from.** `-ts 1,1`, three rounds, **`-sm layer`**, artifact
+**`UD-Q4_K_XL`**: [21.2, 21.9, 20.0] against a baseline of the same shape, +1.8 %
+[+0.6, +4.1]. Honest, and correct about what it measured. Under `-sm layer`
+llama.cpp already divides by free VRAM, and on that artifact **both cards run the
+same kernel**, so there was nothing for a ratio to buy.
+
+**Contradicted 2026-09-01, on the artifact we now serve.** Under `-sm tensor` on
+`NVFP4-MTP-VERY-LOW` at ctx 147,456, real-code corpus, total budget held constant:
+
+| 5060 Ti share | vs served | acceptance |
+|---|---|---|
+| 61.3 % | **−18.2 % [−20.6, −16.5] RESOLVED** | 44.2 |
+| **66.5 % (served)** | baseline | **58.8** |
+| 67.5 % | **−18.9 % [−20.5, −17.2] RESOLVED** | 49.3 |
+| 68.6 % | **voided — output copies the prompt** | 50.9 |
+
+**The mechanism the old row could not have had.** `mmq.cu:131` gates the FP4
+tensor-core path on `blackwell_mma_available(cc) && (type == MXFP4 || NVFP4)`.
+On NVFP4 that is true on the 5060 Ti and false on the 4070 SUPER, so the two
+cards run **different kernels over the same tensors** — and `-sm tensor` splits
+every layer across both.
+
+**What is now settled and what is not.** The ratio is a lever, the served value
+is the best of four measured, and both neighbours are RESOLVED losses. **Why
+tilting toward the faster card degrades the output is not established** —
+`copied_frac` climbs 0.029 → 0.217 → 0.539 with the tilt, reproducibly to the
+digit, and nobody has traced it.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`, whose message now carries both corrections.
 
 ---
 
