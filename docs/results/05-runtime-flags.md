@@ -640,3 +640,68 @@ both past b9455 — which is why every measurement in this file ran `-sm tensor`
 `GGML_CUDA_FA_ALL_QUANTS` is off, and that one is untouched by #23792 — see
 [results 03](03-memory-and-kv.md) for what it costs (prefill 29× slower) and issue #43
 for whether turning the flag on is worth a rebuild.
+
+## The served depth changes the answer — two arena runs, 2026-09-01
+
+Issue #67. Everything above in this section was screened at **ctx 16,384** on a
+short synthetic prompt. Two levers were then re-run through `bench/dflash2_arena.py`
+at **ctx 147,456**, regime `real-code-vendor`, `-ts 7819,15490 -ub 1024`, three
+rounds rotated, on the same arm the **+63.1 %** figure was measured on — and the
+shallow screen turns out to have been blind to one of them.
+
+### `GGML_CUDA_ALLREDUCE` — the default is worth +31.7 %, so do not turn it off
+
+Task #48, never run before. Raw: `results/allreduce-147456.jsonl`.
+
+| arm | rounds | spread | vs baseline |
+|---|---|---|---|
+| `internal-default` (what we serve) | 46.09 / 46.23 / 46.13 | **0.3 %** | **+31.7 % [+30.0, +33.7] RESOLVED** |
+| `allreduce-none` | 35.10 / 35.58 / 34.51 | 3.1 % | baseline |
+
+`ggml-cuda.cu:1222-1240` takes `nccl | internal | none`; NCCL is not compiled in,
+Windows defaults to `internal`. **Every row is `66+0` with 2,544–2,591 MiB free**,
+so the delta is the all-reduce and not a spill. Acceptance moves with it, 58.8
+against 51.0, and `ngram-mod` accepted length 17.54 against 20.17 — changing the
+reduction path changes which drafts survive, not only the rate.
+
+**The screening instrument could not have found this.** At 16,384 every arm of
+every sweep in this section landed within about ±1 %. Here one variable is worth
+24 % of what we have, resolved at a 0.3 % per-arm spread.
+
+### The MoE-offload family — inert on this artifact, and now measured where it counts
+
+Raw: `results/cpumoe-147456.jsonl`, twelve rows.
+
+| arm | rounds | spread | vs baseline |
+|---|---|---|---|
+| `off` | 45.82 / 45.78 / 45.52 | 0.7 % | +0.2 % [−0.2, +0.7] **inconsistent in sign** |
+| `ncmoe8` (`--n-cpu-moe 8`) | 45.73 / 45.49 / 45.57 | 0.5 % | −0.0 % [−0.4, +0.5] **inconsistent in sign** |
+| `cmoe-all` (`--cpu-moe`) | 45.53 / 45.65 / 45.63 | 0.3 % | baseline |
+| `minbatch8` (`GGML_OP_OFFLOAD_MIN_BATCH=8`) | 45.77 / 45.49 / 45.73 | 0.6 % | +0.1 % [−0.4, +0.5] **inconsistent in sign** |
+
+**`free_after` is 2,521 MiB in all twelve rows — identical to the MiB.**
+`--cpu-moe` sends *every* MoE weight to the host; VRAM does not move by one
+megabyte. Acceptance is 58.8 and the split `66+0` in all twelve as well.
+
+**Why: the artifact has no experts.** Reading the served GGUF header gives 1,202
+tensors and **zero** whose name contains `exps`, no `expert_count` key, and
+`ssm_*` on 48 blocks against attention on 17 with a dense FFN throughout —
+`block_count 65`, `full_attention_interval 4`. `--n-cpu-moe` (`common/arg.cpp:2728`)
+only pushes `ffn_*_exps` buffer-type overrides, which match nothing here, and
+`GGML_OP_OFFLOAD_MIN_BATCH` (`ggml-cuda.cu:5501`) is consulted only for weights
+already in a host buffer (`ggml-backend.cpp:959`), of which there are none.
+**Two independent lines, the header and the measurement, agree.**
+
+**And it could not have paid off even with experts.** The 5060 Ti sits on
+**PCIe gen4 ×4** ([results 09](09-hardware.md)) ≈ 7.9 GB/s. The weights are
+~14.9 GB, so one crossing per token is ~0.5 tok/s; even the eight blocks of
+`-ncmoe 8` would cap that share near 4 tok/s against the 45.7 measured here.
+Host DDR5 at 108 GB/s is not the constraint — the slot is.
+
+### What this costs the section above
+
+**The 16,384 figures in this file are a screen, not a verdict.** They are sound
+for the things that do not depend on depth — whether a profile boots, whether
+VRAM moves, whether draft counts and output hashes are identical — and those are
+what closed `n-max 16`, asymmetric KV without `FA_ALL_QUANTS`, and this family.
+Every remaining "no effect" in this section is **unmeasured at the served depth**.

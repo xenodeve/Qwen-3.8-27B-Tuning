@@ -37,6 +37,50 @@ from pathlib import Path
 ROOT = Path(r"C:\AI\qwen38-tuning")
 
 
+def tool_share(tools):
+    """Split the tool schemas into the MCP half and the half no proxy can hide.
+
+    Issue #55's gate needs that split, and `tools_bytes` alone cannot give it.
+    A Super-MCP style proxy can collapse `mcp__*` tools behind one entry; it
+    cannot touch `Read`, `Edit`, `Write`, `Bash`, `Glob`, `Grep` or `Task`, so if
+    the bytes are mostly built-in the first rung of the ladder moves almost
+    nothing.
+
+    Bytes per tool, not tokens, and each tool serialised alone so the array's own
+    separators are credited to neither half. Turning bytes into tokens is a
+    reader's job against the server's `/tokenize`; doing it here would mean
+    holding or re-serialising a request, which is the one thing this instrument
+    must never do.
+    """
+    out = {"n_tools": 0, "bytes_total": 0,
+           "mcp": {"n": 0, "bytes": 0, "by_server": {}},
+           "builtin": {"n": 0, "bytes": 0, "names": []}}
+    for t in tools or []:
+        size = len(json.dumps(t))
+        out["n_tools"] += 1
+        out["bytes_total"] += size
+        try:
+            name = (t.get("function") or {}).get("name") or t.get("name") or ""
+        except AttributeError:  # not a mapping at all; still counted, never fatal
+            name = ""
+        parts = name.split("__")
+        # mcp__<server>__<tool>, and the tool half may itself contain "__", so
+        # take parts[1] rather than splitting the whole name into two.
+        if name.startswith("mcp__") and len(parts) >= 3 and parts[1]:
+            server = parts[1]
+            slot = out["mcp"]["by_server"].setdefault(server, {"n": 0, "bytes": 0})
+            slot["n"] += 1
+            slot["bytes"] += size
+            out["mcp"]["n"] += 1
+            out["mcp"]["bytes"] += size
+        else:
+            out["builtin"]["n"] += 1
+            out["builtin"]["bytes"] += size
+            out["builtin"]["names"].append(name)
+    out["builtin"]["names"].sort()
+    return out
+
+
 def _roles(messages):
     out = {}
     for m in messages or []:
@@ -124,6 +168,7 @@ class Tap(BaseHTTPRequestHandler):
                "n_messages": len(req.get("messages") or []),
                "n_tools": len(req.get("tools") or []),
                "tools_bytes": len(json.dumps(req.get("tools"))) if req.get("tools") else 0,
+               "tool_share": tool_share(req.get("tools")),
                "chars_by_role": _roles(req.get("messages")),
                "sampling": {k: req[k] for k in
                             ("temperature", "top_p", "top_k", "min_p", "seed",

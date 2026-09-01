@@ -1192,6 +1192,72 @@ ARM_SETS = {
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
     ],
 
+    # `GGML_CUDA_ALLREDUCE` -- task #48, never run. Under `-sm tensor` every
+    # layer pays an all-reduce across the two cards on every token, so this is
+    # the one environment variable sitting directly on our decode path.
+    #
+    #     const char * env = getenv("GGML_CUDA_ALLREDUCE");   // ggml-cuda.cu:1222
+    #     ... "nccl" | "internal" | "none"                    // :1231-1240
+    #
+    # NCCL is not compiled into our binary -- the code warns and falls back --
+    # and Windows defaults to `internal`, so the A/B that exists here is the
+    # default against `none`, and `nccl` would only re-measure the default.
+    #
+    # The argv is `nvfp4-final`'s winning arm, reused rather than retyped: this
+    # has to be comparable with the +63.1 % row in nvfp4-final-147456.jsonl, and
+    # a first attempt measured at ctx 16,384 with a short synthetic prompt was
+    # rejected for exactly that reason. Run it the way that row was run:
+    #
+    #     python dflash2_arena.py --arms allreduce --ctx 147456 \
+    #         --regime real-code-vendor --rounds 3
+    #
+    # WHAT THIS CANNOT SHOW: nothing in argv or the boot banner echoes the
+    # variable back, so the row records the env the launcher set, not a value
+    # read from the process.
+    "allreduce": [
+        ("internal-default", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("allreduce-none", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "GGML_CUDA_ALLREDUCE": "none"}),
+    ],
+
+    # The MoE-offload family, at the depth that can see it.
+    #
+    # Measured twice at ctx 16,384 on a short synthetic prompt: the first pass
+    # put `GGML_OP_OFFLOAD_MIN_BATCH=8` at +8.01 %, and a second pass with the
+    # arms rotated through every position brought the same arm to +0.38 % with
+    # VRAM identical across all four to within 14 MiB. Neither is comparable
+    # with nvfp4-final-147456.jsonl, and that shallow instrument has since been
+    # shown to miss a 24 % effect the arena resolves at 0.3 % spread
+    # (allreduce-147456.jsonl). So it is re-run here, properly.
+    #
+    #   --n-cpu-moe N   common/arg.cpp:2728 -- pushes an ffn_*_exps buffer-type
+    #                   override for each of the first N blocks
+    #   --cpu-moe       common/arg.cpp:2721 -- the same for every block. Kept as
+    #                   the MAXIMUM-effect arm: if the family does anything at
+    #                   all here, this is where it shows
+    #   GGML_OP_OFFLOAD_MIN_BATCH   ggml-cuda.cu:5501, default 32. It gates
+    #                   ggml_backend_cuda_device_offload_op, which the scheduler
+    #                   consults ONLY for weights already in a host buffer
+    #                   (ggml-backend.cpp:959) -- so without one of the two
+    #                   flags above it has nothing to act on
+    #
+    # WHAT THE ARTIFACT SAYS, and what the run has to confirm or refute: reading
+    # the served GGUF's header gives 1,202 tensors and **zero** whose name
+    # contains `exps` -- 48 `ssm_*` blocks and 17 attention blocks, dense FFN
+    # throughout, no `expert_count` key. If that is right the overrides match
+    # nothing and all four arms are one configuration. The measurement decides.
+    "cpumoe": [
+        ("off", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ncmoe8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--n-cpu-moe", "8"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("cmoe-all", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--cpu-moe"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("minbatch8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "GGML_OP_OFFLOAD_MIN_BATCH": "8"}),
+    ],
+
     # `--spec-ngram-mod-n-min` -- MEASURED, NO EFFECT. Kept so nobody re-runs it.
     #
     # The hypothesis was that it gates how often ngram-mod fires: at n_min 16 on
