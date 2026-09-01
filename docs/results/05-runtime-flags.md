@@ -540,3 +540,57 @@ transfer and the absolute numbers do not.
 | Can prefill be tuned at all? | **No.** Every setting-level lever is measured and none move it | report 27 |
 
 Raw: `qwen38-tuning/results/prefill-kv-type.jsonl`.
+
+## The 2026-09-01 research sweep — five flag levers, all null or already right
+
+Issue #67. Artifact `Qwen3.8-27B-NVFP4-MTP-VERY-LOW`, `-sm tensor -ts 7429,15346`,
+`-ctk/-ctv q4_0`, `-ub 1024`, **ctx 16,384**, build 10499. Every arm rotated so it
+takes each position in the run exactly once, one boot discarded first, four
+warm-up generations before three measured. **Repeatability 0.6 %**, established by
+measuring the baseline in two independent sweeps (62.72 and 63.11, identical
+output hashes).
+
+| lever | tried | result | evidence |
+|---|---|---|---|
+| `--spec-draft-n-max` | 2 / **3** / 4 | **3 keeps it.** 57.20 / **62.72** / 60.86; 3 wins all three rounds against both. 4 drafts 4,100 and accepts 55.2 % where 3 drafts 3,489 and accepts 65.9 % | `scratchpad/sweep_nmax.json` |
+| `--spec-draft-p-min` | 0.0 / 0.7 | **Rejected.** Slower, and **it changes the emitted text** under `temperature 0, top_k 1, seed 42` | issue #67 |
+| `--spec-type` order | `draft-mtp,ngram-mod` / reversed | **Exactly nothing.** Identical draft counts (9,528 / 6,512) and identical output hashes at every rep | `scratchpad/sweep_bsampling.json` |
+| `--spec-draft-backend-sampling` | default (on) / `--no-` | **Costs nothing either way: 63.11 vs 63.18**, identical draft counts and identical hashes. The flag is `(default: enabled)`, so the served profile already had it on; turning it off only silences the warning. **That the fallback happens at all was already recorded** — [results README](README.md) line 112, from the split-mode work — this row adds only that the fallback is free | `scratchpad/sweep_bsampling_server.log` |
+| `CUDA_SCALE_LAUNCH_QUEUES` | unset / 2x / 4x | **Nothing.** Prefill 1010.69 / 1021.33 / 1010.14, and not sign-consistent. Round 0 gives 988.61 / 988.49 / 987.64 across three different environments | `scratchpad/sweep_queues.json` |
+
+**`GGML_CUDA_FA_ALL_QUANTS` is `OFF` in all four local builds and that is correct
+for us.** `ggml/src/ggml-cuda/CMakeLists.txt:119-123` still compiles
+`fattn-vec-instance-q4_0-q4_0.cu` in the off branch; our `q4_0`/`q4_0` KV is not
+one of the "additional" types the flag gates.
+
+**The verdicts above are at 16,384 and do not transfer to the served 147,456** —
+`draft-mtp` is +81 % at 16K and −71 % at 131,072 on the same artifact.
+
+## Build 10499 -> 10729, and PR #27140 — measured 2026-09-01
+
+Issue #67. Same artifact, same argv, same corpus, three binaries rotated across
+three rounds. Each binary self-identifies by commit, and the harness recorded the
+executable path and size it actually launched, because this project has already
+invalidated one build comparison where the harness named one binary and ran another.
+
+| arm | build | commit | prefill mean | decode mean |
+|---|---|---|---|---|
+| served | 10499 | `1deefcca3` + two DFlash2 commits | 954.30 | 61.53 |
+| upstream | 10729 | `458681e1d` | 943.44 | 63.12 |
+| upstream_fix | 10730 | `7e8864187` (= `458681e1d` + PR #27140) | 964.07 | 63.58 |
+
+**The newer build is +2.58 % decode, not +26 %.** The contested claim is not
+reproduced. Prefill does not move. **All three binaries emit byte-identical greedy
+text** (`6a632a00cc76`, `6b47d54a7dcc`, `855b386fdbea`).
+
+**PR #27140 is null here.** `upstream_fix` against `upstream` is the only
+one-variable comparison in the table — one file, 129 lines — and rounds 1 and 2 are
+973.58 / 977.24 against 976.72 / 972.68. Only the cold round 0 differs. The PR
+reports 74 -> 1,182 tok/s on 2x RTX 3090; **we were already at ~990 without it**,
+and the patch's own comment scopes the path it bypasses to Ampere.
+
+Upstream loads the NVFP4 artifact and drives `draft-mtp` unmodified; no arm errored.
+
+**Build note.** Upstream master will not compile here at full parallelism: nvcc's
+`cicc` died with `0xC0000005` on `fattn-mma-f16-instance-ncols1_16-ncols2_2.cu`
+with 20 jobs against 26.6 GB free RAM. `--parallel 6` completed both trees.

@@ -1513,3 +1513,31 @@ measurement behind it, carried through an older sweep where they were *held
 constant* rather than chosen. What would settle it is a workload where an
 n-gram fires at all, and this project does not have one — the same blocker as
 the tier-2 question about dropping `ngram-mod` entirely.
+
+## Greedy output is NOT stable across speculative settings — measured 2026-09-01
+
+Issue #67. With `temperature 0, top_k 1, seed 42` on a fixed prompt, the reply
+text changed whenever a speculative parameter changed:
+
+| change | output hash |
+|---|---|
+| `--spec-draft-n-max` 2 vs 3 vs 4 | three different sets, no overlap |
+| `--spec-draft-p-min` 0.0 vs 0.7 | different at every rep |
+| `--spec-type` order reversed | **identical** |
+| build 10499 vs 10729 vs 10730 | **identical** |
+
+It also varies with **request index inside one boot**: reps 0, 1 and 2 of the same
+arm produce three different hashes, and that sequence reproduces exactly across
+boots and across separate sweeps.
+
+**Why this matters beyond the flags.** `qwen38-tuning/bench/sweep_runtime.py`
+clears a config as quality-neutral by comparing a greedy SHA-256 against the
+baseline — *"hash matches -> output is bit-identical; quality is provably
+unchanged"*. That method is sound for the levers it was written for (fit-target,
+threads, batch) and **cannot be used for speculative parameters**, where a hash
+difference is the expected result rather than a quality signal.
+
+Speculative decoding is supposed to be output-preserving, so the likeliest
+mechanism is that different draft lengths change the batch shape the target model
+verifies, changing floating-point reduction order and therefore the argmax at
+near-ties. **Not established** — no one has traced it.

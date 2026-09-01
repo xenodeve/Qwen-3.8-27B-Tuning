@@ -239,15 +239,26 @@ RULES = [
      r"\+?26\s*%%?\s*(decode|from the newer build|on (their|Unsloth's) build)|"
      r"(their|Unsloth's) BUILD gave \+?26|"
      r"[Tt]heir build (changed|gave|is worth) \+?26",
-     "the two binaries have NEVER been paired, so neither +26 % nor NULL is "
-     "supported. The +26 % came from one reading per side in different "
-     "boots, at a depth where the same arm with byte-identical counters "
-     "spans 48.9 % (CORRECTIONS 23). The run that appeared to refute it "
-     "measured ONE BINARY TWICE -- start() launched the module default while "
-     "every row recorded the pin (CORRECTIONS 41) -- and a null is exactly "
-     "what that produces. Say CONTESTED, and say that the pairing has not "
-     "been run",
-     "CORRECTIONS.md 40 and 41"),
+     "the pairing HAS now been run (2026-09-01, issue #67) and the answer is "
+     "+2.6 % decode and -1.1 % prefill at ctx 16,384, three binaries rotated "
+     "over three rounds. It is neither +26 % nor null. The +26 % came from one "
+     "reading per side in different boots, at a depth where the same arm with "
+     "byte-identical counters spans 48.9 % (CORRECTIONS 23); the run that "
+     "appeared to refute it measured ONE BINARY TWICE (CORRECTIONS 41). Say "
+     "+2.6 % and name its depth",
+     "CORRECTIONS.md 40, 41 and 44"),
+
+    # CORRECTIONS 44 settled this, so the phrasings that were CORRECT while it
+    # was open are now the stale ones. Without this the file would keep passing
+    # every document that still calls it contested.
+    ("their-build-is-still-contested",
+     r"(\+?26\s*%%?[^.\n]{0,60}(contested|CONTESTED|never been paired|has not been run))|"
+     r"((contested|CONTESTED)[^.\n]{0,60}\+?26\s*%%?)|"
+     r"[Nn]either side of this has ever been paired",
+     "SUPERSEDED 2026-09-01. The build pairing was run under issue #67: "
+     "+2.58 % decode, -1.14 % prefill, three binaries each self-identifying by "
+     "commit, rotated across three rounds. Do not call it contested",
+     "CORRECTIONS.md 44"),
 
     ("template-file-is-studios-to-omit",
      r"[Oo]nly the template FILE is Studio's to omit|"

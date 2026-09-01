@@ -1863,6 +1863,46 @@ launch guard; `scripts/audit-stale-claims.py`, rule `template-file-is-studios-to
 
 ---
 
+## 44. "`+26 % from the newer build`" — now paired, and it is `+2.6 %`
+
+**Contested since 2026-08-30** (§40): the refutation that was supposed to settle
+it had launched one binary twice, so it restored the claim to contested rather
+than answering it. §40's own words: *"Neither side of this has ever been paired.
+That is the whole status."*
+
+**Paired 2026-09-01, issue #67.** Three binaries, same artifact, same argv, same
+prompt, rotated across three rounds so each takes each position once:
+
+| arm | build | commit | decode mean | prefill mean |
+|---|---|---|---|---|
+| served | 10499 | `1deefcca3` | 61.53 | 954.30 |
+| upstream | 10729 | `458681e1d` | 63.12 | 943.44 |
+| upstream_fix | 10730 | `7e8864187` | 63.58 | 964.07 |
+
+**`+2.58 %` decode, `-1.14 %` prefill.** Not `+26 %`, and not null either. Both
+new binaries were built here from source with the toolchain read out of
+`build-blackwell`'s `CMakeCache.txt`, so the only difference between `upstream`
+and `served` is the source tree.
+
+**The §41 failure mode was designed out this time.** Each binary self-identifies
+by commit in `--version`, and the harness wrote the executable path and file size
+it was about to launch into the log on every boot. The three arms also produced
+**different** draft counts where §40's fake comparison produced identical ones:
+10467/6900 for served against 10458/6903 for both new builds.
+
+**Still true, and worth keeping:** the greedy output is byte-identical across all
+three binaries — `6a632a00cc76`, `6b47d54a7dcc`, `855b386fdbea`. Identical output
+is *not* the tell that two arms ran the same binary; identical **draft counters**
+was.
+
+**Scope.** ctx 16,384, one artifact, one prompt, `-np 1`. It does not transfer to
+the served 147,456.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`,
+extended to flag the `null` and `refuted` phrasings as well.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":
