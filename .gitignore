@@ -52,3 +52,10 @@ qwen38-tuning/logs/llama-slots/
 # %USERPROFILE%\.unsloth; the 418 MB of sources and ~2 GB of objects are not
 # ours to carry.
 /llama.cpp-unsloth-mirror/
+
+# Scraped web pages, written by the firecrawl CLI during the 2026-09-01 research.
+# 5 MB of third-party HTML-turned-markdown that nothing in the repo links to, and
+# `check-doc-links.py` walks it and reports 22 broken links inside it. The
+# research notes that cite these pages carry their URLs, so the scrape is a cache
+# rather than a source. Delete it freely.
+/.firecrawl/

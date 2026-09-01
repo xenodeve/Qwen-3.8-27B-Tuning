@@ -1256,6 +1256,58 @@ ARM_SETS = {
          + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # `--threads` -- lever rank 5, never swept once. Everything is GPU-resident,
+    # so 18 may only be contention; Unsloth Studio serves the same artifact with
+    # 2. `arm_parts` already puts `-t 18` in the base argv, which is what the
+    # worker serves, so the control adds nothing and the arms override.
+    "threads": [
+        ("t18", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("t8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-t", "8"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("t2", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-t", "2"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The `ngram-mod` window -- lever rank 2, and `--spec-ngram-mod-n-max` has
+    # NEVER been swept here at any depth. Every arena run on this artifact
+    # reports the drafter declining 97-98 % of the calls it receives, so the
+    # window is worth asking about. Two steps rather than one jump: n-max alone,
+    # then Studio's 48/64 pair, so a result can be attributed to a half.
+    # CORRECTIONS 38 is why Studio's numbers are a candidate and not a
+    # recommendation -- 48 and 64 are its defaults, not its choices.
+    "ngram-window": [
+        ("ours-16-32", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-64", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("studio-48-64", DUAL_TENSOR + _nvfp4_mtp() + _ngram(48, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # KV cache type at the served depth -- issue #46, and the asymmetric arm was
+    # IMPOSSIBLE until 2026-09-01. `-ctk q8_0 -ctv q4_0` exits during load on
+    # every binary this project had, because `fattn.cu:442` drops each K != V
+    # pair unless GGML_CUDA_FA_ALL_QUANTS was compiled in; a build with it ON now
+    # exists at F:\llama-build\faq and runs the pair.
+    #
+    # ALL THREE arms pin that build. Pinning only the asymmetric one would put a
+    # second variable -- the binary -- inside a KV comparison.
+    #
+    # `arm_parts` already passes `-ctk q4_0 -ctv q4_0`, so the control adds
+    # nothing and the others override by last-wins.
+    "kv-type": [
+        ("q4-q4", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+        ("q8-q4", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-ctk", "q8_0", "-ctv", "q4_0"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+        ("q8-q8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-ctk", "q8_0", "-ctv", "q8_0"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+    ],
+
     # The step between the served ratio and the one that broke.
     #
     # `ts-ratio` found the slope and its edge in one run: tilt-4070 at 61.3 % is
