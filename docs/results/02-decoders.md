@@ -1579,3 +1579,57 @@ reserve, and per-device compute buffers; falling back to layer split."*
 
 **Studio's build is now `10715` (`92cedc867`)**, not the `10679` our probe row records. The
 2026-08-30 result that their build still needs the mirror patch **has not been re-checked on 10715.**
+
+## `--spec-ngram-mod-n-max` — the served 32 is a deviation below llama.cpp's default, and it costs ~15 %
+
+Issue #67. Two independent arena runs, ctx 147,456, `real-code-vendor`, three
+rounds rotated each, on the `nvfp4-final` winning arm with **only `n-max` moving**.
+Raw: `results/ngram-window-147456.jsonl`, `results/ngram-nmax-ladder-147456.jsonl`.
+
+| `n-max` | run 1 | run 2 | mean (run 2) | vs served | acceptance |
+|---|---|---|---|---|---|
+| **32 — served** | 45.4 / 45.9 / 45.6 | 45.7 / 45.5 / 46.5 | 45.92 | baseline | **58.8** |
+| **64 — llama.cpp default** | 53.0 / 52.6 / 52.7 | 52.2 / 52.7 / 53.3 | **52.74** | **+14.85 %** (run 1: +15.63 %) | 47.0 |
+| 96 | — | 46.5 / 46.7 / 47.1 | 46.81 | +1.93 % | 42.8 |
+| 128 | — | 46.3 / 46.9 / 47.1 | 46.78 | +1.87 % | 33.7 |
+
+**`free_after` is 2,586–2,600 MiB in every row of both runs and every row is
+`66+0`.** It costs no memory and nothing spilled.
+
+**64 is a peak, not a trend.** 96 and 128 fall back to about +2 %, so the gain
+belongs to 64 specifically rather than to "more window". Acceptance falls
+monotonically — 58.8 → 47.0 → 42.8 → 33.7 — which is the trade: a wider window
+drafts longer and is accepted less, and past 64 the second effect wins.
+
+### How to read the harness label
+
+Both runs are marked *"clears this run's spread, not the applied floor"*. The
+applied floor is **13.6 %, measured at ctx 16,384 on Ada** — `NOISE_FLOOR_PCT` —
+and `CLAUDE.md` says in as many words that it must be re-derived before use at
+depth. Against that floor a 12.7–15.6 % effect does not clear.
+
+What the runs themselves say: **two independent boot series, six rounds, the same
+sign in all six**, per-arm spreads of 0.8–2.2 %, and two neighbouring rungs that
+do *not* show the effect. **The floor is the wrong yardstick here and re-deriving
+it at 147,456 is the work that would settle the label.**
+
+### Where 32 came from, and the caveat that travels with this
+
+`--help` says *"maximum number of ngram tokens ... (default: 64)"*. **Our 32 is
+a deviation below the default**, and `worker-q4-dual.ps1:1252-1264` records that
+it was never chosen:
+
+> 16/32 were "held constant" rather than chosen … -Beta carried 48/64 for one
+> afternoon and it was **REVERTED WITHOUT A VERDICT**. Both sessions that ran it
+> recorded `ngram-mod: #gen drafts = 0` on either side: the n-gram never fired
+> once on agent traffic, so the change was inert rather than better or worse.
+
+**That is the caveat.** The arena's corpus makes the drafter fire — it declines
+97–98 % of calls but it fires. **Agent traffic recorded it firing zero times.**
+So this is measured on the corpus and **its transfer to the served workload is
+unmeasured**, and would need a run where the n-gram fires at all.
+
+`n-min` is not part of this. In the same run `48/64` measured **−10.58 %**, so
+Studio's pair must not be copied whole — the gain is `n-max` alone. That matches
+[CORRECTIONS 38](../reports/CORRECTIONS.md): 48 and 64 are Studio's defaults, not
+its choices.

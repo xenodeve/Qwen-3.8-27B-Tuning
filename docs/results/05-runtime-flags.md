@@ -705,3 +705,43 @@ for the things that do not depend on depth — whether a profile boots, whether
 VRAM moves, whether draft counts and output hashes are identical — and those are
 what closed `n-max 16`, asymmetric KV without `FA_ALL_QUANTS`, and this family.
 Every remaining "no effect" in this section is **unmeasured at the served depth**.
+
+## `--threads` and the KV cache type at the served depth — both keep what we serve, 2026-09-01
+
+Issue #67. ctx 147,456, `real-code-vendor`, three rounds rotated, on the
+`nvfp4-final` winning arm. Raw: `results/threads-147456.jsonl`,
+`results/kv-type-147456.jsonl`.
+
+### `--threads` — lever rank 5, and it is nothing
+
+| arm | rounds | mean | vs served | acceptance |
+|---|---|---|---|---|
+| **`-t 18` (served)** | 45.4 / 44.0 / 45.8 | **45.06** | baseline | 58.8 |
+| `-t 8` | 46.1 / 43.7 / 44.1 | 44.62 | −0.97 % **inconsistent in sign** | 58.8 |
+| `-t 2` | 45.2 / 46.2 / 45.8 | 45.71 | +1.45 % **inconsistent in sign** | 58.8 |
+
+Acceptance is 58.8 in every row of all nine. Unsloth Studio serves the same
+artifact with `--threads 2`; on this machine it is not better. **Keep 18.**
+
+### KV cache type — issue #46, and the pair that needed a rebuild is the loser
+
+All three arms pin `F:\llama-buildaq`, the `GGML_CUDA_FA_ALL_QUANTS=ON` build.
+`-ctk q8_0 -ctv q4_0` does not run slowly on the default binary — it **exits
+during load**, because `fattn.cu:442` drops every K≠V pair unless the flag was
+compiled in. Pinning one arm only would have put the binary inside a KV comparison.
+
+| arm | rounds | mean | vs served | acceptance | `free_after` |
+|---|---|---|---|---|---|
+| **`q4_0`/`q4_0` (served)** | 45.7 / 46.1 / 46.3 | **46.04** | baseline | 58.5 | **2,600** |
+| `q8_0`/`q4_0` | 41.1 / 41.0 / 41.1 | 41.06 | **−10.82 %** | 51.1 | 1,880 |
+| `q8_0`/`q8_0` | 37.5 / 37.6 / 37.7 | 37.58 | **−18.39 % RESOLVED** | 44.4 | 1,158 |
+
+Every row `66+0`. The memory column is the plain cost: 720 MiB for the
+asymmetric pair and 1,442 MiB for `q8_0` both sides, at the served depth where
+headroom is the binding constraint.
+
+**The asymmetric pair was impossible on every binary this project had until a
+rebuild on 2026-09-01, and it loses.** That closes the "strictly better precision
+at the same memory" claim the external sweep carried: it is neither better here
+nor the same memory. The rebuild was still worth doing — it is what turned the
+question from unanswerable into answered.

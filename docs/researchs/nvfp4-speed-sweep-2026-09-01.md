@@ -118,4 +118,28 @@ Tier 3 (only if moving to Linux/WSL2 or dropping 4070S):
 - TensorRT-LLM on Windows (Linux-only WO).
 - DFlash+TP2 (crashes, TP=1 only).
 - q4_0 KV at long ctx (collapses: -92% prefill@64K on DGX Spark) — we already use q4_0, but long-context quality/collapse needs its own check at 147K.
+
+---
+
+## Corrections from Opus 5 (2026-09-01) — recorded against the doc's earlier claims
+
+These update earlier entries; the doc above already carries the corrected numbers inline, this is the changelog.
+
+- **`--n-cpu-moe` is INERT here — the artifact has NO MoE experts.** GGUF has 1,202 tensors, zero `exps`, `block_count 65` with `full_attention_interval 4` = 48 ssm blocks vs 17 attention → **Qwen3.8-27B as served here is dense-hybrid, not A3B-MoE.** `--cpu-moe` measured 45.5–45.8 tok/s across 12 rows at 147,456, all signs inconsistent; `free_after` 2,521 MiB in all twelve. Closed by `results/cpumoe-147456.jsonl`.
+- **`GGML_OP_OFFLOAD_MIN_BATCH` premise is also dead** for the same reason — `ggml-backend.cpp:959` consults it only for weights already in a host buffer, and there are none. (The earlier claim it speaks only via the 5060 Ti's PCIe gen4 x4 ≈ 7.9 GB/s slot ≈ 0.5 tok/s per full crossing also kills any expert-offload fantasy.)
+- **MTP n-max sweep: `n3` keeps it.** n3 67.86 / n8 56.80 / n6+p-min0.6 31.30; **n16+p-min0.8 does not boot** (0xC0000409). n16+p0.8 were confounded — one arm at `n16` alone would isolate draft-depth vs threshold crash.
+- **DFlash2 under `-sm tensor`:** Studio has never run it (12 `draft-dflash`, all layer). Two latches silently downgrade to layer split, so Studio "working" does not contradict our abort. Not re-checked on their newer 10715 build.
+
+## External lead — abliterated NVFP4-MTP candidate (2026-09-01, via HF MCP)
+- **`felippeburk/Huihui-Qwen3.8-27B-Abliterated-NVFP4-MTP-GGUF`** — GGUF + NVFP4 + MTP, llama.cpp-native, uncensored (abliterated). Structure matches our current stack (GGUF/NVFP4/MTP/-sm tensor) → drop-in artifact swap candidate if the team wants uncensored.
+- Base chain: `sakamakismile/Huihui-Qwen3.8-27B-abliterated-NVFP4` (vLLM safetensors, 55.3K dl / 51 likes — popular) → GGUF wrapper.
+- Variants: `renketong/...-abliterated-NVFP4-GGUF` (GGUF + vision/multimodal), `HangGlidersRule/Darkstar-...-NVFP4-Mixed-FP8` (ModelOpt W4A16), `Vtuber-plan` (transformers, reasoning/agent), `windowsxp811203` (NVFP4 safetensors).
+- **Caveat:** uncensored-goal swap, NOT a speed lever. Must A/B quality (MTP acceptance / output contract / MRCR) before default, same as any artifact swap. Do not assume faster than current NVFP4-MTP. Check files/bpw tiers + 16GB fit (via hub_repo_details / hf_fs) before adopting.
+
+## External lead — fixed Qwen chat template (2026-09-01, client-side / request-shape, via HF MCP)
+- **`froggeric/Qwen-Fixed-Chat-Templates`** (v22.4, 1544 likes) — single `chat_template.jinja` drop-in that fixes official Qwen 3.5/3.6/3.8 template bugs: token waste, empty-think poisoning, tool-JSON crashes, agentic stalls. Engine-agnostic (llama.cpp / LM Studio / vLLM / MLX).
+- **Relevance to us:** it maps onto our biggest lever — client-side / request shape (issue #55 family). Key wins: default reasoning `xhigh`→`medium` (0 injected tokens, KV parity), full `enable_thinking=false` non-reasoning fast path, canonical XML tool-arg + stringified-JSON fix (tool calling), `--reasoning-preserve` alias for llama.cpp.
+- **Caveat:** it changes output/output contract (template-level token shaping, not a decode-speed flag) → must A/B quality, not just tok/s, before adopting. Verify against whatever template we currently serve.
+
+## Stay-away (continued)
 - vLLM MTP long-context (collapse 8x at 255K on 5060Ti).

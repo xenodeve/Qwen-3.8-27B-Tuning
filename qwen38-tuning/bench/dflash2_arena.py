@@ -1285,6 +1285,37 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # Confirm the +15.63 %, and find whether 64 is the peak.
+    #
+    # `ngram-window-147456.jsonl`: n-max 64 measured 52.76 against the served
+    # 32's 45.63, per-arm spreads 0.8 % and 1.2 %, every row 66+0 with free_after
+    # inside 26 MiB. The harness labelled it "clears this run's spread, not the
+    # applied floor" -- that floor is 13.6 %, measured at ctx 16,384 on Ada, and
+    # CLAUDE.md says it must be re-derived at depth. Unconfirmed until repeated.
+    #
+    # 64 IS llama.cpp's own default. `--help`: "maximum number of ngram tokens
+    # ... (default: 64)". Our 32 is a deviation BELOW it, and
+    # worker-q4-dual.ps1:1252-1264 says why -- 16/32 were "held constant rather
+    # than chosen", and a 48/64 attempt was "REVERTED WITHOUT A VERDICT" because
+    # on agent traffic the drafter recorded `#gen drafts = 0` and the change was
+    # inert either way.
+    #
+    # THAT CAVEAT TRAVELS WITH ANY RESULT HERE. This corpus makes the drafter
+    # fire; the served workload may not. The ladder measures the corpus.
+    #
+    # n-min stays at 16: studio-48-64 was -10.58 % in the same run, so carrying
+    # 48 up the ladder would fold a measured loss into every rung.
+    "ngram-nmax-ladder": [
+        ("nmax-32-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 32),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-64-default", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-96", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 96),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-128", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 128),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     # KV cache type at the served depth -- issue #46, and the asymmetric arm was
     # IMPOSSIBLE until 2026-09-01. `-ctk q8_0 -ctv q4_0` exits during load on
     # every binary this project had, because `fattn.cu:442` drops each K != V
