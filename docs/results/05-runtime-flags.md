@@ -745,3 +745,32 @@ rebuild on 2026-09-01, and it loses.** That closes the "strictly better precisio
 at the same memory" claim the external sweep carried: it is neither better here
 nor the same memory. The rebuild was still worth doing — it is what turned the
 question from unanswerable into answered.
+
+## The six shallow-screen questions, re-asked at the served depth — 2026-09-01
+
+Issue #67. Every arm is `nvfp4-final`'s winning arm with exactly one thing moved.
+ctx 147,456, `real-code-vendor`, three rounds rotated. Raw:
+`results/{spec-order,mtp-nmax,mtp-pmin,backend-sampling,launch-queues,kv-unified,builds-nvfp4}-147456.jsonl`.
+
+| question | at ctx 16,384 | **at ctx 147,456** | verdict |
+|---|---|---|---|
+| `--spec-type` order reversed | null | **+0.28 %** | null, confirmed |
+| `--spec-draft-n-max` 2 / 3 / 4 | **3 wins** (62.72 / 60.86 / 57.20) | **4 wins** — 43.91 / 46.38 / **49.09** | **REVERSED** |
+| `--spec-draft-p-min 0.7` | −55 % at 0.8, slower at 0.7 | **−25.16 %** | loses, confirmed |
+| `--no-spec-draft-backend-sampling` | null | **+0.06 %** | null, confirmed |
+| `CUDA_SCALE_LAUNCH_QUEUES` 2x / 4x | null | **+0.07 % / −0.04 %** | null, confirmed |
+| `--kv-unified` | never tested | **−0.36 %** | null — lever rank 6 closed |
+| build served / up / faq / arch | null | **−0.16 % / +0.08 % / −1.10 %** | null, confirmed |
+
+Every row of all seven sets is `66+0`.
+
+**One of the seven reversed, and it is the one that matters.** `--spec-draft-n-max`
+ranked 3 > 4 > 2 at 16,384 and ranks **4 > 3 > 2** at the served depth, with
+per-arm spreads of 0.0–0.4 % and the sign consistent in all three rounds.
+Acceptance moves the other way — 67.1 at n2, 58.8 at n3, 56.9 at n4 — so the
+deeper draft trades acceptance for throughput, and at depth the trade pays.
+
+**The other six confirming does not make the screen sound.** The screen also
+called `GGML_CUDA_ALLREDUCE` flat, and that is worth 24 % here. A screen that is
+right six times out of seven and silent about which one it missed is not a filter,
+it is a coin with good odds.

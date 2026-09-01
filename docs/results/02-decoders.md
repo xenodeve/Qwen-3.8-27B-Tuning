@@ -1633,3 +1633,40 @@ unmeasured**, and would need a run where the n-gram fires at all.
 Studio's pair must not be copied whole — the gain is `n-max` alone. That matches
 [CORRECTIONS 38](../reports/CORRECTIONS.md): 48 and 64 are Studio's defaults, not
 its choices.
+
+## The two winning levers CANCEL — measured, not multiplied, 2026-09-01
+
+Issue #67. The reason `CLAUDE.md` forbids multiplying two figures measured in
+different runs, demonstrated. Raw: `results/won-levers-combo-147456.jsonl`,
+ctx 147,456, `real-code-vendor`, three rounds rotated, one arm set.
+
+| arm | rounds | mean | vs served | acceptance | `free_after` |
+|---|---|---|---|---|---|
+| **served — ngram `n-max 32`, draft `n-max 3`** | 46.3 / 46.2 / 46.4 | 46.31 | baseline | 58.8 | 2,564 |
+| **ngram `n-max 64` only** | 53.1 / 53.1 / 52.9 | **53.04** | **+14.52 %** | 47.0 | 2,562 |
+| draft `n-max 4` only | 49.0 / 49.0 / 49.0 | 48.98 | +5.76 % | 56.9 | 2,466 |
+| **both together** | 44.2 / 44.2 / 44.1 | **44.18** | **−4.61 %** | 46.4 | 2,464 |
+
+**Both together is worse than either alone AND worse than changing nothing.**
+Per-arm spreads are 0.1–0.5 %, so this is not noise. Every row `66+0`.
+
+Naively the two gains would have compounded to about +21 %. They do not add, they
+do not partly add — they **cancel into a loss**. Two flags on two different
+drafters in the same cascade, each widening its own window, and together they
+starve each other: acceptance falls to 46.4, below either arm alone.
+
+**Reproduction across the campaign**, independent boot series each time:
+
+| lever | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| ngram `n-max 64` | +15.63 % | +14.85 % | **+14.52 %** |
+| draft `n-max 4` | +5.84 % | **+5.76 %** | — |
+
+### What this says the profile should be
+
+**`--spec-ngram-mod-n-max 64`, and `--spec-draft-n-max` left at 3.** Not both.
+
+The caveat on the ngram figure is unchanged and still governs adoption: this
+corpus makes the drafter fire, and `worker-q4-dual.ps1:1252-1264` records
+`#gen drafts = 0` on agent traffic. **The gain is measured on the corpus; its
+transfer to the served workload is not.**

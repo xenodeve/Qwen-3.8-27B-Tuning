@@ -1285,6 +1285,115 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # The two levers that WON at the served depth, separately and together.
+    #
+    #   --spec-ngram-mod-n-max 64   +14.85 % (two independent runs)
+    #   --spec-draft-n-max 4        +5.84 %
+    #
+    # They are different flags on different drafters, so they may compound, may
+    # not, or may cancel -- and CLAUDE.md forbids multiplying two figures
+    # measured in different runs. The `both` arm is the only way to know.
+    #
+    # n4 is also a VERDICT REVERSAL ACROSS DEPTH, which is why it is re-measured
+    # here rather than quoted: at ctx 16,384 the ranking was n3 > n4 > n2
+    # (62.72 / 60.86 / 57.20), and at 147,456 it is n4 > n3 > n2
+    # (49.09 / 46.38 / 43.91).
+    "won-levers-combo": [
+        ("served-32-n3", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax64-only", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("n4-only", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-n-max", "4"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("both", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64) + ["--spec-draft-n-max", "4"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # THE SHALLOW SCREEN, RE-RUN WHERE IT CAN BE SEEN.
+    #
+    # Six levers were screened at ctx 16,384 on a short synthetic prompt and
+    # reported as null or as small losses. Then GGML_CUDA_ALLREDUCE, screened the
+    # same way and equally flat, turned out to be worth 24 % at 147,456 resolved
+    # at a 0.3 % spread -- so "no effect at 16,384" is not a verdict about the
+    # served depth, it is a statement about an instrument that could not see one.
+    # Each set below re-asks one of those questions on nvfp4-final's winning arm,
+    # with the served n-match 24 / n-min 16 / n-max 32 held so the rows stay
+    # comparable with every other run in this campaign.
+
+    "spec-order": [
+        ("mtp-first", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ngram-first", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                       "--spec-type", "ngram-mod,draft-mtp",
+                                       "--spec-draft-n-max", "3"] + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # draft-mtp's own default is 2 (common.h); the served profile deviates to 3.
+    "mtp-nmax": [
+        ("n3-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("n2-default", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-n-max", "2"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("n4", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-n-max", "4"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The X post ships p-min 0.7 in a production profile. At 16,384 it was slower
+    # AND it changed the emitted text under greedy.
+    "mtp-pmin": [
+        ("pmin-0-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("pmin-0.7", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-p-min", "0.7"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # --spec-draft-backend-sampling is "(default: enabled)", and under -sm tensor
+    # the server logs the CPU fallback on every boot. The arm that can move is
+    # the negation.
+    "backend-sampling": [
+        ("default-on", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("explicit-off", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24)
+         + ["--no-spec-draft-backend-sampling"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    "launch-queues": [
+        ("unset", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("scale-2x", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "CUDA_SCALE_LAUNCH_QUEUES": "2x"}),
+        ("scale-4x", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "CUDA_SCALE_LAUNCH_QUEUES": "4x"}),
+    ],
+
+    # --kv-unified: lever rank 6, never tested at any depth. Studio sets it; our
+    # profile does not, and it may be inert at -np 1.
+    "kv-unified": [
+        ("off-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("on", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--kv-unified"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The build A/B on the NVFP4 arm. EVERY arm pins its binary: `arm_exe` falls
+    # back to the module EXE, and a build comparison whose arms silently share a
+    # binary is what CORRECTIONS 41 was.
+    "builds-nvfp4": [
+        ("served-10499", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, ENV_VAR: DEFAULT_EXE}),
+        ("upstream-10729", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\up\build\bin\llama-server.exe"}),
+        ("upstream-faq", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+        ("upstream-arch", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\arch\build\bin\llama-server.exe"}),
+    ],
+
     # Confirm the +15.63 %, and find whether 64 is the peak.
     #
     # `ngram-window-147456.jsonl`: n-max 64 measured 52.76 against the served
