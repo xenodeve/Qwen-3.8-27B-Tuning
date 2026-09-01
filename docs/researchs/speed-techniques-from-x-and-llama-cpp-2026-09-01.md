@@ -211,16 +211,39 @@ Use the existing paired harness and a frozen real-code corpus.
 
 The supplied [X post](https://x.com/analogalok/status/2088326480669667699) is reproducible as a command lead but not as local evidence: one RTX 4090, `UD-Q4_K_XL`, q4_0 KV, native MTP, `n-max 4`, and `p-min 0.7`. No additional X post was accepted as verified when the public search gateway was unavailable; X-derived values remain author claims unless independently reproduced.
 
-## Revised action order
+## Revised action order — VERDICTS (Opus 5 measured on disk, 2026-09-01)
 
-1. Verify/build the Q4 quantized-KV prefill fix from PR #27140; compare prefill and decode separately.
-2. Run native MTP `p-min 0.7` on NVFP4 at ctx 147,456.
-3. Pair decoder order: `draft-mtp,ngram-mod` versus `ngram-mod,draft-mtp`.
-4. Pair `n-max 2/3/4` at ctx 147,456; repeat only winning candidates at 200,704.
-5. Test `--spec-draft-backend-sampling` only after checking whether the current tensor-split build falls back to CPU.
-6. A/B current upstream build with native `sm_89` + `sm_120a` and verify the launched binary/library set.
-7. Test `CUDA_SCALE_LAUNCH_QUEUES=2x/4x` for prefill only.
-8. Do not test P2P or experimental PoCs until a correctness canary and a rollback path exist.
+The 8 items below were all run. Marked per result; the order becomes "what remains".
+
+| # | item | measured | verdict |
+|---|---|---|---|
+| 1 | patch PR #27140 | upstream 943.44 vs fix 964.07 prefill; round 1–2 identical | **zero** — our prefill ~990, the broken case in the PR was 74; patch scopes itself to Ampere |
+| 2 | `--spec-draft-p-min 0.7` | 56.74 mean (3rd arm, between 82.02/66.96); draft 8465/9528, accept 71.6% (from 68.3%) | **drop** — slower and changed output even greedy |
+| 3 | swap `--spec-type` order | draft 9528, accept 6512 identical every digit; hashes match; tok/s same | **no effect** — strikethrough |
+| 4 | `--spec-draft-n-max 2/3/4` | 57.20 / 62.72 / 60.86; n3 wins all 3 rounds; n4 draft 4100 but accept drops to 55.2% | **n3 (in use) wins** — beats X's 4 and vendor default 2 |
+| 5 | `--spec-draft-backend-sampling` | 63.11 (default on) vs 63.18 (off) | **tie** — flag is default-enabled; `-sm tensor` forces CPU fallback (already in results README line 112); cost-free |
+| 6 | build A/B upstream | 10499→10729 decode +2.58%, prefill −1.14%; identical bytes all 3 binaries | **adopt ±2.6%** (CORRECTIONS 44) |
+| 7 | `CUDA_SCALE_LAUNCH_QUEUES` | prefill 1010.69/1021.33/1010.14; round 0 988.6 | **no effect** — non-consistent direction |
+| 8 | P2P / PoCs | — | **not run** — no correctness canary / rollback yet (per research gate) |
+
+**Critical boundary:** all of the above measured at ctx **16,384**, not the served **147,456**. No verdict transfers — `draft-mtp` was +81% at 16K but −71% at 131,072 on the same file. Re-validate any adopted item at served depth.
+
+**Rest of "revised_action_order_scope" not in the order yet:**
+
+Already measured previously by us (research re-offered them unaware): `-ub 1024` (+10.1% prefill), `-fa` on, `-ctk/-ctv q4_0` (q8_0 ≈ 0 at shallow depth), `-sm tensor` (+31.0% vs layer at 147,456 NVFP4).
+
+Still open (never swept): `--threads 2/-tb`, `--poll 0/50/100` (research notes CPU-side), `--kv-unified` (probably flat at `-np 1`), `-ctkd/-ctvd` (external draft only; our MTP embedded), `--cache-ram 0` (P2; RAM-for-prefill trade), `--load-mode` (load/residency), `--spec-ngram-mod-n-max 32→64` (**lever rank 2 in our own table, never swept once**).
+
+**The largest real lever (research note):**
+> not a server flag — **request shape / pruning unused tool schemas** moved one run 35.20 → 45.64 tok/s and prefill 18,618 → 554 ms (~14×). Client-side, held by issue #55; blocked on separating the 17,881 tokens into MCP vs built-in share.
+
+External leads (not in order): #27489 (open, single-device-only), #25532 (merged 2026-08-10 but dies on `-sm tensor`), #27173 (open branch-specific), #24219 (closed unmerged PoC), #27819/#27858 (open; confirms why DFlash2 not default), #27164 (build/library matching — we already copy CUDA DLLs beside exe). Reddit/HF n2-wins leads are different cards/files; we measured n3 wins at 16,384. MRCR quality (#182) is quality, not throughput, and never measured on our artifact — the critical path per ledger.
+
+**X thread @Oluwaphilemon1 (analogalok-era EXL3/DFlash2 lead, scraped via firecrawl 2026-09-01):**
+- Post 2094536234: Qwen3.8-27B now has an **EXL3** quant → reportedly serves **200K+ context on a 24GB card with DFlash2**, no aggressive-quant quality hit. Target cards 3090/4090/5090. Creator's first self-quantized EXL3 model — experimental flag.
+- Post 2094535664: Qwen3.8-27B **FP8 on DSpark V2** — claims better quality on ~1/8 the hardware. Marketing-style quality comparison, not a controlled benchmark.
+- The reusable part for us: **DFlash2 draft quantized EXL3 5.0bpw (3.85GB bf16 → 1.4GB)**, decode +33% over bf16 draft on DGX Spark (GB10) at parity acceptance.
+- **Relevance to our setup:** runtime mismatch (ExLlama3/vLLM vs llama.cpp), and results are GB10, not our 5060 Ti + 4070 SUPER. BUT since our fork `C:\AI\llama.cpp` now implements DFlash2 (commits 5ecbe1ac17 + 1deefcca3) with tensor-split support, an **EXL3-quantized DFlash2 draft is a real candidate** to A/B against native MTP as the drafter — measure on llama.cpp at served depth, do not extrapolate the H200/GB10 numbers.
 
 
 - X post mirror/API data: `https://api.fxtwitter.com/status/2088326480669667699`

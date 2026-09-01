@@ -1541,3 +1541,41 @@ Speculative decoding is supposed to be output-preserving, so the likeliest
 mechanism is that different draft lengths change the batch shape the target model
 verifies, changing floating-point reduction order and therefore the argmax at
 near-ties. **Not established** — no one has traced it.
+
+## What Unsloth Studio's history settles about DFlash2 and the tensor split — 2026-09-01
+
+Issue #67. Studio is an independent operator on this exact machine, so its logs answer
+some of our questions without a run. Read-only; `%USERPROFILE%\.unsloth` was not written to.
+
+**Studio has never run DFlash2 under a tensor split.** Cross-tabulating every
+`Starting llama-server:` line in `.unsloth/studio/logs` by split mode and spec type:
+
+| split | spec-type | launches |
+|---|---|---|
+| `--split-mode tensor` | `draft-mtp` | 36 |
+| (none = layer) | (none) | 31 |
+| `--split-mode tensor` | (none) | 21 |
+| (none = layer) | `ngram-mod` | 21 |
+| (none = layer) | **`draft-dflash`** | **12** |
+| `--split-mode tensor` | `ngram-mod,draft-mtp` | 7 |
+| (none = layer) | `draft-mtp` | 7 |
+| (none = layer) | `ngram-mod,draft-mtp` | 3 |
+| (none = layer) | `none` | 2 |
+| `--split-mode tensor` | `ngram-mod` | 1 |
+
+**All 12 DFlash2 launches are layer split.** So "Studio runs DFlash2 fine" is not
+evidence against our abort under `-sm tensor`; the combination was never asked for.
+
+**And Studio would hide it if it were.** Two latches in
+`studio/backend/core/inference/llama_cpp.py`: `_is_tensor_split_assert` (`:15596`) matches
+the **#6415 split-axis warmup assert** — the same `GGML_ASSERT(... != GGML_BACKEND_SPLIT_AXIS_0)`
+our unpatched binary dies on — and `_TENSOR_QUANT_KV_UNSUPPORTED_MARKER` (`:15583`) matches the
+pre-#23792 KV error. Both **latch and downgrade to layer split instead of retrying**, so the
+UI shows a working model and the tensor arm is dropped silently.
+
+**The downgrades actually recorded here were budget-driven**, not abort-driven — ten identical
+events: *"Tensor parallelism requested but the pooled VRAM budget cannot hold the weights, MTP
+reserve, and per-device compute buffers; falling back to layer split."*
+
+**Studio's build is now `10715` (`92cedc867`)**, not the `10679` our probe row records. The
+2026-08-30 result that their build still needs the mirror patch **has not been re-checked on 10715.**

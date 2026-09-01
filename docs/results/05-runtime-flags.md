@@ -594,3 +594,49 @@ Upstream loads the NVFP4 artifact and drives `draft-mtp` unmodified; no arm erro
 **Build note.** Upstream master will not compile here at full parallelism: nvcc's
 `cicc` died with `0xC0000005` on `fattn-mma-f16-instance-ncols1_16-ncols2_2.cu`
 with 20 jobs against 26.6 GB free RAM. `--parallel 6` completed both trees.
+
+## `--spec-draft-n-max` above 4, and the value that will not boot — 2026-09-01
+
+Issue #67, second pass. Same rig and method as the sweep above: every arm once per
+round, rotated, one boot discarded, four warm-ups, ctx 16,384, coding prompt.
+
+| arm | round 0 | round 1 | round 2 | mean | drafted | accepted |
+|---|---|---|---|---|---|---|
+| **3 (served)** | 63.91 | 63.42 | 76.26 | **67.86** | 10,467 | 6,900 (65.9 %) |
+| 8 | 53.06 | 53.32 | 64.02 | **56.80** | 19,143 | 7,104 (**37.1 %**) |
+| 6 + `p-min 0.6` | 26.59 | 26.60 | 40.71 | **31.30** | 10,362 | 6,534 (63.1 %) |
+| 16 + `p-min 0.8` | — | — | — | **does not boot** | — | — |
+
+**`--spec-draft-n-max 16` with `--spec-draft-p-min 0.8` exits during load with
+`0xC0000409`, reproducibly, in all three rounds.** Not slow — it never serves.
+**The two flags were set together, so which one refuses is not established;** one arm
+at `n16` alone would separate them.
+
+**`n-max 8` drafts 83 % more than 3 and accepts 37.1 % of it against 65.9 %.** The
+external claim behind this arm — n-max 16 + p-min 0.8 worth +15–20 % on a 5090,
+and n-max 6 + p-min 0.6 from a second operator — reproduces in neither direction here.
+
+With the 2/3/4 sweep above, the served **3** has now beaten 2, 4, 6 and 8 on this
+artifact at this depth.
+
+## `-sm tensor` with a quantized KV: the restriction was real and is gone — 2026-09-01
+
+An external sweep note listed *"`--split-mode tensor` forces FA + non-quantized KV"*
+as a constraint on this project. **It was true, and it ended at a specific commit.**
+Before **`ggml-org/llama.cpp#23792` (build b9455)**, `llama_init_from_model` refused
+outright with:
+
+```
+simultaneous use of SPLIT_MODE_TENSOR and KV cache quantization not implemented
+```
+
+Source: Unsloth Studio's own `studio/backend/core/inference/llama_cpp.py:15577-15586`,
+which keeps that string only to fail fast on an older binary and notes that *"Unsloth
+dropped its own pre-emptive gate once #23792 shipped"*. Our 10499 and their 10715 are
+both past b9455 — which is why every measurement in this file ran `-sm tensor` with
+`-ctk q4_0 -ctv q4_0` and no binary complained.
+
+**Do not confuse it with the other gate.** `fattn.cu:442` drops every **K≠V** pair when
+`GGML_CUDA_FA_ALL_QUANTS` is off, and that one is untouched by #23792 — see
+[results 03](03-memory-and-kv.md) for what it costs (prefill 29× slower) and issue #43
+for whether turning the flag on is worth a rebuild.
