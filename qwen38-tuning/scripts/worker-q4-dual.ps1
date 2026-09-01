@@ -1260,8 +1260,30 @@ $nMatch = if ($Nvfp4) { '24' } else { '12' }
 # NOT THE SAME AS THE DRAFT DEPTH, which was tried and LOST. This one was never
 # exercised, and what would exercise it is a workload where an n-gram fires at
 # all -- which this project does not have.
+#
+# n-max: 32 -> 64 on 2026-09-02, issue #67. The paragraph above stays because it
+# is the honest history of the value, but it is no longer the reason for it.
+# 64 IS llama.cpp's default; 32 was ours and was never chosen. Measured at the
+# SERVED 147,456 on the real-code corpus, three independent boot series:
+# +15.63 %, +14.85 %, +14.52 %. 96 and 128 fall back to about +2 %, so 64 is a
+# peak rather than a direction. Costs nothing: free_after 2,586-2,600 MiB and
+# 66+0 in every row.
+#
+# n-min STAYS 16. Studio's 48/64 is a pair and the pair loses -- 48/64 measured
+# -10.58 % in the same run. The gain is n-max alone.
+#
+# AND THE DRAFT DEPTH STAYS 3. `--spec-draft-n-max 4` is +5.76 % by itself at
+# this depth, but with n-max 64 the two measure -4.61 % TOGETHER, worse than
+# changing neither, at 0.1-0.5 % spreads. Two windows widening in one cascade
+# starve each other. `test_the_default_serves_n_max_64_and_leaves_the_draft_depth_at_3`
+# fails if a later session adopts the second winner because the first one worked.
+#
+# WHAT IS STILL UNMEASURED, and it is the reason this could disappoint: the gain
+# is on a corpus where the n-gram FIRES. On agent traffic this profile recorded
+# `#gen drafts = 0`. If the drafter never fires in real use, the window it draws
+# from cannot matter.
 $nMin = '16'
-$nMaxG = '32'
+$nMaxG = '64'
 # Images or not. `--no-mmproj-auto` and `-mm` together is a contradiction for
 # whoever reads the command line next, so it is one or the other.
 $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }

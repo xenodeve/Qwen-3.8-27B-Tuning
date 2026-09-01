@@ -435,11 +435,34 @@ def _retired_test_beta_takes_unsloths_ngram_bounds():
     assert re.search(r"--spec-ngram-mod-n-match\s+24\b", out), out
 
 
-def test_the_default_keeps_our_values():
+def test_the_default_serves_n_max_64_and_leaves_the_draft_depth_at_3():
+    r"""`n-max` 32 -> 64 on 2026-09-02, and the draft depth deliberately NOT moved.
+
+    64 is llama.cpp's own default; our 32 was carried through an older sweep
+    where it was "held constant" rather than chosen. Measured at the served
+    147,456 on the real-code corpus, three independent boot series:
+    **+15.63 %, +14.85 %, +14.52 %** (`results/ngram-window-147456.jsonl`,
+    `results/ngram-nmax-ladder-147456.jsonl`, `results/won-levers-combo-147456.jsonl`).
+    96 and 128 fall back to about +2 %, so 64 is a peak and not a direction.
+
+    **The draft depth stays at 3 and that is the whole reason this test names
+    both.** `--spec-draft-n-max 4` is +5.76 % on its own at this depth -- itself a
+    reversal of the 16,384 screen, where 3 beat 4 -- but the two together measure
+    **-4.61 %**, worse than changing nothing, at 0.1-0.5 % spreads. Naive
+    multiplication would have predicted +21 %. A future reader who adopts the
+    second winner because the first one worked will make the profile slower, so
+    the assertion below is a guard and not bookkeeping.
+
+    `n-min` stays 16: 48/64 measured -10.58 % in the same run, so Studio's pair
+    must not be copied whole (CORRECTIONS 38).
+    """
     out = _whatif(PROFILE, "-Nvfp4", "-Deep")
     assert re.search(r"--spec-draft-n-max\s+3\b", out), out
     assert re.search(r"--spec-ngram-mod-n-min\s+16\b", out), out
-    assert re.search(r"--spec-ngram-mod-n-max\s+32\b", out), out
+    assert re.search(r"--spec-ngram-mod-n-max\s+64\b", out), out
+    assert not re.search(r"--spec-draft-n-max\s+4\b", out), (
+        "the draft depth was raised to 4 alongside n-max 64; measured together "
+        "they are -4.61 %, worse than changing neither")
 
 
 # --------------------------------------------- context checkpoints, and the 51 s
