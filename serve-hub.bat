@@ -29,11 +29,11 @@ echo.
 echo   BOTH CARDS, NVFP4  -- fastest measured here, +63%% over 2 and 3
 echo.
 echo     1   147,456 context, images work          [recommended]
-echo     2   200,704 context, images work          deepest measured
+echo     2   200,704 context, images work          deepest measured, build 10729
 echo     7   200,704 + the Unsloth bundle (beta)   SPEED UNPAIRED
 echo     8   ... same, minus --kv-unified          A/B AGAINST 7
 echo     9   Unsloth Studio's command line        BASELINE ONLY, 107,899
-echo     A   ... on Unsloth's own BINARY too      build 10679 vs our 10499
+echo     A   ... on Unsloth's own BINARY too      THEIRS is 10715 now, not 10679
 echo     B   7 on Unsloth's BINARY, 200,704       build CONTESTED, unpaired
 echo     D   1 drafted by DFLASH2, 147,456       NOT faster; STEADIER, -950MiB
 echo     E   ... D on UNSLOTH's 0.3.0 source        UNVERIFIED, may abort
