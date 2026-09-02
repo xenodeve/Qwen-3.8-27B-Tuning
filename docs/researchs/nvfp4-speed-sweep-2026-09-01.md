@@ -141,5 +141,24 @@ These update earlier entries; the doc above already carries the corrected number
 - **Relevance to us:** it maps onto our biggest lever — client-side / request shape (issue #55 family). Key wins: default reasoning `xhigh`→`medium` (0 injected tokens, KV parity), full `enable_thinking=false` non-reasoning fast path, canonical XML tool-arg + stringified-JSON fix (tool calling), `--reasoning-preserve` alias for llama.cpp.
 - **Caveat:** it changes output/output contract (template-level token shaping, not a decode-speed flag) → must A/B quality, not just tok/s, before adopting. Verify against whatever template we currently serve.
 
-## Stay-away (continued)
-- vLLM MTP long-context (collapse 8x at 255K on 5060Ti).
+## Real-session baseline (2026-09-01, Opus 5 measured — build 10729, first real-work data)
+This is the FIRST number in this campaign that comes from real agent traffic, not a corpus or short boot. Treat it as the ground truth to compare all future A/B against. It differs from arena (46) and short boot (49.6) for a reason — deep context + two concurrent agents keep the GPU at 100% busy (busy 130 min of 126 wall).
+
+```
+build    10729 (458681e1d)      spec  ngram-mod + draft-mtp
+requests 241
+prefill  1,814,811 token   2,601.0s   697.7 tok/s
+decode     187,456 token   5,217.2s    35.9 tok/s
+busy                       7,818.2s   (130 min)  <- GPU never idle (2 agents)
+wall                       7,561.0s   (126 min)
+```
+
+- **decode 35.9 tok/s** — real depth + contention, BELOW arena 46 / boot 49.6.
+- **n-max 64 works on real traffic (closes the old doubt):** ngram-mod drafts 1,035, acc 22,063, mean acc len **22.32** vs draft-mtp drafts 62,748, acc 104,114, mean **2.66**. ngram fires 1.6% as often but yields 17.5% of all speculative tokens. This **refutes** worker-q4-dual.ps1:1252-1264's old "#gen drafts = 0 on agent traffic" (Opus 5 updating ledger/comments).
+- **The dominant server-side cost is re-prefill, not decode or KV.** Prefill was 41% of server time (3,164s = 53 min of 130), 31 forced full re-prefills (not 23), all invalidated-to-null. Largest single: 167,237 tokens / 258s; 5 were over 150,000.
+- **Root cause: GGUF has 48 SSM blocks of 65 → the checkpoint-invalidate path nulls everything instead of keeping the checkpoint nearest the fix point.** `--ctx-checkpoints` is already ON (default 32), never exceeded 9/32. It is NOT a flag problem — it is the invalidate LOGIC. No flag fixes it: `-ctxcp 32`, `-cram 8192`, `--cache-reuse` (= issue #42, GPU side untested), `--swa-full`, `--context-shift` all irrelevant.
+- **Opened as issue #70** with the full numbers and 3 questions to close it. This is the single biggest remaining server-side lever (roughly matches issue #49 thread).
+
+### Corrections from this measurement
+- Do NOT go change `--ctx-checkpoints` (already on, cap never hit — 9 of 32 max observed).
+- Do NOT try to "make checkpoints work" via flags — it must be fixed in the invalidation logic (issue #70).

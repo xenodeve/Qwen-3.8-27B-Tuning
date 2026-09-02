@@ -1278,6 +1278,15 @@ $nMatch = if ($Nvfp4) { '24' } else { '12' }
 # starve each other. `test_the_default_serves_n_max_64_and_leaves_the_draft_depth_at_3`
 # fails if a later session adopts the second winner because the first one worked.
 #
+# REFUTED 2026-09-02 BY A REAL SESSION, issue #70. The paragraph above says the
+# n-gram never fired on agent traffic. It fires. Over 241 requests in a 2 h 6 m
+# Claude Code session with two sub-agents (logs/serve-20260902-034815.log):
+#   ngram-mod  drafts  1,035   acc_tokens  22,063   mean acc len 22.32
+#   draft-mtp  drafts 62,748   acc_tokens 104,114   mean acc len  2.66
+# It runs 1.6 % as often as MTP and returns 17.5 % of every token speculation
+# produced. What is STILL unmeasured is the SIZE of the n-max 64 gain on that
+# traffic -- the session had no n-max 32 control beside it.
+#
 # WHAT IS STILL UNMEASURED, and it is the reason this could disappoint: the gain
 # is on a corpus where the n-gram FIRES. On agent traffic this profile recorded
 # `#gen drafts = 0`. If the drafter never fires in real use, the window it draws
