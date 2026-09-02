@@ -1512,7 +1512,31 @@ $argv = @(
     '-t', $threads, '-b', '2048', '-ub', "$UBatch", '-lv', "$Verbosity",
     '--log-colors', $LogColors
 ) + $logFileArg + @(
-    '-ctk', 'q4_0', '-ctv', 'q4_0'
+    '-ctk', 'q4_0', '-ctv', 'q4_0',
+    # 4, not llama.cpp's 32. MEASURED on logs/serve-20260902-034815.log: of 240
+    # successful restores, 185 used the newest checkpoint, 52 the second and 3
+    # the third. NONE went deeper. 752 were created at 151-834 MiB each, median
+    # 320, and the highest slot ever reached is `created context checkpoint
+    # 11 of 32`, so 28 slots were never touched and 8 of the 11 that were held
+    # nothing anyone reached for.
+    #
+    # This is not an arm, it is waste removal, and it is safe because the cap
+    # evicts the OLDEST and always admits the new one (server-context.cpp:2317)
+    # -- a smaller cap keeps the newest K, which is the end the restores search
+    # from (`find_if` over `rbegin()..rend()`, :3324). A cap that refused new
+    # checkpoints would freeze the set at its oldest members instead, and this
+    # change would be a regression.
+    #
+    # WHY IT MATTERS TO $cacheRamArg ABOVE: alloc() counts checkpoints into
+    # state_size_new (server-task.cpp:1723), so they are what makes an entry
+    # overflow. One entry in that log holds 116,241 tokens with 11 checkpoints
+    # at 7,755 MiB, of which about 5,150 MiB is checkpoints. At four it is
+    # about 4,500.
+    #
+    # NOT ZERO, and the distinction is the whole of CORRECTIONS 39:
+    # `--ctx-checkpoints 0` on this hybrid makes EVERY turn re-prefill from
+    # token 0, 51.6 s at the served depth. Fewer is not none.
+    '--ctx-checkpoints', '4'
 ) + $specArg + @(
 ) + $ngramArg + $visionArg + $cacheRamArg + $betaArg + $thinkArg + $templateArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",

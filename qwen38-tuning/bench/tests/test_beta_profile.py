@@ -122,15 +122,25 @@ def test_without_beta_none_of_it_appears():
     68.2 % of its last half hour re-prefilling what the prompt cache had just
     evicted (issue #70, `bench/tests/test_prompt_cache_budget.py`).
 
+    `--ctx-checkpoints` LEFT IT TOO, 2026-09-02, for the same reason and with
+    the sharper version of the same evidence. Of 240 successful restores in that
+    session, 185 used the newest checkpoint, 52 the second, 3 the third and none
+    went deeper, while the default holds 32. The profile now names it at **4**.
+    Studio's value is **0**, which CORRECTIONS 39 measured as a fault on this
+    hybrid -- every turn re-prefills from token 0, 51.6 s at the served depth.
+
     What the guard has to say is therefore narrower and stronger than "absent":
-    the default must not carry Studio's VALUE. `--cache-ram 0` disables the
-    store; 24576 raises it. Same flag, opposite decisions.
+    the default must not carry Studio's VALUES. `--cache-ram 0` disables the
+    store and 24576 raises it; `--ctx-checkpoints 0` disables checkpoints and 4
+    trims them. Same flags, opposite decisions.
     """
     out = _whatif(PROFILE, "-Nvfp4")
-    for flag in ("--ctx-checkpoints", "--load-mode", "--kv-unified", "--metrics"):
+    for flag in ("--load-mode", "--kv-unified", "--metrics"):
         assert flag not in out, (flag, out)
     assert not re.search(r"--cache-ram\s+0\b", out), out
     assert re.search(r"--cache-ram\s+24576\b", out), out
+    assert not re.search(r"--ctx-checkpoints\s+0\b", out), out
+    assert re.search(r"--ctx-checkpoints\s+4\b", out), out
     assert re.search(r"-t\s+18\b", out), out
 
 

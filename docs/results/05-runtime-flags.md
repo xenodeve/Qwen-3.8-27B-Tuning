@@ -867,3 +867,158 @@ open.
 
 **This is the `GGML_CUDA_ALLREDUCE` failure a second time**: not a missing
 instrument, a real one pointed somewhere the effect does not exist.
+
+---
+
+## `--ctx-checkpoints` — 32 is the default, 3 is the deepest ever used, 2026-09-02
+
+**MEASURED** on `logs/serve-20260902-034815.log`, the same four-hour two-agent
+session. `create_checkpoint` appends the newest at the end
+(`server-context.cpp:2330`) and the restore search walks the list in reverse
+(`std::find_if` over `rbegin()..rend()`, `:3324`), so counting how many entries
+each successful restore probed says how deep the list is ever needed:
+
+| the restore used | count | cumulative |
+|---|---|---|
+| the newest checkpoint | 185 | 77.1 % |
+| the second newest | 52 | 98.8 % |
+| the third newest | **3** | **100.0 %** |
+| deeper | **0** | |
+
+**240 restores, none deeper than the third.** 752 checkpoints were created at
+**151–834 MiB each, median 320**, and the highest slot ever reached is
+`created context checkpoint 11 of 32` — so 28 slots were never touched and 8 of
+the 11 that were held nothing anyone reached for.
+
+**SERVED FROM 2026-09-02: `--ctx-checkpoints 4`**, one slot of margin over the
+deepest observed use. Safe because the cap **evicts the oldest and always admits
+the new one** (`:2317-2324`), so a smaller cap keeps the newest K — the end the
+search starts from. A cap that refused new checkpoints would freeze the set at
+its oldest members and this would be a regression instead of a cleanup.
+
+**Why it belongs beside `--cache-ram`.** `alloc()` counts checkpoints into
+`state_size_new` (`server-task.cpp:1723`), so they are what makes an entry
+overflow the cache. One entry in that log holds **116,241 tokens with 11
+checkpoints at 7,755 MiB**, of which roughly **5,150 MiB is checkpoints**. At
+four it is about 4,500.
+
+**Not zero, and the distinction is CORRECTIONS 39:** `--ctx-checkpoints 0` on
+this hybrid makes every turn re-prefill from token 0, 51.6 s at the served depth.
+Fewer is not none.
+
+**Attribution cost, stated so the next session does not misread the log:** this
+is the second flag moved before the first was measured. If `making room for
+prompt cache entry` disappears from the next session, `--cache-ram 24576` and
+`--ctx-checkpoints 4` cannot be told apart.
+
+---
+
+## Four flags closed by reading the source, 2026-09-02 — no GPU time spent
+
+Each was proposed in `docs/researchs/re-prefill-prefill-speed-2026-09-02.md` or
+considered here, and each fails on this artifact for a reason that is in the
+code rather than in a measurement.
+
+### `--cache-reuse` — impossible on this model, and images are not the reason
+
+It scans past the matching prefix for chunks of ≥ N tokens that match at a
+**different** position and moves their KV there instead of recomputing
+(`server-context.cpp:3211-3258`). Two gates disable it, and the second cannot be
+lifted:
+
+1. `:1179` — `cache_reuse is not supported by multimodal, it will be disabled`.
+   Our profile passes `-mm`. Reversible only by giving up images.
+2. `:1191` — `llama_memory_can_shift()` is **false** for this model.
+
+The second is structural. The boot log reads `rope type = 40` with
+`mrope sections = [11, 11, 10, 0]`; `40` is `GGML_ROPE_TYPE_IMROPE`
+(`ggml.h:254`), so `llama_hparams::n_pos_per_embd()` returns **4**
+(`llama-hparams.cpp:260-262`), and `llama_kv_cache::get_can_shift()` returns
+false whenever that is above 1. **A position on this model is four numbers —
+time, y, x and a spare — and shifting a chunk means adding one scalar to a
+position.** `llama_memory_hybrid::get_can_shift()` just forwards the attention
+half's answer, so the whole memory refuses.
+
+**`--context-shift` dies on the same gate** (`:1174-1177`).
+
+**And it would not have helped.** Our forced re-prefills happen at a swap between
+two conversations sharing **three** tokens; there are no ≥256-token identical
+chunks to move. The within-conversation case it does fix is already handled —
+`n_past` reaches 45,591 of 45,595.
+
+**This answers issue #42 and issue #49.** #42 asked whether `--cache-reuse`
+leaves the DeltaNet state behind; the question is moot, because the attention
+half cannot shift either. #49 asked for a restore near the edit followed by a
+tail-only prefill; that is the same shifting operation.
+
+### `--cache-ram -1` — removes one cap and freezes the other at its lowest value
+
+`server-task.h:613` maps a negative to `limit_size = 0`, and every `limit_size >
+0` guard then turns off — `alloc()` never refuses an oversize entry and never
+evicts by bytes, which is the one thing it genuinely buys. But the prompt cache
+has a **second** cap in tokens, set once from `n_ctx` (`server-context.cpp:1359`)
+and raised in proportion to the byte budget:
+
+```cpp
+// server-task.cpp:1870
+limit_tokens_cur = limit_size > 0 ? max(limit_tokens, limit_size/size_per_token)
+                                  : limit_tokens;
+```
+
+**The raise is gated on the byte budget being known**, so `-1` pins the token cap
+at 200,704 against two live conversations of 213k. `limit_tokens` has no flag of
+its own, which is why **a large finite number is the only way to lift both**.
+
+### `-np 2 --kv-unified` — the server clears the idle slot on purpose
+
+Under `--kv-unified` each slot sees the whole window
+(`llama-context.cpp:290`, `n_ctx_seq = n_ctx`), which looks like both
+conversations could stay resident. They cannot:
+
+```cpp
+// server-context.cpp:2419  [TAG_IDLE_SLOT_CLEAR]
+if (params_base.kv_unified) {
+    slot.prompt_clear();
+}
+```
+
+**Every idle slot is saved to the prompt cache and then wiped** when a new task
+starts, and `:1425` says why — under a unified cache, clearing a slot returns
+reusable room to the shared pool. So the arrangement collapses to what `-np 1`
+already does, plus a second recurrent cell: `recurrent_rs_size = max(1,
+cparams.n_seq_max)` (`llama-model.cpp:2500`) and the log reads
+`llama_memory_recurrent: size = 598.50 MiB (1 cells…)`.
+
+**Without `--kv-unified` the code does the opposite** — `:1427` *"clearing a slot
+frees no reusable room, so we only publish a RAM-cache copy of idle slots (their
+KV stays in VRAM)"* — which is what we want, but then
+`n_ctx_seq = n_ctx / n_seq_max` = 100,352 per slot and the main conversation is
+160k. Reaching 167k per slot would need `-c` above 334,000, past the model's
+`n_ctx_train` of 262,144.
+
+**Both variants fail, for opposite reasons, and there is no third.** VRAM is not
+even the binding constraint — though it is close: measured mid-session,
+`nvidia-smi` reports **408 MiB free on the 4070 SUPER** and 1,451 on the 5060 Ti,
+and this project has recorded a run dying at 336 and surviving at 488.
+
+### PR #24785 (recurrent shrink/expand) — fixes a fault we removed on 2026-08-29
+
+`ggml-org/llama.cpp#24785`, **open since 2026-06-18, not merged**,
+`reviewDecision = REVIEW_REQUIRED`, +390/−0 across 7 files including
+`llama-context.cpp` and `llama-memory-recurrent.cpp`. `grep -rn
+"recurrent_shrink\|recurrent_expand"` returns nothing at `458681e1d`, so it is
+not in build 10729. The last comment, 2026-08-16, asks the author to rebase onto
+master; there has been no reply, and our tree is 31 August.
+
+Its stated fault is *"the recurrent state gets invalidated during prompt cache
+save/load, forcing full prompt re-processing on **every turn**"* — on a machine
+forced to `--ctx-checkpoints 0` because checkpoints crash ROCm (their #20176).
+**That is CORRECTIONS 39, which this project measured and fixed on 2026-08-29 by
+removing the flag.** Our restores work: 240 checkpoint and 37 prompt-cache.
+
+The one thing it would buy us — a smaller saved state — lands in the wrong place.
+The recurrent memory is **598.5 MiB fixed, independent of prompt length**, so it
+dominates small entries (a **526-token** prompt occupies **463 MiB** of cache)
+and is at most **18.7 %** of a deep one (at 173,685 tokens the saved target state
+is 3,206.7 MiB after subtracting the draft). **The entries that overflow the cap
+are the deep ones.** `--ctx-checkpoints` reaches the same entries for free.

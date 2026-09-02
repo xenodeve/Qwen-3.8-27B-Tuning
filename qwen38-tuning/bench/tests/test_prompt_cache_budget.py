@@ -150,10 +150,59 @@ def test_the_beta_bundle_still_disables_the_prompt_cache():
     assert len(re.findall(r"--cache-ram\b", out)) == 1, out
 
 
-def test_the_checkpoint_budget_was_not_moved_at_the_same_time():
-    """One flag changes, so the next real session can attribute the difference.
-    220 checkpoint restores succeeded in the measured session and the cap was
-    never reached -- there is nothing here to fix."""
+def test_the_checkpoint_budget_is_four_because_the_log_never_used_a_fourth():
+    """32 is llama.cpp's default and 28 of those slots were never touched.
+
+    This test used to assert the flag was ABSENT, on the reasoning that
+    "checkpoints earn their place -- 220 restores -- and the cap is never the
+    limit". The second half was true and irrelevant: reaching the cap is not the
+    question, USING what is held is. Measured over the same session, counting
+    how deep each successful restore had to search a list that
+    `create_checkpoint` keeps newest-last and `std::find_if` walks in reverse
+    (`server-context.cpp:3324-3336`):
+
+        240 restores
+          newest checkpoint      185    77.1 %
+          second newest           52    98.8 %
+          third newest             3   100.0 %
+          deeper                   0
+
+    752 checkpoints were created at 151-834 MiB each, median 320. The highest
+    slot ever reached is `created context checkpoint 11 of 32`, and the deepest
+    ever RESTORED FROM is the third.
+
+    Four keeps one slot of margin over the deepest observed use. It is safe
+    because the cap evicts the OLDEST and always admits the new one
+    (`server-context.cpp:2317-2324`), so a smaller cap keeps the newest K --
+    exactly the ones the restores reach for. A cap that refused new checkpoints
+    instead would freeze the set at its oldest members and this would be a
+    regression rather than a cleanup.
+
+    WHAT IT BUYS. `alloc()` counts checkpoints into `state_size_new`
+    (`server-task.cpp:1723-1728`), so they are why an entry overflows
+    `--cache-ram`. One cached entry in the log holds 116,241 tokens with
+    **11 checkpoints at 7,755 MiB total**, of which roughly 5,150 MiB is
+    checkpoints. At four that entry is about 4,500 MiB.
+
+    WHAT IT COSTS, stated because the next session must not misread the log:
+    this moves a SECOND flag before `--cache-ram 24576` has been measured, so if
+    `making room for prompt cache entry` disappears, the two cannot be told
+    apart. It is shipped anyway because 28 unused slots are waste rather than an
+    experimental arm.
+    """
     out = _argv(("-Nvfp4", "-Deep", "-Vision"))
-    assert "--ctx-checkpoints" not in out, out
-    assert "-ctxcp" not in out, out
+    assert re.search(r"--ctx-checkpoints\s+4\b", out), out
+    # `arg.cpp:1695` gives this one option THREE names. A second spelling on the
+    # same command line would silently override the first, and the reader of the
+    # argv could not say which value won.
+    assert len(re.findall(r"(?:--ctx-checkpoints|-ctxcp|--swa-checkpoints)\b", out)) == 1, out
+
+
+def test_beta_still_carries_no_checkpoint_flag_of_its_own():
+    """`--ctx-checkpoints 0` LEFT the `-Beta` bundle on 2026-08-29, measured:
+    on a hybrid model it makes every turn re-prefill from token 0, 51.6 s at the
+    served depth (CORRECTIONS 39). It must not come back through this door --
+    `-Beta` inherits the same 4, not a zero."""
+    out = _argv(("-Nvfp4", "-Deep", "-Beta"))
+    assert not re.search(r"--ctx-checkpoints\s+0\b", out), out
+    assert re.search(r"--ctx-checkpoints\s+4\b", out), out
