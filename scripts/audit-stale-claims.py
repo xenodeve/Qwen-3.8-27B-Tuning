@@ -208,12 +208,15 @@ RULES = [
      "9,801 MiB and llama.cpp refuses to cache it -- 'exceeds cache size limit "
      "... skipping'. A live two-agent session lost 68.2 % OF WALL in its last "
      "half hour to re-prefilling what the prompt cache had just evicted, and "
-     "30.5 % over four hours. The served profiles pass --cache-ram 16384 from "
-     "2026-09-02; -Beta keeps 0, which is Studio's value. The 2026-08-23 A-B-A-B-A "
-     "run that found the default already winning by 343x used CTX 98304 and ~40k "
-     "-token conversations, whose entries are 898-928 MiB -- a ninth of the cap, "
-     "so it could not have failed. THE 16384 IS UNPAIRED: the next session's log "
-     "is its read-out, and re-running run_cram_swap.py at 200,704 is open",
+     "30.5 % over four hours. The served profiles pass --cache-ram 24576 from "
+     "2026-09-02; -Beta keeps 0, which is Studio's value. NEVER -1: server-task.h:613 "
+     "maps a negative to limit_size = 0 and update() gates its dynamic token raise "
+     "on limit_size > 0, so -1 pins the cap at n_ctx = 200,704 tokens against two "
+     "live conversations of 213k. The 2026-08-23 A-B-A-B-A run that found the "
+     "default already winning by 343x used CTX 98304 and ~40k-token conversations, "
+     "whose entries are 898-928 MiB -- a ninth of the cap, so it could not have "
+     "failed. THE 24576 IS UNPAIRED: the next session's log is its read-out, and "
+     "re-running run_cram_swap.py at 200,704 is open",
      "CORRECTIONS.md 46"),
 
     ("ts-is-not-a-lever",

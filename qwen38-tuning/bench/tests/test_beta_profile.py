@@ -116,7 +116,7 @@ def test_without_beta_none_of_it_appears():
     """Opt-in. The bundle is unmeasured and must not leak into the default.
 
     `--cache-ram` LEFT THIS LIST 2026-09-02, and it is not a leak. The default
-    profile now names the flag at its own MEASURED value, `16384`, for a reason
+    profile now names the flag at its own MEASURED value, `24576`, for a reason
     that has nothing to do with Studio: llama.cpp's 8192 MiB default is smaller
     than one of our conversations at ctx 200,704, and a live session spent
     68.2 % of its last half hour re-prefilling what the prompt cache had just
@@ -124,13 +124,13 @@ def test_without_beta_none_of_it_appears():
 
     What the guard has to say is therefore narrower and stronger than "absent":
     the default must not carry Studio's VALUE. `--cache-ram 0` disables the
-    store; 16384 raises it. Same flag, opposite decisions.
+    store; 24576 raises it. Same flag, opposite decisions.
     """
     out = _whatif(PROFILE, "-Nvfp4")
     for flag in ("--ctx-checkpoints", "--load-mode", "--kv-unified", "--metrics"):
         assert flag not in out, (flag, out)
     assert not re.search(r"--cache-ram\s+0\b", out), out
-    assert re.search(r"--cache-ram\s+16384\b", out), out
+    assert re.search(r"--cache-ram\s+24576\b", out), out
     assert re.search(r"-t\s+18\b", out), out
 
 

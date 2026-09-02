@@ -816,14 +816,44 @@ succeeded, one recovering a 35,733-token prefix whole, and `--cache-idle-slots`
 is on by default. 220 `restored context checkpoint` also succeeded, and the
 checkpoint cap was never reached (`created context checkpoint 11 of 32`).
 
-**SERVED FROM 2026-09-02: `--cache-ram 16384`** on every non-`-Beta` profile in
+**SERVED FROM 2026-09-02: `--cache-ram 24576`** on every non-`-Beta` profile in
 `worker-q4-dual.ps1`. `-Beta` keeps `--cache-ram 0`, which is Studio's value and
 what that arm exists to measure. Guarded by
 `bench/tests/test_prompt_cache_budget.py`.
 
+### Choosing the value, and the one that must never be passed
+
+Replaying the log's own recorded entry sizes through the same `alloc()`/`update()`
+arithmetic, counting the 52 forced re-prefills that would have found their prefix.
+**A simulation** — the prefix test is a heuristic, not the server's `f_keep`/`f_sim`
+rule:
+
+| `-cram` | recovered | evictions |
+|---|---|---|
+| 8192 (llama.cpp's default) | 0 / 52 | 84 |
+| 16384 | 35 / 52 | 82 |
+| **24576 (served)** | **43 / 52** | 80 |
+| −1, no size limit | 13 / 52 | 84 |
+
+**`-1` is a trap.** `server-task.h:613` maps a negative to `limit_size = 0`, and
+`update()` gates its dynamic token raise on `limit_size > 0` — so `-1` pins the cap
+at its constructor value, `n_ctx` = 200,704 tokens, against two live conversations
+of 167k + 46k = 213k. It evicts by tokens with unlimited RAM.
+
+**16384 shipped first and was wrong about its own cost.** It beat 24576 on "the
+host commits 34.35 GB of 47.7, so a bigger cap trades a re-prefill for paging".
+`--cache-ram` is a **cap, not a reservation** — `alloc()` resizes only to the state
+stored, so raising it costs the difference the cache really holds, ~4–6 GB against
+16.5 GB free commit. And the commit limit is not fixed: `AutomaticManagedPagefile`
+is True on a 932 GB WD_BLACK SN850X, **measured here at 1,809 MB/s write and
+5,332 MB/s read**, so a 7 GiB entry faulted back costs **~1.3 s** against 200–250 s
+of re-prefill. The server already runs mostly paged: **34.5 GB private against a
+4.5 GB working set**.
+
 **This is UNPAIRED and the next real session is the read-out.** Two log lines
 answer it without interpretation — if `making room for prompt cache entry` or
-`exceeds cache size limit` return, 16384 was not enough.
+`exceeds cache size limit` return, 24576 was not enough. If decode falls while the
+hard-fault rate climbs, the paging trade went the wrong way.
 
 ### The harness for this existed and was run too shallow
 

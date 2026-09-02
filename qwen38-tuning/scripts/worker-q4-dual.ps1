@@ -1324,7 +1324,7 @@ $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 # conversation across a slot change rather than across a turn. Studio sets it and
 # -Beta measures Studio.
 #
-# THE SERVED PROFILE NOW SETS IT TOO, at 16384 rather than at llama.cpp's 8192.
+# THE SERVED PROFILE NOW SETS IT TOO, at 24576 rather than at llama.cpp's 8192.
 # See $cacheRamArg below. That was the developer's open question and it is
 # answered: 8192 is smaller than one of our conversations.
 # `--no-kv-unified`, NOT the absence of `--kv-unified`. MEASURED 2026-08-30 and
@@ -1385,19 +1385,45 @@ $threads = if ($Beta) { '2' } else { '18' }
 # and `--cache-idle-slots` is on by default. The budget was the bug.
 # Evidence and the source reading: issue #70, comment 5502598376.
 #
-# WHY 16384 AND NOT MORE. Largest entry seen 9,801 MiB, the sub-agent's about
-# 2,029, so 16 GiB holds both today. The margin is deliberately not generous:
-# the host has 47.7 GB and this server already commits 34.35 GB, so a bigger cap
-# trades a re-prefill for paging, which is the one way this loses. THE LOG READS
-# OUT ITS OWN VERDICT -- if `exceeds cache size limit` or `making room` return,
-# 16384 was not enough and the next value is an experiment, not a guess.
+# WHY 24576. Replaying the log's own recorded entry sizes through the same
+# alloc()/update() arithmetic, counting the 52 forced re-prefills that would have
+# found their prefix:
+#
+#      8192 (llama.cpp's default)   0 / 52
+#     16384                        35 / 52
+#     24576                        43 / 52
+#        -1  == no size limit      13 / 52
+#
+# A SIMULATION, and labelled as one: the prefix test is a heuristic, not the
+# server's f_keep/f_sim rule.
+#
+# `-1` IS A TRAP and is the one value never to pass here. server-task.h:613 maps
+# a negative to `limit_size = 0`, and update() gates its dynamic token raise on
+# `limit_size > 0` -- so `-1` pins the cap at its constructor value, n_ctx =
+# 200,704 tokens, against two live conversations of 167k + 46k = 213k.
+#
+# 16384 WAS SERVED FIRST AND FOR A WRONG REASON. It was chosen over 24576 on
+# "the host commits 34.35 GB of 47.7 and a bigger cap trades a re-prefill for
+# paging". Two errors. `--cache-ram` is a CAP, NOT A RESERVATION: alloc() only
+# ever resizes to the state actually being stored, so raising it costs the
+# difference the cache really holds -- about 4-6 GB here, against 16.5 GB of free
+# commit. And the commit limit is not fixed: AutomaticManagedPagefile is True on
+# a 932 GB WD_BLACK SN850X. Measured on that drive, write 1,809 MB/s and read
+# 5,332 MB/s, so a 7 GiB entry faulted back costs ~1.3 s against the 200-250 s
+# re-prefill it replaces. The server ALREADY runs mostly paged -- 34.5 GB private
+# against a 4.5 GB working set.
+#
+# THE LOG STILL READS OUT ITS OWN VERDICT. If `exceeds cache size limit` or
+# `making room` return, 24576 was not enough and the next value is an experiment,
+# not a guess. If decode falls while hard-fault rate climbs, the paging trade
+# went the wrong way and this is one constant to revert.
 #
 # ONE FLAG, NOT TWO. `--ctx-checkpoints` would also shrink an entry and is
 # deliberately left alone: 220 `restored context checkpoint` succeeded in the
 # same session, and the cap is never the limit -- `created context checkpoint
 # 11 of 32` is the highest ever reached. Moving both would leave the next
 # session unable to say which one did it.
-$cacheRamArg = if ($Beta) { @() } else { @('--cache-ram', '16384') }
+$cacheRamArg = if ($Beta) { @() } else { @('--cache-ram', '24576') }
 
 # HOW THINKING IS TURNED ON, and the two profiles do it differently on purpose.
 #

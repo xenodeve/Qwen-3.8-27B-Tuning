@@ -1979,10 +1979,29 @@ share one slot. Discarding every checkpoint is correct
 was in the prompt cache and had been evicted one line earlier.
 
 **What is now settled and what is not.** The served profiles pass
-**`--cache-ram 16384`** from 2026-09-02. **That value is UNPAIRED** — it rests on
-one live session, and the next one is its read-out: if `making room for prompt
-cache entry` or `exceeds cache size limit` return, 16384 was not enough. Pairing
-it means re-running `run_cram_swap.py` at 200,704, which has not been done.
+**`--cache-ram 24576`** from 2026-09-02. **That value is UNPAIRED** — it rests on
+one live session plus a simulation, and the next session is its read-out: if
+`making room for prompt cache entry` or `exceeds cache size limit` return, 24576
+was not enough. Pairing it means re-running `run_cram_swap.py` at 200,704, which
+has not been done.
+
+**16384 was served first, for four hours, on a reason that was itself wrong.** It
+was chosen over 24576 because "the host commits 34.35 GB of 47.7, so a bigger cap
+trades a re-prefill for paging". Both halves fail. **`--cache-ram` is a cap, not
+a reservation** — `alloc()` resizes only to the state being stored, so the real
+cost is the difference the cache holds, about 4–6 GB against 16.5 GB of free
+commit. And **the commit limit is not fixed**: `AutomaticManagedPagefile` is True
+on a 932 GB WD_BLACK SN850X, measured here at **1,809 MB/s write and 5,332 MB/s
+read**, so a 7 GiB entry faulted back costs about **1.3 s** against the 200–250 s
+re-prefill it replaces. The server already runs mostly paged — **34.5 GB private
+against a 4.5 GB working set** — so "it would page" described the status quo, not
+a new risk. Simulated recovery is **43 of 52** forced re-prefills at 24576
+against **35 of 52** at 16384.
+
+**And never `-1`.** `server-task.h:613` maps a negative to `limit_size = 0`, and
+`update()` gates its dynamic token raise on `limit_size > 0`, so `-1` pins the cap
+at `n_ctx` = 200,704 tokens against two live conversations of 213k — **13 of 52**
+in the same simulation, worse than half of 16384.
 
 **This is the `GGML_CUDA_ALLREDUCE` failure a second time** — a real instrument
 pointed at a depth where the effect does not exist. Six of the seven questions

@@ -162,3 +162,13 @@ wall                       7,561.0s   (126 min)
 ### Corrections from this measurement
 - Do NOT go change `--ctx-checkpoints` (already on, cap never hit — 9 of 32 max observed).
 - Do NOT try to "make checkpoints work" via flags — it must be fixed in the invalidation logic (issue #70).
+
+### CORRECTION 2026-09-01 (Opus 5, verified by printing real argv — my earlier read of the -Beta branch was wrong, same trap as the grep-from-file error earlier)
+- **Profile 2 does NOT pass `--cache-ram 0`.** It never takes the -Beta bundle branch at worker-q4-dual.ps1:1302-1340. Verified by running `pwsh -NoProfile -File qwen38-tuning\scripts\worker-q4-dual.ps1 -Deep -Nvfp4 -Vision -WhatIf` — the real argv has NO `--cache-ram`, NO `--ctx-checkpoints`. Both run at llama.cpp defaults (8192 MiB, 32).
+- Boot log settles it: `prompt cache is enabled, size limit: 8192 MiB` + `idle slots will be saved to prompt cache upon starting a new task`. If `--cache-ram 0` were passed it would print "prompt cache is disabled".
+- **"re-prefill 100% every turn" is FALSE.** Real session: 312 new-prompt events, only 40 forcing-full = **12.8%**; 220 checkpoint restores + 37 prompt-cache restores succeeded. Cache IS working across requests.
+- **`--cache-reuse` is force-disabled on profile 2** because it passes `-mm` (multimodal). Source: `server-context.cpp:1179` — `cache_reuse is not supported by multimodal, it will be disabled`. Cannot enable without giving up images, which is the whole reason profile 2 exists. (Issue #42 needs no GPU time to answer for this profile.)
+- **Byproduct for issue #42:** `llama_memory_hybrid::get_can_shift()` returns `mem_attn->get_can_shift()` alone, with a comment "Shifting is trivially supported for recurrent" — but that's a COMMENT, not a proof. The recurrent half is never queried. This is the same assumption #42 suspects; we now have its exact location in code.
+- **Mechanism/citation:** https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/70#issuecomment-5502598376
+- **Lesson (applies to me too):** verify claims by running the command and printing the real argv, not by reading a script branch that may not execute.
+- **Opus 5's remaining lever for wall time:** `--cache-ram` at 8192 MiB default while a single conversation's state grew to 9,801 MiB — the 8192 cap becomes the binding limit, so evictions ("making room" / "exceeds cache size limit") drive re-prefill. A/B to settle: separate-conversation harness, or edit profile and watch next log for eviction lines.

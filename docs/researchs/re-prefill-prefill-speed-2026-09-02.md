@@ -60,7 +60,7 @@ Last 30 minutes of a real 160k-context session: **68% of wall (1,229s of 1,801s)
 
 ## Checked against this machine's source and logs — 2026-09-02
 
-Added by the session that shipped `--cache-ram 16384`. Source read is
+Added by the session that shipped `--cache-ram 24576`. Source read is
 `F:\llama-build\up` at **458681e1d** — the tree build 10729 was compiled from,
 which is what icon 2 serves. Log is `logs/serve-20260902-034815.log`.
 
@@ -68,7 +68,7 @@ which is what icon 2 serves. Log is `logs/serve-20260902-034815.log`.
 
 | § | verdict |
 |---|---|
-| **A** `--cache-ram` cap is global, skip ≥ evict | **CONFIRMED and SHIPPED.** `--cache-ram 16384` is served from 2026-09-02. But **not `-1`** — see below. |
+| **A** `--cache-ram` cap is global, skip ≥ evict | **CONFIRMED and SHIPPED.** `--cache-ram 24576` is served from 2026-09-02. But **not `-1`** — see below. |
 | **B** byte-identical prefix / attribution header | **REFUTED HERE, and out of scope.** |
 | **C** `--slot-save-path` | **REAL but dominated.** Same mechanism, slower medium, and it needs a client that POSTs. |
 | **D** raise `--cache-idle-slots` / `-sps` | **NOT A THING.** The flag is a boolean; `-sps` is unrelated and inert at `-np 1`. |
@@ -98,8 +98,8 @@ prefix:
 
 ```
 -cram   8192 (the default)     0 / 52      84 evictions
--cram  16384 (served now)     35 / 52      82
--cram  24576                  43 / 52      80
+-cram  16384                  35 / 52      82
+-cram  24576 (served now)     43 / 52      80
 -cram     -1 (no size limit)  13 / 52      84
 ```
 
@@ -107,10 +107,27 @@ prefix:
 sizes, not a measurement; the prefix test is a heuristic, not the server's
 `f_keep`/`f_sim` rule.)*
 
-**24576 is better and was rejected on host memory, not on merit.** Measured while
-the session ran: commit **87.8 GB used of a 104.3 GB limit**, physical 47.7 GB with
-20.0 free, `llama-server` private **34.54 GB**. `16384` is +8 GiB over the default;
-`24576` is +16 GiB and would leave under a gigabyte of commit.
+**24576 was rejected on host memory, and the rejection was wrong — corrected the
+same day, and it is now what we serve.** The reasoning was: commit **87.8 GB used
+of a 104.3 GB limit**, so `24576` at +16 GiB "would leave under a gigabyte". Two
+errors in one sentence.
+
+**`--cache-ram` is a cap, not a reservation.** `alloc()` resizes only to the state
+actually being stored (`server-task.cpp:1760-1770`), so raising the cap costs the
+difference the cache really holds — about **4–6 GB**, not 16 — against 16.5 GB of
+free commit. And **the commit limit is not fixed**: `AutomaticManagedPagefile` is
+**True**, on a 932 GB **WD_BLACK SN850X**, measured here at **1,809 MB/s write and
+5,332 MB/s read**. A 7 GiB entry faulted back costs **~1.3 s** against the
+200–250 s re-prefill it replaces — about **170×** cheaper.
+
+**And the machine was already doing this.** `llama-server` holds **34.5 GB private
+against a 4.5 GB working set**, with hard faults running 1–577/s while it serves.
+"It would page" described the status quo, not a new risk. What *is* a real risk is
+Windows choosing to page something hot instead — the CUDA host allocations that
+mirror VRAM — and that is visible as decode falling while hard faults climb.
+
+The remaining wall is disk space, not memory: **C: has 25 GB free of 931**, and the
+pagefile already occupies 56.4 GB of it. D: has 11 GB; F: has 132 GB but is USB.
 
 **Why 24576 wins is worth knowing**, because it names the next lever: entries are
 40 % checkpoint, and on a recurrent model a checkpoint carries the SSM state

@@ -46,13 +46,37 @@ healthy: 37 prompt-cache restores succeeded in the same session, one recovering 
 Full evidence and the source reading:
 https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/70#issuecomment-5502598376
 
-WHY 16384 AND NOT MORE. The largest entry seen is 9,801 MiB, the sub-agent's is
-about 2,029 MiB, so 16 GiB holds both today with room to grow. It is not a
-comfortable margin and it is not meant to be: the host has 47.7 GB and this
-server already commits 34.35 GB of it, so a bigger cap trades a re-prefill for
-paging, which is the one way this change can lose. **The log reads out its own
-verdict** -- if `exceeds cache size limit` or `making room` come back, 16384 was
-not enough and the next value is an experiment, not a guess.
+WHY 24576, AND WHY 16384 WAS SERVED FIRST FOR A WRONG REASON. Replaying the
+log's own recorded entry sizes through the same `alloc()`/`update()` arithmetic,
+counting the 52 forced re-prefills that would have found their prefix:
+
+     8192 (llama.cpp's default)   0 / 52
+    16384                        35 / 52
+    24576                        43 / 52
+       -1  == no size limit      13 / 52
+
+A SIMULATION, labelled as one -- the prefix test is a heuristic, not the server's
+`f_keep`/`f_sim` rule.
+
+`-1` IS A TRAP. `server-task.h:613` maps a negative to `limit_size = 0`, and
+`update()` gates its dynamic token raise on `limit_size > 0`, so `-1` pins the
+cap at its constructor value, `n_ctx` = 200,704 tokens, against two live
+conversations of 167k + 46k = 213k.
+
+16384 was picked over 24576 on "the host commits 34.35 GB of 47.7, so a bigger
+cap trades a re-prefill for paging". **Two errors.** `--cache-ram` is a CAP, NOT
+A RESERVATION -- `alloc()` only resizes to the state actually stored, so raising
+it costs the difference the cache really holds, about 4-6 GB against 16.5 GB of
+free commit. And the commit limit is not fixed: `AutomaticManagedPagefile` is
+True on a 932 GB WD_BLACK SN850X, measured at 1,809 MB/s write and 5,332 MB/s
+read, so a 7 GiB entry faulted back costs ~1.3 s against the 200-250 s
+re-prefill it replaces. The server already runs mostly paged -- 34.5 GB private
+against a 4.5 GB working set.
+
+**The log still reads out its own verdict** -- if `exceeds cache size limit` or
+`making room` come back, 24576 was not enough. If decode falls while the
+hard-fault rate climbs, the paging trade went the wrong way and this is one
+constant to revert.
 
 ONE FLAG, NOT TWO. `--ctx-checkpoints` was the other candidate: entries would
 shrink if fewer were kept. It is deliberately left alone. Checkpoints earn their
@@ -73,7 +97,7 @@ BENCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(BENCH))
 PROFILE = os.path.join(ROOT, "qwen38-tuning", "scripts", "worker-q4-dual.ps1")
 
-SERVED = "16384"
+SERVED = "24576"
 
 # Every profile this change reaches. Shared so two tests cannot drift into
 # asking the same question of different profiles.
