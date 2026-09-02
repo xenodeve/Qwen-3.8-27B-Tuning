@@ -248,10 +248,39 @@ $env:CUDA_VISIBLE_DEVICES = $Device
 $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
 
 # ---- serve -------------------------------------------------------------------
-# -cram is NOT set: its 8192 MiB default is worth 343x on task switching and
-# caches into HOST RAM. Never set it to 0.
-# --ctx-checkpoints is NOT set: the default 32 is what carries prefix reuse when
-# n_rs_seq is 0, and it is right.
+# BOTH FLAGS ARE NOW SET, and the comment they replace was wrong. It read:
+#
+#   -cram is NOT set: its 8192 MiB default is worth 343x on task switching and
+#   caches into HOST RAM. Never set it to 0.
+#   --ctx-checkpoints is NOT set: the default 32 is what carries prefix reuse
+#   when n_rs_seq is 0, and it is right.
+#
+# The 343x is real (results/prompt-cache-swap.jsonl, 2026-08-23) and the "never
+# 0" still stands. What was wrong is the inference that a default which beats
+# ZERO is therefore the right VALUE. It was measured over two 44K conversations
+# whose cached state is 898-928 MiB -- a ninth of the 8192 MiB cap, a depth at
+# which the cap could not fail.
+#
+# MEASURED 2026-09-02 on the sibling profile, logs/serve-20260902-034815.log:
+# at the served depth one conversation's state reaches 9,801 MiB, llama.cpp
+# refuses to cache it at all ("exceeds cache size limit ... skipping"), and a
+# live two-agent session lost 68.2 % OF WALL in its last half hour to
+# re-prefilling what the cache had just evicted. And of 240 successful
+# checkpoint restores, none ever reached past the third of 32.
+# Issue #70, results/05-runtime-flags.md, CORRECTIONS 46.
+#
+# THE VALUES ARE CARRIED OVER, NOT MEASURED HERE. This profile is a different
+# artifact (UD-Q2_K_XL) at a different window (147,456), and no session has been
+# recorded on it since. The mechanism is the same -- same architecture, same
+# recurrent state, same q4_0 KV -- so the same numbers are the honest default
+# rather than a second guess. `bench/tests/test_every_profile_names_the_cache_
+# flags.py` is what makes sure the next profile cannot inherit the defaults in
+# silence, which is how this one went months without naming either flag.
+#
+# NOT TOUCHED HERE, and it is a real gap someone should close: this profile
+# still serves `--spec-ngram-mod-n-max 32` while the dual profile moved to 64 on
+# 2026-09-01 for +15.63 / +14.85 / +14.52 % across three arena runs. That is a
+# different lever with its own evidence and it does not belong in this change.
 & $Exe -m $Model `
     --alias Qwen3.8-27B-Q2_K_XL -c $Ctx `
     -ngl auto --fit on --fit-target 768 -fa on -np 1 `
@@ -259,6 +288,7 @@ $logFileArg = if ($LogFile) { @('--log-file', $LogFile) } else { @() }
     --log-colors $LogColors `
     @logFileArg `
     -ctk q4_0 -ctv q4_0 `
+    --cache-ram 24576 --ctx-checkpoints 8 `
     --spec-type draft-mtp,ngram-mod `
     --spec-ngram-mod-n-match 12 --spec-ngram-mod-n-min 16 --spec-ngram-mod-n-max 32 `
     --chat-template-file "C:\AI\qwen38-tuning\templates\qwen38-late-system.jinja" `

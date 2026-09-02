@@ -1043,3 +1043,38 @@ dominates small entries (a **526-token** prompt occupies **463 MiB** of cache)
 and is at most **18.7 %** of a deep one (at 173,685 tokens the saved target state
 is 3,206.7 MiB after subtracting the draft). **The entries that overflow the cap
 are the deep ones.** `--ctx-checkpoints` reaches the same entries for free.
+
+### Coverage: which profiles the fix actually reaches — 2026-09-02
+
+`serve.ps1:171` dispatches to exactly two files —
+`$profileName = if ($Dual) { 'worker-q4-dual.ps1' } else { 'worker-q2kxl-mtp.ps1' }`
+— and all twenty launchers in `launchers/` pass `-Dual`, so nineteen of them
+reach the first and the single-card path reaches the second.
+
+**`worker-q2kxl-mtp.ps1` named neither flag** and had served llama.cpp's 8192 MiB
+and 32 since it was written. It carried a comment asserting that was correct:
+
+> `-cram` is NOT set: its 8192 MiB default is worth 343x on task switching …
+> `--ctx-checkpoints` is NOT set: the default 32 … is right.
+
+The 343× is real (`results/prompt-cache-swap.jsonl`) and "never 0" still stands.
+**What was wrong is inferring the right VALUE from a default that beats zero** —
+that run used two 44K conversations whose state is 898–928 MiB, a ninth of the
+cap. It now passes `--cache-ram 24576 --ctx-checkpoints 8`, **carried over rather
+than measured there**: a different artifact (UD-Q2_K_XL) at a different window
+(147,456), same architecture and same q4_0 KV, and no session recorded on it since.
+
+**The other 45 `production-*.ps1` / `serve-*.ps1` / `worker-iq2*.ps1` scripts were
+left alone.** None is referenced by any launcher, `serve.ps1` or `serve-hub.bat`,
+and all were last committed on 2026-08-21 or 08-24 — several predating the card
+change. A script nothing can launch cannot repeat the fault.
+
+**What prevents recurrence is a guard, not forty-five edits.**
+`bench/tests/test_every_profile_names_the_cache_flags.py` parses the worker list
+out of `serve.ps1` itself and fails if any dispatchable profile does not name
+both flags. It reads source rather than dry-running, so it costs no GPU probe —
+which matters, because the profile dry runs do one per call.
+
+**Still open on that profile, and deliberately not changed here:** it serves
+`--spec-ngram-mod-n-max 32` while the dual profile moved to 64 on 2026-09-01 for
++15.63 / +14.85 / +14.52 % across three arena runs.
