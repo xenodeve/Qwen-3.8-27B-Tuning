@@ -1513,12 +1513,28 @@ $argv = @(
     '--log-colors', $LogColors
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0',
-    # 4, not llama.cpp's 32. MEASURED on logs/serve-20260902-034815.log: of 240
+    # 8, not llama.cpp's 32. MEASURED on logs/serve-20260902-034815.log: of 240
     # successful restores, 185 used the newest checkpoint, 52 the second and 3
     # the third. NONE went deeper. 752 were created at 151-834 MiB each, median
     # 320, and the highest slot ever reached is `created context checkpoint
     # 11 of 32`, so 28 slots were never touched and 8 of the 11 that were held
     # nothing anyone reached for.
+    #
+    # IT WAS 4 FOR ONE COMMIT, and the first boot at that value found the flaw in
+    # twenty minutes (logs/serve-20260902-094554.log). Search DEPTH and backwards
+    # REACH are different needs and the 240 restores only measured the first. A
+    # COMPACT rebuilds the conversation and the prefix diverges far back -- here
+    # `checking checkpoint with [174482, 174482] against 34785` -- and what is
+    # needed then is any checkpoint BELOW the divergence, however old. One
+    # existed, at 32,662, and the cap had just thrown it away:
+    #
+    #   erasing old context checkpoint (pos_min = 32662, size = 277.964 MiB)
+    #
+    # That message is the cap loop below, not the min-spacing rule. 32662 < 34785,
+    # so it would have been restored: 38,773 tokens to prefill instead of 71,436,
+    # about 38 s of the 83 that request cost. Six would have sufficed; eight is a
+    # third of margin, costs about 4 x 320 MiB per cached entry, and the cache
+    # peaked at 11,638 MiB of 24,576 on that boot. n = 1 -- one compact.
     #
     # This is not an arm, it is waste removal, and it is safe because the cap
     # evicts the OLDEST and always admits the new one (server-context.cpp:2317)
@@ -1536,7 +1552,7 @@ $argv = @(
     # NOT ZERO, and the distinction is the whole of CORRECTIONS 39:
     # `--ctx-checkpoints 0` on this hybrid makes EVERY turn re-prefill from
     # token 0, 51.6 s at the served depth. Fewer is not none.
-    '--ctx-checkpoints', '4'
+    '--ctx-checkpoints', '8'
 ) + $specArg + @(
 ) + $ngramArg + $visionArg + $cacheRamArg + $betaArg + $thinkArg + $templateArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",

@@ -131,7 +131,7 @@ def test_without_beta_none_of_it_appears():
 
     What the guard has to say is therefore narrower and stronger than "absent":
     the default must not carry Studio's VALUES. `--cache-ram 0` disables the
-    store and 24576 raises it; `--ctx-checkpoints 0` disables checkpoints and 4
+    store and 24576 raises it; `--ctx-checkpoints 0` disables checkpoints and 8
     trims them. Same flags, opposite decisions.
     """
     out = _whatif(PROFILE, "-Nvfp4")
@@ -140,7 +140,7 @@ def test_without_beta_none_of_it_appears():
     assert not re.search(r"--cache-ram\s+0\b", out), out
     assert re.search(r"--cache-ram\s+24576\b", out), out
     assert not re.search(r"--ctx-checkpoints\s+0\b", out), out
-    assert re.search(r"--ctx-checkpoints\s+4\b", out), out
+    assert re.search(r"--ctx-checkpoints\s+8\b", out), out
     assert re.search(r"-t\s+18\b", out), out
 
 

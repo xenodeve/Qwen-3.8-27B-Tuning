@@ -890,8 +890,25 @@ each successful restore probed says how deep the list is ever needed:
 `created context checkpoint 11 of 32` — so 28 slots were never touched and 8 of
 the 11 that were held nothing anyone reached for.
 
-**SERVED FROM 2026-09-02: `--ctx-checkpoints 4`**, one slot of margin over the
-deepest observed use. Safe because the cap **evicts the oldest and always admits
+**SERVED FROM 2026-09-02: `--ctx-checkpoints 8`.** It was **4** for one commit,
+and the first boot at that value found the flaw in twenty minutes
+(`logs/serve-20260902-094554.log`). **Search depth and backwards reach are
+different needs, and the 240 restores only measured the first.** A **compact**
+rebuilds the conversation and the prefix diverges far back --
+`checking checkpoint with [174482, 174482] against 34785` -- and what is needed
+then is any checkpoint *below* the divergence, however old. One existed, at
+**32,662**, and the cap had just discarded it:
+
+```
+erasing old context checkpoint (pos_min = 32662, size = 277.964 MiB)
+```
+
+That line is the cap loop at `:2317`, not the min-spacing rule. `32662 < 34785`,
+so it would have been restored and the request would have prefilled **38,773
+tokens instead of 71,436** -- about **38 s of the 83** it cost. Six would have
+sufficed; **eight** is a third of margin, costs about 4 x 320 MiB per cached
+entry, and the cache peaked at 11,638 MiB of 24,576 on that boot. **n = 1** --
+one compact, in nineteen minutes. Safe because the cap **evicts the oldest and always admits
 the new one** (`:2317-2324`), so a smaller cap keeps the newest K — the end the
 search starts from. A cap that refused new checkpoints would freeze the set at
 its oldest members and this would be a regression instead of a cleanup.
@@ -906,10 +923,14 @@ four it is about 4,500.
 this hybrid makes every turn re-prefill from token 0, 51.6 s at the served depth.
 Fewer is not none.
 
-**Attribution cost, stated so the next session does not misread the log:** this
-is the second flag moved before the first was measured. If `making room for
-prompt cache entry` disappears from the next session, `--cache-ram 24576` and
-`--ctx-checkpoints 4` cannot be told apart.
+**Attribution, which the first boot partly settled.** Both flags moved before
+either was measured, so the disappearance of `making room for prompt cache entry`
+could have belonged to either. **One number separates them:** the cache peaked at
+**11,638 MiB** on that boot, *with only four checkpoints per entry* — already
+above the 8,192 MiB the old default capped at. **The old cap would have evicted
+regardless of the checkpoint budget**, so the zero belongs to `--cache-ram
+24576`. `--ctx-checkpoints` moves entry size, not that verdict, and its own
+evidence is the compact above.
 
 ---
 

@@ -78,12 +78,23 @@ against a 4.5 GB working set.
 hard-fault rate climbs, the paging trade went the wrong way and this is one
 constant to revert.
 
-ONE FLAG, NOT TWO. `--ctx-checkpoints` was the other candidate: entries would
-shrink if fewer were kept. It is deliberately left alone. Checkpoints earn their
-place in the same log -- 220 successful `restored context checkpoint` -- and the
-cap is never the limit, `created context checkpoint 11 of 32` being the highest
-ever reached. Changing both would leave the next session unable to say which one
-moved.
+`--ctx-checkpoints` MOVED TOO, in the end, and the test below carries its
+evidence. It was held back for one commit so the two could be attributed
+separately; that is no longer true and the register says so.
+
+WHAT THE FIRST BOOT AT THESE VALUES SHOWED, `logs/serve-20260902-094554.log`,
+19 minutes, 42 requests, `prompt cache is enabled, size limit: 24576 MiB`:
+
+    making room for prompt cache entry      0
+    exceeds cache size limit                0
+    cache held, peak                    11,638 MiB of 24,576
+
+**Both markers are gone, and the peak is above the 8192 the default would have
+capped at** -- so the change bites rather than merely being present. Three forced
+re-prefills remain, 408 s, and none is an eviction: a cold first request
+(175,511 tokens, 271 s), a brand-new second conversation (`against 3`, 54 s), and
+one compact (`against 34785`, 83 s), which is what moved the checkpoint budget
+from four to eight.
 """
 import functools
 import os
@@ -150,7 +161,7 @@ def test_the_beta_bundle_still_disables_the_prompt_cache():
     assert len(re.findall(r"--cache-ram\b", out)) == 1, out
 
 
-def test_the_checkpoint_budget_is_four_because_the_log_never_used_a_fourth():
+def test_the_checkpoint_budget_is_eight_because_a_compact_reached_past_four():
     """32 is llama.cpp's default and 28 of those slots were never touched.
 
     This test used to assert the flag was ABSENT, on the reasoning that
@@ -171,7 +182,28 @@ def test_the_checkpoint_budget_is_four_because_the_log_never_used_a_fourth():
     slot ever reached is `created context checkpoint 11 of 32`, and the deepest
     ever RESTORED FROM is the third.
 
-    Four keeps one slot of margin over the deepest observed use. It is safe
+    THAT MEASURED THE WRONG QUANTITY FOR ONE CASE, and the first boot at four
+    found it within twenty minutes (`logs/serve-20260902-094554.log`). Search
+    DEPTH and backwards REACH are different needs. Depth never passed three. But
+    a **compact** rebuilds the conversation and the prefix diverges far back —
+    here at `checking checkpoint with [174482, 174482] against 34785` — and what
+    is needed then is any checkpoint *below* the divergence, however old. One
+    existed, at 32,662, and the cap had thrown it out:
+
+        erasing old context checkpoint (pos_min = 32662, size = 277.964 MiB)
+
+    That message comes from the cap loop at `server-context.cpp:2317`, not from
+    the min-spacing rule. `32662 < 34785`, so it would have been restored and
+    the request would have prefilled 38,773 tokens instead of 71,436 — about
+    38 s of the 83 it cost. The four held at that moment were 174,482 / 175,259
+    / 175,855 / 176,879, all past the divergence.
+
+    **Six would have sufficed; eight is the served value**, one third of margin
+    over the only case that has ever needed more than three. It costs about
+    4 x 320 MiB per cached entry against a cache observed peaking at 11,638 MiB
+    of 24,576, so the room is there. **n = 1**: one compact, in nineteen minutes.
+
+    Eight keeps five slots of margin over the deepest observed search. It is safe
     because the cap evicts the OLDEST and always admits the new one
     (`server-context.cpp:2317-2324`), so a smaller cap keeps the newest K --
     exactly the ones the restores reach for. A cap that refused new checkpoints
@@ -191,7 +223,7 @@ def test_the_checkpoint_budget_is_four_because_the_log_never_used_a_fourth():
     experimental arm.
     """
     out = _argv(("-Nvfp4", "-Deep", "-Vision"))
-    assert re.search(r"--ctx-checkpoints\s+4\b", out), out
+    assert re.search(r"--ctx-checkpoints\s+8\b", out), out
     # `arg.cpp:1695` gives this one option THREE names. A second spelling on the
     # same command line would silently override the first, and the reader of the
     # argv could not say which value won.
@@ -205,4 +237,4 @@ def test_beta_still_carries_no_checkpoint_flag_of_its_own():
     `-Beta` inherits the same 4, not a zero."""
     out = _argv(("-Nvfp4", "-Deep", "-Beta"))
     assert not re.search(r"--ctx-checkpoints\s+0\b", out), out
-    assert re.search(r"--ctx-checkpoints\s+4\b", out), out
+    assert re.search(r"--ctx-checkpoints\s+8\b", out), out
