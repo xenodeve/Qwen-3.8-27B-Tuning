@@ -774,3 +774,66 @@ deeper draft trades acceptance for throughput, and at depth the trade pays.
 called `GGML_CUDA_ALLREDUCE` flat, and that is worth 24 % here. A screen that is
 right six times out of seven and silent about which one it missed is not a filter,
 it is a coin with good odds.
+
+---
+
+## `--cache-ram` — the default is smaller than one of our conversations, 2026-09-02
+
+**MEASURED, on a live session rather than the arena.** Source:
+`logs/serve-20260902-034815.log`, four hours of a two-agent Claude Code session
+on icon 2 — NVFP4-MTP-VERY-LOW, build 10729, ctx 200,704, `draft-mtp,ngram-mod`,
+`--spec-ngram-mod-n-max 64`. 303 completed requests.
+
+| | last 30 min | last 60 min | whole session |
+|---|---|---|---|
+| wall | 1,801 s | 3,601 s | 14,386 s |
+| busy | 1,717 s (95 %) | 3,385 s (94 %) | 10,679 s (74 %) |
+| prefill | 1,478 s / 1,033,213 tok | 2,615 s / 1,837,267 tok | 4,982 s / 3,493,992 tok |
+| decode | 239 s / 7,024 tok @ 29.4 tok/s | 770 s / 27,910 tok @ 36.2 tok/s | 5,696 s / 202,485 tok @ 35.5 tok/s |
+| forced re-prefill | 1,229 s (10 events, **10** after an eviction) | 2,341 s (18, **18**) | 4,393 s (40, **32**) |
+| **share of wall** | **68.2 %** | **65.0 %** | 30.5 % |
+
+**In the last half hour the server prefilled 147 tokens for every token it
+emitted.** The share climbs with the window rather than holding, which is why the
+session average understates it by more than a factor of two.
+
+**The cause is the prompt-cache budget, not the checkpoints.** `--cache-ram`
+defaults to **8192 MiB** (`common/common.h:632`) and no profile here ever passed
+it. At ctx 200,704 one conversation's saved state reaches **9,801 MiB**, so
+llama.cpp refuses to cache it at all — `prompt state size 9801.444 MiB exceeds
+cache size limit 8192.000 MiB, skipping`, three times in that session — and when
+it does fit, the other conversation evicts it: 31 `making room` evictions
+discarding **122,276 MiB**.
+
+The re-prefill that follows is then correct behaviour. `checking checkpoint with
+[45590, 45590] against 3` — the incoming prompt shares **three tokens** with what
+the slot holds, because the main agent is at 160k and a sub-agent at 45k on one
+slot. No checkpoint of a different conversation could have been reused
+(`server-context.cpp:3329-3355`).
+
+**The mechanism is healthy when the entry survives:** 37 prompt-cache restores
+succeeded, one recovering a 35,733-token prefix whole, and `--cache-idle-slots`
+is on by default. 220 `restored context checkpoint` also succeeded, and the
+checkpoint cap was never reached (`created context checkpoint 11 of 32`).
+
+**SERVED FROM 2026-09-02: `--cache-ram 16384`** on every non-`-Beta` profile in
+`worker-q4-dual.ps1`. `-Beta` keeps `--cache-ram 0`, which is Studio's value and
+what that arm exists to measure. Guarded by
+`bench/tests/test_prompt_cache_budget.py`.
+
+**This is UNPAIRED and the next real session is the read-out.** Two log lines
+answer it without interpretation — if `making room for prompt cache entry` or
+`exceeds cache size limit` return, 16384 was not enough.
+
+### The harness for this existed and was run too shallow
+
+`bench/run_cram_swap.py` + `bench/prompt_cache_swap.py` boot once per `-cram`
+value and run A→B→A→B→A, and on 2026-08-23 measured **118.2 ms at 100 % reuse**
+against **40,596 ms at 0 %** with `-cram 0` (`results/prompt-cache-swap.jsonl`).
+It ran at `CTX = 98304` with `--chars 150000` — about 40k tokens each, whose
+state is **898–928 MiB**, a ninth of the cap. **A depth at which the default
+could not fail.** Re-running it at 200,704 is what would pair this row, and is
+open.
+
+**This is the `GGML_CUDA_ALLREDUCE` failure a second time**: not a missing
+instrument, a real one pointed somewhere the effect does not exist.

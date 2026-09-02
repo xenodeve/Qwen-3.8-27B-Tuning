@@ -1319,10 +1319,14 @@ $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 # The default costs 150.89 MiB per checkpoint, at most 32, no closer together
 # than 8,192 tokens -- about six at the depth we serve, in HOST RAM.
 #
-# --cache-ram 0 STAYS, because it is a different mechanism: the host store for
-# whole prompts that have been evicted, which is what carries a conversation
-# across a slot change rather than across a turn. Whether to restore its 8,192
-# MiB default is still the developer's open question.
+# --cache-ram 0 STAYS IN THE BUNDLE, because it is a different mechanism: the
+# host store for whole prompts that have been evicted, which is what carries a
+# conversation across a slot change rather than across a turn. Studio sets it and
+# -Beta measures Studio.
+#
+# THE SERVED PROFILE NOW SETS IT TOO, at 16384 rather than at llama.cpp's 8192.
+# See $cacheRamArg below. That was the developer's open question and it is
+# answered: 8192 is smaller than one of our conversations.
 # `--no-kv-unified`, NOT the absence of `--kv-unified`. MEASURED 2026-08-30 and
 # the first version of this switch was wrong.
 #
@@ -1341,6 +1345,59 @@ $betaArg = if ($Beta) {
     $(if ($NoKvUnified) { @('--no-kv-unified') } else { @('--kv-unified') })
 } else { @() }
 $threads = if ($Beta) { '2' } else { '18' }
+
+# THE PROMPT CACHE IS SMALLER THAN ONE OF OUR CONVERSATIONS, and until 2026-09-02
+# that was the largest cost this project had ever measured. `--cache-ram` was
+# never passed, so llama.cpp's 8192 MiB default was in force -- the same shape as
+# `--spec-ngram-mod-n-max 32`, a default nobody here chose.
+#
+# MEASURED on `logs/serve-20260902-034815.log`, a live two-agent Claude Code
+# session on icon 2, four hours and 303 completed requests. The LAST THIRTY
+# MINUTES of it:
+#
+#     wall     1,801 s
+#     prefill  1,478 s over 1,033,213 tokens
+#     decode     239 s ->      7,024 tokens @ 29.4 tok/s
+#     FORCED re-prefill 1,229 s = 68.2 % OF WALL, all ten after an eviction
+#
+# 147 tokens prefilled for every token emitted. Over the whole session the same
+# figure is 30.5 % of wall; the average is diluted by the first hour, when the
+# conversation was still small, and it climbs as the window fills.
+#
+# IT IS NOT THE CHECKPOINTS, and the block above is wrong about this case. The
+# log names the cause in the line before every re-prefill:
+#
+#   srv   prompt_save: - saving prompt with length 45619, total state size = 1131.811 MiB
+#   srv         alloc: - making room for prompt cache entry, removing oldest entry (size = 7028.285 MiB)
+#   slot operator (): task 70315 | new prompt, task.n_tokens = 160447
+#   slot operator (): task 70315 | checking checkpoint with [45590, 45590] against 3...
+#   slot operator (): task 70315 | forcing full prompt re-processing
+#
+# `against 3` is `pos_min_thold`: the incoming prompt shares THREE tokens with
+# what the slot holds. Main agent at 160k, sub-agent at 45k, alternating on one
+# slot -- so discarding every checkpoint is CORRECT. The conversation that could
+# have been reused was in the prompt cache and had been evicted one line earlier.
+#
+# 31 evictions discarded 122,276 MiB. Three times a conversation was refused
+# outright: `prompt state size 9801.444 MiB exceeds cache size limit 8192.000
+# MiB, skipping`. The mechanism itself is healthy -- 37 prompt-cache restores
+# succeeded in the same session, one recovering a 35,733-token prefix whole --
+# and `--cache-idle-slots` is on by default. The budget was the bug.
+# Evidence and the source reading: issue #70, comment 5502598376.
+#
+# WHY 16384 AND NOT MORE. Largest entry seen 9,801 MiB, the sub-agent's about
+# 2,029, so 16 GiB holds both today. The margin is deliberately not generous:
+# the host has 47.7 GB and this server already commits 34.35 GB, so a bigger cap
+# trades a re-prefill for paging, which is the one way this loses. THE LOG READS
+# OUT ITS OWN VERDICT -- if `exceeds cache size limit` or `making room` return,
+# 16384 was not enough and the next value is an experiment, not a guess.
+#
+# ONE FLAG, NOT TWO. `--ctx-checkpoints` would also shrink an entry and is
+# deliberately left alone: 220 `restored context checkpoint` succeeded in the
+# same session, and the cap is never the limit -- `created context checkpoint
+# 11 of 32` is the highest ever reached. Moving both would leave the next
+# session unable to say which one did it.
+$cacheRamArg = if ($Beta) { @() } else { @('--cache-ram', '16384') }
 
 # HOW THINKING IS TURNED ON, and the two profiles do it differently on purpose.
 #
@@ -1431,7 +1488,7 @@ $argv = @(
 ) + $logFileArg + @(
     '-ctk', 'q4_0', '-ctv', 'q4_0'
 ) + $specArg + @(
-) + $ngramArg + $visionArg + $betaArg + $thinkArg + $templateArg + @(
+) + $ngramArg + $visionArg + $cacheRamArg + $betaArg + $thinkArg + $templateArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",
     '--host', $BindAddress, '--port', "$Port"
 )

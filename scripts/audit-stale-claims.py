@@ -195,6 +195,27 @@ RULES = [
      "[+1.1, +2.1]",
      "CORRECTIONS.md 32"),
 
+    ("cache-ram-is-not-throughput",
+     # ANCHORED ON THE FLAG. The bare phrase also describes the 12 GB -> 16 GB
+     # card swap ("16 GB bought reliability, not throughput"), which is true and
+     # unrelated. A rule that fires on a correct sentence teaches the next reader
+     # to skip it.
+     r"(?:--cache-ram|-cram\b).{0,400}?reliability(?:,| at depth,?)? not throughput|"
+     r"`?--cache-ram`?[^.\n]{0,80}still the developer's open question",
+     "REFUTED 2026-09-02 (CORRECTIONS 46). --cache-ram is the largest throughput "
+     "lever measured here. Its 8192 MiB default (common/common.h:632) is smaller "
+     "than ONE of our conversations at ctx 200,704, where a saved state reaches "
+     "9,801 MiB and llama.cpp refuses to cache it -- 'exceeds cache size limit "
+     "... skipping'. A live two-agent session lost 68.2 % OF WALL in its last "
+     "half hour to re-prefilling what the prompt cache had just evicted, and "
+     "30.5 % over four hours. The served profiles pass --cache-ram 16384 from "
+     "2026-09-02; -Beta keeps 0, which is Studio's value. The 2026-08-23 A-B-A-B-A "
+     "run that found the default already winning by 343x used CTX 98304 and ~40k "
+     "-token conversations, whose entries are 898-928 MiB -- a ninth of the cap, "
+     "so it could not have failed. THE 16384 IS UNPAIRED: the next session's log "
+     "is its read-out, and re-running run_cram_swap.py at 200,704 is open",
+     "CORRECTIONS.md 46"),
+
     ("ts-is-not-a-lever",
      r"tensor-split \*?ratio\*? is not a lever|`?-ts`? is not a lever|"
      r"hard load failure",

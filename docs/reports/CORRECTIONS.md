@@ -1940,6 +1940,59 @@ digit, and nobody has traced it.
 
 ---
 
+## 46. "`--cache-ram` is about reliability, not throughput" — it is the largest throughput lever this project has measured
+
+**Published** in `docs/reports/16-OPTIMIZATION-SURFACE.md` as *"host-side cache
+cap. Predicted: reliability at depth, not throughput"*, in
+`docs/reports/06-OPEN-QUESTIONS.md` as *"relevant to host pressure at depth |
+reliability, not throughput"*, and carried in the open-work ledger as *"`--cache-ram
+0` is a different mechanism and is still the developer's open question"*.
+
+**Where it came from.** Two honest readings. The flag caps a *host* store, so it
+looked like a memory decision; and when it was finally exercised — 2026-08-23,
+`bench/run_cram_swap.py`, A→B→A→B→A over two conversations — the default already
+won by **343×** (118.2 ms at 100 % reuse against 40,596 ms at 0 % with `-cram 0`).
+A default that already wins invites no further thought about its *value*.
+
+**Contradicted 2026-09-02, by a live session rather than the arena.**
+`logs/serve-20260902-034815.log`, icon 2 at ctx 200,704, two agents on one slot:
+
+| | last 30 min | whole session |
+|---|---|---|
+| wall | 1,801 s | 14,386 s |
+| decode | 239 s / 7,024 tok | 5,696 s / 202,485 tok |
+| forced re-prefill | 1,229 s (10 events, **10** after an eviction) | 4,393 s (40, **32**) |
+| **share of wall** | **68.2 %** | 30.5 % |
+
+**Why the earlier run could not have found it.** It used `CTX = 98304` and
+`--chars 150000` — about 40k tokens each, whose saved state is **898–928 MiB**
+against an 8,192 MiB cap. The lever only exists once a single entry approaches
+the whole budget, and at 200,704 one conversation reaches **9,801 MiB**, which
+llama.cpp refuses to cache at all: `prompt state size 9801.444 MiB exceeds cache
+size limit 8192.000 MiB, skipping`.
+
+**And it is not the checkpoints**, which the first reading of issue #70 blamed.
+`checking checkpoint with [45590, 45590] against 3` — the incoming prompt shares
+**three tokens** with what the slot holds, because two different conversations
+share one slot. Discarding every checkpoint is correct
+(`server-context.cpp:3329-3355`). The conversation that could have been reused
+was in the prompt cache and had been evicted one line earlier.
+
+**What is now settled and what is not.** The served profiles pass
+**`--cache-ram 16384`** from 2026-09-02. **That value is UNPAIRED** — it rests on
+one live session, and the next one is its read-out: if `making room for prompt
+cache entry` or `exceeds cache size limit` return, 16384 was not enough. Pairing
+it means re-running `run_cram_swap.py` at 200,704, which has not been done.
+
+**This is the `GGML_CUDA_ALLREDUCE` failure a second time** — a real instrument
+pointed at a depth where the effect does not exist. Six of the seven questions
+that screen got right did not make it a filter, and neither does one 343× win here.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `cache-ram-is-not-throughput`,
+and `bench/tests/test_prompt_cache_budget.py`.
+
+---
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

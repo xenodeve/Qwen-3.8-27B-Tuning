@@ -59,3 +59,7 @@ qwen38-tuning/logs/llama-slots/
 # research notes that cite these pages carry their URLs, so the scrape is a cache
 # rather than a source. Delete it freely.
 /.firecrawl/
+
+# The same thing again, from a different scraper. `check-doc-links.py` walks it
+# and reports 12 broken links inside third-party pages nothing here links to.
+/fc/
