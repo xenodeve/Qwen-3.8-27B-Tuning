@@ -44,6 +44,14 @@ if exist "%FLAG%" del "%FLAG%"
 if exist "%STOP%" del "%STOP%"
 set FAST=0
 :again
+rem A stop asked for between passes (during the 5 s sleep or the :8000 check below) found no
+rem python to kill and only left the flag; the flag used to be read after the pipeline, so the
+rem loop relaunched anyway (review 2026-09-06). Read it here first.
+if exist "%STOP%" (
+    del "%STOP%"
+    echo == EXL3 serve: stopped on purpose ^(exl3-stop.flag^) before relaunch, not starting.
+    goto end
+)
 rem 2026-09-05 09:32-10:43: a relaunch that could not bind :8000 (another server held it)
 rem loaded the whole model, died, and was relaunched ten times; each pass took ~4 min so the
 rem fast-death guard never saw it. If something already answers on :8000 this loop is not

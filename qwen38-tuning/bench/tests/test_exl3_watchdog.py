@@ -199,3 +199,14 @@ def test_die_says_so_when_the_flag_cannot_be_written(tmp_path, monkeypatch, caps
     assert codes == [watchdog.RESTART_CODE]
     out = capsys.readouterr().out
     assert "flag" in out and "CPU reduce process timeout" in out
+
+
+def test_the_relaunch_loop_honours_a_stop_asked_for_between_passes():
+    """Review 2026-09-06 (spec axis): the stop flag was read only after the
+    python pipeline ended. A stop-exl3.cmd issued during the 5 s sleep or the
+    :8000 pre-check found no python to kill, left the flag, and the loop
+    relaunched anyway. The check must sit at :again, before the launch."""
+    with open(os.path.join(TUNING, "scripts", "serve-exl3.cmd"), encoding = "utf-8") as fh:
+        script = fh.read()
+    head = script[script.index(":again"):script.index("server.py")]
+    assert 'if exist "%STOP%"' in head, "no stop-flag check between :again and the launch"
