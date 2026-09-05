@@ -16,6 +16,8 @@ inference call returned HTTP 503.
 | `serve-v3-*.ps1` | Dynamic V3 arms, 16K default, `-Ctx` parameter |
 | `serve-v3-*-fmt.ps1` | the same **plus `--grammar-file` and `-rea off`** -- byte-identical to their twins except those two flags, so the pair is a controlled comparison. **Corrected 2026-08-20:** this pair originally used `--reasoning-budget 0`, which does not end the reasoning block; screened at n=3 that combination returned 0/3. See the script header |
 | `serve-v3-iq2xxs-flex.ps1` | parameterised: `-Extra '<flags>'`. Used by the sampling sweep to vary one thing at a time |
+| `serve-exl3.cmd` | **not llama.cpp**: our EXL3 server (`qwen38-tuning/serving/exl3/server.py`, the fork's file + marked hooks, custom parts in sibling modules — README there) on port 8000 with the measured recipe (`-cq 4 -dm mtp -ndt 3 -tp -tpb native`, results 10). Three positional knobs `[cache] ["gs"] [host]`, defaults 163840 / 9,15.5 / 127.0.0.1 -- the split caps must be QUOTED, cmd splits a bare comma into two arguments (2026-09-04: key G served one card). Hub keys F and G (`launchers\serve-exl3*.bat`) pass only those; the flags live here. Since 2026-09-04 it also serves the Anthropic Messages API (`/v1/messages`, `/v1/messages/count_tokens`; issue #73), so `claude-xeno-exl3` talks to :8000 directly with no proxy |
+| `stop-exl3.cmd` | stop the EXL3 server ON PURPOSE: writes `logs/exl3-stop.flag` first so the relaunch loop in `serve-exl3.cmd` ends instead of bringing it back, then kills the tree found by command line (`taskkill /F /T`). Killing the python by hand without the flag = a relaunch in 5 s (issue #75) |
 
 ## Unattended queues (`afk-*.sh`)
 

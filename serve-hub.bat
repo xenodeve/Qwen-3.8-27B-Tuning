@@ -49,6 +49,11 @@ echo   ONE CARD, UD-Q2_K_XL
 echo.
 echo     6   the single-GPU profile
 echo.
+echo   BOTH CARDS, EXL3  -- a second engine, port 8000, OpenAI API only
+echo.
+echo     F   163,840 context, Mia 3.5bpw + MTP     ~81%% of 1 at 147K; 47-55 tok/s at 30-70K
+echo     G   262,144 context, native maximum      197K measured on 4.0bpw H5
+echo.
 echo     Q   quit                                  (one key, no Enter)
 echo.
 echo   1 and 2 both take pictures. 2 goes deeper and finishes a large request
@@ -72,6 +77,8 @@ echo   serve. Run B against 7 back to back -- that is the missing pairing.
 echo.
 echo   Quality has never been measured on ANY of these artifacts. 1 and 2 change
 echo   the model file, not just a flag; 3 is what has been served longest.
+echo   F and G are ExLlama3, not llama.cpp: a different quant (trellis 3.5 bpw),
+echo   loads in 30 s, Claude Code needs `claude-xeno-exl3` to reach them.
 echo.
 
 REM  `choice` and not `set /p`. set /p accepts anything, including a value with
@@ -81,13 +88,13 @@ REM  here on 2026-08-29. choice restricts the keystroke itself, needs no Enter,
 REM  and cannot hand a broken value to the comparison below. It returns the
 REM  POSITION in the key list, so 1-6 line up with the printed numbers and Q
 REM  is 7.
-choice /c 123456789ABCDEQ /n /m "  Choose 1-9, A-E, or Q to quit: "
+choice /c 123456789ABCDEFGQ /n /m "  Choose 1-9, A-G, or Q to quit: "
 set "SEL=%ERRORLEVEL%"
 
 REM  BOTH NAMES ARE SPELLED OUT, not built by appending "-lan" to a stem. A
 REM  constructed filename cannot be checked by anything until somebody presses
 REM  the key, and this file's whole job is to point at other files.
-if "%SEL%"=="15" goto :done
+if "%SEL%"=="17" goto :done
 if "%SEL%"=="1" (
     set "LOOP=serve-dual-nvfp4.bat"
     set "WIDE=serve-dual-nvfp4-lan.bat"
@@ -156,6 +163,16 @@ if "%SEL%"=="13" (
 if "%SEL%"=="14" (
     set "LOOP=serve-dual-nvfp4-dflash-theirmirror.bat"
     set "WIDE=serve-dual-nvfp4-dflash-theirmirror-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="15" (
+    set "LOOP=serve-exl3.bat"
+    set "WIDE=serve-exl3-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="16" (
+    set "LOOP=serve-exl3-max.bat"
+    set "WIDE=serve-exl3-max-lan.bat"
     goto :ask_lan
 )
 REM  Unreachable while choice guards the key list, and kept anyway: if that

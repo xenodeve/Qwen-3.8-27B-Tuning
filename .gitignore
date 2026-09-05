@@ -63,3 +63,32 @@ qwen38-tuning/logs/llama-slots/
 # The same thing again, from a different scraper. `check-doc-links.py` walks it
 # and reports 12 broken links inside third-party pages nothing here links to.
 /fc/
+
+# Serena LSP + local MCP config (machine-specific; path-bound to this checkout)
+.serena/
+.mcp.json
+
+# model weights live here (EXL3 branches downloaded 2026-09-04); never in git
+models/
+*.whl
+
+# quality bench runtime artefacts (2026-09-05): isolated Claude Code config dirs with copied
+# skills, the model's working checkouts, 40 MB stream transcripts, screenshots. The evidence
+# that is committed per cell: page.html, summary.json, requests.jsonl, server-timing-lines.txt,
+# diff.patch, judgment.md, RUN.log.
+qwen38-tuning/results/quality-*/config-*/
+qwen38-tuning/results/quality-*/*/work/
+qwen38-tuning/results/quality-*/*/stream.jsonl
+qwen38-tuning/results/quality-*/*/*.png
+qwen38-tuning/results/quality-*/*-superseded-*/
+qwen38-tuning/results/quality-*/*-stuck/
+
+# fork clones (pulled, never committed here)
+exllamav3-mia/
+exllamav3-src/
+qwen38-tuning/results/quality-*/*/shot.js
+qwen38-tuning/results/quality-*/chain*.sh
+qwen38-tuning/results/quality-*/chain*.out
+qwen38-tuning/results/quality-*/redeploy*
+qwen38-tuning/results/quality-*/RUN*.out
+qwen38-tuning/results/quality-*/RUN*.err
