@@ -47,7 +47,7 @@ FORK_DIR = os.environ.get("EXL3_FORK_DIR", r"C:\AI\exllamav3-mia")   # xeno: the
 sys.path.insert(0, FORK_DIR)   # xeno
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # xeno: our sibling modules
 from aiohttp import web
-import live_timing, effort, anthropic_routes, watchdog, loop_guard   # xeno
+import live_timing, effort, anthropic_routes, watchdog, loop_guard, cjk_guard   # xeno
 
 MODEL_DIR = "test_models/Qwen3.8-27B-exl3-3.5bpw-wm"
 MODEL_NAME = os.path.basename(MODEL_DIR)   # xeno: set from -m in main(); /v1/models and defaults use it
@@ -62,6 +62,7 @@ stats = {
     "completion_tokens_total": 0,
     "context_length": None,
     "loops_stopped": 0,   # xeno: generations cut by loop_guard (#76)
+    "cjk_chars_total": 0,   # xeno: Han characters that reached a completion anyway (#77)
 }
 
 def _bump_stats(prompt=0, completion=0):
@@ -312,6 +313,7 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
         messages, add_generation_prompt = True, enable_thinking = True,
         reasoning_effort = effort_v, tools = tools)   # xeno
     prompt_toks = int(input_ids.shape[-1])
+    ban = cjk_guard.bias_for(tokenizer, messages)   # xeno: #77, no Han in the prompt -> none in the answer
     from exllamav3.generator.sampler.presets import ComboSampler
     from exllamav3 import Job
     forced_choice = tool_choice not in (None, "auto", "none")
@@ -326,7 +328,7 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
         reason = "max_new_tokens"
         final_res = {}   # xeno
         t0 = time.time()   # xeno
-        sampler = ComboSampler(temperature = temperature, top_k = top_k, top_p = top_p)
+        sampler = ComboSampler(temperature = temperature, top_k = top_k, top_p = top_p, logit_bias = ban)   # xeno: #77
         stop_conditions = ["<|im_end|>", tokenizer.eos_token_id] + (stop or [])
         job = Job(input_ids = input_ids, max_new_tokens = max_tokens,
                   stop_conditions = stop_conditions,
@@ -389,6 +391,12 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
     timings = live_timing.report(final_res, prompt_toks, out_toks, wall, effort_v)   # xeno
     if reason == "loop":   # xeno
         timings["stop_reason"] = "loop"   # xeno
+    leaked = cjk_guard.count_han(text)   # xeno: #77, the instrument; 0 with the ban on is the claim
+    timings["cjk_chars"] = leaked   # xeno
+    if leaked:   # xeno
+        print(f" ## cjk guard: {leaked} Han character(s) in the completion, ban {'on' if ban else 'off'}", flush = True)   # xeno
+        with stats_lock:   # xeno
+            stats["cjk_chars_total"] += leaked   # xeno
     return text, calls, finish, prompt_toks, out_toks, reasoning, content, timings   # xeno
 
 
@@ -413,6 +421,7 @@ async def health(request):
             "context_length": stats["context_length"],
             "model": MODEL_NAME,   # xeno
             "loops_stopped": stats["loops_stopped"],   # xeno
+            "cjk_chars_total": stats["cjk_chars_total"],   # xeno
         })
 
 

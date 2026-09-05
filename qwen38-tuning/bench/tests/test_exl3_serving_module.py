@@ -26,7 +26,7 @@ TUNING = os.path.dirname(BENCH)
 ROOT = os.path.dirname(TUNING)
 SERVING = os.path.join(TUNING, "serving", "exl3")
 FORK = os.environ.get("EXL3_FORK_DIR", r"C:\AI\exllamav3-mia")
-OURS = ("live_timing", "effort", "anthropic_compat", "anthropic_routes", "watchdog", "loop_guard")
+OURS = ("live_timing", "effort", "anthropic_compat", "anthropic_routes", "watchdog", "loop_guard", "cjk_guard")
 
 
 def read(name):
