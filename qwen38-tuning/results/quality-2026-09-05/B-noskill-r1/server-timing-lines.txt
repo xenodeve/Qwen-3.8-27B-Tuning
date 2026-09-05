@@ -1,0 +1,12 @@
+0.43.860 I slot print_timing: id  0 | task 2 | prompt eval time =    2764.70 ms /   835 tokens (    3.31 ms per token,   302.00 tokens per second)
+0.43.860 I slot print_timing: id  0 | task 2 |        eval time =   14356.80 ms /   788 tokens (   18.22 ms per token,    54.90 tokens per second)
+0.43.860 I slot print_timing: id  0 | task 2 | draft acceptance = 0.60958 (  509 accepted /   835 generated)
+0.43.860 I slot print_timing: id  0 | task 2 | reasoning effort = xhigh
+3.15.172 I slot print_timing: id  0 | task 2 | prompt eval time =   34096.60 ms / 26547 tokens (    1.28 ms per token,   778.60 tokens per second)
+3.15.172 I slot print_timing: id  0 | task 2 |        eval time =  117208.00 ms /  7353 tokens (   15.94 ms per token,    62.70 tokens per second)
+3.15.172 I slot print_timing: id  0 | task 2 | draft acceptance = 0.82744 ( 5241 accepted /  6334 generated)
+3.15.172 I slot print_timing: id  0 | task 2 | reasoning effort = medium
+3.35.358 I slot print_timing: id  0 | task 3 | prompt eval time =   11969.60 ms /  7633 tokens (    1.57 ms per token,   637.70 tokens per second)  [26368 cached]
+3.35.358 I slot print_timing: id  0 | task 3 |        eval time =    8014.70 ms /   349 tokens (   22.96 ms per token,    43.50 tokens per second)
+3.35.358 I slot print_timing: id  0 | task 3 | draft acceptance = 0.49289 (  208 accepted /   422 generated)
+3.35.358 I slot print_timing: id  0 | task 3 | reasoning effort = medium

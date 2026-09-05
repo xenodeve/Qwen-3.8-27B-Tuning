@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — Organize the world's information</title>
+<meta name="description" content="Search, Maps, Mail, and the AI at the center of it all. A single page about the company that organizes the world's information." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   TOKENS — 60-30-10 · Major Third scale · 8pt rhythm
+   60% paper (warm off-white) · 30% glass surfaces · 10% blue
+   ============================================================ */
+:root{
+  --paper:      #f5f4ef;   /* 60% dominant neutral */
+  --paper-2:    #efeee7;
+  --ink:        #14140f;   /* primary text */
+  --ink-soft:   #56564d;   /* secondary text */
+  --ink-faint:  #8a8a7e;
+  --line:       rgba(20,20,15,.10);
+  --line-soft:  rgba(20,20,15,.055);
+  --grid:       rgba(20,20,15,.055);
+  --glass:      rgba(255,255,255,.55);
+  --glass-2:    rgba(255,255,255,.34);
+  --glass-brd:  rgba(255,255,255,.7);
+  --accent:     #1a63e8;   /* 10% — Google blue */
+  --accent-ink: #ffffff;
+  --accent-dk:  #1745a8;
+  /* Google signature dots */
+  --g-blue:   #4285F4;
+  --g-red:    #EA4335;
+  --g-yellow: #FBBC05;
+  --g-green:  #34A853;
+
+  /* Major Third (1.25x) type scale, base 16px */
+  --s0: 1rem;        /* 16   */
+  --s1: 1.25rem;     /* 20   */
+  --s2: 1.5625rem;   /* 25   */
+  --s3: 1.953rem;    /* 31.25*/
+  --s4: 2.441rem;    /* 39   */
+  --s5: 3.052rem;    /* 48.8 */
+  --s6: 3.815rem;    /* 61   */
+  --s7: 4.768rem;    /* 76.3 */
+  --s8: 5.96rem;     /* 95.4 */
+
+  --serif: "Fraunces", Georgia, serif;
+  --sans:  "Archivo", system-ui, sans-serif;
+  --mono:  "Space Mono", ui-monospace, monospace;
+
+  --maxw: 1240px;
+  --pad: 24px;
+  --r: 14px;
+  --ease: cubic-bezier(.22,.61,.36,1);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+body{
+  font-family:var(--sans);
+  background:var(--paper);
+  color:var(--ink);
+  font-size:var(--s0);
+  line-height:1.5;               /* 150% body legibility */
+  letter-spacing:0;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{ background:var(--accent); color:#fff; }
+
+/* ---------- VISIBLE GRID OVERLAY (the signature) ---------- */
+.grid-overlay{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  display:flex; justify-content:center;
+}
+.grid-overlay .inner{
+  width:min(var(--maxw), 100vw - 48px);
+  height:100%;
+  display:grid; grid-template-columns:repeat(12,1fr);
+}
+.grid-overlay .inner > i{
+  display:block; height:100%;
+  border-left:1px solid var(--grid);
+}
+.grid-overlay .inner > i:first-child{ border-left-color:var(--line); }
+.grid-overlay .inner > i:last-child{ border-right:1px solid var(--line); }
+
+/* ---------- LAYOUT ---------- */
+.page{ position:relative; z-index:1; width:min(var(--maxw), 100vw - 48px); margin:0 auto; }
+section{ position:relative; }
+.mono{ font-family:var(--mono); }
+.eyebrow{
+  font-family:var(--mono); font-size:.72rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--ink-soft);
+}
+.lead{ font-size:var(--s1); color:var(--ink-soft); max-width:52ch; }
+
+/* ---------- COLUMN RULER ---------- */
+.ruler{
+  display:grid; grid-template-columns:repeat(12,1fr);
+  padding:0 0 12px; margin-bottom:8px;
+  border-bottom:1px solid var(--line);
+}
+.ruler span{
+  font-family:var(--mono); font-size:.62rem; letter-spacing:.1em;
+  color:var(--ink-faint); padding-left:6px;
+}
+
+/* ---------- NAV (liquid glass) ---------- */
+.nav{
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(18px) saturate(1.4);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  background:rgba(245,244,239,.62);
+  border-bottom:1px solid transparent;
+  transition:border-color .4s var(--ease), background .4s var(--ease);
+}
+.nav.scrolled{ border-bottom-color:var(--line); background:rgba(245,244,239,.82); }
+.nav .row{
+  display:flex; align-items:center; justify-content:space-between;
+  height:64px;
+}
+.wordmark{ display:flex; align-items:baseline; font-weight:800; font-size:1.5rem; letter-spacing:-.03em; }
+.wordmark b{ font-weight:800; }
+.wordmark .c1{color:var(--g-blue)} .wordmark .c2{color:var(--g-red)}
+.wordmark .c3{color:var(--g-yellow)} .wordmark .c4{color:var(--g-blue)}
+.wordmark .c5{color:var(--g-green)} .wordmark .c6{color:var(--g-red)}
+.nav-links{ display:flex; gap:32px; align-items:center; }
+.nav-links a{
+  text-decoration:none; color:var(--ink-soft); font-size:.9rem; font-weight:500;
+  letter-spacing:.01em; position:relative; transition:color .25s var(--ease);
+}
+.nav-links a::after{
+  content:""; position:absolute; left:0; bottom:-6px; height:1.5px; width:0;
+  background:var(--accent); transition:width .3s var(--ease);
+}
+.nav-links a:hover{ color:var(--ink); }
+.nav-links a:hover::after{ width:100%; }
+
+/* ---------- BUTTONS (4 states) ---------- */
+.btn{
+  font-family:var(--sans); font-weight:600; font-size:.92rem; letter-spacing:.01em;
+  border-radius:999px; padding:11px 26px; cursor:pointer; text-decoration:none;
+  display:inline-flex; align-items:center; gap:8px; border:1px solid transparent;
+  transition:transform .18s var(--ease), background .25s var(--ease),
+             color .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease);
+}
+.btn-primary{ background:var(--accent); color:var(--accent-ink); box-shadow:0 1px 2px rgba(23,69,168,.25); }
+.btn-primary:hover{ background:var(--accent-dk); transform:translateY(-1px); box-shadow:0 8px 20px rgba(26,99,232,.28); }
+.btn-primary:active{ transform:translateY(0) scale(.98); box-shadow:0 2px 6px rgba(23,69,168,.3); }
+.btn-primary:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ghost{ background:transparent; color:var(--ink); border-color:var(--line); }
+.btn-ghost:hover{ background:rgba(20,20,15,.04); border-color:var(--ink-soft); transform:translateY(-1px); }
+.btn-ghost:active{ transform:scale(.98); }
+.btn-ghost:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+/* ---------- HERO ---------- */
+.hero{ padding:56px 0 72px; position:relative; }
+.hero::before{
+  content:""; position:absolute; inset:-40% -20% auto -20%; height:120%;
+  background:
+    radial-gradient(60% 55% at 78% 8%, rgba(66,133,244,.10), transparent 60%),
+    radial-gradient(50% 50% at 12% 20%, rgba(251,188,5,.10), transparent 60%);
+  z-index:-1; pointer-events:none;
+}
+.hero-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:24px; }
+.hero h1{
+  font-family:var(--serif); font-weight:500;
+  font-size:clamp(2.9rem, 8.4vw, var(--s8));
+  line-height:1.02; letter-spacing:-.03em;   /* headline pro hack */
+  margin:20px 0 0; max-width:16ch;
+}
+.hero h1 em{ font-style:italic; color:var(--accent); }
+.hero-sub{ margin-top:28px; max-width:56ch; font-size:var(--s1); color:var(--ink-soft); }
+
+/* rotated grid-breaking tag */
+.tag-rot{
+  position:absolute; right:0; top:8px; transform:rotate(90deg); transform-origin:top right;
+  font-family:var(--mono); font-size:.66rem; letter-spacing:.28em; color:var(--ink-faint);
+  white-space:nowrap;
+}
+
+/* search bar — glass */
+.search{
+  margin-top:44px; max-width:640px;
+  display:flex; align-items:center; gap:12px;
+  background:var(--glass);
+  border:1px solid var(--glass-brd);
+  border-radius:999px; padding:8px 8px 8px 22px;
+  backdrop-filter:blur(16px) saturate(1.3);
+  -webkit-backdrop-filter:blur(16px) saturate(1.3);
+  box-shadow:0 10px 30px rgba(20,20,15,.08), inset 0 1px 0 rgba(255,255,255,.7);
+  transition:box-shadow .3s var(--ease), border-color .3s var(--ease);
+}
+.search:focus-within{ border-color:rgba(26,99,232,.5); box-shadow:0 14px 40px rgba(26,99,232,.16), inset 0 1px 0 rgba(255,255,255,.7); }
+.search svg{ flex:none; }
+.search input{
+  flex:1; border:0; background:transparent; outline:none;
+  font-family:var(--sans); font-size:1rem; color:var(--ink); padding:10px 0;
+}
+.search input::placeholder{ color:var(--ink-faint); }
+.search .go{
+  border:0; cursor:pointer; background:var(--accent); color:#fff;
+  font-family:var(--sans); font-weight:600; font-size:.9rem;
+  padding:11px 22px; border-radius:999px; transition:background .25s var(--ease), transform .18s var(--ease);
+}
+.search .go:hover{ background:var(--accent-dk); }
+.search .go:active{ transform:scale(.97); }
+.search-actions{ margin-top:18px; display:flex; gap:12px; flex-wrap:wrap; }
+
+/* ---------- STATS STRIP ---------- */
+.stats{ border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.stats .grid{ display:grid; grid-template-columns:repeat(4,1fr); }
+.stat{ padding:36px 24px; border-left:1px solid var(--line); }
+.stat:first-child{ border-left:0; }
+.stat .n{ font-family:var(--serif); font-weight:500; font-size:var(--s5); letter-spacing:-.02em; line-height:1; }
+.stat .n small{ font-size:.42em; color:var(--accent); vertical-align:super; }
+.stat .l{ margin-top:12px; font-size:.86rem; color:var(--ink-soft); }
+
+/* ---------- SECTION HEAD ---------- */
+.sec-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:40px; }
+.sec-head h2{
+  font-family:var(--serif); font-weight:500; letter-spacing:-.025em; line-height:1.05;
+  font-size:clamp(2rem, 4.4vw, var(--s6)); max-width:18ch;
+}
+.sec-head .idx{ font-family:var(--mono); font-size:.72rem; letter-spacing:.2em; color:var(--ink-faint); }
+
+/* ---------- PRODUCT GRID (the visible-grid showcase) ---------- */
+.products{ padding:88px 0; }
+.pgrid{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
+.card{
+  grid-column:span 4;
+  background:var(--glass);
+  border:1px solid var(--glass-brd);
+  border-radius:var(--r);
+  padding:26px 24px 28px;
+  backdrop-filter:blur(14px) saturate(1.25);
+  -webkit-backdrop-filter:blur(14px) saturate(1.25);
+  box-shadow:0 1px 0 rgba(255,255,255,.6) inset, 0 8px 24px rgba(20,20,15,.05);
+  transition:transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s var(--ease);
+  position:relative; overflow:hidden;
+}
+.card:hover{ transform:translateY(-4px); box-shadow:0 18px 40px rgba(20,20,15,.10); border-color:rgba(26,99,232,.35); }
+.card .num{ font-family:var(--mono); font-size:.68rem; letter-spacing:.16em; color:var(--ink-faint); }
+.card .dot{ position:absolute; top:24px; right:24px; width:9px; height:9px; border-radius:50%; }
+.card h3{ font-size:var(--s2); font-weight:700; letter-spacing:-.02em; margin:16px 0 8px; }
+.card p{ font-size:.92rem; color:var(--ink-soft); line-height:1.5; }
+.card .arrow{ position:absolute; bottom:22px; right:24px; opacity:0; transform:translateX(-6px); transition:.3s var(--ease); color:var(--accent); }
+.card:hover .arrow{ opacity:1; transform:translateX(0); }
+/* one card breaks the grid — spans 8, the editorial focal */
+.card.feat{ grid-column:span 8; background:linear-gradient(135deg, rgba(26,99,232,.10), rgba(66,133,244,.04)); }
+.card.feat h3{ font-size:var(--s3); }
+.card.feat p{ max-width:46ch; font-size:var(--s1); }
+
+/* ---------- PHILOSOPHY (luxury white space) ---------- */
+.philo{ padding:120px 0; display:grid; grid-template-columns:4fr 8fr; gap:48px; }
+.philo .label{ position:sticky; top:96px; align-self:start; }
+.philo .label .idx{ font-family:var(--mono); font-size:.72rem; letter-spacing:.2em; color:var(--ink-faint); display:block; margin-bottom:16px; }
+.philo .statement{
+  font-family:var(--serif); font-weight:400; letter-spacing:-.02em; line-height:1.16;
+  font-size:clamp(1.7rem, 3.4vw, var(--s5));
+}
+.philo .statement em{ font-style:italic; color:var(--accent); }
+.philo .body{ margin-top:32px; max-width:56ch; color:var(--ink-soft); font-size:var(--s1); }
+.philo .body + .body{ margin-top:20px; }
+
+/* ---------- TIMELINE (ledger) ---------- */
+.timeline{ padding:88px 0; border-top:1px solid var(--line); }
+.tl{ display:grid; grid-template-columns:repeat(5,1fr); gap:0; margin-top:8px; }
+.tl .item{ padding:28px 24px 28px 0; border-left:1px solid var(--line); padding-left:24px; }
+.tl .item:first-child{ border-left:0; padding-left:0; }
+.tl .yr{ font-family:var(--mono); font-size:.8rem; letter-spacing:.12em; color:var(--accent); }
+.tl h4{ font-size:var(--s1); font-weight:700; letter-spacing:-.01em; margin:14px 0 8px; }
+.tl p{ font-size:.88rem; color:var(--ink-soft); line-height:1.5; }
+
+/* ---------- CTA ---------- */
+.cta{ padding:120px 0; text-align:center; }
+.cta .panel{
+  background:var(--glass); border:1px solid var(--glass-brd); border-radius:24px;
+  padding:80px 32px; backdrop-filter:blur(16px) saturate(1.3);
+  -webkit-backdrop-filter:blur(16px) saturate(1.3);
+  box-shadow:0 20px 60px rgba(20,20,15,.08), inset 0 1px 0 rgba(255,255,255,.7);
+  position:relative; overflow:hidden;
+}
+.cta .panel::before{
+  content:""; position:absolute; inset:0; z-index:-1;
+  background:radial-gradient(70% 120% at 50% -10%, rgba(66,133,244,.12), transparent 60%);
+}
+.cta h2{ font-family:var(--serif); font-weight:500; letter-spacing:-.03em; line-height:1.05; font-size:clamp(2.2rem,5vw,var(--s7)); max-width:16ch; margin:0 auto; }
+.cta p{ margin:20px auto 0; max-width:48ch; color:var(--ink-soft); font-size:var(--s1); }
+.cta .actions{ margin-top:40px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+
+/* ---------- FOOTER ---------- */
+footer{ border-top:1px solid var(--line); padding:64px 0 40px; }
+.foot-grid{ display:grid; grid-template-columns:4fr 2fr 2fr 2fr; gap:32px; }
+.foot-brand .wordmark{ font-size:1.3rem; margin-bottom:16px; }
+.foot-brand p{ font-size:.88rem; color:var(--ink-soft); max-width:34ch; }
+.foot-col h5{ font-family:var(--mono); font-size:.68rem; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:16px; }
+.foot-col a{ display:block; text-decoration:none; color:var(--ink-soft); font-size:.9rem; padding:6px 0; transition:color .2s var(--ease); }
+.foot-col a:hover{ color:var(--accent); }
+.foot-base{ margin-top:48px; padding-top:24px; border-top:1px solid var(--line); display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; font-family:var(--mono); font-size:.7rem; letter-spacing:.08em; color:var(--ink-faint); }
+
+/* ---------- REVEAL ---------- */
+.reveal{ opacity:0; transform:translateY(22px); transition:opacity .8s var(--ease), transform .8s var(--ease); transition-delay:calc(var(--i,0)*70ms); }
+.reveal.in{ opacity:1; transform:none; }
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width:1023px){
+  .pgrid{ grid-template-columns:repeat(8,1fr); }
+  .card{ grid-column:span 4; }
+  .card.feat{ grid-column:span 8; }
+  .philo{ grid-template-columns:1fr; gap:24px; }
+  .philo .label{ position:static; }
+  .tl{ grid-template-columns:repeat(2,1fr); gap:8px 0; }
+  .tl .item{ border-left:0; padding-left:0; border-top:1px solid var(--line); padding-top:24px; }
+  .foot-grid{ grid-template-columns:1fr 1fr; }
+}
+@media (max-width:639px){
+  :root{ --pad:16px; }
+  .page{ width:calc(100vw - 32px); }
+  .grid-overlay .inner{ width:calc(100vw - 32px); }
+  .nav-links{ display:none; }
+  .stats .grid{ grid-template-columns:repeat(2,1fr); }
+  .stat{ border-left:0; border-top:1px solid var(--line); }
+  .stat:nth-child(-n+2){ border-top:0; }
+  .pgrid{ grid-template-columns:repeat(4,1fr); }
+  .card, .card.feat{ grid-column:span 4; }
+  .tl{ grid-template-columns:1fr; }
+  .foot-grid{ grid-template-columns:1fr; }
+  .tag-rot{ display:none; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{ animation:none !important; }
+  .reveal{ opacity:1; transform:none; transition:none; }
+  html{ scroll-behavior:auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- VISIBLE GRID -->
+<div class="grid-overlay" aria-hidden="true"><div class="inner">
+  <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+</div></div>
+
+<!-- NAV -->
+<header class="nav" id="nav">
+  <div class="page row">
+    <a class="wordmark" href="#top" aria-label="Google home">
+      <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c5">l</span><span class="c6">e</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#products">Products</a>
+      <a href="#about">About</a>
+      <a href="#history">History</a>
+      <a href="#careers">Careers</a>
+    </nav>
+    <a class="btn btn-primary" href="#search">Search</a>
+  </div>
+</header>
+
+<main class="page" id="top">
+
+  <!-- HERO -->
+  <section class="hero" id="search">
+    <div class="ruler" aria-hidden="true">
+      <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+      <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+    </div>
+    <span class="tag-rot" aria-hidden="true">FIG. 01 — THE SEARCH</span>
+
+    <div class="hero-top">
+      <span class="eyebrow reveal">Est. 1998 · Mountain View, CA</span>
+    </div>
+
+    <h1 class="reveal" style="--i:1">Organize the world's <em>information.</em></h1>
+
+    <p class="hero-sub reveal" style="--i:2">
+      And make it universally accessible — and useful. That has been the whole job
+      since two graduate students wired a search engine into a spare server and
+      refused to stop.
+    </p>
+
+    <form class="search reveal" style="--i:3" onsubmit="return false;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" stroke="#8a8a7e" stroke-width="2"/>
+        <path d="M20 20l-3.5-3.5" stroke="#8a8a7e" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <input type="text" placeholder="Search Google or type a URL" aria-label="Search" />
+      <button class="go" type="submit">Search</button>
+    </form>
+    <div class="search-actions reveal" style="--i:4">
+      <a class="btn btn-ghost" href="#products">Explore products</a>
+      <a class="btn btn-ghost" href="#about">I'm feeling curious</a>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats">
+    <div class="grid">
+      <div class="stat reveal"><div class="n">90,000<small>+</small></div><div class="l">searches processed every second</div></div>
+      <div class="stat reveal" style="--i:1"><div class="n">200<small>+</small></div><div class="l">languages &amp; dialects supported</div></div>
+      <div class="stat reveal" style="--i:2"><div class="n">1.3<small>M</small></div><div class="l">new websites indexed each day</div></div>
+      <div class="stat reveal" style="--i:3"><div class="n">1998</div><div class="l">the year it all began</div></div>
+    </div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section class="products" id="products">
+    <div class="sec-head reveal">
+      <h2>One company, a dozen ways to be useful.</h2>
+      <span class="idx">02 / PRODUCTS</span>
+    </div>
+
+    <div class="pgrid">
+      <article class="card feat reveal">
+        <span class="num">01</span><span class="dot" style="background:var(--g-blue)"></span>
+        <h3>Search</h3>
+        <p>The engine that started it all. Billions of questions a day, answered in a blink — the reason the company exists.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:1">
+        <span class="num">02</span><span class="dot" style="background:var(--g-green)"></span>
+        <h3>Maps</h3>
+        <p>Every street, in every country, down to the sidewalk.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:2">
+        <span class="num">03</span><span class="dot" style="background:var(--g-red)"></span>
+        <h3>Gmail</h3>
+        <p>Email that thinks ahead and keeps your inbox quiet.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal">
+        <span class="num">04</span><span class="dot" style="background:var(--g-red)"></span>
+        <h3>YouTube</h3>
+        <p>A home for the world's video — the largest library ever assembled.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:1">
+        <span class="num">05</span><span class="dot" style="background:var(--g-yellow)"></span>
+        <h3>Drive</h3>
+        <p>Your files, everywhere you are, on every device.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:2">
+        <span class="num">06</span><span class="dot" style="background:var(--g-blue)"></span>
+        <h3>Photos</h3>
+        <p>Every memory, backed up and findable by what's in it.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal">
+        <span class="num">07</span><span class="dot" style="background:var(--g-green)"></span>
+        <h3>Translate</h3>
+        <p>Break the language barrier, in real time, across 100+ tongues.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:1">
+        <span class="num">08</span><span class="dot" style="background:var(--g-blue)"></span>
+        <h3>Android</h3>
+        <p>The operating system running on billions of phones.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:2">
+        <span class="num">09</span><span class="dot" style="background:var(--g-yellow)"></span>
+        <h3>Chrome</h3>
+        <p>The web, fast — the browser most of the world uses.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal">
+        <span class="num">10</span><span class="dot" style="background:var(--g-green)"></span>
+        <h3>Cloud</h3>
+        <p>The infrastructure quietly powering the planet's data.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:1">
+        <span class="num">11</span><span class="dot" style="background:var(--g-red)"></span>
+        <h3>Scholar</h3>
+        <p>The research engine — every paper, one search away.</p>
+        <span class="arrow">→</span>
+      </article>
+      <article class="card reveal" style="--i:2">
+        <span class="num">12</span><span class="dot" style="background:var(--g-blue)"></span>
+        <h3>Gemini</h3>
+        <p>The AI at the center of it all, woven through everything above.</p>
+        <span class="arrow">→</span>
+      </article>
+    </div>
+  </section>
+
+  <!-- PHILOSOPHY -->
+  <section class="philo" id="about">
+    <div class="label reveal">
+      <span class="idx">03 / PHILOSOPHY</span>
+      <span class="eyebrow">The mission, unchanged</span>
+    </div>
+    <div>
+      <p class="statement reveal">
+        We believe access to the world's information is a <em>right</em> —
+        and that the best tool for it is a search box that simply works.
+      </p>
+      <p class="body reveal" style="--i:1">
+        Google began as an academic project to rank the web by what actually
+        matters: how many other pages point to a page, and how. That idea —
+        PageRank — turned a messy pile of links into an answer.
+      </p>
+      <p class="body reveal" style="--i:2">
+        Twenty-five years later the ambition is the same, only larger. The
+        question is no longer "what's on the page?" but "what do you actually
+        need?" — and the answer is increasingly generated, not just retrieved.
+      </p>
+    </div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section class="timeline" id="history">
+    <div class="sec-head reveal">
+      <h2>A short history of getting bigger.</h2>
+      <span class="idx">04 / HISTORY</span>
+    </div>
+    <div class="tl">
+      <div class="item reveal"><div class="yr">1998</div><h4>Backrub → Google</h4><p>Two PhD students name their search engine after 10¹⁰⁰ and incorporate in California.</p></div>
+      <div class="item reveal" style="--i:1"><div class="yr">2004</div><h4>AdWords</h4><p>The business model that funds the free search box — and the company's independence.</p></div>
+      <div class="item reveal" style="--i:2"><div class="yr">2006</div><h4>YouTube</h4><p>A video site bought for $1.65B becomes the largest video library on Earth.</p></div>
+      <div class="item reveal" style="--i:3"><div class="yr">2015</div><h4>Alphabet</h4><p>A holding company is formed so the moonshots can live beside the search engine.</p></div>
+      <div class="item reveal" style="--i:4"><div class="yr">2023</div><h4>Gemini</h4><p>The AI era begins — a model family woven through Search, Workspace, and beyond.</p></div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" id="careers">
+    <div class="panel reveal">
+      <h2>Help us organize what's next.</h2>
+      <p>From the search box to the data centers to the models in between —
+         there's a place for people who want to build things that matter.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="#top">See open roles</a>
+        <a class="btn btn-ghost" href="#products">Explore the products</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="page">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="wordmark"><span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c5">l</span><span class="c6">e</span></div>
+        <p>Organizing the world's information and making it universally accessible and useful. Since 1998.</p>
+      </div>
+      <div class="foot-col">
+        <h5>Products</h5>
+        <a href="#products">Search</a><a href="#products">Maps</a><a href="#products">Gmail</a><a href="#products">YouTube</a><a href="#products">Gemini</a>
+      </div>
+      <div class="foot-col">
+        <h5>Company</h5>
+        <a href="#about">About</a><a href="#history">History</a><a href="#careers">Careers</a><a href="#top">Press</a>
+      </div>
+      <div class="foot-col">
+        <h5>More</h5>
+        <a href="#top">Privacy</a><a href="#top">Terms</a><a href="#top">Settings</a><a href="#top">Help</a>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© 1998–2026 · A design study, not an official page</span>
+      <span>EDITORIAL × SWISS × LIQUID GLASS × VISIBLE GRID</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav shadow on scroll
+const nav = document.getElementById('nav');
+const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+onScroll();
+window.addEventListener('scroll', onScroll, { passive:true });
+
+// Staggered reveal
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  });
+}, { threshold:0.12, rootMargin:'0px 0px -8% 0px' });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>

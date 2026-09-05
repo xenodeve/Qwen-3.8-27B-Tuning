@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google — ค้นหาทังเว็บ</title>
+<meta name="description" content="งานศึกษารูปแบบ: การค้นหา โปรดักต และสเกลของ Google บนกริดสวีส 12 คอลัมน">
+<meta property="og:title" content="Google — ค้นหาทังเว็บ">
+<meta property="og:description" content="งานศึกษารูปแบบ: การค้นหา โปรดักต และสเกลของ Google บนกริดสวีส 12 คอลัมน">
+<meta property="og:image" content="/og-cover.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700;800&family=Noto+Serif+Thai:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   GOOGLE — EDITORIAL MINIMALISM × MODERN SWISS × LIQUID GLASS
+   × VISIBLE GRID
+   Type: Anuphan (grotesque display + body) + Noto Serif Thai
+   (editorial italic). 12-col visible grid, 8pt spacing base,
+   major-third scale. Copy in Thai (the brief's language).
+   ============================================================ */
+
+:root{
+  --paper:      #F4F2ED;
+  --paper-hi:   #FAF9F6;
+  --ink:        #141412;
+  --ink-soft:   #55534E;
+  --hairline:   rgba(20,20,18,.14);
+  --gridline:   rgba(20,20,18,.055);
+
+  --blue:   #4285F4;
+  --red:    #EA4335;
+  --yellow: #FBBC05;
+  --green:  #34A853;
+
+  --glass-bg:     rgba(255,255,255,.42);
+  --glass-edge:   rgba(255,255,255,.75);
+  --glass-shadow: 0 12px 40px rgba(20,20,18,.10);
+
+  --measure: 1280px;
+  --gutter: clamp(20px, 4vw, 48px);
+
+  /* major-third scale, 1.25 */
+  --t--1: 0.80rem;  /* 12.8 — labels */
+  --t-0: 1rem;      /* 16   */
+  --t-1: 1.25rem;
+  --t-2: 1.5625rem;
+  --t-3: 1.953rem;
+
+  --ff-sans: "Anuphan", system-ui, sans-serif;
+  --ff-serif: "Noto Serif Thai", Georgia, serif;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:      #141412;
+    --paper-hi:   #1B1B18;
+    --ink:        #F4F2ED;
+    --ink-soft:   #A8A59E;
+    --hairline:   rgba(244,242,237,.16);
+    --gridline:   rgba(244,242,237,.06);
+    --glass-bg:     rgba(27,27,24,.5);
+    --glass-edge:   rgba(244,242,237,.18);
+    --glass-shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+  ::selection{ background:var(--yellow); color:#141412; }
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+
+html{ scroll-behavior:smooth; }
+
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--ff-sans);
+  font-size:var(--t-0);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+::selection{ background:var(--yellow); color:var(--ink); }
+
+/* ---------- visible grid overlay ---------- */
+
+.grid-overlay{
+  position:fixed; inset:0;
+  z-index:1;
+  pointer-events:none;
+  display:flex; justify-content:center;
+}
+.grid-overlay .cols{
+  width:min(var(--measure), 100%);
+  display:grid;
+  grid-template-columns:repeat(12, 1fr);
+  height:100%;
+}
+.grid-overlay .cols i{
+  border-left:1px solid var(--gridline);
+}
+.grid-overlay .cols i:last-child{ border-right:1px solid var(--gridline); }
+
+/* crop / registration marks */
+.crop{
+  position:fixed; z-index:2; width:18px; height:18px;
+  pointer-events:none; opacity:.5;
+}
+.crop::before,.crop::after{
+  content:""; position:absolute; background:var(--ink);
+}
+.crop::before{ width:18px; height:1px; top:0; }
+.crop::after{ width:1px; height:18px; left:0; }
+.crop.tl{ top:12px; left:12px; }
+.crop.tr{ top:12px; right:12px; transform:scaleX(-1); }
+.crop.bl{ bottom:12px; left:12px; transform:scaleY(-1); }
+.crop.br{ bottom:12px; right:12px; transform:scale(-1,-1); }
+
+/* four-colour progress bar */
+.progress{
+  position:fixed; top:0; left:0; height:3px; width:0%;
+  z-index:60;
+  background:linear-gradient(90deg,
+    var(--blue) 0 25%, var(--red) 25% 50%,
+    var(--yellow) 50% 75%, var(--green) 75% 100%);
+  background-size:200% 100%;
+}
+
+/* ---------- shared ---------- */
+
+.wrap{
+  position:relative; z-index:3;
+  width:min(var(--measure), 100%);
+  margin-inline:auto;
+  padding-inline:var(--gutter);
+}
+
+.label{
+  font-size:var(--t--1);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.serif{
+  font-family:var(--ff-serif);
+  font-style:italic;
+  font-weight:400;
+}
+
+.dots{ display:inline-flex; gap:8px; align-items:center; }
+.dots i{ width:10px; height:10px; border-radius:50%; display:block; }
+.dots i:nth-child(1){ background:var(--blue); }
+.dots i:nth-child(2){ background:var(--red); }
+.dots i:nth-child(3){ background:var(--yellow); }
+.dots i:nth-child(4){ background:var(--green); }
+
+.colorbar{ display:flex; height:8px; }
+.colorbar i{ flex:1; }
+.colorbar i:nth-child(1){ background:var(--blue); }
+.colorbar i:nth-child(2){ background:var(--red); }
+.colorbar i:nth-child(3){ background:var(--yellow); }
+.colorbar i:nth-child(4){ background:var(--green); }
+
+/* buttons — 4 states */
+.btn{
+  display:inline-flex; align-items:center; gap:12px;
+  font-size:var(--t--1);
+  letter-spacing:.08em; text-transform:uppercase;
+  padding:16px 32px;
+  border:1px solid var(--ink);
+  background:var(--ink); color:var(--paper);
+  cursor:pointer; text-decoration:none;
+  transition:background .18s ease, color .18s ease, transform .08s ease;
+}
+.btn:hover{ background:var(--blue); border-color:var(--blue); color:#fff; }
+.btn:active{ transform:translateY(2px); }
+.btn:disabled, .btn[aria-disabled="true"]{
+  opacity:.35; cursor:not-allowed;
+  background:var(--ink); border-color:var(--ink); color:var(--paper);
+  transform:none;
+}
+.btn.ghost{
+  background:transparent; color:var(--ink);
+}
+.btn.ghost:hover{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+
+/* liquid glass */
+.glass{
+  position:relative;
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid var(--glass-edge);
+  box-shadow:var(--glass-shadow);
+}
+.glass::before{
+  content:""; position:absolute; inset:0 0 auto 0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
+  pointer-events:none;
+}
+
+/* reveal — heavy, staggered */
+.reveal{
+  opacity:0; transform:translateY(28px);
+  transition:opacity .9s cubic-bezier(.22,1,.36,1),
+             transform .9s cubic-bezier(.22,1,.36,1);
+  transition-delay:calc(var(--d, 0) * 110ms);
+}
+.reveal.in{ opacity:1; transform:none; }
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  .reveal{ opacity:1; transform:none; transition:none; }
+}
+
+/* ---------- nav ---------- */
+
+.nav{
+  position:fixed; top:0; left:0; right:0; z-index:50;
+  margin-top:3px;
+}
+.nav .inner{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:24px;
+  padding:16px var(--gutter);
+  width:min(var(--measure), 100%);
+  margin-inline:auto;
+}
+.nav .wordmark{
+  font-weight:800; font-size:var(--t-1);
+  letter-spacing:-.02em;
+  display:flex; align-items:center; gap:12px;
+  text-decoration:none; color:var(--ink);
+}
+.nav .links{
+  display:flex; gap:32px; list-style:none;
+}
+.nav .links a{
+  font-size:var(--t--1); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-soft); text-decoration:none;
+  transition:color .15s ease;
+}
+.nav .links a:hover{ color:var(--ink); }
+.nav .links a b{ font-weight:600; color:var(--ink); margin-right:6px; }
+
+@media (max-width:720px){
+  .nav .links{ display:none; }
+}
+
+/* ---------- hero ---------- */
+
+.hero{
+  position:relative;
+  padding-top:160px;
+  padding-bottom:96px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--paper-hi) 0%, var(--paper) 62%);
+}
+.hero .kicker{
+  display:flex; align-items:center; gap:16px;
+  margin-bottom:40px;
+  color:var(--ink-soft);
+}
+.hero h1{
+  font-size:clamp(2.6rem, 10.5vw, 8.5rem);
+  font-weight:800;
+  letter-spacing:-.02em;
+  line-height:1.05;
+  max-width:16ch;
+}
+.hero h1 .serif{
+  font-weight:400;
+  letter-spacing:0;
+}
+.hero .lede{
+  margin-top:40px;
+  max-width:52ch;
+  font-size:var(--t-1);
+  color:var(--ink-soft);
+  line-height:1.75;
+}
+
+/* glass search bar */
+.searchbar{
+  margin-top:56px;
+  display:flex; align-items:center; gap:16px;
+  max-width:640px;
+  padding:8px 8px 8px 24px;
+  border-radius:999px;
+}
+.searchbar svg{ flex:none; opacity:.55; }
+.searchbar input{
+  flex:1; min-width:0;
+  border:0; background:transparent; outline:none;
+  font-family:var(--ff-sans);
+  font-size:var(--t-0);
+  color:var(--ink);
+}
+.searchbar input::placeholder{ color:var(--ink-soft); opacity:.7; }
+.searchbar .btn{
+  padding:12px 24px;
+  border-radius:999px;
+  border:0;
+}
+.hero .actions{
+  margin-top:40px;
+  display:flex; align-items:center; gap:32px; flex-wrap:wrap;
+}
+.hero .footnote{
+  margin-top:72px;
+  display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap;
+  color:var(--ink-soft);
+}
+
+/* ---------- section scaffolding ---------- */
+
+section.block{
+  position:relative;
+  padding:120px 0;
+  border-top:1px solid var(--hairline);
+}
+.sec-head{
+  display:grid;
+  grid-template-columns:repeat(12, 1fr);
+  gap:24px;
+  align-items:end;
+  margin-bottom:72px;
+}
+.sec-no{
+  grid-column:1 / span 3;
+  font-size:var(--t--1);
+  letter-spacing:.14em;
+  color:var(--ink-soft);
+  display:flex; align-items:center; gap:12px;
+}
+.sec-no .rule{ flex:1; height:1px; background:var(--hairline); }
+.sec-title{
+  grid-column:4 / span 9;
+  font-size:clamp(1.9rem, 5.4vw, 4.2rem);
+  font-weight:800;
+  letter-spacing:-.025em;
+  line-height:1.15;
+}
+.sec-title .serif{ font-weight:400; letter-spacing:0; }
+
+@media (max-width:720px){
+  .sec-head{ grid-template-columns:1fr; }
+  .sec-no{ grid-column:1; }
+  .sec-title{ grid-column:1; }
+}
+
+/* ---------- 01 search ---------- */
+
+.search-grid{
+  display:grid;
+  grid-template-columns:repeat(12, 1fr);
+  gap:24px;
+}
+.search-copy{
+  grid-column:1 / span 6;
+  font-size:var(--t-1);
+  line-height:1.85;
+  color:var(--ink-soft);
+  max-width:56ch;
+}
+.search-copy strong{ color:var(--ink); font-weight:600; }
+.ledger{
+  grid-column:7 / span 6;
+  list-style:none;
+}
+.ledger li{
+  display:flex; align-items:baseline; justify-content:space-between; gap:24px;
+  padding:24px 0;
+  border-top:1px solid var(--hairline);
+}
+.ledger li:last-child{ border-bottom:1px solid var(--hairline); }
+.ledger .n{
+  font-size:clamp(1.8rem, 3.4vw, 2.6rem);
+  font-weight:800; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.ledger .l{
+  font-size:var(--t--1);
+  letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-soft);
+  text-align:right;
+}
+@media (max-width:860px){
+  .search-copy{ grid-column:1 / -1; }
+  .ledger{ grid-column:1 / -1; }
+}
+
+/* ---------- 02 products index ---------- */
+
+.index{ list-style:none; }
+.index li{
+  border-top:1px solid var(--hairline);
+}
+.index li:last-child{ border-bottom:1px solid var(--hairline); }
+.index a{
+  display:grid;
+  grid-template-columns:56px 1fr 1fr 40px;
+  align-items:baseline;
+  gap:24px;
+  padding:28px 8px;
+  text-decoration:none; color:inherit;
+  transition:background .2s ease, color .2s ease, padding-left .2s ease;
+}
+.index a:hover{
+  background:var(--ink); color:var(--paper);
+  padding-left:24px;
+}
+.index .no{
+  font-size:var(--t--1);
+  letter-spacing:.12em;
+  color:var(--ink-soft);
+}
+.index a:hover .no{ color:var(--paper); opacity:.6; }
+.index .name{
+  font-size:var(--t-2);
+  font-weight:700; letter-spacing:-.02em;
+}
+.index .desc{
+  font-size:var(--t-0);
+  color:var(--ink-soft);
+}
+.index a:hover .desc{ color:var(--paper); opacity:.75; }
+.index .dot{
+  width:12px; height:12px; border-radius:50%;
+  justify-self:end; align-self:center;
+}
+.index li:nth-child(4n+1) .dot{ background:var(--blue); }
+.index li:nth-child(4n+2) .dot{ background:var(--red); }
+.index li:nth-child(4n+3) .dot{ background:var(--yellow); }
+.index li:nth-child(4n+4) .dot{ background:var(--green); }
+
+@media (max-width:720px){
+  .index a{ grid-template-columns:40px 1fr 40px; }
+  .index .desc{ grid-column:2 / 4; grid-row:2; }
+}
+
+/* ---------- 03 scale ---------- */
+
+.scale-grid{
+  display:grid;
+  grid-template-columns:repeat(12, 1fr);
+  gap:24px;
+}
+.stat{
+  grid-column:span 6;
+  padding:40px 0;
+  border-top:1px solid var(--hairline);
+}
+.stat:nth-child(odd){ grid-column:1 / span 6; }
+.stat:nth-child(even){ grid-column:7 / span 6; }
+.stat .n{
+  font-size:clamp(3rem, 7vw, 5.6rem);
+  font-weight:800; letter-spacing:-0.03em; line-height:1;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.stat .n sup{ font-size:.45em; font-weight:600; vertical-align:super; }
+.stat .l{
+  margin-top:16px;
+  font-size:var(--t--1);
+  letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-soft);
+}
+@media (max-width:720px){
+  .stat:nth-child(odd), .stat:nth-child(even){ grid-column:1 / -1; }
+}
+
+/* ---------- mission quote ---------- */
+
+.mission{
+  padding:160px 0;
+  border-top:1px solid var(--hairline);
+  text-align:left;
+}
+.mission blockquote{
+  font-family:var(--ff-serif);
+  font-style:italic;
+  font-weight:400;
+  font-size:clamp(1.6rem, 4.6vw, 3.4rem);
+  line-height:1.5;
+  letter-spacing:0;
+  max-width:26ch;
+}
+.mission blockquote .hl{ font-style:normal; font-family:var(--ff-sans); font-weight:800; }
+.mission .attr{
+  margin-top:40px;
+  display:flex; align-items:center; gap:16px;
+  color:var(--ink-soft);
+}
+
+/* ---------- footer ---------- */
+
+footer{
+  position:relative; z-index:3;
+  border-top:1px solid var(--hairline);
+  background:var(--paper-hi);
+}
+.foot-grid{
+  display:grid;
+  grid-template-columns:repeat(12, 1fr);
+  gap:24px;
+  padding:80px 0 48px;
+}
+.foot-brand{ grid-column:1 / span 5; }
+.foot-brand .big{
+  font-size:clamp(2.6rem, 6vw, 4.4rem);
+  font-weight:800; letter-spacing:-0.03em; line-height:1;
+}
+.foot-brand .big .serif{ font-weight:400; letter-spacing:0; }
+.foot-links{
+  grid-column:6 / span 3;
+  list-style:none;
+  display:grid; gap:8px; align-content:start;
+}
+.foot-links a{
+  color:var(--ink-soft); text-decoration:none;
+  font-size:var(--t-0);
+  transition:color .15s ease;
+}
+.foot-links a:hover{ color:var(--ink); }
+.foot-colophon{
+  grid-column:9 / span 4;
+  align-self:end;
+  color:var(--ink-soft);
+  line-height:1.9;
+}
+.foot-base{
+  display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap;
+  padding:24px 0 40px;
+  border-top:1px solid var(--hairline);
+  color:var(--ink-soft);
+}
+@media (max-width:860px){
+  .foot-brand{ grid-column:1 / -1; }
+  .foot-links{ grid-column:1 / span 6; }
+  .foot-colophon{ grid-column:7 / span 6; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<div class="grid-overlay" aria-hidden="true">
+  <div class="cols">
+    <i></i><i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+</div>
+<span class="crop tl" aria-hidden="true"></span>
+<span class="crop tr" aria-hidden="true"></span>
+<span class="crop bl" aria-hidden="true"></span>
+<span class="crop br" aria-hidden="true"></span>
+
+<header class="nav glass">
+  <div class="inner">
+    <a class="wordmark" href="#top">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      Google
+    </a>
+    <ul class="links">
+      <li><a href="#search"><b>01</b>ค้นหา</a></li>
+      <li><a href="#products"><b>02</b>โปรดักต</a></li>
+      <li><a href="#scale"><b>03</b>สเกล</a></li>
+    </ul>
+    <a class="btn ghost" href="#mission">พันธกจ</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="kicker label reveal" style="--d:0">
+        ต้งแต้ 1998 — ภู่ฮาววิว, แคลฟอรเนีย
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </p>
+      <h1 class="reveal" style="--d:1">
+        ค้นหา<br>
+        <span class="serif">วีบทั้งหมด.</span>
+      </h1>
+      <p class="lede reveal" style="--d:2">
+        Google เร่มต้งจากโปรเจกตของสองคน เพื่อบรหารจ้ําลงข้อมูลของโลก
+        ทุกวนัตอบการค้นหามากกว่ 5,000 ล้ํานคร้่่งตอ่ วนั — ในภาษาเกิ่บ
+        200 ภาษา บนทุกเครื่่่งท่ีถิงเว็บได้
+      </p>
+
+      <form class="searchbar glass reveal" style="--d:3" onsubmit="return false;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+        </svg>
+        <input type="text" placeholder="ค้นหาทังเว็บ…" aria-label="ค้นหาทังเว็บ">
+        <button class="btn" type="submit">ค้นหา</button>
+      </form>
+
+      <div class="actions reveal" style="--d:4">
+        <a class="btn" href="#products">สำรวจโปรดักต</a>
+        <a class="btn ghost" href="#scale">ดูตวัเลข</a>
+      </div>
+
+      <div class="footnote label reveal" style="--d:5">
+        <span>รูป 01 — ช่องค้นหา ที่ไม่เปลี่่ยนมาต้งแต้ 1998</span>
+        <span>เลื่อนล่าง ↓</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 01 SEARCH ============ -->
+  <section class="block" id="search">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="sec-no reveal" style="--d:0">01 — ค้นหา <span class="rule"></span></p>
+        <h2 class="sec-title reveal" style="--d:1">
+          สร้่่งมาเพื่อกับ <span class="serif">ทุกอย่่่ง.</span>
+        </h2>
+      </div>
+
+      <div class="search-grid">
+        <p class="search-copy reveal" style="--d:0">
+          จากสูตรอาหารไปจนงานวิจัย Google อ่านเว็บตามท่ีมันเปลี่่ยนแปลง —
+          จัดดัชนีมากกว่ 3 ล้านล้านหน้ าก่อนจัดลำดับด้วยระบบท่ีเริ่มต้งจาก
+          <strong>PageRank</strong>: วิธีวัดว่่าเว็บโยงส่่งต่างต่าง เข้าหากันอย่่่งไร
+          ไอเดียม่ได้เปลี่่ยนมาต้งแต้ 1998 ท่ีเดียวเปลี่่ยนไปแล้่ว
+        </p>
+        <ul class="ledger">
+          <li class="reveal" style="--d:1">
+            <span class="n">100,000<sup>+</sup></span>
+            <span class="l">คำค้นต่อวินาที</span>
+          </li>
+          <li class="reveal" style="--d:2">
+            <span class="n">5B<sup>+</sup></span>
+            <span class="l">การค้นหาต่อวัน</span>
+          </li>
+          <li class="reveal" style="--d:3">
+            <span class="n">200<sup>+</sup></span>
+            <span class="l">ภาษาท่ีสนับสนุน</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 PRODUCTS ============ -->
+  <section class="block" id="products">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="sec-no reveal" style="--d:0">02 — โปรดักต <span class="rule"></span></p>
+        <h2 class="sec-title reveal" style="--d:1">
+          บรษััทเดียว <span class="serif">ประตู่หลายบาน.</span>
+        </h2>
+      </div>
+
+      <ul class="index">
+        <li class="reveal" style="--d:0"><a href="#search">
+          <span class="no">01</span><span class="name">ค้นหา</span>
+          <span class="desc">ตัวแรก — เว็บจัดลำดับแล้่ว</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+        <li class="reveal" style="--d:1"><a href="#search">
+          <span class="no">02</span><span class="name">Maps</span>
+          <span class="desc">ถนนทุกสาย รถประจำทาง และเส้่นทางเดินป่า</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+        <li class="reveal" style="--d:2"><a href="#search">
+          <span class="no">03</span><span class="name">Gmail</span>
+          <span class="desc">อีเมลท่ีจัดตัวเอง</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+        <li class="reveal" style="--d:3"><a href="#search">
+          <span class="no">04</span><span class="name">YouTube</span>
+          <span class="desc">ห้องสมุดวิดีโอของโลก</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+        <li class="reveal" style="--d:4"><a href="#search">
+          <span class="no">05</span><span class="name">Drive</span>
+          <span class="desc">ไฟล์ แชร์ และซิงค์</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+        <li class="reveal" style="--d:5"><a href="#search">
+          <span class="no">06</span><span class="name">Translate</span>
+          <span class="desc">200 ภาษา แปลสด</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+        <li class="reveal" style="--d:6"><a href="#search">
+          <span class="no">07</span><span class="name">Gemini</span>
+          <span class="desc">ผู้ช่วยท่ีอยู่ทุกท่ี</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+        <li class="reveal" style="--d:7"><a href="#search">
+          <span class="no">08</span><span class="name">Android</span>
+          <span class="desc">ระบบปฏิบัติการของโทรศัพท์</span>
+          <span class="dot" aria-hidden="true"></span>
+        </a></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 03 SCALE ============ -->
+  <section class="block" id="scale">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="sec-no reveal" style="--d:0">03 — สเกล <span class="rule"></span></p>
+        <h2 class="sec-title reveal" style="--d:1">
+          ในสเกล <span class="serif">ของเว็บ.</span>
+        </h2>
+      </div>
+
+      <div class="scale-grid">
+        <div class="stat reveal" style="--d:0">
+          <div class="n">1998</div>
+          <div class="l">ต้งข้่นจากวิทยานิพนธ Stanford</div>
+        </div>
+        <div class="stat reveal" style="--d:1">
+          <div class="n">5B<sup>+</sup></div>
+          <div class="l">การค้นหาต่อวัน</div>
+        </div>
+        <div class="stat reveal" style="--d:2">
+          <div class="n">200<sup>+</sup></div>
+          <div class="l">ภาษาท่ีเข้าใจ</div>
+        </div>
+        <div class="stat reveal" style="--d:3">
+          <div class="n">160<sup>+</sup></div>
+          <div class="l">ประเทศและภูมิภาค</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MISSION ============ -->
+  <section class="mission" id="mission">
+    <div class="wrap">
+      <blockquote class="reveal" style="--d:0">
+        “เพื่อบริหารจัดจ้ําลงข้อมูลของโลก และทำให้
+        ทุกคนเข้าถ่่งและใช้งานได”
+      </blockquote>
+      <p class="attr label reveal" style="--d:1">
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        พันธกจของ Google — ประกาศ 1998 ไม่เปลี่่ยนมาต้งแต้
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="colorbar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand reveal" style="--d:0">
+        <div class="big">Google<span class="serif">.</span></div>
+      </div>
+      <ul class="foot-links reveal" style="--d:1">
+        <li><a href="#search">ค้นหา</a></li>
+        <li><a href="#products">โปรดักต</a></li>
+        <li><a href="#scale">สเกล</a></li>
+        <li><a href="#mission">พันธกจ</a></li>
+      </ul>
+      <p class="foot-colophon label reveal" style="--d:2">
+        ตัวอักษร Anuphan &amp; Noto Serif Thai<br>
+        กริด 12 คอลัมน์ · ฐาน 8pt<br>
+        งานศึกษารูปแบบ — ไม่ใชของ Google LLC
+      </p>
+    </div>
+    <div class="foot-base label">
+      <span>© 2026 — งานศึกษารูปแบบ</span>
+      <span>ภู่ฮาววิว, แคลฟอรเนีย</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* staggered reveal — heavy, sequential */
+(function(){
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold:.15, rootMargin:'0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+})();
+
+/* four-colour scroll progress */
+(function(){
+  var bar = document.getElementById('progress');
+  function paint(){
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }
+  addEventListener('scroll', paint, { passive:true });
+  paint();
+})();
+</script>
+</body>
+</html>

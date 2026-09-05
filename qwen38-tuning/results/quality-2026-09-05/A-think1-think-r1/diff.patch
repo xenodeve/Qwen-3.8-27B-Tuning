@@ -1,0 +1,50 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..7fcbe0d 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -16,12 +16,14 @@ class Store:
+         return self._items[sku]
+ 
+     def remove(self, sku, qty):
+-        """Remove qty units of sku and return the remaining quantity."""
++        """Remove qty units of sku. Raises ValueError if qty exceeds what is in stock."""
+         if not isinstance(qty, int) or qty <= 0:
+             raise ValueError(f"qty must be a positive integer, got {qty!r}")
+         current = self._items.get(sku, 0)
++        if qty > current:
++            raise ValueError(f"cannot remove {qty} of {sku!r}; only {current} in stock")
+         self._items[sku] = current - qty
+-        return self._items[sku]
++        return None
+ 
+     def quantity(self, sku):
+         return self._items.get(sku, 0)
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..c81dacf 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -20,6 +20,24 @@ def test_add_rejects_bad_qty():
+         assert False, f"add accepted {bad!r}"
+ 
+ 
++def test_remove_returns_none_and_reduces_quantity():
++    s = Store()
++    s.add("apple", 5)
++    result = s.remove("apple", 2)
++    assert result is None
++    assert s.quantity("apple") == 3
++
++
++def test_remove_more_than_available_raises():
++    s = Store()
++    s.add("apple", 2)
++    try:
++        s.remove("apple", 3)
++    except ValueError:
++        return
++    assert False, "remove accepted removing more than is in stock"
++
++
+ def test_save_and_load_roundtrip(tmp_path):
+     s = Store()
+     s.add("apple", 3)

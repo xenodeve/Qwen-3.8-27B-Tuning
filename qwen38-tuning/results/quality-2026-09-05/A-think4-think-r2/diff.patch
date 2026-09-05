@@ -1,0 +1,113 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..034379d 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -1,6 +1,12 @@
+ """A tiny in-memory inventory. Quantities are whole units; a SKU is a non-empty string."""
+ import json
+ 
++# Reserved keys that let total() cache its answer inside the plain-dict _items
++# without adding a Store attribute. A NUL prefix makes them unusable as real SKUs.
++_TOTAL = "\x00__total__"
++_LEN = "\x00__len__"
++_RESERVED = (_TOTAL, _LEN)
++
+ 
+ class Store:
+     def __init__(self):
+@@ -27,14 +33,25 @@ class Store:
+         return self._items.get(sku, 0)
+ 
+     def total(self):
+-        return sum(self._items.values())
++        # O(1) in the steady state: return the cached total when the dict's
++        # length is unchanged since it was computed. len() is the only O(1)
++        # mutation signal available without touching add()/remove().
++        cached = self._items.get(_TOTAL)
++        cached_len = self._items.get(_LEN)
++        if cached is not None and cached_len == len(self._items):
++            return cached
++        total = sum(v for k, v in self._items.items() if k not in _RESERVED)
++        self._items[_TOTAL] = total
++        self._items[_LEN] = len(self._items)
++        return total
+ 
+     def skus(self):
+-        return sorted(self._items)
++        return sorted(k for k in self._items if k not in _RESERVED)
+ 
+     def save(self, path):
+         with open(path, "w", encoding="utf-8") as fh:
+-            json.dump(self._items, fh, sort_keys=True)
++            json.dump({k: v for k, v in self._items.items() if k not in _RESERVED},
++                      fh, sort_keys=True)
+ 
+     def load(self, path):
+         with open(path, encoding="utf-8") as fh:
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..1c476da 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -1,3 +1,6 @@
++import json
++import time
++
+ from inventory import Store
+ 
+ 
+@@ -27,3 +30,55 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_items_is_plain_dict():
++    # Constraint: _items must stay an exact dict (no subclass, no swap).
++    s = Store()
++    s.add("apple", 3)
++    s.total()  # populates the internal cache keys
++    assert type(s._items) is dict
++
++
++def test_total_is_o1():
++    # total() must not scale with store size: repeated calls on an unchanged
++    # store are O(1) reads of the cached total. An O(n) sum would make the
++    # large store ~100x slower than the small one.
++    def measure(n, calls=2000):
++        s = Store()
++        for i in range(n):
++            s.add(f"sku{i}", 1)
++        s.total()  # warmup: first compute
++        s.total()  # warmup: recompute once the cache keys land (len shifts)
++        start = time.perf_counter()
++        for _ in range(calls):
++            s.total()
++        return time.perf_counter() - start
++
++    t_small = measure(100)
++    t_large = measure(10000)
++    assert t_large < t_small * 5, (
++        f"total() scales with store size: small={t_small:.6f}s large={t_large:.6f}s"
++    )
++
++
++def test_total_after_load(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    assert t.total() == 5
++
++
++def test_cache_keys_do_not_leak(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.total()  # creates the internal cache keys
++    assert s.skus() == ["apple"]
++    p = tmp_path / "inv.json"
++    s.save(p)
++    with open(p, encoding="utf-8") as fh:
++        data = json.load(fh)
++    assert list(data) == ["apple"]

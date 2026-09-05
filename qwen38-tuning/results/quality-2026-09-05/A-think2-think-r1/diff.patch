@@ -1,0 +1,24 @@
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..7d4ee88 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,19 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_load_twice_does_not_double_count(tmp_path):
++    # Guards: loading the same file a second time must replace, not accumulate.
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    first_total = t.total()
++    t.load(p)  # load the identical file again
++    assert t.total() == first_total == 5
++    assert t.skus() == ["apple", "pear"]
++    assert t.quantity("apple") == 3
++    assert t.quantity("pear") == 2

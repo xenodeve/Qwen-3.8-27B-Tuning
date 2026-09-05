@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — The Search, Reconsidered</title>
+<meta name="description" content="An editorial study of Google: the interface that organizes the world's information." />
+<style>
+  /* ============================================================
+     PALETTE — Swiss paper + Google four, held in check
+     ============================================================ */
+  :root{
+    --paper:      #F3F1EC;   /* warm editorial paper            */
+    --paper-2:    #ECE9E2;
+    --ink:        #141414;   /* near-black ink                  */
+    --ink-soft:   #4A4A46;
+    --ink-faint:  #8A887F;
+    --line:       rgba(20,20,20,.10);
+    --line-soft:  rgba(20,20,20,.055);
+
+    --blue:   #4285F4;
+    --red:    #EA4335;
+    --yellow: #FBBC05;
+    --green:  #34A853;
+
+    --glass:      rgba(255,255,255,.42);
+    --glass-hi:   rgba(255,255,255,.66);
+    --glass-brd:  rgba(255,255,255,.72);
+    --glass-edge: rgba(20,20,20,.08);
+
+    --maxw: 1320px;
+    --gutter: clamp(20px, 4vw, 56px);
+    --radius: 22px;
+
+    --serif: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:  "Helvetica Neue",Helvetica,"Segoe UI",Arial,system-ui,sans-serif;
+    --mono:  "SF Mono","JetBrains Mono","Cascadia Code",ui-monospace,Menlo,Consolas,monospace;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-weight:400;
+    line-height:1.5;
+    letter-spacing:-0.011em;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+  ::selection{ background:var(--blue); color:#fff; }
+
+  a{ color:inherit; text-decoration:none; }
+  img{ max-width:100%; display:block; }
+
+  /* ============================================================
+     VISIBLE GRID — the 12-column skeleton, made honest
+     ============================================================ */
+  .grid-veil{
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    gap:clamp(10px,1.4vw,22px);
+    padding:0 var(--gutter);
+    opacity:1;
+    transition:opacity .5s ease;
+  }
+  .grid-veil .col{
+    border-left:1px solid var(--line-soft);
+    border-right:1px solid var(--line-soft);
+    position:relative;
+  }
+  .grid-veil .col::before{
+    content:attr(data-n);
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+    color:var(--ink-faint); opacity:.55;
+  }
+  body.grid-off .grid-veil{ opacity:0; }
+
+  /* ============================================================
+     LAYOUT PRIMITIVES
+     ============================================================ */
+  .wrap{ position:relative; z-index:2; max-width:var(--maxw); margin:0 auto; padding:0 var(--gutter); }
+  .rule{ height:1px; background:var(--line); border:0; }
+  .mono{ font-family:var(--mono); letter-spacing:.02em; }
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.28em;
+    text-transform:uppercase; color:var(--ink-soft);
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
+
+  /* ============================================================
+     NAV — liquid glass bar
+     ============================================================ */
+  header.nav{
+    position:fixed; top:0; left:0; right:0; z-index:50;
+    backdrop-filter:blur(22px) saturate(1.4);
+    -webkit-backdrop-filter:blur(22px) saturate(1.4);
+    background:linear-gradient(180deg, rgba(243,241,236,.72), rgba(243,241,236,.42));
+    border-bottom:1px solid var(--glass-edge);
+  }
+  .nav-inner{
+    max-width:var(--maxw); margin:0 auto; padding:14px var(--gutter);
+    display:flex; align-items:center; justify-content:space-between; gap:24px;
+  }
+  .wordmark{ display:flex; align-items:baseline; gap:2px; font-weight:700; font-size:22px; letter-spacing:-.03em; }
+  .wordmark b{ font-weight:700; }
+  .wordmark .g1{color:var(--blue);} .wordmark .o1{color:var(--red);}
+  .wordmark .g2{color:var(--yellow);} .wordmark .l1{color:var(--blue);}
+  .wordmark .e1{color:var(--green);}
+  .nav-links{ display:flex; gap:30px; align-items:center; }
+  .nav-links a{ font-size:13.5px; color:var(--ink-soft); position:relative; padding:4px 0; }
+  .nav-links a::after{
+    content:""; position:absolute; left:0; bottom:0; height:1.5px; width:0;
+    background:var(--ink); transition:width .35s cubic-bezier(.2,.7,.2,1);
+  }
+  .nav-links a:hover{ color:var(--ink); }
+  .nav-links a:hover::after{ width:100%; }
+  .nav-cta{
+    font-size:13px; font-weight:600; padding:9px 18px; border-radius:100px;
+    background:var(--ink); color:var(--paper);
+    border:1px solid var(--ink);
+    transition:transform .3s ease, background .3s ease;
+  }
+  .nav-cta:hover{ transform:translateY(-1px); }
+  .grid-toggle{
+    font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--ink-soft); background:transparent; border:1px solid var(--line);
+    padding:8px 14px; border-radius:100px; cursor:pointer; transition:.3s;
+  }
+  .grid-toggle:hover{ border-color:var(--ink); color:var(--ink); }
+
+  /* ============================================================
+     HERO
+     ============================================================ */
+  .hero{ padding:clamp(120px,17vh,190px) 0 clamp(48px,7vw,90px); position:relative; }
+  .hero-meta{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding-bottom:22px; margin-bottom:clamp(28px,4vw,54px);
+    border-bottom:1px solid var(--line);
+  }
+  .hero-meta .idx{ font-family:var(--mono); font-size:12px; letter-spacing:.2em; color:var(--ink-soft); }
+  .hero-title{
+    font-size:clamp(52px,10.5vw,150px);
+    line-height:.92; letter-spacing:-.045em; font-weight:700;
+    text-wrap:balance;
+  }
+  .hero-title .it{ font-family:var(--serif); font-style:italic; font-weight:400; letter-spacing:-.02em; }
+  .hero-title .thin{ font-weight:300; }
+  .hero-sub{
+    margin-top:clamp(26px,3.4vw,44px);
+    display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(14px,1.6vw,26px);
+    align-items:start;
+  }
+  .hero-sub .lead{
+    grid-column:1 / span 6;
+    font-size:clamp(18px,1.7vw,23px); line-height:1.42; letter-spacing:-.01em;
+    color:var(--ink);
+  }
+  .hero-sub .lead em{ font-family:var(--serif); font-style:italic; }
+  .hero-sub .aside{
+    grid-column:8 / span 5;
+    font-size:14px; line-height:1.6; color:var(--ink-soft);
+    border-left:1px solid var(--line); padding-left:22px;
+  }
+  .hero-sub .aside .k{ display:block; font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; }
+
+  /* search bar — the signature object, in glass */
+  .search{
+    margin-top:clamp(34px,4.5vw,60px);
+    grid-column:1 / span 12;
+    display:flex; align-items:center; gap:14px;
+    max-width:720px;
+    padding:6px 6px 6px 22px;
+    border-radius:100px;
+    background:var(--glass);
+    backdrop-filter:blur(18px) saturate(1.5);
+    -webkit-backdrop-filter:blur(18px) saturate(1.5);
+    border:1px solid var(--glass-brd);
+    box-shadow:0 1px 0 rgba(255,255,255,.6) inset, 0 24px 60px -30px rgba(20,20,20,.35);
+  }
+  .search svg{ flex:none; }
+  .search input{
+    flex:1; border:0; background:transparent; outline:none;
+    font-family:var(--sans); font-size:16px; color:var(--ink); padding:14px 0;
+  }
+  .search input::placeholder{ color:var(--ink-faint); }
+  .search .go{
+    flex:none; font-size:13.5px; font-weight:600; color:#fff;
+    background:var(--blue); padding:12px 22px; border-radius:100px;
+    transition:transform .25s ease, background .25s ease;
+  }
+  .search .go:hover{ transform:translateY(-1px); background:#3372DB; }
+
+  /* ============================================================
+     MARQUEE
+     ============================================================ */
+  .marquee{
+    margin-top:clamp(50px,7vw,90px);
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    overflow:hidden; white-space:nowrap; padding:16px 0;
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+            mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  }
+  .marquee .track{ display:inline-flex; gap:0; animation:scroll 34s linear infinite; }
+  .marquee span{
+    font-family:var(--mono); font-size:13px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--ink-soft); padding:0 26px; display:inline-flex; align-items:center; gap:26px;
+  }
+  .marquee span::after{ content:""; width:6px; height:6px; border-radius:50%; background:var(--ink-faint); }
+  @keyframes scroll{ to{ transform:translateX(-50%); } }
+
+  /* ============================================================
+     SECTION HEADER (editorial)
+     ============================================================ */
+  section{ position:relative; z-index:2; }
+  .sec-head{
+    display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(14px,1.6vw,26px);
+    align-items:end; padding:clamp(60px,9vw,120px) 0 clamp(28px,3.5vw,44px);
+  }
+  .sec-head .no{
+    grid-column:1 / span 2;
+    font-family:var(--mono); font-size:13px; letter-spacing:.18em; color:var(--ink-faint);
+  }
+  .sec-head h2{
+    grid-column:3 / span 9;
+    font-size:clamp(34px,5.4vw,72px); line-height:1; letter-spacing:-.035em; font-weight:700;
+    text-wrap:balance;
+  }
+  .sec-head h2 .it{ font-family:var(--serif); font-style:italic; font-weight:400; }
+
+  /* ============================================================
+     STATS — editorial numbered row
+     ============================================================ */
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid var(--line); }
+  .stat{
+    padding:clamp(26px,3vw,40px) clamp(18px,2vw,30px) clamp(30px,3.4vw,44px);
+    border-right:1px solid var(--line);
+  }
+  .stat:last-child{ border-right:0; }
+  .stat .n{
+    font-size:clamp(40px,5.6vw,74px); font-weight:700; letter-spacing:-.04em; line-height:1;
+    display:flex; align-items:baseline;
+  }
+  .stat .n small{ font-size:.42em; font-weight:600; margin-left:4px; color:var(--ink-soft); }
+  .stat .lbl{ margin-top:16px; font-size:13.5px; color:var(--ink-soft); line-height:1.45; }
+  .stat .tag{ margin-top:14px; font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-faint); }
+
+  /* ============================================================
+     FEATURE CARDS — liquid glass
+     ============================================================ */
+  .cards{
+    display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(14px,1.6vw,24px);
+    padding-bottom:clamp(60px,9vw,120px);
+  }
+  .card{
+    position:relative; overflow:hidden;
+    border-radius:var(--radius);
+    padding:clamp(24px,2.4vw,34px);
+    background:var(--glass);
+    backdrop-filter:blur(20px) saturate(1.5);
+    -webkit-backdrop-filter:blur(20px) saturate(1.5);
+    border:1px solid var(--glass-brd);
+    box-shadow:0 1px 0 rgba(255,255,255,.65) inset, 0 30px 70px -40px rgba(20,20,20,.4);
+    transition:transform .5s cubic-bezier(.2,.7,.2,1), box-shadow .5s ease;
+  }
+  .card:hover{ transform:translateY(-6px); box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 44px 90px -40px rgba(20,20,20,.5); }
+  .card .chip{
+    width:44px; height:44px; border-radius:12px; display:grid; place-items:center;
+    background:rgba(255,255,255,.55); border:1px solid var(--glass-brd); margin-bottom:22px;
+  }
+  .card h3{ font-size:clamp(20px,1.9vw,26px); letter-spacing:-.02em; font-weight:700; margin-bottom:12px; }
+  .card p{ font-size:14.5px; line-height:1.55; color:var(--ink-soft); }
+  .card .idx{ position:absolute; top:26px; right:28px; font-family:var(--mono); font-size:11px; letter-spacing:.16em; color:var(--ink-faint); }
+  .card .foot{ margin-top:24px; padding-top:16px; border-top:1px solid var(--line); font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); display:flex; justify-content:space-between; }
+
+  .c-a{ grid-column:1 / span 5; }
+  .c-b{ grid-column:6 / span 4; }
+  .c-c{ grid-column:10 / span 3; }
+  .c-d{ grid-column:1 / span 4; }
+  .c-e{ grid-column:5 / span 4; }
+  .c-f{ grid-column:9 / span 4; }
+
+  /* ============================================================
+     STATEMENT — big editorial pull
+     ============================================================ */
+  .statement{
+    background:var(--ink); color:var(--paper);
+    border-radius:0;
+    padding:clamp(70px,11vw,150px) 0;
+    position:relative; overflow:hidden;
+  }
+  .statement .wrap{ position:relative; z-index:2; }
+  .statement .grid-veil-2{
+    position:absolute; inset:0; display:grid; grid-template-columns:repeat(12,1fr);
+    gap:clamp(10px,1.4vw,22px); padding:0 var(--gutter); opacity:.5;
+  }
+  .statement .grid-veil-2 .col{ border-left:1px solid rgba(255,255,255,.06); border-right:1px solid rgba(255,255,255,.06); }
+  .statement .k{ font-family:var(--mono); font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:rgba(243,241,236,.55); margin-bottom:30px; }
+  .statement blockquote{
+    font-size:clamp(30px,5.6vw,74px); line-height:1.04; letter-spacing:-.03em; font-weight:700;
+    max-width:16ch; text-wrap:balance;
+  }
+  .statement blockquote .it{ font-family:var(--serif); font-style:italic; font-weight:400; }
+  .statement .attr{ margin-top:34px; font-size:14px; color:rgba(243,241,236,.6); }
+  .statement .four{ display:flex; gap:10px; margin-top:40px; }
+  .statement .four i{ width:26px; height:6px; border-radius:3px; display:block; }
+
+  /* ============================================================
+     TIMELINE / INDEX — editorial list
+     ============================================================ */
+  .index{ padding-bottom:clamp(60px,9vw,120px); }
+  .row{
+    display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(14px,1.6vw,26px);
+    align-items:baseline; padding:clamp(22px,2.6vw,34px) 0;
+    border-top:1px solid var(--line);
+    transition:padding-left .4s ease;
+  }
+  .row:last-child{ border-bottom:1px solid var(--line); }
+  .row:hover{ padding-left:14px; }
+  .row .yr{ grid-column:1 / span 2; font-family:var(--mono); font-size:13px; letter-spacing:.1em; color:var(--ink-soft); }
+  .row .ttl{ grid-column:3 / span 6; font-size:clamp(20px,2.4vw,32px); font-weight:700; letter-spacing:-.02em; }
+  .row .desc{ grid-column:9 / span 4; font-size:14px; color:var(--ink-soft); line-height:1.5; }
+
+  /* ============================================================
+     CTA
+     ============================================================ */
+  .cta{ padding:clamp(70px,11vw,150px) 0; text-align:left; }
+  .cta .box{
+    border-radius:var(--radius);
+    padding:clamp(40px,6vw,80px);
+    background:linear-gradient(160deg, var(--glass-hi), var(--glass));
+    backdrop-filter:blur(24px) saturate(1.6);
+    -webkit-backdrop-filter:blur(24px) saturate(1.6);
+    border:1px solid var(--glass-brd);
+    box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 40px 90px -50px rgba(20,20,20,.45);
+    display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(16px,2vw,30px); align-items:center;
+  }
+  .cta h2{ grid-column:1 / span 8; font-size:clamp(34px,5.4vw,72px); line-height:1; letter-spacing:-.035em; font-weight:700; }
+  .cta h2 .it{ font-family:var(--serif); font-style:italic; font-weight:400; }
+  .cta .act{ grid-column:9 / span 4; display:flex; flex-direction:column; gap:14px; align-items:flex-start; }
+  .btn{
+    display:inline-flex; align-items:center; gap:10px;
+    font-size:15px; font-weight:600; padding:15px 28px; border-radius:100px;
+    background:var(--ink); color:var(--paper); border:1px solid var(--ink);
+    transition:transform .3s ease;
+  }
+  .btn:hover{ transform:translateY(-2px); }
+  .btn.ghost{ background:transparent; color:var(--ink); }
+  .btn .arw{ transition:transform .3s ease; }
+  .btn:hover .arw{ transform:translateX(4px); }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  footer{ border-top:1px solid var(--line); padding:clamp(40px,6vw,70px) 0 40px; }
+  .foot-top{ display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(16px,2vw,30px); align-items:end; }
+  .foot-top .big{ grid-column:1 / span 7; font-size:clamp(40px,7vw,96px); font-weight:700; letter-spacing:-.04em; line-height:.95; }
+  .foot-top .big .it{ font-family:var(--serif); font-style:italic; font-weight:400; }
+  .foot-top .meta{ grid-column:8 / span 5; font-size:13px; color:var(--ink-soft); line-height:1.7; }
+  .foot-links{ display:flex; flex-wrap:wrap; gap:28px; margin-top:44px; padding-top:24px; border-top:1px solid var(--line); }
+  .foot-links a{ font-size:13px; color:var(--ink-soft); }
+  .foot-links a:hover{ color:var(--ink); }
+  .foot-base{ display:flex; justify-content:space-between; margin-top:28px; font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); }
+
+  /* ============================================================
+     REVEAL
+     ============================================================ */
+  .reveal{ opacity:0; transform:translateY(22px); transition:opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in{ opacity:1; transform:none; }
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width:900px){
+    .nav-links{ display:none; }
+    .hero-sub .lead{ grid-column:1 / span 12; }
+    .hero-sub .aside{ grid-column:1 / span 12; border-left:0; padding-left:0; border-top:1px solid var(--line); padding-top:18px; margin-top:6px; }
+    .stats{ grid-template-columns:repeat(2,1fr); }
+    .stat:nth-child(2){ border-right:0; }
+    .stat:nth-child(1),.stat:nth-child(2){ border-bottom:1px solid var(--line); }
+    .c-a,.c-b,.c-c,.c-d,.c-e,.c-f{ grid-column:1 / span 12; }
+    .sec-head .no{ grid-column:1 / span 12; }
+    .sec-head h2{ grid-column:1 / span 12; }
+    .row .yr{ grid-column:1 / span 12; }
+    .row .ttl{ grid-column:1 / span 12; }
+    .row .desc{ grid-column:1 / span 12; }
+    .cta h2{ grid-column:1 / span 12; }
+    .cta .act{ grid-column:1 / span 12; }
+    .foot-top .big{ grid-column:1 / span 12; }
+    .foot-top .meta{ grid-column:1 / span 12; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .marquee .track{ animation:none; }
+    .reveal{ transition:none; opacity:1; transform:none; }
+    html{ scroll-behavior:auto; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- VISIBLE GRID (12 columns, honest) -->
+  <div class="grid-veil" aria-hidden="true">
+    <div class="col" data-n="01"></div><div class="col" data-n="02"></div>
+    <div class="col" data-n="03"></div><div class="col" data-n="04"></div>
+    <div class="col" data-n="05"></div><div class="col" data-n="06"></div>
+    <div class="col" data-n="07"></div><div class="col" data-n="08"></div>
+    <div class="col" data-n="09"></div><div class="col" data-n="10"></div>
+    <div class="col" data-n="11"></div><div class="col" data-n="12"></div>
+  </div>
+
+  <!-- NAV -->
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="wordmark" href="#top" aria-label="Google">
+        <b class="g1">G</b><b class="o1">o</b><b class="g2">o</b><b class="l1">g</b><b class="e1">l</b><b>e</b>
+      </a>
+      <nav class="nav-links">
+        <a href="#search">Search</a>
+        <a href="#scale">Scale</a>
+        <a href="#products">Products</a>
+        <a href="#history">History</a>
+      </nav>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="grid-toggle" id="gridToggle" aria-pressed="true">Grid · On</button>
+        <a class="nav-cta" href="#cta">Start searching</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- HERO -->
+    <section class="hero wrap">
+      <div class="hero-meta">
+        <span class="idx">N° 001 — The Interface</span>
+        <span class="idx">Est. 1998 · Mountain View, CA</span>
+      </div>
+
+      <h1 class="hero-title">
+        Organizing<br>
+        the <span class="it">world's</span><br>
+        <span class="thin">information.</span>
+      </h1>
+
+      <div class="hero-sub">
+        <p class="lead">
+          Google began as a search engine and became the quiet
+          <em>operating system of curiosity</em> — the first place a
+          billion people turn when a question has no answer yet.
+        </p>
+        <div class="aside">
+          <span class="k">A study in restraint</span>
+          One box. One intent. The most-visited starting point on the
+          web, reduced to a single act of asking.
+        </div>
+
+        <form class="search" onsubmit="return false;" role="search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="#4285F4" stroke-width="2"/>
+            <line x1="16" y1="16" x2="21" y2="21" stroke="#4285F4" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" placeholder="Search the world's information…" aria-label="Search" />
+          <button class="go" type="submit">Search</button>
+        </form>
+      </div>
+
+      <!-- MARQUEE -->
+      <div class="marquee" aria-hidden="true">
+        <div class="track">
+          <span>Search</span><span>Maps</span><span>Gmail</span><span>YouTube</span>
+          <span>Drive</span><span>Translate</span><span>Photos</span><span>Cloud</span>
+          <span>Search</span><span>Maps</span><span>Gmail</span><span>YouTube</span>
+          <span>Drive</span><span>Translate</span><span>Photos</span><span>Cloud</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 01 / SCALE -->
+    <section id="scale" class="wrap">
+      <div class="sec-head">
+        <span class="no">01 / Scale</span>
+        <h2 class="reveal">A number that <span class="it">keeps</span> growing.</h2>
+      </div>
+      <div class="stats">
+        <div class="stat reveal">
+          <div class="n">9<small>B+</small></div>
+          <div class="lbl">Searches processed every single day.</div>
+          <div class="tag">Daily queries</div>
+        </div>
+        <div class="stat reveal">
+          <div class="n">3.5<small>B</small></div>
+          <div class="lbl">Active monthly users across the ecosystem.</div>
+          <div class="tag">Monthly reach</div>
+        </div>
+        <div class="stat reveal">
+          <div class="n">100<small>M</small></div>
+          <div class="lbl">Websites indexed and re-crawled, constantly.</div>
+          <div class="tag">Web coverage</div>
+        </div>
+        <div class="stat reveal">
+          <div class="n">200<small>+</small></div>
+          <div class="lbl">Languages and regions served from one query.</div>
+          <div class="tag">Global coverage</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 / PRODUCTS -->
+    <section id="products" class="wrap">
+      <div class="sec-head">
+        <span class="no">02 / Products</span>
+        <h2 class="reveal">One intent, <span class="it">many</span> surfaces.</h2>
+      </div>
+      <div class="cards">
+        <article class="card c-a reveal">
+          <span class="idx">A</span>
+          <div class="chip"><span class="dot" style="background:var(--blue)"></span></div>
+          <h3>Search</h3>
+          <p>The original. A ranked answer to almost anything, refined by two decades of signals and a page that loads before you finish blinking.</p>
+          <div class="foot"><span>Core</span><span>Since 1998</span></div>
+        </article>
+        <article class="card c-b reveal">
+          <span class="idx">B</span>
+          <div class="chip"><span class="dot" style="background:var(--red)"></span></div>
+          <h3>Maps</h3>
+          <p>Live traffic, turn-by-turn, and the world drawn at street level.</p>
+          <div class="foot"><span>Navigation</span><span>Global</span></div>
+        </article>
+        <article class="card c-c reveal">
+          <span class="idx">C</span>
+          <div class="chip"><span class="dot" style="background:var(--yellow)"></span></div>
+          <h3>Gmail</h3>
+          <p>Email that files itself.</p>
+          <div class="foot"><span>Comms</span><span>2B+ users</span></div>
+        </article>
+        <article class="card c-d reveal">
+          <span class="idx">D</span>
+          <div class="chip"><span class="dot" style="background:var(--green)"></span></div>
+          <h3>Drive</h3>
+          <p>Files, docs and sheets that follow you across every device, in real time.</p>
+          <div class="foot"><span>Storage</span><span>Synced</span></div>
+        </article>
+        <article class="card c-e reveal">
+          <span class="idx">E</span>
+          <div class="chip"><span class="dot" style="background:var(--blue)"></span></div>
+          <h3>Translate</h3>
+          <p>Over a hundred languages, converted in the time it takes to read the sentence.</p>
+          <div class="foot"><span>Language</span><span>100+ langs</span></div>
+        </article>
+        <article class="card c-f reveal">
+          <span class="idx">F</span>
+          <div class="chip"><span class="dot" style="background:var(--red)"></span></div>
+          <h3>Cloud</h3>
+          <p>The infrastructure underneath — compute, data and AI at planetary scale.</p>
+          <div class="foot"><span>Infra</span><span>Enterprise</span></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- STATEMENT -->
+    <section class="statement">
+      <div class="grid-veil-2" aria-hidden="true">
+        <div class="col"></div><div class="col"></div><div class="col"></div><div class="col"></div>
+        <div class="col"></div><div class="col"></div><div class="col"></div><div class="col"></div>
+        <div class="col"></div><div class="col"></div><div class="col"></div><div class="col"></div>
+      </div>
+      <div class="wrap">
+        <div class="k">03 / The Principle</div>
+        <blockquote class="reveal">
+          Make it <span class="it">fast</span>, make it
+          <span class="it">honest</span>, and get out of the way.
+        </blockquote>
+        <div class="attr reveal">— The quiet contract behind a blue wordmark.</div>
+        <div class="four reveal" aria-hidden="true">
+          <i style="background:var(--blue)"></i>
+          <i style="background:var(--red)"></i>
+          <i style="background:var(--yellow)"></i>
+          <i style="background:var(--green)"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 / HISTORY -->
+    <section id="history" class="wrap">
+      <div class="sec-head">
+        <span class="no">04 / History</span>
+        <h2 class="reveal">A short <span class="it">index</span> of moments.</h2>
+      </div>
+      <div class="index">
+        <div class="row reveal">
+          <span class="yr">1998</span>
+          <span class="ttl">Backpage &amp; a bet</span>
+          <span class="desc">Two PhD students name a link-analysis algorithm after the number 10¹⁰⁰.</span>
+        </div>
+        <div class="row reveal">
+          <span class="yr">2004</span>
+          <span class="ttl">Gmail arrives</span>
+          <span class="desc">"5GB of storage" reads like science fiction. The waitlist runs for months.</span>
+        </div>
+        <div class="row reveal">
+          <span class="yr">2006</span>
+          <span class="ttl">YouTube</span>
+          <span class="desc">A video site becomes the second-largest search engine on Earth.</span>
+        </div>
+        <div class="row reveal">
+          <span class="yr">2015</span>
+          <span class="ttl">Alphabet</span>
+          <span class="desc">The holding company is born; Google becomes one of many moonshots.</span>
+        </div>
+        <div class="row reveal">
+          <span class="yr">2022</span>
+          <span class="ttl">The AI turn</span>
+          <span class="desc">LaMDA, then Gemini — search begins to answer, not just rank.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="cta" class="cta wrap">
+      <div class="box reveal">
+        <h2>Ask it<br><span class="it">anything.</span></h2>
+        <div class="act">
+          <a class="btn" href="#top">Open Google <span class="arw">→</span></a>
+          <a class="btn ghost" href="#products">Explore the suite</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="wrap">
+    <div class="foot-top">
+      <div class="big">Do the right<br><span class="it">thing.</span></div>
+      <div class="meta">
+        An editorial study of Google — set in a 12-column Swiss grid,
+        with liquid-glass surfaces and a visible skeleton. Built as a
+        single self-contained HTML file.
+      </div>
+    </div>
+    <div class="foot-links">
+      <a href="#search">Search</a>
+      <a href="#scale">Scale</a>
+      <a href="#products">Products</a>
+      <a href="#history">History</a>
+      <a href="#top">Back to top ↑</a>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 — Editorial Study</span>
+      <span>Swiss · Editorial · Liquid Glass · Visible Grid</span>
+    </div>
+  </footer>
+
+  <script>
+    // Grid toggle
+    const btn = document.getElementById('gridToggle');
+    btn.addEventListener('click', () => {
+      const off = document.body.classList.toggle('grid-off');
+      btn.textContent = off ? 'Grid · Off' : 'Grid · On';
+      btn.setAttribute('aria-pressed', String(!off));
+    });
+
+    // Scroll reveal
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  </script>
+</body>
+</html>

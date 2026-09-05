@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google — โลกทั้งใบ อยู่ในคำค้นเดียว</title>
+<meta name="description" content="Google จัดระเบียบข้อมูลทั้งโลก ตั้งแต่คำค้นแรกในปี 1998 จนถึงโมเดล AI วันนี้ — ค้นหา, Gemini, Workspace, Cloud, Maps, YouTube, Android และ Chrome ในระบบเดียว">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Google">
+<meta property="og:title" content="Google — โลกทั้งใบ อยู่ในคำค้นเดียว">
+<meta property="og:description" content="จัดระเบียบข้อมูลทั้งโลก และทำให้เข้าถึงได้และเป็นประโยชน์ต่อทุกคน — ตั้งแต่คำค้นแรกในปี 1998 จนถึงโมเดล AI วันนี้">
+<meta property="og:image" content="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1200'%20height='630'%3E%3Crect%20width='1200'%20height='630'%20fill='%23F4F3EE'/%3E%3Crect%20x='80'%20y='430'%20width='150'%20height='150'%20fill='%23E8402F'/%3E%3Ctext%20x='80'%20y='360'%20font-family='Georgia,serif'%20font-size='140'%20fill='%2316150F'%3EGoogle%3C/text%3E%3C/svg%3E">
+<meta property="og:locale" content="th_TH">
+
+<!-- Fonts: exactly two families — Fraunces (editorial serif) + Space Grotesk (Swiss grotesque) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============ RESET ============ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+
+/* ============ TOKENS ============ */
+:root{
+  --paper:      #F4F3EE;
+  --paper-2:    #ECEAE1;
+  --ink:        #16150F;
+  --ink-soft:   #5B584D;
+  --line:       rgba(22,21,15,0.13);
+  --line-strong:rgba(22,21,15,0.30);
+  --red:        #E8402F;
+  --red-ink:    #C9331F;
+  --glass:      rgba(255,255,255,0.55);
+  --glass-brd:  rgba(255,255,255,0.78);
+  --glass-hi:   rgba(255,255,255,0.60);
+  --shadow:     0 12px 44px rgba(20,18,10,0.10);
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans:    "Space Grotesk", system-ui, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", "Cascadia Code", monospace;
+
+  --maxw: 1320px;
+  --gutter: clamp(20px, 5vw, 64px);
+  --sec-pad: clamp(64px, 10vw, 140px);
+}
+
+/* Dark theme — applied by system preference, or forced by [data-theme] */
+:root[data-theme="dark"]{
+  --paper:      #0E0E11;
+  --paper-2:    #15151A;
+  --ink:        #F3F1E9;
+  --ink-soft:   #9C988C;
+  --line:       rgba(243,241,233,0.13);
+  --line-strong:rgba(243,241,233,0.30);
+  --red:        #FF5A45;
+  --red-ink:    #FF6A55;
+  --glass:      rgba(22,22,28,0.50);
+  --glass-brd:  rgba(243,241,233,0.14);
+  --glass-hi:   rgba(255,255,255,0.06);
+  --shadow:     0 12px 44px rgba(0,0,0,0.50);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:      #0E0E11;
+    --paper-2:    #15151A;
+    --ink:        #F3F1E9;
+    --ink-soft:   #9C988C;
+    --line:       rgba(243,241,233,0.13);
+    --line-strong:rgba(243,241,233,0.30);
+    --red:        #FF5A45;
+    --red-ink:    #FF6A55;
+    --glass:      rgba(22,22,28,0.50);
+    --glass-brd:  rgba(243,241,233,0.14);
+    --glass-hi:   rgba(255,255,255,0.06);
+    --shadow:     0 12px 44px rgba(0,0,0,0.50);
+  }
+}
+
+/* ============ BASE ============ */
+body{
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: clamp(15px, 1.05vw, 17px);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+::selection{ background: var(--red); color: #fff; }
+
+.wrap{ width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: var(--gutter); }
+main{ position: relative; z-index: 1; }
+
+/* mono micro-labels — Swiss tracked-out caps (positive tracking, never tight) */
+.mono{
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.eyebrow{ display: inline-flex; align-items: center; gap: 10px; }
+.eyebrow::before{ content:""; width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex: none; }
+
+/* ============ VISIBLE GRID (background, no text) ============ */
+.grid-bg{ position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.grid-bg-inner{
+  position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: min(100%, var(--maxw));
+  display: grid; grid-template-columns: repeat(12, 1fr);
+}
+.grid-bg-inner i{ border-right: 1px solid var(--line); opacity: 0.55; }
+.grid-bg-inner i:first-child{ border-left: 1px solid var(--line); }
+
+/* ============ GLASS ============ */
+.glass{
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid var(--glass-brd);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--glass-hi);
+  border-radius: 18px;
+}
+
+/* ============ MASTHEAD ============ */
+.masthead{
+  position: sticky; top: 0; z-index: 50;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--line);
+}
+.masthead .wrap{ display: flex; align-items: center; justify-content: space-between; gap: 20px; height: 64px; }
+.wordmark{ font-family: var(--font-sans); font-weight: 700; font-size: 19px; letter-spacing: 0.18em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 9px; }
+.wordmark b{ color: var(--red); font-weight: 700; }
+.nav{ display: flex; gap: clamp(16px, 2.4vw, 34px); }
+.nav a{ font-size: 14px; color: var(--ink-soft); letter-spacing: 0.01em; transition: color .2s; }
+.nav a:hover{ color: var(--ink); }
+.mast-right{ display: flex; align-items: center; gap: 18px; }
+.est{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; color: var(--ink-soft); }
+.theme-toggle{
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  display: grid; place-items: center;
+  transition: border-color .2s, transform .2s;
+}
+.theme-toggle:hover{ border-color: var(--ink); transform: rotate(20deg); }
+.theme-toggle .dot{
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  background: conic-gradient(var(--ink) 0 50%, transparent 0 100%);
+}
+
+/* ============ HERO ============ */
+.hero{ padding-top: clamp(48px, 8vw, 104px); padding-bottom: clamp(40px, 6vw, 80px); }
+.hero .wrap{ position: relative; }
+.hero h1{
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(46px, 9vw, 116px);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin-top: 22px;
+  max-width: 15ch;
+}
+.hero h1 .accent{ color: var(--red); font-style: italic; }
+.hero .sub{
+  margin-top: 26px;
+  max-width: 46ch;
+  font-size: clamp(16px, 1.5vw, 20px);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.hero .sub b{ color: var(--ink); font-weight: 600; }
+
+/* liquid-glass search bar — the hero's signature object */
+.searchbar{
+  margin-top: 34px;
+  max-width: 560px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 8px 8px 20px;
+  border-radius: 999px;
+}
+.searchbar .sb-icon{ color: var(--ink-soft); flex: none; }
+.searchbar .sb-ph{ flex: 1; min-width: 0; font-size: 16px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.searchbar .sb-btn{
+  flex: none;
+  background: var(--red); color: #fff;
+  font-weight: 600; font-size: 15px;
+  padding: 11px 22px; border-radius: 999px;
+  transition: filter .2s, transform .1s;
+}
+.searchbar .sb-btn:hover{ filter: brightness(1.06); }
+.searchbar .sb-btn:active{ transform: scale(0.98); }
+
+.hero-links{ margin-top: 22px; display: flex; align-items: center; gap: 10px; }
+.hero-links a{ font-size: 15px; font-weight: 500; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+.hero-links a .arw{ color: var(--red); transition: transform .2s; }
+.hero-links a:hover .arw{ transform: translateX(4px); }
+
+.hero-meta{
+  margin-top: clamp(40px, 6vw, 72px);
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 12px 28px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft);
+}
+.hero-meta span b{ color: var(--red); font-weight: 400; }
+
+/* ============ SECTION HEADER ============ */
+section{ position: relative; }
+.sec-head{
+  display: flex; align-items: baseline; justify-content: space-between; gap: 20px;
+  padding-bottom: 22px; margin-bottom: clamp(28px, 4vw, 48px);
+  border-bottom: 1px solid var(--line-strong);
+}
+.sec-head .idx{ font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--red); }
+.sec-head h2{
+  font-family: var(--font-display); font-weight: 500;
+  font-size: clamp(28px, 4.4vw, 52px); line-height: 1.02; letter-spacing: -0.02em;
+}
+.sec-head .note{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); text-align: right; }
+
+/* ============ STATS BAND ============ */
+.stats{ padding-block: clamp(40px, 6vw, 72px); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stats-grid{ display: grid; grid-template-columns: repeat(4, 1fr); }
+.stat{ padding: 8px clamp(14px, 2vw, 28px); }
+.stat + .stat{ border-left: 1px solid var(--line); }
+.stat-value{
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(38px, 6vw, 82px); line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+  display: flex; align-items: baseline; gap: 0.12em;
+}
+.stat-num{ letter-spacing: -0.02em; }
+.stat-unit{ font-family: var(--font-sans); font-weight: 500; font-size: 0.4em; color: var(--ink-soft); letter-spacing: 0; }
+.stat-label{ margin-top: 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* ============ PRODUCTS ============ */
+.products{ padding-block: var(--sec-pad); }
+.prod-grid{ display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.card{
+  grid-column: span 3;
+  padding: 26px 24px 30px;
+  display: flex; flex-direction: column; gap: 14px;
+  min-height: 210px;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.card:hover{ transform: translateY(-4px); }
+.card .c-top{ display: flex; align-items: center; justify-content: space-between; }
+.card .c-idx{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; color: var(--red); }
+.card .c-dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+.card h3{ font-family: var(--font-display); font-weight: 500; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.05; letter-spacing: -0.01em; margin-top: auto; }
+.card p{ font-size: 14.5px; line-height: 1.5; color: var(--ink-soft); }
+.card .c-tag{ margin-top: 2px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); border-top: 1px solid var(--line); padding-top: 12px; }
+
+/* ============ MISSION ============ */
+.mission{ padding-block: var(--sec-pad); }
+.mission .panel{ padding: clamp(36px, 6vw, 72px); }
+.mission blockquote{
+  font-family: var(--font-display); font-weight: 500; font-style: italic;
+  font-size: clamp(28px, 4.6vw, 60px); line-height: 1.12; letter-spacing: -0.02em;
+  max-width: 22ch;
+}
+.mission blockquote .accent{ color: var(--red); font-style: italic; }
+.mission .attr{ margin-top: 28px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* ============ TIMELINE ============ */
+.timeline{ padding-block: var(--sec-pad); }
+.tl-list{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid var(--line-strong); }
+.tl-item{ padding: 26px 22px 30px; border-bottom: 1px solid var(--line); }
+.tl-item + .tl-item{ border-left: 1px solid var(--line); }
+.tl-year{ font-family: var(--font-display); font-weight: 600; font-size: clamp(30px, 3.4vw, 46px); line-height: 1; letter-spacing: -0.02em; color: var(--ink); }
+.tl-item:first-child .tl-year{ color: var(--red); }
+.tl-txt{ margin-top: 14px; font-size: 14.5px; line-height: 1.5; color: var(--ink-soft); }
+
+/* ============ CTA ============ */
+.cta{ padding-block: var(--sec-pad); }
+.cta .panel{ padding: clamp(40px, 7vw, 88px); text-align: left; position: relative; overflow: hidden; }
+.cta h2{ font-family: var(--font-display); font-weight: 500; font-size: clamp(34px, 6vw, 76px); line-height: 1.0; letter-spacing: -0.02em; max-width: 16ch; }
+.cta h2 .accent{ color: var(--red); font-style: italic; }
+.cta .row{ margin-top: 34px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.btn-primary{
+  background: var(--red); color: #fff; font-weight: 600; font-size: 16px;
+  padding: 15px 30px; border-radius: 999px;
+  transition: filter .2s, transform .1s;
+}
+.btn-primary:hover{ filter: brightness(1.06); }
+.btn-primary:active{ transform: scale(0.98); }
+.btn-ghost{
+  font-weight: 500; font-size: 16px; padding: 15px 26px; border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  transition: border-color .2s, background .2s;
+}
+.btn-ghost:hover{ border-color: var(--ink); }
+
+/* ============ FOOTER ============ */
+.footer{ border-top: 1px solid var(--line-strong); padding-block: clamp(40px, 6vw, 72px); }
+.foot-grid{ display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 32px; }
+.foot-brand .wordmark{ font-size: 22px; }
+.foot-brand p{ margin-top: 16px; max-width: 34ch; font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+.foot-col h4{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 16px; }
+.foot-col a{ display: block; font-size: 14.5px; color: var(--ink); padding: 5px 0; }
+.foot-col a:hover{ color: var(--red); }
+.foot-bottom{
+  margin-top: clamp(36px, 5vw, 56px); padding-top: 22px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
+}
+.foot-bottom .cp{ font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); }
+/* grid legend — the visible grid's column ruler, in normal flow (never over the h1) */
+.legend{ display: flex; gap: 6px; }
+.legend span{ font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; color: var(--ink-soft); width: 22px; text-align: center; }
+.legend span.on{ color: var(--red); }
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 980px){
+  .nav{ display: none; }
+  .card{ grid-column: span 6; }
+  .stats-grid{ grid-template-columns: repeat(2, 1fr); }
+  .stat:nth-child(3){ border-left: none; }
+  .stat:nth-child(n+3){ border-top: 1px solid var(--line); }
+  .tl-list{ grid-template-columns: repeat(2, 1fr); }
+  .tl-item:nth-child(3){ border-left: none; }
+  .tl-item:nth-child(n+3){ border-top: 1px solid var(--line); }
+  .foot-grid{ grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px){
+  .card{ grid-column: span 12; min-height: 0; }
+  .stats-grid{ grid-template-columns: 1fr; }
+  .stat + .stat{ border-left: none; border-top: 1px solid var(--line); }
+  .stat:nth-child(3){ border-left: none; }
+  .tl-list{ grid-template-columns: 1fr; }
+  .tl-item + .tl-item{ border-left: none; border-top: 1px solid var(--line); }
+  .tl-item:nth-child(3){ border-left: none; }
+  .foot-grid{ grid-template-columns: 1fr; gap: 28px; }
+  .sec-head{ flex-direction: column; align-items: flex-start; gap: 8px; }
+  .sec-head .note{ text-align: left; }
+  .hero h1{ max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- Visible grid (decorative, no text) -->
+<div class="grid-bg" aria-hidden="true">
+  <div class="grid-bg-inner">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+</div>
+
+<!-- Masthead -->
+<header class="masthead">
+  <div class="wrap">
+    <a class="wordmark" href="#top">Google<b>.</b></a>
+    <nav class="nav" aria-label="หลัก">
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#mission">พันธกิจ</a>
+      <a href="#timeline">เส้นทาง</a>
+      <a href="#cta">ร่วมงาน</a>
+    </nav>
+    <div class="mast-right">
+      <span class="est">EST. 1998</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="สลับธีมสว่าง/มืด" title="สลับธีม">
+        <span class="dot"></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="mono eyebrow">ค้นหา · ปัญญาประดิษฐ์ · คลาวด์</span>
+      <h1>โลกทั้งใบ อยู่ใน<span class="accent">คำค้นเดียว</span></h1>
+      <p class="sub">ตั้งแต่คำค้นแรกในปี <b>1998</b> จนถึงโมเดล AI วันนี้ — Google จัดระเบียบข้อมูลทั้งโลก และทำให้ทุกคนเข้าถึงได้</p>
+
+      <div class="searchbar glass" role="search">
+        <svg class="sb-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.6-3.6"></path></svg>
+        <span class="sb-ph">ค้นหาสิ่งใดก็ได้…</span>
+        <button class="sb-btn" type="button">ค้นหา</button>
+      </div>
+
+      <div class="hero-links">
+        <a href="#products">สำรวจผลิตภัณฑ์ <span class="arw">→</span></a>
+      </div>
+
+      <div class="hero-meta">
+        <span><b>01</b> — SEARCH</span>
+        <span>GRID 12 / 1440</span>
+        <span>EDITORIAL × SWISS</span>
+        <span>LIQUID GLASS</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats">
+    <div class="wrap">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-value"><span class="stat-num">5.5</span><span class="stat-unit">พันล้าน</span></div>
+          <div class="stat-label">คำค้นต่อวัน</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value"><span class="stat-num">4.5</span><span class="stat-unit">พันล้าน</span></div>
+          <div class="stat-label">ผู้ใช้รายเดือน</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value"><span class="stat-num">200+</span><span class="stat-unit">ภาษา</span></div>
+          <div class="stat-label">ที่รองรับ</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value"><span class="stat-num">1998</span><span class="stat-unit">ค.ศ.</span></div>
+          <div class="stat-label">ปีที่ก่อตั้ง</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section class="products" id="products">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="idx">02 — PRODUCTS</span>
+          <h2>ทุกบริการ&nbsp;หนึ่งระบบ</h2>
+        </div>
+        <span class="note">08 SERVICES</span>
+      </div>
+
+      <div class="prod-grid">
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">01</span><span class="c-dot"></span></div>
+          <h3>ค้นหา</h3>
+          <p>หัวใจของ Google — คำตอบที่แม่นยำในเสี้ยววินาที</p>
+          <div class="c-tag">SEARCH</div>
+        </article>
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">02</span><span class="c-dot"></span></div>
+          <h3>Gemini</h3>
+          <p>โมเดล AI อเนกประสงค์ที่คิดและสร้างไปพร้อมกับคุณ</p>
+          <div class="c-tag">AI</div>
+        </article>
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">03</span><span class="c-dot"></span></div>
+          <h3>Workspace</h3>
+          <p>เอกสาร อีเมล และการทำงานร่วมกันแบบเรียลไทม์</p>
+          <div class="c-tag">PRODUCTIVITY</div>
+        </article>
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">04</span><span class="c-dot"></span></div>
+          <h3>Cloud</h3>
+          <p>โครงสร้างพื้นฐานที่ขยายได้สำหรับทุกขนาดธุรกิจ</p>
+          <div class="c-tag">INFRA</div>
+        </article>
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">05</span><span class="c-dot"></span></div>
+          <h3>Maps</h3>
+          <p>นำทางโลกแบบเรียลไทม์ ตั้งแต่ถนนจนถึงดาวเทียม</p>
+          <div class="c-tag">NAVIGATION</div>
+        </article>
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">06</span><span class="c-dot"></span></div>
+          <h3>YouTube</h3>
+          <p>วิดีโอของทุกคน — แพลตฟอร์มที่โลกดูร่วมกัน</p>
+          <div class="c-tag">VIDEO</div>
+        </article>
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">07</span><span class="c-dot"></span></div>
+          <h3>Android</h3>
+          <p>ระบบปฏิบัติการที่ขับเคลื่อนอุปกรณ์นับพันล้านเครื่อง</p>
+          <div class="c-tag">MOBILE</div>
+        </article>
+        <article class="card glass">
+          <div class="c-top"><span class="c-idx">08</span><span class="c-dot"></span></div>
+          <h3>Chrome</h3>
+          <p>เบราว์เซอร์ที่เร็ว ปลอดภัย และเป็นส่วนตัว</p>
+          <div class="c-tag">BROWSER</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- MISSION -->
+  <section class="mission" id="mission">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="idx">03 — MISSION</span>
+          <h2>พันธกิจ</h2>
+        </div>
+        <span class="note">SINCE 1998</span>
+      </div>
+      <div class="panel glass">
+        <blockquote>“จัดระเบียบข้อมูลทั้งโลก และทำให้<span class="accent">เข้าถึงได้</span>และเป็นประโยชน์ต่อทุกคน”</blockquote>
+        <div class="attr">— พันธกิจของ Google · ตั้งแต่ใบจดทะเบียนปี 1998</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section class="timeline" id="timeline">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="idx">04 — TIMELINE</span>
+          <h2>เส้นทาง</h2>
+        </div>
+        <span class="note">1998 → 2026</span>
+      </div>
+      <div class="tl-list">
+        <div class="tl-item">
+          <div class="tl-year">1998</div>
+          <div class="tl-txt">ก่อตั้งโดยสองนักศึกษาที่ Stanford จากโปรเจกต์ค้นหากับดัชนีเว็บ</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-year">2004</div>
+          <div class="tl-txt">เข้าตลาดหุ้น (IPO) และเติบโตเป็นเครื่องมือค้นหาอันดับหนึ่งของโลก</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-year">2015</div>
+          <div class="tl-txt">ก่อตั้ง Alphabet เป็นบริษัทแม่ เพื่อแยกธุรกิจและนวัตกรรม</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-year">2023</div>
+          <div class="tl-txt">เปิดตัว Gemini — ยุคใหม่ของ AI ที่ฝังอยู่ในทุกบริการ</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" id="cta">
+    <div class="wrap">
+      <div class="panel glass">
+        <h2>พร้อมจะค้นพบ<span class="accent">อะไรใหม่</span>?</h2>
+        <div class="row">
+          <a class="btn-primary" href="#top">ค้นหาคำตอบ</a>
+          <a class="btn-ghost" href="#products">ดูผลิตภัณฑ์ทั้งหมด</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="wordmark" href="#top">Google<b>.</b></a>
+        <p>หน้าแนะนำเพื่อการออกแบบ — ไม่ใช่เว็บไซต์ทางการของ Google จัดทำเพื่อแสดงภาษาการออกแบบ Editorial × Swiss × Liquid Glass × Grid</p>
+      </div>
+      <div class="foot-col">
+        <h4>สำรวจ</h4>
+        <a href="#products">ผลิตภัณฑ์</a>
+        <a href="#mission">พันธกิจ</a>
+        <a href="#timeline">เส้นทาง</a>
+        <a href="#cta">ร่วมงาน</a>
+      </div>
+      <div class="foot-col">
+        <h4>บริษัท</h4>
+        <a href="#">เกี่ยวกับเรา</a>
+        <a href="#">วิจัย</a>
+        <a href="#">ร่วมงาน</a>
+        <a href="#">ติดต่อ</a>
+      </div>
+      <div class="foot-col">
+        <h4>กริด</h4>
+        <div class="legend" aria-hidden="true">
+          <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span><span class="on">07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span class="cp">© 2026 — ออกแบบด้วย Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid</span>
+      <span class="cp">TH · 1440 / 390</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Theme toggle: default follows the system; the button forces an explicit theme.
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var cur = root.getAttribute('data-theme');
+      var sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var isDarkNow = cur ? (cur === 'dark') : sysDark;
+      root.setAttribute('data-theme', isDarkNow ? 'light' : 'dark');
+    });
+  })();
+</script>
+</body>
+</html>

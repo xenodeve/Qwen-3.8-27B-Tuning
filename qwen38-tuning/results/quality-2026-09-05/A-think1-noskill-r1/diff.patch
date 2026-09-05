@@ -1,0 +1,44 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..cb3bff6 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -20,6 +20,8 @@ class Store:
+         if not isinstance(qty, int) or qty <= 0:
+             raise ValueError(f"qty must be a positive integer, got {qty!r}")
+         current = self._items.get(sku, 0)
++        if qty > current:
++            raise ValueError(f"cannot remove {qty} of {sku!r}; only {current} in stock")
+         self._items[sku] = current - qty
+         return self._items[sku]
+ 
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..d9c2bef 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -20,6 +20,26 @@ def test_add_rejects_bad_qty():
+         assert False, f"add accepted {bad!r}"
+ 
+ 
++def test_remove_returns_remaining():
++    s = Store()
++    s.add("apple", 5)
++    remaining = s.remove("apple", 2)
++    assert remaining == 3
++    assert s.quantity("apple") == 3
++
++
++def test_remove_rejects_overdraw():
++    s = Store()
++    s.add("apple", 2)
++    for bad in (3, 100):
++        try:
++            s.remove("apple", bad)
++        except ValueError:
++            continue
++        assert False, f"remove accepted overdraw of {bad!r}"
++    assert s.quantity("apple") == 2
++
++
+ def test_save_and_load_roundtrip(tmp_path):
+     s = Store()
+     s.add("apple", 3)

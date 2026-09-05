@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>กูเกิล — แนะนำแล้ว · เอกสารลับฉบับเว็บเปิด</title>
+<meta name="description" content="เอกสารลับฉบับบรรณาธิการ: เหตุผลที่กูเกิลคือโครงสร้างพื้นฐานเงียบ ๆ เบื้องหลังเว็บเปิด — วัดผลบนตารางที่มองเห็นได้" />
+<meta property="og:title" content="กูเกิล — แนะนำแล้ว" />
+<meta property="og:description" content="เอกสารลับฉบับบรรณาธิการ: เหตุผลที่กูเกิลคือโครงสร้างพื้นฐานเงียบ ๆ เบื้องหลังเว็บเปิด" />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1200'%20height='630'%3E%3Crect%20width='1200'%20height='630'%20fill='%23F4F1EA'/%3E%3Ctext%20x='600'%20y='300'%20font-family='Georgia,serif'%20font-size='150'%20fill='%2316130F'%20text-anchor='middle'%3EGoogle%3C/text%3E%3Ctext%20x='600'%20y='400'%20font-family='Georgia,serif'%20font-size='64'%20fill='%23D62828'%20text-anchor='middle'%3ERecommended%3C/text%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Trirong:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   กูเกิล — แนะนำแล้ว
+   Editorial Minimalism × Swiss × Liquid Glass × Visible Grid
+   ไฟล์เดียว · 8pt rhythm · 12-col visible grid · 60-30-10
+   2 font families: Trirong (serif) + Prompt (sans)
+   ============================================================ */
+
+:root{
+  /* ---- 60-30-10 palette (paper / surfaces / accent) ---- */
+  --paper:        #F4F1EA;   /* 60% dominant neutral */
+  --paper-2:      #EDE9E0;
+  --ink:          #16130F;   /* near-black warm ink */
+  --ink-soft:     #57504A;
+  --ink-faint:    #8A8178;
+  --line:         rgba(22,19,15,0.12);
+  --line-strong:  rgba(22,19,15,0.26);
+
+  /* accent: --accent = fills (white text ok) · --accent-text = text/borders */
+  --accent:       #D62828;
+  --accent-text:  #A81C1C;
+  --accent-soft:  rgba(214,40,40,0.10);
+
+  /* glass */
+  --glass-hi:     rgba(255,255,255,0.78);
+  --glass-lo:     rgba(255,255,255,0.40);
+  --glass-edge:   rgba(255,255,255,0.65);
+  --glass-shadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 18px 48px rgba(22,19,15,0.10);
+
+  /* google mark */
+  --g-blue:#4285F4; --g-red:#EA4335; --g-yellow:#FBBC05; --g-green:#34A853;
+
+  /* ---- type scale (Major Third 1.25, fluid) ---- */
+  --t-xs:   0.75rem;
+  --t-sm:   0.875rem;
+  --t-base: 1rem;
+  --t-md:   1.25rem;
+  --t-lg:   1.5625rem;
+  --t-xl:   1.953rem;
+  --t-2xl:  2.441rem;
+  --t-3xl:  3.052rem;
+  --t-hero: clamp(3.25rem, 9.5vw, 7.5rem);
+
+  /* ---- 8pt spacing ---- */
+  --s1:8px; --s2:16px; --s3:24px; --s4:32px; --s5:48px; --s6:64px; --s7:96px; --s8:128px; --s9:160px;
+
+  --maxw: 1240px;
+  --serif: "Trirong", Georgia, serif;
+  --sans:  "Prompt", system-ui, sans-serif;
+  --ease:  cubic-bezier(.2,.7,.2,1);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:var(--t-base);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+::selection{ background:var(--accent); color:#fff; }
+a{ color:inherit; text-decoration:none; }
+img,svg{ display:block; }
+
+/* ---------- ambient light (gives the glass something to refract) ---------- */
+.ambient{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(58% 48% at 14% 8%,  rgba(66,133,244,0.10), transparent 62%),
+    radial-gradient(52% 44% at 88% 88%, rgba(251,188,5,0.10),  transparent 60%),
+    radial-gradient(40% 40% at 82% 12%, rgba(214,40,40,0.05),  transparent 60%),
+    radial-gradient(46% 40% at 6% 92%,  rgba(52,168,83,0.06),  transparent 60%);
+}
+
+/* ---------- visible 12-column grid (persistent, faint) ---------- */
+.grid-bg{ position:fixed; inset:0; z-index:0; pointer-events:none; }
+.grid-frame{
+  position:absolute; top:0; bottom:0; left:50%; transform:translateX(-50%);
+  width:min(var(--maxw), 94vw);
+  display:grid; grid-template-columns:repeat(12,1fr);
+}
+.grid-frame span{ border-left:1px solid var(--line); }
+.grid-frame span:last-child{ border-right:1px solid var(--line); }
+
+/* ---------- top ruler (A–L) ---------- */
+.ruler{
+  position:fixed; top:0; left:0; right:0; height:28px; z-index:60;
+  background:var(--paper); border-bottom:1px solid var(--line);
+}
+.ruler-inner{
+  width:min(var(--maxw),94vw); margin:0 auto; height:100%;
+  display:grid; grid-template-columns:repeat(12,1fr);
+}
+.ruler-inner span{
+  border-left:1px solid var(--line);
+  font:400 10px/28px var(--sans); letter-spacing:.14em;
+  color:var(--ink-faint); padding-left:7px; position:relative;
+}
+.ruler-inner span:first-child{ border-left:none; }
+.ruler-inner span::before{
+  content:""; position:absolute; left:0; top:0; width:1px; height:6px; background:var(--line-strong);
+}
+
+/* ---------- scroll progress ---------- */
+.progress{
+  position:fixed; top:0; left:0; height:2px; width:0; z-index:70;
+  background:var(--accent); transition:width .08s linear;
+}
+
+/* ---------- glass nav ---------- */
+.nav{
+  position:fixed; top:28px; left:0; right:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px clamp(16px,4vw,40px);
+  background:linear-gradient(180deg, rgba(244,241,234,0.72), rgba(244,241,234,0.55));
+  backdrop-filter:blur(16px) saturate(150%);
+  -webkit-backdrop-filter:blur(16px) saturate(150%);
+  border-bottom:1px solid transparent;
+  transition:border-color .3s var(--ease), background .3s var(--ease);
+}
+.nav.scrolled{
+  border-bottom-color:var(--line);
+  background:linear-gradient(180deg, rgba(244,241,234,0.86), rgba(244,241,234,0.72));
+}
+.brand{ display:flex; align-items:center; gap:12px; }
+.mark{ display:flex; gap:4px; }
+.mark i{ width:9px; height:9px; border-radius:50%; display:block; }
+.mark i:nth-child(1){ background:var(--g-blue); }
+.mark i:nth-child(2){ background:var(--g-red); }
+.mark i:nth-child(3){ background:var(--g-yellow); }
+.mark i:nth-child(4){ background:var(--g-green); }
+.brand b{ font:600 1rem/1 var(--sans); letter-spacing:.02em; }
+.brand small{
+  display:block; font:400 0.62rem/1 var(--sans); letter-spacing:.18em;
+  color:var(--ink-faint); margin-top:4px;
+}
+.nav-links{ display:flex; gap:28px; }
+.nav-links a{
+  font:500 0.85rem/1 var(--sans); color:var(--ink-soft);
+  position:relative; padding:6px 0; transition:color .2s var(--ease);
+}
+.nav-links a::after{
+  content:""; position:absolute; left:0; bottom:0; height:1px; width:0;
+  background:var(--accent-text); transition:width .25s var(--ease);
+}
+.nav-links a:hover{ color:var(--ink); }
+.nav-links a:hover::after{ width:100%; }
+
+/* ---------- buttons (4 states) ---------- */
+.btn{
+  font-family:var(--sans); font-size:0.9rem; font-weight:500;
+  padding:13px 26px; border-radius:999px; border:1px solid transparent;
+  cursor:pointer; display:inline-flex; align-items:center; gap:9px;
+  transition:transform .18s var(--ease), background .18s var(--ease),
+             color .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease);
+}
+.btn svg{ width:16px; height:16px; }
+.btn:active{ transform:scale(0.97); }
+.btn:focus-visible{ outline:2px solid var(--accent-text); outline-offset:3px; }
+.btn:disabled{ opacity:.45; cursor:not-allowed; }
+.btn-primary{
+  background:var(--accent); color:#fff;
+  box-shadow:0 1px 0 rgba(255,255,255,.28) inset, 0 8px 22px rgba(214,40,40,.24);
+}
+.btn-primary:hover{ background:#b81f1f; transform:translateY(-1px); }
+.btn-ghost{
+  background:rgba(255,255,255,0.5); border-color:var(--line-strong); color:var(--ink);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+.btn-ghost:hover{ background:rgba(255,255,255,0.85); border-color:var(--ink); transform:translateY(-1px); }
+.btn-sm{ padding:9px 18px; font-size:0.8rem; }
+
+/* ---------- layout ---------- */
+.page{ position:relative; z-index:1; padding-top:120px; }
+.wrap{ width:min(var(--maxw),94vw); margin:0 auto; }
+.section{ padding:var(--s8) 0; position:relative; }
+
+/* section head: index + label + rule */
+.shead{
+  display:flex; align-items:baseline; gap:16px; margin-bottom:var(--s5);
+  border-bottom:1px solid var(--line-strong); padding-bottom:14px;
+}
+.shead .idx{ font:700 0.8rem/1 var(--sans); letter-spacing:.14em; color:var(--accent-text); }
+.shead .lbl{ font:500 0.85rem/1 var(--sans); letter-spacing:.04em; color:var(--ink-soft); }
+.shead .rule{ flex:1; height:1px; background:var(--line); align-self:center; }
+.shead .pg{ font:400 0.72rem/1 var(--sans); letter-spacing:.1em; color:var(--ink-faint); }
+
+/* crop marks */
+.crop{ position:relative; }
+.crop::before,.crop::after,.crop .c::before,.crop .c::after{
+  content:""; position:absolute; width:14px; height:14px; border:0 solid var(--line-strong);
+}
+.crop::before{ top:-1px; left:-1px; border-top-width:1px; border-left-width:1px; }
+.crop::after{ top:-1px; right:-1px; border-top-width:1px; border-right-width:1px; }
+.crop .c::before{ bottom:-1px; left:-1px; border-bottom-width:1px; border-left-width:1px; }
+.crop .c::after{ bottom:-1px; right:-1px; border-bottom-width:1px; border-right-width:1px; }
+
+/* ---------- HERO ---------- */
+.hero{ padding:var(--s6) 0 var(--s8); position:relative; }
+.hero-meta{
+  display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  font:400 0.72rem/1 var(--sans); letter-spacing:.12em;
+  color:var(--ink-soft); margin-bottom:var(--s5);
+}
+.hero-meta span{ display:flex; align-items:center; gap:8px; }
+.hero-meta .dot{ width:5px; height:5px; border-radius:50%; background:var(--accent); }
+
+.hero-title{
+  font-family:var(--serif); font-weight:300;
+  font-size:var(--t-hero); line-height:1.02; letter-spacing:-0.02em;
+  margin-bottom:var(--s5);
+}
+.hero-title .l2{
+  display:block; font-weight:400; color:var(--accent-text);
+  margin-left:clamp(24px,10vw,140px);
+}
+
+/* the glass hero panel */
+.hero-panel{
+  position:relative; z-index:2;
+  display:grid; grid-template-columns:1.4fr 1fr; gap:var(--s5);
+  align-items:center;
+  padding:var(--s5);
+  border-radius:20px;
+  background:linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  backdrop-filter:blur(20px) saturate(150%);
+  -webkit-backdrop-filter:blur(20px) saturate(150%);
+  border:1px solid var(--glass-edge);
+  box-shadow:var(--glass-shadow);
+  overflow:hidden;
+}
+.hero-panel::before{
+  content:""; position:absolute; inset:0 0 auto 0; height:45%;
+  background:linear-gradient(180deg, rgba(255,255,255,0.55), transparent);
+  pointer-events:none;
+}
+.hero-lede{ font-size:var(--t-md); line-height:1.6; color:var(--ink); max-width:48ch; }
+.hero-lede b{ font-weight:600; }
+.hero-cta{ display:flex; gap:14px; flex-wrap:wrap; margin-top:var(--s4); }
+.hero-side{
+  border-left:1px solid var(--line); padding-left:var(--s4);
+  display:flex; flex-direction:column; gap:10px;
+}
+.hero-side .k{ font:400 0.68rem/1 var(--sans); letter-spacing:.14em; color:var(--ink-faint); }
+.hero-side .v{ font:500 var(--t-lg)/1.15 var(--sans); letter-spacing:-0.01em; }
+.hero-side .v em{ font-style:normal; color:var(--accent-text); }
+
+/* the RECOMMENDED stamp (grid-breaking element, top corner — clear of h1) */
+.stamp{
+  position:absolute; top:0; right:clamp(8px,4vw,40px); z-index:3;
+  transform:rotate(-8deg);
+  border:2px solid var(--accent-text); color:var(--accent-text);
+  border-radius:8px; padding:10px 18px;
+  font:700 0.9rem/1 var(--sans); letter-spacing:.14em;
+  box-shadow:0 0 0 4px var(--accent-soft);
+}
+.stamp small{ display:block; font:400 0.56rem/1 var(--sans); letter-spacing:.16em; margin-top:6px; opacity:.85; }
+
+.scroll-cue{
+  margin-top:var(--s5); display:flex; align-items:center; gap:12px;
+  font:400 0.7rem/1 var(--sans); letter-spacing:.14em; color:var(--ink-faint);
+}
+.scroll-cue .bar{ width:48px; height:1px; background:var(--line-strong); position:relative; overflow:hidden; }
+.scroll-cue .bar::after{
+  content:""; position:absolute; inset:0; width:40%; background:var(--accent);
+  animation:slide 2.4s var(--ease) infinite;
+}
+@keyframes slide{ 0%{transform:translateX(-100%);} 100%{transform:translateX(260%);} }
+
+/* ---------- MANIFESTO ---------- */
+.manifesto-grid{ display:grid; grid-template-columns:1fr 2.4fr; gap:var(--s6); }
+.manifesto-label{ position:sticky; top:120px; align-self:start; }
+.manifesto-label .idx{ font:700 0.8rem/1 var(--sans); letter-spacing:.14em; color:var(--accent-text); }
+.manifesto-label .lbl{ font:500 0.85rem/1 var(--sans); color:var(--ink-soft); margin-top:8px; }
+.manifesto-label .note{ font:400 0.78rem/1.7 var(--sans); color:var(--ink-faint); margin-top:var(--s3); max-width:24ch; }
+
+.pull{
+  font-family:var(--serif); font-weight:400;
+  font-size:clamp(1.7rem,3.6vw,2.9rem); line-height:1.28; letter-spacing:-0.01em;
+  margin-bottom:var(--s5);
+}
+.pull em{ font-style:normal; color:var(--accent-text); }
+.body-col{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s5); }
+.body-col p{ font-size:var(--t-base); line-height:1.75; color:var(--ink-soft); }
+.body-col p b{ color:var(--ink); font-weight:600; }
+.body-col p:first-child::first-letter{
+  font-family:var(--serif); font-weight:500; font-size:3.2em; line-height:0.8;
+  float:left; margin:8px 10px 0 0; color:var(--accent-text);
+}
+
+/* ---------- PRODUCT INDEX (the visible grid) ---------- */
+.index-grid{
+  display:grid; grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--line-strong);
+}
+.cell{
+  position:relative; padding:var(--s4) var(--s3) var(--s4) 0;
+  border-bottom:1px solid var(--line);
+  border-right:1px solid var(--line);
+  transition:background .3s var(--ease);
+}
+.cell:nth-child(4n){ border-right:none; }
+.cell:hover{ background:linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.15)); }
+.cell .n{
+  font:700 0.78rem/1 var(--sans); letter-spacing:.1em; color:var(--ink-faint);
+  transition:color .25s var(--ease);
+}
+.cell:hover .n{ color:var(--accent-text); }
+.cell h3{ font:600 var(--t-lg)/1.2 var(--sans); letter-spacing:-0.01em; margin:14px 0 8px; }
+.cell p{ font-size:0.9rem; line-height:1.6; color:var(--ink-soft); }
+.cell .tag{
+  position:absolute; top:var(--s4); right:0; font:400 0.6rem/1 var(--sans);
+  letter-spacing:.1em; color:var(--ink-faint);
+}
+
+/* ---------- NUMBERS (ledger) ---------- */
+.ledger{ display:grid; grid-template-columns:repeat(4,1fr); }
+.metric{ padding:var(--s4) var(--s3); border-left:1px solid var(--line); }
+.metric:first-child{ border-left:none; padding-left:0; }
+.metric .num{
+  font-family:var(--serif); font-weight:300;
+  font-size:clamp(2.6rem,5vw,4rem); line-height:1; letter-spacing:-0.02em;
+  white-space:nowrap;
+}
+.metric .num em{ font-style:normal; color:var(--accent-text); }
+.metric .cap{ font:400 0.74rem/1.6 var(--sans); color:var(--ink-soft); margin-top:14px; }
+.metric .cap b{ display:block; color:var(--ink); font-weight:700; letter-spacing:.06em; margin-bottom:6px; }
+
+/* ---------- PULL QUOTE (linger) ---------- */
+.linger{ text-align:center; padding:var(--s9) 0; }
+.linger blockquote{
+  font-family:var(--serif); font-weight:300;
+  font-size:clamp(2rem,5.4vw,4.2rem); line-height:1.24; letter-spacing:-0.015em;
+  max-width:24ch; margin:0 auto;
+}
+.linger cite{
+  display:block; margin-top:var(--s4); font:400 0.74rem/1 var(--sans);
+  letter-spacing:.14em; color:var(--ink-faint); font-style:normal;
+}
+.linger .rule{ width:56px; height:1px; background:var(--accent-text); margin:0 auto var(--s5); }
+
+/* ---------- VERDICT ---------- */
+.verdict{
+  position:relative; border-radius:24px; overflow:hidden;
+  padding:var(--s7) clamp(24px,5vw,64px);
+  background:linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  backdrop-filter:blur(22px) saturate(150%);
+  -webkit-backdrop-filter:blur(22px) saturate(150%);
+  border:1px solid var(--glass-edge);
+  box-shadow:var(--glass-shadow);
+  display:grid; grid-template-columns:1.6fr 1fr; gap:var(--s6); align-items:center;
+}
+.verdict::before{
+  content:""; position:absolute; inset:0 0 auto 0; height:50%;
+  background:linear-gradient(180deg, rgba(255,255,255,0.5), transparent); pointer-events:none;
+}
+.verdict .word{
+  font-family:var(--serif); font-weight:300;
+  font-size:clamp(3rem,8vw,6rem); line-height:1.02; letter-spacing:-0.02em;
+}
+.verdict .word em{ font-style:normal; color:var(--accent-text); }
+.verdict p{ font-size:var(--t-md); line-height:1.7; color:var(--ink-soft); max-width:40ch; }
+.verdict .actions{ display:flex; flex-direction:column; gap:14px; align-items:flex-start; }
+.verdict .seal{
+  display:inline-flex; align-items:center; gap:10px;
+  font:700 0.72rem/1 var(--sans); letter-spacing:.12em; color:var(--accent-text);
+}
+.verdict .seal .ring{
+  width:34px; height:34px; border:1.5px solid var(--accent-text); border-radius:50%;
+  display:grid; place-items:center; color:var(--accent-text);
+}
+
+/* ---------- FOOTER / COLOPHON ---------- */
+.foot{ border-top:1px solid var(--line-strong); padding:var(--s6) 0 var(--s7); position:relative; }
+.foot-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s4); }
+.foot h4{ font:700 0.68rem/1 var(--sans); letter-spacing:.12em; color:var(--ink-faint); margin-bottom:14px; }
+.foot p, .foot li{ font-size:0.86rem; line-height:1.7; color:var(--ink-soft); }
+.foot ul{ list-style:none; }
+.foot .base{
+  display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+  margin-top:var(--s6); padding-top:var(--s4); border-top:1px solid var(--line);
+  font:400 0.72rem/1.6 var(--sans); letter-spacing:.04em; color:var(--ink-faint);
+}
+.foot .base a{ color:var(--ink-soft); border-bottom:1px solid var(--line-strong); transition:color .2s, border-color .2s; }
+.foot .base a:hover{ color:var(--accent-text); border-color:var(--accent-text); }
+
+/* ---------- reveal ---------- */
+[data-reveal]{
+  opacity:0; transform:translateY(18px);
+  transition:opacity .8s var(--ease), transform .8s var(--ease);
+  transition-delay:var(--d,0ms);
+}
+[data-reveal].in{ opacity:1; transform:none; }
+
+/* ---------- responsive ---------- */
+@media (max-width:960px){
+  .nav-links{ display:none; }
+  .hero-panel{ grid-template-columns:1fr; }
+  .hero-side{ border-left:none; border-top:1px solid var(--line); padding-left:0; padding-top:var(--s4); }
+  .manifesto-grid{ grid-template-columns:1fr; gap:var(--s4); }
+  .manifesto-label{ position:static; }
+  .index-grid{ grid-template-columns:repeat(2,1fr); }
+  .cell:nth-child(4n){ border-right:1px solid var(--line); }
+  .cell:nth-child(2n){ border-right:none; }
+  .ledger{ grid-template-columns:repeat(2,1fr); gap:var(--s4) 0; }
+  .metric{ border-left:none; padding-left:0; border-top:1px solid var(--line); }
+  .metric:nth-child(-n+2){ border-top:none; }
+  .verdict{ grid-template-columns:1fr; }
+  .foot-grid{ grid-template-columns:repeat(2,1fr); }
+}
+@media (max-width:560px){
+  .page{ padding-top:104px; }
+  .hero-title .l2{ margin-left:0; }
+  .stamp{ transform:rotate(-6deg); padding:8px 12px; font-size:0.72rem; }
+  .body-col{ grid-template-columns:1fr; }
+  .index-grid{ grid-template-columns:1fr; }
+  .cell{ border-right:none !important; }
+  .ledger{ grid-template-columns:1fr; }
+  .metric{ border-top:1px solid var(--line); }
+  .metric:first-child{ border-top:none; }
+  .foot-grid{ grid-template-columns:1fr; }
+  .hero-meta{ gap:10px; }
+}
+
+/* ---------- DARK MODE ---------- */
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#100E0C;
+    --paper-2:#17140F;
+    --ink:#F2EEE6;
+    --ink-soft:#B7AFA4;
+    --ink-faint:#7C756B;
+    --line:rgba(242,238,230,0.13);
+    --line-strong:rgba(242,238,230,0.28);
+    --accent:#E03B33;
+    --accent-text:#FF8A82;
+    --accent-soft:rgba(240,69,62,0.16);
+    --glass-hi:rgba(42,38,32,0.55);
+    --glass-lo:rgba(24,21,17,0.42);
+    --glass-edge:rgba(255,255,255,0.12);
+    --glass-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 18px 48px rgba(0,0,0,0.5);
+  }
+  .nav{ background:linear-gradient(180deg, rgba(16,14,12,0.72), rgba(16,14,12,0.55)); }
+  .nav.scrolled{ background:linear-gradient(180deg, rgba(16,14,12,0.86), rgba(16,14,12,0.72)); }
+  .btn-ghost{ background:rgba(255,255,255,0.06); border-color:rgba(242,238,230,0.28); color:var(--ink); }
+  .btn-ghost:hover{ background:rgba(255,255,255,0.12); border-color:var(--ink); }
+  .cell:hover{ background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); }
+  .hero-panel::before, .verdict::before{ background:linear-gradient(180deg, rgba(255,255,255,0.10), transparent); }
+  .stamp{ mix-blend-mode:normal; }
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+  [data-reveal]{ opacity:1 !important; transform:none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="ambient" aria-hidden="true"></div>
+<div class="grid-bg" aria-hidden="true">
+  <div class="grid-frame">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+</div>
+
+<div class="progress" id="progress" aria-hidden="true"></div>
+
+<div class="ruler" aria-hidden="true">
+  <div class="ruler-inner">
+    <span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span>
+    <span>G</span><span>H</span><span>I</span><span>J</span><span>K</span><span>L</span>
+  </div>
+</div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="กูเกิล — แนะนำแล้ว">
+    <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <span><b>กูเกิล</b><small>แนะนำแล้ว</small></span>
+  </a>
+  <nav class="nav-links" aria-label="สารบัญ">
+    <a href="#case">เหตุผล</a>
+    <a href="#index">ตาราง</a>
+    <a href="#numbers">ตัวเลข</a>
+    <a href="#verdict">คำตัดสิน</a>
+  </nav>
+  <a class="btn btn-primary btn-sm" href="#verdict">อ่านเหตุผล</a>
+</header>
+
+<main class="page" id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero wrap" aria-label="บทนำ">
+    <div class="stamp" data-reveal>แนะนำแล้ว<small>เอกสารลับ Nº 001</small></div>
+
+    <div class="hero-meta" data-reveal>
+      <span><i class="dot"></i>เอกสารลับ Nº 001</span>
+      <span>เว็บเปิด · วัดผลแล้ว</span>
+      <span>ก่อตั้ง 1998</span>
+    </div>
+
+    <h1 class="hero-title" data-reveal style="--d:80ms">
+      กูเกิล,
+      <span class="l2">แนะนำแล้ว.</span>
+    </h1>
+
+    <div class="hero-panel" data-reveal style="--d:160ms">
+      <div>
+        <p class="hero-lede">
+          โครงสร้างพื้นฐานที่เงียบแต่อยู่เบื้องหลังเว็บเปิด — การค้นหาที่ถือว่าการตอบกลับคือ
+          <b>ของสาธารณะ</b> แผนที่ของโลกจริง และชุดเครื่องมือที่คอยหลบทางอยู่ตลอด
+          นี่คือเหตุผลที่เราแนะนำมัน
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#case">
+            อ่านเหตุผล
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#index">ดูดัชนี</a>
+        </div>
+      </div>
+      <div class="hero-side">
+        <span class="k">หัวข้อ</span>
+        <span class="v">กูเกิล</span>
+        <span class="k">หมวด</span>
+        <span class="v">โครงสร้างพื้นฐาน</span>
+        <span class="k">คำตัดสิน</span>
+        <span class="v"><em>แนะนำแล้ว</em></span>
+      </div>
+    </div>
+
+    <div class="scroll-cue" data-reveal style="--d:240ms">
+      <span class="bar"></span> เลื่อนเพื่ออ่านเหตุผล
+    </div>
+  </section>
+
+  <!-- ============ 01 THE CASE ============ -->
+  <section class="section wrap" id="case" aria-labelledby="case-h">
+    <div class="shead" data-reveal>
+      <span class="idx">01</span>
+      <span class="lbl" id="case-h">เหตุผล</span>
+      <span class="rule"></span>
+      <span class="pg">§ 01 / 04</span>
+    </div>
+
+    <div class="manifesto-grid">
+      <div class="manifesto-label" data-reveal>
+        <div class="idx">01</div>
+        <div class="lbl">เหตุผล</div>
+        <p class="note">การแนะนำคือข้ออ้าง ข้ออ้างนี้รับน้ำหนักได้</p>
+      </div>
+      <div>
+        <p class="pull" data-reveal>
+          กูเกิลคือบริษัทที่เงียบแต่มีประโยชน์มากที่สุดในโลกออนไลน์ — และเป็นบริษัทที่
+          <em>ควรค่าแก่การวางใจให้ดูแลความสนใจของคุณที่สุด</em>
+        </p>
+        <div class="body-col">
+          <p data-reveal>
+            มันเริ่มจากปัญหาการจัดอันดับ: จะเรียงหน้าเว็บล้านหน้าอย่างไรให้หน้าที่ถูกอยู่ต้นสุด
+            คำถามนั้นกลายเป็นนิสัย และนิสัยนั้นกลายเป็น<b>คำตอบเริ่มต้น</b>ของทั้งโลกที่เรียนรู้จะถาม
+            ด้วยภาษาธรรมดา อินเทอร์เฟซยังคงแบน เร็ว และหลบทางอยู่ตลอดโดยตั้งใจ
+          </p>
+          <p data-reveal style="--d:80ms">
+            รอบแกนนั้นเติบโตเป็นตาราง — แผนที่ อีเมล โมเดล ระบบปฏิบัติการ เบราว์เซอร์
+            และชั้นวางวิดีโอทุกคลิปที่เคยอัปโหลด ไม่มีอะไรตะโกน ความระมัดระวังนั้นคือจุดสำคัญ
+            <b>“แนะนำแล้ว”</b> ไม่ใช่คำชม แต่คือคำตัดสินที่แลกมาด้วยการหายไปอยู่ในคำตอบ
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 THE GRID ============ -->
+  <section class="section wrap" id="index" aria-labelledby="index-h">
+    <div class="shead" data-reveal>
+      <span class="idx">02</span>
+      <span class="lbl" id="index-h">ตาราง</span>
+      <span class="rule"></span>
+      <span class="pg">§ 02 / 04</span>
+    </div>
+
+    <div class="index-grid">
+      <div class="cell" data-reveal>
+        <span class="tag">แกน</span>
+        <div class="n">01</div>
+        <h3>ค้นหา</h3>
+        <p>คำตอบเริ่มต้น เร็ว เป็นกลาง และยังเป็นมาตรฐานที่คนอื่นถูกวัด</p>
+      </div>
+      <div class="cell" data-reveal style="--d:60ms">
+        <span class="tag">พื้นที่</span>
+        <div class="n">02</div>
+        <h3>แผนที่</h3>
+        <p>โลกจริงที่เรนเดอร์แบบเรียลไทม์ — ถนน การจราจร และทางกลับบ้าน</p>
+      </div>
+      <div class="cell" data-reveal style="--d:120ms">
+        <span class="tag">โมเดล</span>
+        <div class="n">03</div>
+        <h3>Gemini</h3>
+        <p>เลเยอร์โมเดลที่แทรกอยู่ในทุกอย่างด้านบนอย่างเงียบ ๆ</p>
+      </div>
+      <div class="cell" data-reveal style="--d:180ms">
+        <span class="tag">งาน</span>
+        <div class="n">04</div>
+        <h3>Workspace</h3>
+        <p>Docs, Sheets, Drive — สำนักงานที่ไม่เคยปิดและไม่เคยชวนประชุม</p>
+      </div>
+      <div class="cell" data-reveal>
+        <span class="tag">อุปกรณ์</span>
+        <div class="n">05</div>
+        <h3>Android</h3>
+        <p>ระบบปฏิบัติการเบื้องหลังหนึ่งในสามของโทรศัพท์ทั้งโลก</p>
+      </div>
+      <div class="cell" data-reveal style="--d:60ms">
+        <span class="tag">เว็บ</span>
+        <div class="n">06</div>
+        <h3>Chrome</h3>
+        <p>เบราว์เซอร์ที่ตั้งมาตรฐานให้เว็บที่เหลือต้องตาม</p>
+      </div>
+      <div class="cell" data-reveal style="--d:120ms">
+        <span class="tag">สื่อ</span>
+        <div class="n">07</div>
+        <h3>YouTube</h3>
+        <p>ชั้นวางวิดีโอของโลก — และห้องที่ดังที่สุดและเปิดกว้างที่สุด</p>
+      </div>
+      <div class="cell" data-reveal style="--d:180ms">
+        <span class="tag">คอมพิวต์</span>
+        <div class="n">08</div>
+        <h3>Cloud</h3>
+        <p>พลังประมวลผลที่อยู่ใต้ทุกอย่าง คอยยึดตารางนี้ไว้</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 NUMBERS ============ -->
+  <section class="section wrap" id="numbers" aria-labelledby="numbers-h">
+    <div class="shead" data-reveal>
+      <span class="idx">03</span>
+      <span class="lbl" id="numbers-h">ตัวเลข</span>
+      <span class="rule"></span>
+      <span class="pg">§ 03 / 04</span>
+    </div>
+
+    <div class="ledger">
+      <div class="metric" data-reveal>
+        <div class="num">90<em>%</em></div>
+        <div class="cap"><b>การค้นหา</b>ของคำค้นทั้งโลกเริ่มที่นี่</div>
+      </div>
+      <div class="metric" data-reveal style="--d:80ms">
+        <div class="num">5<em>B+</em></div>
+        <div class="cap"><b>แผนที่</b>คนเข้าถึงทุกเดือน</div>
+      </div>
+      <div class="metric" data-reveal style="--d:160ms">
+        <div class="num">200<em>+</em></div>
+        <div class="cap"><b>ภาษา</b>ที่ค้นหาเข้าใจพร้อมกัน</div>
+      </div>
+      <div class="metric" data-reveal style="--d:240ms">
+        <div class="num">1998</div>
+        <div class="cap"><b>จุดเริ่มต้น</b>ปีที่คำค้นแรกทำงาน</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LINGER ============ -->
+  <section class="linger wrap" aria-label="คำสำคัญ">
+    <div class="rule" data-reveal></div>
+    <blockquote data-reveal style="--d:80ms">
+      อินเทอร์เฟซที่ดีที่สุด คือตัวที่หายไปอยู่ในคำตอบ
+    </blockquote>
+    <cite data-reveal style="--d:160ms">— เหตุผล ในบรรทัดเดียว</cite>
+  </section>
+
+  <!-- ============ 04 VERDICT ============ -->
+  <section class="section wrap" id="verdict" aria-labelledby="verdict-h">
+    <div class="shead" data-reveal>
+      <span class="idx">04</span>
+      <span class="lbl" id="verdict-h">คำตัดสิน</span>
+      <span class="rule"></span>
+      <span class="pg">§ 04 / 04</span>
+    </div>
+
+    <div class="verdict crop" data-reveal>
+      <span class="c" aria-hidden="true"></span>
+      <div>
+        <div class="word">แนะนำแล้ว<em>.</em></div>
+        <p style="margin-top:24px">
+          ถ้าคุณกำลังเลือกที่จะวางความสนใจของคุณไว้ที่ไหน วางไว้ที่นี่
+          ตารางยังตั้งอยู่ คำตอบยังเร็ว และอินเทอร์เฟซยังคงหลบทางอยู่
+          นั่นคือเหตุผลทั้งหมด
+        </p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary" href="#top">
+          เริ่มที่การค้นหา
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="#index">อ่านตารางอีกครั้ง</a>
+        <span class="seal">
+          <span class="ring" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          ยืนยันแล้ว · 2026
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="foot wrap">
+    <div class="foot-grid">
+      <div data-reveal>
+        <h4>โคลอโฟน</h4>
+        <p>จัดด้วยตัวอักษร <b>Trirong</b> และ <b>Prompt</b> งานศึกษาไฟล์เดียวในแบบฉบับบรรณาธิการมินิมอล</p>
+      </div>
+      <div data-reveal style="--d:60ms">
+        <h4>ตาราง</h4>
+        <p>ตาราง 12 คอลัมน์ที่มองเห็นได้ จังหวะ 8pt โทน 60-30-10 แดง Swiss เดียว ใช้อย่างตราประทับ</p>
+      </div>
+      <div data-reveal style="--d:120ms">
+        <h4>สารบัญ</h4>
+        <ul>
+          <li><a href="#case">01 — เหตุผล</a></li>
+          <li><a href="#index">02 — ตาราง</a></li>
+          <li><a href="#numbers">03 — ตัวเลข</a></li>
+          <li><a href="#verdict">04 — คำตัดสิน</a></li>
+        </ul>
+      </div>
+      <div data-reveal style="--d:180ms">
+        <h4>หมายเหตุ</h4>
+        <p>ตัวเลขเป็นค่าประมาณเพื่อการจัดวาง ไม่ใช่ผลวัด เปิดไฟล์ในเบราว์เซอร์ใดก็ได้</p>
+      </div>
+    </div>
+    <div class="base">
+      <span>© 2026 — The Recommendation</span>
+      <span>Editorial Minimalism × Swiss × Liquid Glass × Visible Grid</span>
+      <a href="#top">กลับขึ้นบน ↑</a>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* reveal on scroll */
+  var els = document.querySelectorAll('[data-reveal]');
+  if (reduce || !('IntersectionObserver' in window)) {
+    els.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold:0.12, rootMargin:'0px 0px -8% 0px' });
+    els.forEach(function(el){ io.observe(el); });
+  }
+
+  /* nav state + scroll progress */
+  var nav = document.getElementById('nav');
+  var bar = document.getElementById('progress');
+  function onScroll(){
+    var y = window.scrollY || window.pageYOffset;
+    nav.classList.toggle('scrolled', y > 12);
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = (h > 0 ? (y / h) * 100 : 0) + '%';
+  }
+  window.addEventListener('scroll', onScroll, { passive:true });
+  onScroll();
+})();
+</script>
+</body>
+</html>

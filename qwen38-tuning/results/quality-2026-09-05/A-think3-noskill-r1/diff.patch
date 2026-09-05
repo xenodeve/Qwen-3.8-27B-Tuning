@@ -1,0 +1,89 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..42b4b66 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -2,9 +2,28 @@
+ import json
+ 
+ 
++class _Inventory(dict):
++    """A dict that keeps a running total of its values so total() is O(1)."""
++
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        self._total = sum(self.values())
++
++    def __setitem__(self, key, value):
++        current = dict.get(self, key)
++        super().__setitem__(key, value)
++        self._total += value - (current if current is not None else 0)
++
++
+ class Store:
+     def __init__(self):
+-        self._items = {}
++        self._items = _Inventory()
++
++    def __setattr__(self, name, value):
++        # load() rebinds _items to a plain dict; wrap it so total() stays O(1).
++        if name == "_items" and isinstance(value, dict) and not isinstance(value, _Inventory):
++            value = _Inventory(value)
++        object.__setattr__(self, name, value)
+ 
+     def add(self, sku, qty):
+         """Add qty units of sku. qty must be a positive integer."""
+@@ -27,7 +46,7 @@ class Store:
+         return self._items.get(sku, 0)
+ 
+     def total(self):
+-        return sum(self._items.values())
++        return self._items._total
+ 
+     def skus(self):
+         return sorted(self._items)
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..7d5c68b 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,41 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_empty():
++    assert Store().total() == 0
++
++
++def test_total_tracks_add_and_remove():
++    s = Store()
++    s.add("apple", 5)
++    s.add("pear", 7)
++    s.add("apple", 2)
++    assert s.total() == 14
++    s.remove("pear", 3)
++    assert s.total() == 11
++    s.remove("apple", 7)
++    assert s.total() == 4
++
++
++def test_total_matches_sum_of_quantities():
++    s = Store()
++    for i in range(50):
++        s.add(f"sku-{i}", i + 1)
++    for i in range(0, 50, 2):
++        s.remove(f"sku-{i}", 1)
++    expected = sum(s.quantity(sku) for sku in s.skus())
++    assert s.total() == expected
++
++
++def test_total_after_load(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 4)
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    assert t.total() == 7
++    t.add("plum", 2)
++    assert t.total() == 9

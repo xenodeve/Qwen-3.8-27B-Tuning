@@ -1,0 +1,1 @@
+ใน repo นี้ ทำให้ `Store.total()` ใน `inventory/store.py` ทำงานเป็น O(1) โดยห้ามแก้ `add()`, `remove()`, `load()` และห้ามเพิ่ม attribute ใหม่ใน `Store` เขียน test ใน `tests/test_store.py` แล้วรัน `python -m pytest -q` ให้ผ่าน แก้เฉพาะสองไฟล์นี้

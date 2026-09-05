@@ -1,0 +1,63 @@
+{
+  "cell": "A",
+  "arm": "noskill",
+  "rep": 3,
+  "task": "code2",
+  "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5",
+  "backend": "exl3",
+  "ctx": 262144,
+  "work_dir": "D:\\qbench-work\\A-code2-noskill-r3",
+  "effort": "medium",
+  "brief": "ยอดรวมรายเดือนที่ได้จาก `data/sample.txt` ผิด: เดือน 2026-08 ควรเป็น 13,341.00 แต่โปรแกรมให้ 91.00 หาสาเหตุแล้วแก้ให้ถูก และเมื่อจำนวนเงินอ่านไม่ได้จริง ๆ ต้องไม่นับเป็นศูนย์เงียบ ๆ | เพิ่ม `top(entries, n)` ใน report ที่คืน dict เดือน → รายการ n ตัวที่แพงที่สุดของเดือนนั้น เรียงจากแพงไปถูก ถ้าเท่ากันเรียงตาม category | อัปเดต README ให้มีตัวอย่าง top | เขียน test แล้วรัน `python -m pytest -q` ให้ผ่าน",
+  "rc": 0,
+  "timed_out": false,
+  "wall_s": 177.2,
+  "started": "2026-09-05T12:09:19.017701+00:00",
+  "ended": "2026-09-05T12:12:16.186172+00:00",
+  "vram_before": "NVIDIA GeForce RTX 4070 SUPER, 11618 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 13906 MiB, 16311 MiB",
+  "vram_after": "NVIDIA GeForce RTX 4070 SUPER, 11618 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 13906 MiB, 16311 MiB",
+  "assistant_messages": 35,
+  "api_calls": 11,
+  "tool_calls": {
+    "Bash": 3,
+    "Read": 6,
+    "Edit": 6
+  },
+  "thinking_chars": 6725,
+  "text_chars": 1921,
+  "num_turns": 16,
+  "duration_api_ms": 197663,
+  "duration_ms": 176305,
+  "output_tokens": 5443,
+  "input_tokens": 30430,
+  "cache_read": 253440,
+  "is_error": false,
+  "subtype": "success",
+  "final_text": "\n\nEverything works. 2026-08 now correctly reports **13,341.00** (was 91.00).\n\n## สรุปงานที่เสร็จแล้ว\n\n**1. แก้บั๊กยอดรวมรายเดือน** (`ledger/parse.py`)\n- สาเหตุ: `float(\"12,000.00\")` ล้มเหลวเพราะมีเครื่องหมาย comma แล้ว `parse_amount` กลับคืน `0.0` เงียบ ๆ → เดือน 2026-08 เลยได้แค่ `45.50 + 0 + 0 + 45.50 = 91.00`\n- แก้: ตัด comma ออกก่อน parse (`1,250.00` → `1250.00`) และถ้าจำนวนเงินอ่านไม่ได้จริง ๆ ให้ **raise `ValueError`** แทนที่จะนับเป็นศูนย์เงียบ ๆ\n\n**2. เพิ่ม `top(entries, n)`** (`ledger/report.py`)\n- คืน dict `เดือน → รายการ n ตัวที่แพงที่สุด` เรียงจากแพงไปถูก ถ้าเท่ากันเรียงตาม category (ขึ้นต้นอักษร)\n- export ใน `ledger/__init__.py` แล้ว\n\n**3. อัปเดต README** — เพิ่มตัวอย่าง `top(load(\"data/sample.txt\"), 2)` พร้อมผลลัพธ์จริง\n\n**4. เขียน test แล้วรันผ่าน** — `python -m pytest -q` → **11 passed** ครอบคลุม:\n- parse จำนวนเงินที่มี comma\n- parse จำนวนเงินที่อ่านไม่ได้ต้อง raise (ไม่คืน 0)\n- ยอดรวมจากไฟล์จริง (`2026-08` = 13,341.00)\n- `top` เรียงตามราคา, tie-break ตาม category, และกรณี `n` ใหญ่กว่าจำนวนรายการในเดือน",
+  "gate": {
+    "changed": [
+      "README.md",
+      "ledger/__init__.py",
+      "ledger/parse.py",
+      "ledger/report.py",
+      "tests/test_ledger.py"
+    ],
+    "scope_ok": true,
+    "placeholders": [],
+    "visible_last": "11 passed in 0.02s",
+    "hidden_last": "8 passed in 0.01s",
+    "hidden_passed": 8,
+    "hidden_failed": 0,
+    "test_runs_seen": 3,
+    "red_then_green": false,
+    "score": "4/5"
+  },
+  "server_evidence": {
+    "requests": 12,
+    "output_tokens_server": 6383,
+    "prompt_tokens_max": 28801,
+    "errors": 0,
+    "server_log": "C:\\AI\\qwen38-tuning\\logs\\exl3-serve-20260905-143921.log",
+    "timing_lines": 1472
+  }
+}

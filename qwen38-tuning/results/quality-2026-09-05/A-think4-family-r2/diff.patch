@@ -1,0 +1,43 @@
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..869009b 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,38 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_after_remove():
++    s = Store()
++    s.add("apple", 5)
++    s.add("pear", 3)
++    s.remove("apple", 2)
++    assert s.quantity("apple") == 3
++    assert s.total() == 6  # 3 apple + 3 pear
++
++
++def test_total_after_load(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 4)
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    assert t.total() == 7  # 3 apple + 4 pear
++
++
++def test_items_is_plain_dict():
++    # the brief requires _items to stay a plain dict (no subclass/replacement)
++    s = Store()
++    s.add("apple", 3)
++    assert type(s._items) is dict
++
++
++def test_no_new_instance_attribute():
++    # the brief forbids adding a running-total attribute to reach O(1);
++    # the only instance attribute must remain _items
++    s = Store()
++    s.add("apple", 3)
++    s.remove("apple", 1)
++    assert set(s.__dict__) == {"_items"}

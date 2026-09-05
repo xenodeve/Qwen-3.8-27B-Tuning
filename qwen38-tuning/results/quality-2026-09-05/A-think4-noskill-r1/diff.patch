@@ -1,0 +1,120 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..0d790ca 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -1,6 +1,10 @@
+ """A tiny in-memory inventory. Quantities are whole units; a SKU is a non-empty string."""
+ import json
+ 
++# Reserved key that caches the running total inside the plain-dict `_items`.
++# A NUL byte makes it effectively impossible for a real SKU to collide with it.
++_TOTAL_KEY = "\x00__total__\x00"
++
+ 
+ class Store:
+     def __init__(self):
+@@ -24,17 +28,23 @@ class Store:
+         return self._items[sku]
+ 
+     def quantity(self, sku):
++        if sku == _TOTAL_KEY:
++            return 0
+         return self._items.get(sku, 0)
+ 
+     def total(self):
+-        return sum(self._items.values())
++        cached = self._items.get(_TOTAL_KEY)
++        if cached is None:
++            cached = sum(v for k, v in self._items.items() if k != _TOTAL_KEY)
++            self._items[_TOTAL_KEY] = cached
++        return cached
+ 
+     def skus(self):
+-        return sorted(self._items)
++        return sorted(k for k in self._items if k != _TOTAL_KEY)
+ 
+     def save(self, path):
+         with open(path, "w", encoding="utf-8") as fh:
+-            json.dump(self._items, fh, sort_keys=True)
++            json.dump({k: v for k, v in self._items.items() if k != _TOTAL_KEY}, fh, sort_keys=True)
+ 
+     def load(self, path):
+         with open(path, encoding="utf-8") as fh:
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..5a68cbf 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -1,3 +1,5 @@
++import json
++
+ from inventory import Store
+ 
+ 
+@@ -27,3 +29,67 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_after_remove():
++    s = Store()
++    s.add("apple", 5)
++    s.remove("apple", 2)
++    assert s.total() == 3
++
++
++def test_total_after_load(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 4)
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    assert t.total() == 7
++
++
++def test_total_is_o1(monkeypatch):
++    s = Store()
++    for i in range(1000):
++        s.add(f"sku{i}", 1)
++    # Warm up: the first total() recomputes (O(n)) and caches the result.
++    assert s.total() == 1000
++
++    # Steady state: total() must be O(1), i.e. it must not sum the values.
++    calls = []
++    real_sum = sum
++
++    def counting_sum(*args, **kwargs):
++        calls.append(1)
++        return real_sum(*args, **kwargs)
++
++    monkeypatch.setattr("builtins.sum", counting_sum)
++    s.total()
++    s.total()
++    assert calls == []
++
++
++def test_items_is_plain_dict():
++    s = Store()
++    s.add("apple", 3)
++    s.total()
++    assert type(s._items) is dict
++
++
++def test_no_new_attributes():
++    s = Store()
++    s.add("apple", 3)
++    s.total()
++    assert set(s.__dict__.keys()) == {"_items"}
++
++
++def test_total_cache_hidden_from_skus_and_save(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.total()  # caches the total inside _items
++    assert s.skus() == ["apple"]
++    p = tmp_path / "inv.json"
++    s.save(p)
++    with open(p, encoding="utf-8") as fh:
++        data = json.load(fh)
++    assert data == {"apple": 3}

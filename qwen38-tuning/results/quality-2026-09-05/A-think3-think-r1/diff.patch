@@ -1,0 +1,23 @@
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..4606da0 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -10,6 +10,18 @@ def test_add_and_total():
+     assert s.total() == 6
+ 
+ 
++def test_total_tracks_add_and_remove():
++    s = Store()
++    assert s.total() == 0
++    s.add("apple", 3)
++    s.add("pear", 2)
++    assert s.total() == 5
++    s.remove("apple", 1)
++    assert s.total() == 4
++    s.remove("pear", 2)
++    assert s.total() == 2
++
++
+ def test_add_rejects_bad_qty():
+     s = Store()
+     for bad in (0, -1, 1.5, "2"):

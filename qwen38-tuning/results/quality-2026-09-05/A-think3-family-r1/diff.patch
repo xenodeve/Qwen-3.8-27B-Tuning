@@ -1,0 +1,26 @@
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..aaf9bae 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,21 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_tracks_mutations_not_a_stale_snapshot():
++    # Guards the invariant that makes an O(1) total() impossible under the
++    # "no new attribute, no add/remove/load edits" constraint: total() must
++    # reflect every mutation. A memoized total (e.g. functools.lru_cache)
++    # goes stale on the first add/remove/load and returns a plausible-but-
++    # wrong number. This test fails on any such cache and passes on the
++    # correct O(n) sum.
++    s = Store()
++    s.add("apple", 3)
++    assert s.total() == 3
++    s.add("apple", 5)
++    assert s.total() == 8
++    s.add("pear", 2)
++    assert s.total() == 10
++    s.remove("apple", 4)
++    assert s.total() == 6

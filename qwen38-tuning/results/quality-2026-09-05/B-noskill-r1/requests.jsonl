@@ -1,0 +1,3 @@
+{"ts": "2026-09-05T03:59:11.436764+00:00", "status": 200, "stream": true, "prompt_tokens": 835, "output_tokens": 788, "cached_tokens": 0, "wall_ms": 17754.621599975508, "error": null, "model": "Mia-AiLab-Qwen3.8-27B-EXL3-3.5bpw"}
+{"ts": "2026-09-05T04:01:42.748830+00:00", "status": 200, "stream": true, "prompt_tokens": 26585, "output_tokens": 7353, "cached_tokens": 0, "wall_ms": 168495.66900002537, "error": null, "model": "Mia-AiLab-Qwen3.8-27B-EXL3-3.5bpw"}
+{"ts": "2026-09-05T04:02:02.933904+00:00", "status": 200, "stream": true, "prompt_tokens": 34039, "output_tokens": 349, "cached_tokens": 26368, "wall_ms": 20130.531599977985, "error": null, "model": "Mia-AiLab-Qwen3.8-27B-EXL3-3.5bpw"}
