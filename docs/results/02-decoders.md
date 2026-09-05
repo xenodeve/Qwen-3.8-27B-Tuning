@@ -1670,3 +1670,54 @@ The caveat on the ngram figure is unchanged and still governs adoption: this
 corpus makes the drafter fire, and `worker-q4-dual.ps1:1252-1264` records
 `#gen drafts = 0` on agent traffic. **The gain is measured on the corpus; its
 transfer to the served workload is not.**
+
+## DSpark v2 on the NVFP4 target, and the split-mode crossover it exposed — 2026-09-04
+
+**DSpark v2** (RadixArk, SpecForge, 2026-08-14; Q8_0 GGUF `magnitudedev/Qwen3.8-27B-DSpark-GGUF`)
+was the one drafter this repo had never launched (report 16: *"drafter path
+resolved empty"*). Four attempts today, `bench/dflash2_arena.py` arm sets
+`nvfp4-dspark` and `nvfp4-dspark-layer`, each pinned by a test:
+
+| attempt | shape | outcome | file |
+|---|---|---|---|
+| 1 | served `-sm tensor`, fp16 draft KV | drafter KV 2.9 GB at 147,456 (5 full-attention layers, no sliding window — DFlash2's has 2,048) — `cudaMalloc 2016 MiB` failed | `results/nvfp4-dspark-147456.jsonl` r1 |
+| 2 | + `-ctkd q4_0 -ctvd q4_0` (810 MiB) | drafter loads, then `ggml-backend-meta.cpp:537 GGML_ASSERT(ret.axis != SPLIT_AXIS_UNKNOWN)` — the Markov head has no split axis for the tensor-split meta backend | same file, r2 |
+| 3 | + `-devd CUDA1` (drafter whole on the 5060 Ti), 65,536 | `ggml-backend.cpp:930 pre-allocated tensor (output.weight) in a buffer (Meta()) that cannot run the operation` — the drafter borrows the target's head, which lives in the split buffer; neither this GGUF nor DimInfer's carries its own `token_embd`/`output` (62 tensors each) | `results/nvfp4-dspark-65536.jsonl` |
+| 4 | **`-sm layer` for both arms** (the only shape it loads in on build 10499), rotated, 3 rounds | **runs** at 65,536; at 147,456 the server dies on the first request — `cudaMalloc 1888 MiB on device 0` for compute buffers | `results/nvfp4-dspark-layer-{65536,147456}.jsonl` |
+
+**Attempt 4 at 65,536, same boot series, rounds rotated:**
+
+| arm (`-sm layer -ub 1024`, q4_0 KV, ngram-mod nm24 beside) | decode tok/s | acceptance | draft len |
+|---|---:|---:|---:|
+| `draft-mtp` n3 (the head in the file) | **60.7 / 61.4 / 66.8** | 58.4 % | 2.57 |
+| `draft-dspark` n7 (RadixArk v2, Q8_0, q4_0 draft KV) | 50.3 / 51.4 / 55.4 | 36.9 % | 2.89 |
+
+**DSpark v2 is −17 % against the MTP head on this target** — acceptance 37 %
+against the 58 % the built-in head gets, and the VENDOR 3.4 tokens/step was
+measured on an FP8/NVFP4 target on GB300/H200 at T = 1.0 with thinking on. On
+this NVFP4 GGUF at 65K, greedy, on the arena corpus, it does not transfer.
+**Closed on both engines** (EXL3 side: results 10, pass 7, and the fork raises
+on TP targets — `researchs/exl3-drafters-under-tensor-parallel-2026-09-04.md`).
+
+### What the control arm said instead: `-sm layer` is +55 % at 65,536 and −24 % at 147,456
+
+The `draft-mtp,ngram-mod` control under `-sm layer` today, against the served
+`-sm tensor -ts 7819,15490` arm measured the same morning (`nvfp4-served`,
+`results/nvfp4-dspark-{65536,147456}.jsonl`, 08:09–08:24):
+
+| ctx | `-sm tensor` (served) | `-sm layer` | layer vs tensor |
+|---:|---:|---:|---:|
+| 65,536 | 39.0 / 39.8 / 39.5 | **60.7 / 61.4 / 66.8** | **+55 %** |
+| 147,456 | 40.1 / 40.8 / 40.2 | 30.9 / 30.9 / 30.8 | −24 % (the guide's −31 % row, reproduced) |
+
+**The tensor split is flat with depth (39 → 40); the layer split halves (61–67
+→ 31).** So the guide's *"`-sm tensor` vs `-sm layer`: tensor, −31 % for layer"*
+is a verdict **at 147,456**, and it inverts by 65,536. Same binary, same
+decoder, same KV type, same day; different boots and not rotated against each
+other, so the +55 % is a strong hypothesis, not a paired result — the paired
+sweep across depths is the open item (ledger). Why it might be real: under
+`-sm layer` the 4070 SUPER holds a contiguous block of layers and the two cards
+pipeline; under `-sm tensor` every layer all-reduces across PCIe. At 65K the
+attention work per token is small enough that the all-reduce dominates; at 147K
+the layer split's serial pipeline over a long cache dominates instead.
+Hypothesis, unmeasured.

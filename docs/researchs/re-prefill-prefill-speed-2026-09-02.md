@@ -197,3 +197,23 @@ And the note has the cache argument backwards. `q8_0` is **twice** `q4_0`, not
 half — it halves against `f16`. The prompt-cache entry *is* the KV, measured at
 **0.0224 MiB/token** under `q4_0`, so `q8_0` would roughly double every entry and
 make the 8,192-cap overflow **worse**.
+
+## Post-restart verification (2026-09-02, session serve-20260902-094554) — what it does and does not prove
+
+Served with `--cache-ram 24576` + `--ctx-checkpoints 4` (both shipped). Verified from the real boot log:
+
+**Proven: re-prefill is gone.** The log shows prefix reuse working, not full re-prefill:
+```
+cached n_tokens = 38352, memory_seq_rm [38352, end)
+prompt processing, n_tokens = 6300 -> 7324   (843 tok/s)
+```
+It pre-fills only the appended tail (~6–7k tokens) after restoring a 38k cached prefix — `memory_seq_rm` + partial prompt eval = the cache hit. Restores succeeded (243 in this session). No `exceeds cache size limit`, no `making room` since boot.
+
+**NOT proven / not a decode win:** a `tg ≈ 50 tok/s` row in the same log was at **ctx 39,536** (init_sampler `text = 39536`), a shallow-to-mid context — that is the normal rate there, NOT evidence that deep-context decode improved. The known rule still holds: `decode@100k+` on this hardware is 30–40 tok/s by KV-bandwidth limit, and no cache flag changes that.
+
+**Verification gate for decode@deep (still open):** confirm `tg` at actual `ctx ≥ 100k` on a long run. Expect 30–40 as the baseline, matching the developer's own measured rule; anything above that would be the first real evidence a change helped decode rather than only removing re-prefill. This row is pending that confirmation. (The `tg_3s`/`n_gen` intermediate rows are rolling averages, not per-step decode speed.)
+
+## Lead (จดไว้): FreeToken engine — 2026-09-02 (Kintu Substack benchmark)
+- FreeToken (FlashML): claim ~2x MoE-offload decode on same consumer GPU. llama.cpp 21 → FreeToken 40-42 tok/s, RTX 5060 Ti 16GB, Qwen 3.6-35B-A3B (~37GB offload). Mechanisms: bandwidth-adaptive execution, dynamic VRAM LRU expert cache, hybrid/direct CPU expert execution, dynamic KV↔expert rebalance.
+- **Applicability: LOW for us** — win is MoE expert-offload; our Qwen3.8-27B is dense-hybrid (no `exps` experts, 48 SSM). Doesn't apply to llama.cpp/NVFP4 dense workload.
+- llama.cpp already building dynamic LRU MoE caching (PR #27861, RFC #24528). Author notes FreeToken early-release (CUDA quirks, WSL2 bugs), llama.cpp wins TTFT/ecosystem. Revisit only if a real MoE target or full offload is ever needed.

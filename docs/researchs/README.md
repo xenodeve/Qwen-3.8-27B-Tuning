@@ -22,6 +22,54 @@ replace, **with the install command for every one**.
 never captured a real request**; and **Serena is already installed and
 unmeasured**, so it sits in the baseline rather than being an arm.
 
+## What ExLlama3 has that llama.cpp does not — and the one item that lands on llama.cpp
+
+[`exllama3-techniques-vs-llamacpp-2026-09-04.md`](exllama3-techniques-vs-llamacpp-2026-09-04.md) —
+seventeen techniques from the Mia-AiLab fork's source, each tagged fork-only /
+upstream / llama.cpp-equivalent and MEASURED HERE / VENDOR / UNMEASURED. Most
+are either already measured in [results 10](../results/10-other-engines.md) or
+have a llama.cpp twin. **Two are not:** the DFlash2 drafter on EXL3 (`-dm`,
+1.4 GB, VENDOR +33–43 % over MTP on GB10) and **DSpark v2** — a SpecForge
+drafter RadixArk published 2026-08-14 with VENDOR ~1.5× over the MTP head at
+batch 1 on H200 — which the **served llama.cpp binary already supports**
+(`--spec-type draft-dspark`) and this repo attempted once, never launched, and
+never re-ran (report 16). Both drafters were downloaded 2026-09-04.
+
+## A drafter other than the MTP head on a tensor-parallel EXL3 target
+
+[`exl3-drafters-under-tensor-parallel-2026-09-04.md`](exl3-drafters-under-tensor-parallel-2026-09-04.md) —
+why DFlash2 and DSpark raise on a `-tp` target (they need the full logits of a
+head that is sharded across ranks; the taps are fine), the 30–40-line fix the
+fork already ships for DeepSeek-V4's MTP (`_load_own_embed_head`, a private
+copy of the lm head on the drafter's card, ~0.6 GB at 6-bit), and the order in
+which to spend GPU time on it: first prove DFlash2 beats MTP where the fork
+already allows it (pass 7b), only then port.
+
+## Proxies that could sit in front of `llama-server` — and the one requirement
+
+[`llamacpp-anthropic-route-vs-ours-2026-09-04.md`](llamacpp-anthropic-route-vs-ours-2026-09-04.md) —
+llama-server's `/v1/messages` (server-chat.cpp, server-task.cpp) read against
+our `anthropic_compat.py`: same stream shape now (the `signature_delta` was the
+missing piece), what llama-server adds (billing-header `cch` normalisation,
+images, history thinking), what ours adds (effort reaches the model, live
+counters), and the gap both share — no `prompt is too long: N tokens > M`, so
+Claude Code never auto-compacts on either.
+
+[`anthropic-messages-api-on-exllamav3-2026-09-04.md`](anthropic-messages-api-on-exllamav3-2026-09-04.md) —
+can the EXL3 server speak Claude Code's API itself? No tree has it merged:
+upstream 1.4.6 ships no server, the Mia fork's `serve_openai.py` has three
+OpenAI routes, and TabbyAPI's `/v1/messages` is an unreviewed PR (#442,
++3,859 lines). Three routes out, ranked; the PR's converter and 1,572-line
+test suite are the reusable part if we port.
+
+[`server-side-proxies-for-llamacpp-2026-09-03.md`](server-side-proxies-for-llamacpp-2026-09-03.md) —
+headroom, tamp, llmtrim, claude-code-cache-fix, two LiteLLM stacks and the
+TokenPilot paper, each against the requirement the first real proxied session
+taught: **a proxy must rewrite every turn the same way, or llama.cpp's prefix
+cache pays for it** (MEASURED HERE: 89.8 s on turn 2, [issue #55](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/55)).
+One gate for every candidate — turn-2 `cached n_tokens` must not be 0 — and an
+order to try them in.
+
 ## The one scan that replaced a repository
 
 [`syv-rtx3090/`](syv-rtx3090/README.md) — `syv-ai/qwen38-27b-rtx3090`, a patched

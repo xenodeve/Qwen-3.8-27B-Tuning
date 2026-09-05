@@ -1554,7 +1554,16 @@ $argv = @(
     # token 0, 51.6 s at the served depth. Fewer is not none.
     '--ctx-checkpoints', '8'
 ) + $specArg + @(
-) + $ngramArg + $visionArg + $cacheRamArg + $betaArg + $thinkArg + $templateArg + @(
+) + $ngramArg + $visionArg + $cacheRamArg + $betaArg + $thinkArg + @(
+    # Sampling, aligned to the launch reference (Temp 1 / Top-P 0.95 / Top-K 20 /
+    # Min-P 0 / Repeat 1.05). llama.cpp defaults are min_p 0.05 and repeat 1.0,
+    # so these two are set explicitly to match the reference exactly:
+    # --min-p 0 disables the "5% of best" filter; --repeat-penalty 1.05 raises
+    # the repetition penalty above llama.cpp's 1.0 to fight loop/wandering in
+    # long agentic output.
+    '--min-p', '0.0',
+    '--repeat-penalty', '1.05'
+) + $templateArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",
     '--host', $BindAddress, '--port', "$Port"
 )

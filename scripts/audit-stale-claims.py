@@ -30,6 +30,12 @@ SCANNED_SUFFIXES = (".md", ".ps1", ".sh")
 SKIP_DIRS = (".git", "node_modules", "__pycache__", ".cache", ".venv", "researchs")
 
 RULES = [
+    ("exl3-decode-overstated",
+     r"34–39 tok/s at 144,022|33\.4–34\.3|36\.4–39\.4|80–85 % of llama\.cpp",
+     "EXL3 warm-round decode figures computed as time_generate - time_prefill; "
+     "the generator already excludes prefill, so every warm round was ~3-5 % high",
+     "CORRECTIONS.md 47, results 10"),
+
     ("ngram-magnitude",
      r"\+(?:94\.69|135\.89|200\.22|213\.08|330\.40|114\.64|112\.55|108\.49|120\.54)\s*%",
      "an n-gram figure measured on a prompt that is 84.5 % duplicate lines",

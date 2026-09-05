@@ -88,6 +88,11 @@ NVFP4_VERY_LOW = (r"C:\Users\xenod\.cache\huggingface\hub"
 # Measured 2026-08-27: its Meta buffer is 538.42 MiB against 786.35, it reaches
 # 163,840 where Q4_K_M does not, and its author's own table puts throughput
 # within a few percent of the larger file at every n_max.
+DSPARK_Q8 = (r"C:\Users\xenod\.cache\huggingface\hub"
+             r"\models--magnitudedev--Qwen3.8-27B-DSpark-GGUF"
+             r"\snapshots\27b7a55fa4893d0c95abd4ec6e0c6e8b33802e18"
+             r"\Qwen3.8-27B-DSpark-Q8_0.gguf")
+
 DFLASH_SMALL = (r"C:\Users\xenod\.cache\huggingface\hub"
                 r"\models--HermiHg--Qwen3.8-27B-DFlash2-Q2_K_S-MIX-GGUF"
                 r"\snapshots\3a802866ab98104e56d2c0b33442004b5b39ab08"
@@ -1177,6 +1182,56 @@ ARM_SETS = {
         ("mtp-solo-nmax2", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
                                           "--spec-type", "draft-mtp",
                                           "--spec-draft-n-max", "2"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The served config alone, so llama.cpp can be paired against another
+    # engine in one boot at one boot per round (issue #71, results 10).
+    # Byte-identical to nvfp4-final's "nvfp4-mtp+nm24" -- pinned by
+    # tests/test_served_arm_set_is_the_served_argv.py.
+    "nvfp4-served": [
+        ("nvfp4-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # DSpark v2 (RadixArk, SpecForge, 2026-08-14) on the served profile: the
+    # served arm and the same argv with the drafter swapped for the MTP head.
+    # Report 16 lists draft-dspark as "attempted, drafter path resolved empty,
+    # never launched"; tests/test_dspark_arm_set_pairs_the_served_config.py
+    # pins the file and the one-variable difference. Draft n-max 7 is the
+    # checkpoint's serving gamma (block_size 7).
+    "nvfp4-dspark": [
+        ("nvfp4-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-dspark", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                       "--spec-type", "draft-dspark,ngram-mod",
+                                       "-md", DSPARK_Q8, "-ngld", "99",
+                                       "--spec-draft-n-max", "7",
+                                       # no sliding window on this drafter: 2.9 GB of
+                                       # fp16 draft KV at 147,456 did not fit (08:0x)
+                                       "-ctkd", "q4_0", "-ctvd", "q4_0",
+                                       # the Markov head has no split axis for the meta
+                                       # backend (assert at ggml-backend-meta.cpp:537), so
+                                       # the drafter runs whole on the 5060 Ti
+                                       "-devd", "CUDA1"] + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The same pair under the layer split. On build 10499 the DSpark drafter
+    # cannot ride `-sm tensor` (Markov head: no split axis for the meta backend,
+    # ggml-backend-meta.cpp:537; pinned to one device it borrows the target's
+    # output.weight from a Meta buffer, ggml-backend.cpp:930). Layer split has
+    # neither problem, so this set measures whether DSpark accepts on the NVFP4
+    # target -- a mechanism question. It does not serve: layer split is -31 %.
+    # tests/test_dspark_layer_pair_shares_everything_but_the_drafter.py
+    "nvfp4-dspark-layer": [
+        ("nvfp4-mtp-layer", DUAL_LAYER + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-dspark-layer", DUAL_LAYER + ["-m", NVFP4_VERY_LOW,
+                                             "--spec-type", "draft-dspark,ngram-mod",
+                                             "-md", DSPARK_Q8, "-ngld", "99",
+                                             "--spec-draft-n-max", "7",
+                                             "-ctkd", "q4_0", "-ctvd", "q4_0"] + _ngram(16, 24),
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 

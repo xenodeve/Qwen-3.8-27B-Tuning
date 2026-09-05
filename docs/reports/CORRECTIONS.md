@@ -2012,6 +2012,45 @@ and `bench/tests/test_prompt_cache_budget.py`.
 
 ---
 
+## 47. Every EXL3 warm-round decode figure was overstated by ~3–5 % — the harness subtracted a prefill the generator had already excluded
+
+**Published 2026-09-03** in `docs/results/10-other-engines.md`, the ExLlama3 row
+of the open-work ledger, `docs/researchs/exllama3-platform-2026-09-03.md` and
+issue #71: *"34–39 tok/s at 144,022"*, *"`-cq 4` … 33.4–34.3"*, *"`-ndt 3` …
+36.4–39.4"*, *"~80–85 % of llama.cpp's decode"*.
+
+**Where it came from.** `exllama3-test-decode.py` computed decode seconds as
+`time_generate - time_prefill`, on the assumption that the fork's `time_generate`
+spans the whole job. It does not: `exllamav3/generator/job.py:674-675`
+accumulates `time_prefill = first_token - first_prefill` and
+`time_generate = last_token - first_token`, two disjoint intervals. So every warm
+round (prompt cache hit, `time_prefill` ≈ 0.75 s at 144K against a ~16 s decode)
+was overstated by tp/tg, about 5 % at depth and 1–2 % at 14–30K. **The cold
+round was right by accident** — there `time_generate` came back 0 and the harness
+fell back to wall minus prefill, which is the correct interval.
+
+**Contradicted the same day by the fault's own extreme case.** Arm `gs12_b`
+(`-gs 12,15.5`, rows at 14:38) re-prefilled 9.1 s of its warm prompt and the
+harness printed **95.93 tok/s** for 508 tokens that `time_generate` said took
+14.4 s — 35 tok/s. A believable 36 would have passed; 96 did not.
+
+**What changed.** `decode_seconds()` in the harness now returns `time_generate`
+directly, with the wall fallback only when the generator reports zero
+(`qwen38-tuning/bench/tests/test_exl3_decode_timing.py` guards both paths). All
+120 rows in `qwen38-tuning/results/exl3-decode.jsonl` were recomputed from their
+raw `time_*` fields (79 changed); the old value stays in each row as
+`decode_tok_s_v1_overstated`. Corrected figures: recipe **33–37** (was 34–39),
+`-cq 4` at 144K **31.8–32.6** (was 33.4–34.3), `-ndt 3` **34.5–37.2** (was
+36.4–39.4), the served-depth arm at **~75–80 %** of llama.cpp (was 80–85 %).
+**No verdict flipped** — every comparison on the page was between rows carrying
+the same bias, and the `-ndt 3` pairs remain +15 % / +17 %.
+
+**The lesson is the fourteenth instrument fault, and it is the same shape as the
+other thirteen:** the figure was plausible, it agreed with the cold round to
+within the drift, and nothing in the harness could have said otherwise. The
+fallback branch — written for a *different* fault, `time_generate == 0` — was
+the only path computing the right number, and it was labelled the untrusted one.
+
 ## What has NOT been contradicted
 
 Stated so the list above is not read as "nothing here is reliable":

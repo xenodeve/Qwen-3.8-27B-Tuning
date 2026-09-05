@@ -90,6 +90,8 @@ Fork: https://github.com/MiaAI-Lab/exllamav3  (DBFlash2/DSpark/NVFP4-KV added; u
 - **Dynamic draft length + draft-skip EMA** `-dds -dskip` — cut draft compute at low acceptance. [HIGH implemented]
 - **CAVEAT:** code prose (greedy) 40-43 tok/s on GB10 ≈ our current ~40; no consumer-GPU Qwen3.8 EXL3 benchmark published. The one head-to-head (Qwen3.6, default) favored llama.cpp ~12%. **Proof needed on our cards.**
 
+> **STATUS moved → dedicated file:** `exllama3-platform-2026-09-03.md` (this is a separate platform, fully tracked there incl. install traps + GPU-blocked step).
+
 ---
 
 ## GROUP C — vLLM/SGLang (deprioritized for THIS box)

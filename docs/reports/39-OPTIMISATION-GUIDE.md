@@ -40,7 +40,7 @@ These cost nothing and they are the reason most of the numbers here survived.
 
 | lever | verdict | evidence |
 |---|---|---|
-| `-sm tensor` vs `-sm layer` | **tensor, −31.0 % [−32.9, −29.6] for layer** on NVFP4 with the served decoder, both `66+0` | MEASURED, `dflash2-arena.jsonl` |
+| `-sm tensor` vs `-sm layer` | **tensor, −31.0 % [−32.9, −29.6] for layer** on NVFP4 with the served decoder, both `66+0` — **at 147,456 only.** At 65,536 the same arms measured the other way on 2026-09-04: layer 60.7–66.8 against tensor 39.0–39.8 (+55 %, different boots, not yet paired — results 02, last section). Settled for the served depth; open below it | MEASURED, `dflash2-arena.jsonl`; `nvfp4-dspark-layer-65536.jsonl` |
 | `-ts` computed vs unset | **compute it.** Unset splits *evenly* (`llama-model.cpp:707`) and produced **0.38 tok/s** — an 85× silent spill | MEASURED, [`CORRECTIONS.md`](CORRECTIONS.md) §33 |
 | `-sm row` | **cannot load.** `device CUDA0 does not support split buffers`; `ggml-cuda.cu` does not export `ggml_backend_split_buffer_type` at this commit | MEASURED |
 | `--fit` under `-sm tensor` | **inert.** `llama_params_fit is not implemented for SPLIT_MODE_TENSOR`; its `abort` is the *fitting step* giving up, not the load | MEASURED |

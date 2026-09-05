@@ -166,8 +166,8 @@ def test_the_guard_actually_fires_when_the_flag_is_gone():
     guard -- which would look like a pass.
     """
     src = io.open(PROFILE, encoding="utf-8", errors="replace").read()
-    broken_src = src.replace("+ $thinkArg + $templateArg + @(",
-                             "+ $thinkArg + @(")
+    broken_src = src.replace(") + $templateArg + @(",
+                             ") + @(")
     assert broken_src != src, "the argv assembly changed shape; update this test"
 
     broken = os.path.join(os.path.dirname(PROFILE), "_guard-positive-control.ps1")
