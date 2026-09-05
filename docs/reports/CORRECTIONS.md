@@ -1296,7 +1296,7 @@ was measured inert under one split mode and recorded as inert, full stop. And
 `common_fit_params` was read as *"the load will abort"* when it means *"the
 fitting step gave up"*. The thing that settled it was a person running it.
 
-**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`.
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`, whose message now carries both corrections.
 
 ---
 
@@ -1862,6 +1862,194 @@ today and miss the third.
 launch guard; `scripts/audit-stale-claims.py`, rule `template-file-is-studios-to-omit`.
 
 ---
+
+## 44. "`+26 % from the newer build`" — now paired, and it is `+2.6 %`
+
+**Contested since 2026-08-30** (§40): the refutation that was supposed to settle
+it had launched one binary twice, so it restored the claim to contested rather
+than answering it. §40's own words: *"Neither side of this has ever been paired.
+That is the whole status."*
+
+**Paired 2026-09-01, issue #67.** Three binaries, same artifact, same argv, same
+prompt, rotated across three rounds so each takes each position once:
+
+| arm | build | commit | decode mean | prefill mean |
+|---|---|---|---|---|
+| served | 10499 | `1deefcca3` | 61.53 | 954.30 |
+| upstream | 10729 | `458681e1d` | 63.12 | 943.44 |
+| upstream_fix | 10730 | `7e8864187` | 63.58 | 964.07 |
+
+**`+2.58 %` decode, `-1.14 %` prefill.** Not `+26 %`, and not null either. Both
+new binaries were built here from source with the toolchain read out of
+`build-blackwell`'s `CMakeCache.txt`, so the only difference between `upstream`
+and `served` is the source tree.
+
+**The §41 failure mode was designed out this time.** Each binary self-identifies
+by commit in `--version`, and the harness wrote the executable path and file size
+it was about to launch into the log on every boot. The three arms also produced
+**different** draft counts where §40's fake comparison produced identical ones:
+10467/6900 for served against 10458/6903 for both new builds.
+
+**Still true, and worth keeping:** the greedy output is byte-identical across all
+three binaries — `6a632a00cc76`, `6b47d54a7dcc`, `855b386fdbea`. Identical output
+is *not* the tell that two arms ran the same binary; identical **draft counters**
+was.
+
+**Scope.** ctx 16,384, one artifact, one prompt, `-np 1`. It does not transfer to
+the served 147,456.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `their-build-is-worth-26`,
+extended to flag the `null` and `refuted` phrasings as well.
+
+---
+
+## 45. "`-ts` is not a lever" — true on `UD-Q4_K_XL` under layer split, false on NVFP4
+
+**Published** in `docs/results/09-hardware.md` and carried into the open-work
+ledger as *"`-ts` is not a lever (+1.8 %, inside the floor)"*.
+
+**Where it came from.** `-ts 1,1`, three rounds, **`-sm layer`**, artifact
+**`UD-Q4_K_XL`**: [21.2, 21.9, 20.0] against a baseline of the same shape, +1.8 %
+[+0.6, +4.1]. Honest, and correct about what it measured. Under `-sm layer`
+llama.cpp already divides by free VRAM, and on that artifact **both cards run the
+same kernel**, so there was nothing for a ratio to buy.
+
+**Contradicted 2026-09-01, on the artifact we now serve.** Under `-sm tensor` on
+`NVFP4-MTP-VERY-LOW` at ctx 147,456, real-code corpus, total budget held constant:
+
+| 5060 Ti share | vs served | acceptance |
+|---|---|---|
+| 61.3 % | **−18.2 % [−20.6, −16.5] RESOLVED** | 44.2 |
+| **66.5 % (served)** | baseline | **58.8** |
+| 67.5 % | **−18.9 % [−20.5, −17.2] RESOLVED** | 49.3 |
+| 68.6 % | **voided — output copies the prompt** | 50.9 |
+
+**The mechanism the old row could not have had.** `mmq.cu:131` gates the FP4
+tensor-core path on `blackwell_mma_available(cc) && (type == MXFP4 || NVFP4)`.
+On NVFP4 that is true on the 5060 Ti and false on the 4070 SUPER, so the two
+cards run **different kernels over the same tensors** — and `-sm tensor` splits
+every layer across both.
+
+**What is now settled and what is not.** The ratio is a lever, the served value
+is the best of four measured, and both neighbours are RESOLVED losses. **Why
+tilting toward the faster card degrades the output is not established** —
+`copied_frac` climbs 0.029 → 0.217 → 0.539 with the tilt, reproducibly to the
+digit, and nobody has traced it.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `ts-is-not-a-lever`, whose message now carries both corrections.
+
+---
+
+## 46. "`--cache-ram` is about reliability, not throughput" — it is the largest throughput lever this project has measured
+
+**Published** in `docs/reports/16-OPTIMIZATION-SURFACE.md` as *"host-side cache
+cap. Predicted: reliability at depth, not throughput"*, in
+`docs/reports/06-OPEN-QUESTIONS.md` as *"relevant to host pressure at depth |
+reliability, not throughput"*, and carried in the open-work ledger as *"`--cache-ram
+0` is a different mechanism and is still the developer's open question"*.
+
+**Where it came from.** Two honest readings. The flag caps a *host* store, so it
+looked like a memory decision; and when it was finally exercised — 2026-08-23,
+`bench/run_cram_swap.py`, A→B→A→B→A over two conversations — the default already
+won by **343×** (118.2 ms at 100 % reuse against 40,596 ms at 0 % with `-cram 0`).
+A default that already wins invites no further thought about its *value*.
+
+**Contradicted 2026-09-02, by a live session rather than the arena.**
+`logs/serve-20260902-034815.log`, icon 2 at ctx 200,704, two agents on one slot:
+
+| | last 30 min | whole session |
+|---|---|---|
+| wall | 1,801 s | 14,386 s |
+| decode | 239 s / 7,024 tok | 5,696 s / 202,485 tok |
+| forced re-prefill | 1,229 s (10 events, **10** after an eviction) | 4,393 s (40, **32**) |
+| **share of wall** | **68.2 %** | 30.5 % |
+
+**Why the earlier run could not have found it.** It used `CTX = 98304` and
+`--chars 150000` — about 40k tokens each, whose saved state is **898–928 MiB**
+against an 8,192 MiB cap. The lever only exists once a single entry approaches
+the whole budget, and at 200,704 one conversation reaches **9,801 MiB**, which
+llama.cpp refuses to cache at all: `prompt state size 9801.444 MiB exceeds cache
+size limit 8192.000 MiB, skipping`.
+
+**And it is not the checkpoints**, which the first reading of issue #70 blamed.
+`checking checkpoint with [45590, 45590] against 3` — the incoming prompt shares
+**three tokens** with what the slot holds, because two different conversations
+share one slot. Discarding every checkpoint is correct
+(`server-context.cpp:3329-3355`). The conversation that could have been reused
+was in the prompt cache and had been evicted one line earlier.
+
+**What is now settled and what is not.** The served profiles pass
+**`--cache-ram 24576`** from 2026-09-02. **That value is UNPAIRED** — it rests on
+one live session plus a simulation, and the next session is its read-out: if
+`making room for prompt cache entry` or `exceeds cache size limit` return, 24576
+was not enough. Pairing it means re-running `run_cram_swap.py` at 200,704, which
+has not been done.
+
+**16384 was served first, for four hours, on a reason that was itself wrong.** It
+was chosen over 24576 because "the host commits 34.35 GB of 47.7, so a bigger cap
+trades a re-prefill for paging". Both halves fail. **`--cache-ram` is a cap, not
+a reservation** — `alloc()` resizes only to the state being stored, so the real
+cost is the difference the cache holds, about 4–6 GB against 16.5 GB of free
+commit. And **the commit limit is not fixed**: `AutomaticManagedPagefile` is True
+on a 932 GB WD_BLACK SN850X, measured here at **1,809 MB/s write and 5,332 MB/s
+read**, so a 7 GiB entry faulted back costs about **1.3 s** against the 200–250 s
+re-prefill it replaces. The server already runs mostly paged — **34.5 GB private
+against a 4.5 GB working set** — so "it would page" described the status quo, not
+a new risk. Simulated recovery is **43 of 52** forced re-prefills at 24576
+against **35 of 52** at 16384.
+
+**And never `-1`.** `server-task.h:613` maps a negative to `limit_size = 0`, and
+`update()` gates its dynamic token raise on `limit_size > 0`, so `-1` pins the cap
+at `n_ctx` = 200,704 tokens against two live conversations of 213k — **13 of 52**
+in the same simulation, worse than half of 16384.
+
+**This is the `GGML_CUDA_ALLREDUCE` failure a second time** — a real instrument
+pointed at a depth where the effect does not exist. Six of the seven questions
+that screen got right did not make it a filter, and neither does one 343× win here.
+
+**Guarded by** `scripts/audit-stale-claims.py`, rule `cache-ram-is-not-throughput`,
+and `bench/tests/test_prompt_cache_budget.py`.
+
+---
+
+## 47. Every EXL3 warm-round decode figure was overstated by ~3–5 % — the harness subtracted a prefill the generator had already excluded
+
+**Published 2026-09-03** in `docs/results/10-other-engines.md`, the ExLlama3 row
+of the open-work ledger, `docs/researchs/exllama3-platform-2026-09-03.md` and
+issue #71: *"34–39 tok/s at 144,022"*, *"`-cq 4` … 33.4–34.3"*, *"`-ndt 3` …
+36.4–39.4"*, *"~80–85 % of llama.cpp's decode"*.
+
+**Where it came from.** `exllama3-test-decode.py` computed decode seconds as
+`time_generate - time_prefill`, on the assumption that the fork's `time_generate`
+spans the whole job. It does not: `exllamav3/generator/job.py:674-675`
+accumulates `time_prefill = first_token - first_prefill` and
+`time_generate = last_token - first_token`, two disjoint intervals. So every warm
+round (prompt cache hit, `time_prefill` ≈ 0.75 s at 144K against a ~16 s decode)
+was overstated by tp/tg, about 5 % at depth and 1–2 % at 14–30K. **The cold
+round was right by accident** — there `time_generate` came back 0 and the harness
+fell back to wall minus prefill, which is the correct interval.
+
+**Contradicted the same day by the fault's own extreme case.** Arm `gs12_b`
+(`-gs 12,15.5`, rows at 14:38) re-prefilled 9.1 s of its warm prompt and the
+harness printed **95.93 tok/s** for 508 tokens that `time_generate` said took
+14.4 s — 35 tok/s. A believable 36 would have passed; 96 did not.
+
+**What changed.** `decode_seconds()` in the harness now returns `time_generate`
+directly, with the wall fallback only when the generator reports zero
+(`qwen38-tuning/bench/tests/test_exl3_decode_timing.py` guards both paths). All
+120 rows in `qwen38-tuning/results/exl3-decode.jsonl` were recomputed from their
+raw `time_*` fields (79 changed); the old value stays in each row as
+`decode_tok_s_v1_overstated`. Corrected figures: recipe **33–37** (was 34–39),
+`-cq 4` at 144K **31.8–32.6** (was 33.4–34.3), `-ndt 3` **34.5–37.2** (was
+36.4–39.4), the served-depth arm at **~75–80 %** of llama.cpp (was 80–85 %).
+**No verdict flipped** — every comparison on the page was between rows carrying
+the same bias, and the `-ndt 3` pairs remain +15 % / +17 %.
+
+**The lesson is the fourteenth instrument fault, and it is the same shape as the
+other thirteen:** the figure was plausible, it agreed with the cold round to
+within the drift, and nothing in the harness could have said otherwise. The
+fallback branch — written for a *different* fault, `time_generate == 0` — was
+the only path computing the right number, and it was labelled the untrusted one.
 
 ## What has NOT been contradicted
 

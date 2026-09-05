@@ -540,3 +540,541 @@ transfer and the absolute numbers do not.
 | Can prefill be tuned at all? | **No.** Every setting-level lever is measured and none move it | report 27 |
 
 Raw: `qwen38-tuning/results/prefill-kv-type.jsonl`.
+
+## The 2026-09-01 research sweep — five flag levers, all null or already right
+
+Issue #67. Artifact `Qwen3.8-27B-NVFP4-MTP-VERY-LOW`, `-sm tensor -ts 7429,15346`,
+`-ctk/-ctv q4_0`, `-ub 1024`, **ctx 16,384**, build 10499. Every arm rotated so it
+takes each position in the run exactly once, one boot discarded first, four
+warm-up generations before three measured. **Repeatability 0.6 %**, established by
+measuring the baseline in two independent sweeps (62.72 and 63.11, identical
+output hashes).
+
+| lever | tried | result | evidence |
+|---|---|---|---|
+| `--spec-draft-n-max` | 2 / **3** / 4 | **3 keeps it.** 57.20 / **62.72** / 60.86; 3 wins all three rounds against both. 4 drafts 4,100 and accepts 55.2 % where 3 drafts 3,489 and accepts 65.9 % | `scratchpad/sweep_nmax.json` |
+| `--spec-draft-p-min` | 0.0 / 0.7 | **Rejected.** Slower, and **it changes the emitted text** under `temperature 0, top_k 1, seed 42` | issue #67 |
+| `--spec-type` order | `draft-mtp,ngram-mod` / reversed | **Exactly nothing.** Identical draft counts (9,528 / 6,512) and identical output hashes at every rep | `scratchpad/sweep_bsampling.json` |
+| `--spec-draft-backend-sampling` | default (on) / `--no-` | **Costs nothing either way: 63.11 vs 63.18**, identical draft counts and identical hashes. The flag is `(default: enabled)`, so the served profile already had it on; turning it off only silences the warning. **That the fallback happens at all was already recorded** — [results README](README.md) line 112, from the split-mode work — this row adds only that the fallback is free | `scratchpad/sweep_bsampling_server.log` |
+| `CUDA_SCALE_LAUNCH_QUEUES` | unset / 2x / 4x | **Nothing.** Prefill 1010.69 / 1021.33 / 1010.14, and not sign-consistent. Round 0 gives 988.61 / 988.49 / 987.64 across three different environments | `scratchpad/sweep_queues.json` |
+
+**`GGML_CUDA_FA_ALL_QUANTS` is `OFF` in all four local builds and that is correct
+for us.** `ggml/src/ggml-cuda/CMakeLists.txt:119-123` still compiles
+`fattn-vec-instance-q4_0-q4_0.cu` in the off branch; our `q4_0`/`q4_0` KV is not
+one of the "additional" types the flag gates.
+
+**The verdicts above are at 16,384 and do not transfer to the served 147,456** —
+`draft-mtp` is +81 % at 16K and −71 % at 131,072 on the same artifact.
+
+## Build 10499 -> 10729, and PR #27140 — measured 2026-09-01
+
+Issue #67. Same artifact, same argv, same corpus, three binaries rotated across
+three rounds. Each binary self-identifies by commit, and the harness recorded the
+executable path and size it actually launched, because this project has already
+invalidated one build comparison where the harness named one binary and ran another.
+
+| arm | build | commit | prefill mean | decode mean |
+|---|---|---|---|---|
+| served | 10499 | `1deefcca3` + two DFlash2 commits | 954.30 | 61.53 |
+| upstream | 10729 | `458681e1d` | 943.44 | 63.12 |
+| upstream_fix | 10730 | `7e8864187` (= `458681e1d` + PR #27140) | 964.07 | 63.58 |
+
+**The newer build is +2.58 % decode, not +26 %.** The contested claim is not
+reproduced. Prefill does not move. **All three binaries emit byte-identical greedy
+text** (`6a632a00cc76`, `6b47d54a7dcc`, `855b386fdbea`).
+
+**PR #27140 is null here.** `upstream_fix` against `upstream` is the only
+one-variable comparison in the table — one file, 129 lines — and rounds 1 and 2 are
+973.58 / 977.24 against 976.72 / 972.68. Only the cold round 0 differs. The PR
+reports 74 -> 1,182 tok/s on 2x RTX 3090; **we were already at ~990 without it**,
+and the patch's own comment scopes the path it bypasses to Ampere.
+
+Upstream loads the NVFP4 artifact and drives `draft-mtp` unmodified; no arm errored.
+
+**Build note.** Upstream master will not compile here at full parallelism: nvcc's
+`cicc` died with `0xC0000005` on `fattn-mma-f16-instance-ncols1_16-ncols2_2.cu`
+with 20 jobs against 26.6 GB free RAM. `--parallel 6` completed both trees.
+
+## `--spec-draft-n-max` above 4, and the value that will not boot — 2026-09-01
+
+Issue #67, second pass. Same rig and method as the sweep above: every arm once per
+round, rotated, one boot discarded, four warm-ups, ctx 16,384, coding prompt.
+
+| arm | round 0 | round 1 | round 2 | mean | drafted | accepted |
+|---|---|---|---|---|---|---|
+| **3 (served)** | 63.91 | 63.42 | 76.26 | **67.86** | 10,467 | 6,900 (65.9 %) |
+| 8 | 53.06 | 53.32 | 64.02 | **56.80** | 19,143 | 7,104 (**37.1 %**) |
+| 6 + `p-min 0.6` | 26.59 | 26.60 | 40.71 | **31.30** | 10,362 | 6,534 (63.1 %) |
+| 16 + `p-min 0.8` | — | — | — | **does not boot** | — | — |
+
+**`--spec-draft-n-max 16` with `--spec-draft-p-min 0.8` exits during load with
+`0xC0000409`, reproducibly, in all three rounds.** Not slow — it never serves.
+**The two flags were set together, so which one refuses is not established;** one arm
+at `n16` alone would separate them.
+
+**`n-max 8` drafts 83 % more than 3 and accepts 37.1 % of it against 65.9 %.** The
+external claim behind this arm — n-max 16 + p-min 0.8 worth +15–20 % on a 5090,
+and n-max 6 + p-min 0.6 from a second operator — reproduces in neither direction here.
+
+With the 2/3/4 sweep above, the served **3** has now beaten 2, 4, 6 and 8 on this
+artifact at this depth.
+
+## `-sm tensor` with a quantized KV: the restriction was real and is gone — 2026-09-01
+
+An external sweep note listed *"`--split-mode tensor` forces FA + non-quantized KV"*
+as a constraint on this project. **It was true, and it ended at a specific commit.**
+Before **`ggml-org/llama.cpp#23792` (build b9455)**, `llama_init_from_model` refused
+outright with:
+
+```
+simultaneous use of SPLIT_MODE_TENSOR and KV cache quantization not implemented
+```
+
+Source: Unsloth Studio's own `studio/backend/core/inference/llama_cpp.py:15577-15586`,
+which keeps that string only to fail fast on an older binary and notes that *"Unsloth
+dropped its own pre-emptive gate once #23792 shipped"*. Our 10499 and their 10715 are
+both past b9455 — which is why every measurement in this file ran `-sm tensor` with
+`-ctk q4_0 -ctv q4_0` and no binary complained.
+
+**Do not confuse it with the other gate.** `fattn.cu:442` drops every **K≠V** pair when
+`GGML_CUDA_FA_ALL_QUANTS` is off, and that one is untouched by #23792 — see
+[results 03](03-memory-and-kv.md) for what it costs (prefill 29× slower) and issue #43
+for whether turning the flag on is worth a rebuild.
+
+## The served depth changes the answer — two arena runs, 2026-09-01
+
+Issue #67. Everything above in this section was screened at **ctx 16,384** on a
+short synthetic prompt. Two levers were then re-run through `bench/dflash2_arena.py`
+at **ctx 147,456**, regime `real-code-vendor`, `-ts 7819,15490 -ub 1024`, three
+rounds rotated, on the same arm the **+63.1 %** figure was measured on — and the
+shallow screen turns out to have been blind to one of them.
+
+### `GGML_CUDA_ALLREDUCE` — the default is worth +31.7 %, so do not turn it off
+
+Task #48, never run before. Raw: `results/allreduce-147456.jsonl`.
+
+| arm | rounds | spread | vs baseline |
+|---|---|---|---|
+| `internal-default` (what we serve) | 46.09 / 46.23 / 46.13 | **0.3 %** | **+31.7 % [+30.0, +33.7] RESOLVED** |
+| `allreduce-none` | 35.10 / 35.58 / 34.51 | 3.1 % | baseline |
+
+`ggml-cuda.cu:1222-1240` takes `nccl | internal | none`; NCCL is not compiled in,
+Windows defaults to `internal`. **Every row is `66+0` with 2,544–2,591 MiB free**,
+so the delta is the all-reduce and not a spill. Acceptance moves with it, 58.8
+against 51.0, and `ngram-mod` accepted length 17.54 against 20.17 — changing the
+reduction path changes which drafts survive, not only the rate.
+
+**The screening instrument could not have found this.** At 16,384 every arm of
+every sweep in this section landed within about ±1 %. Here one variable is worth
+24 % of what we have, resolved at a 0.3 % per-arm spread.
+
+### The MoE-offload family — inert on this artifact, and now measured where it counts
+
+Raw: `results/cpumoe-147456.jsonl`, twelve rows.
+
+| arm | rounds | spread | vs baseline |
+|---|---|---|---|
+| `off` | 45.82 / 45.78 / 45.52 | 0.7 % | +0.2 % [−0.2, +0.7] **inconsistent in sign** |
+| `ncmoe8` (`--n-cpu-moe 8`) | 45.73 / 45.49 / 45.57 | 0.5 % | −0.0 % [−0.4, +0.5] **inconsistent in sign** |
+| `cmoe-all` (`--cpu-moe`) | 45.53 / 45.65 / 45.63 | 0.3 % | baseline |
+| `minbatch8` (`GGML_OP_OFFLOAD_MIN_BATCH=8`) | 45.77 / 45.49 / 45.73 | 0.6 % | +0.1 % [−0.4, +0.5] **inconsistent in sign** |
+
+**`free_after` is 2,521 MiB in all twelve rows — identical to the MiB.**
+`--cpu-moe` sends *every* MoE weight to the host; VRAM does not move by one
+megabyte. Acceptance is 58.8 and the split `66+0` in all twelve as well.
+
+**Why: the artifact has no experts.** Reading the served GGUF header gives 1,202
+tensors and **zero** whose name contains `exps`, no `expert_count` key, and
+`ssm_*` on 48 blocks against attention on 17 with a dense FFN throughout —
+`block_count 65`, `full_attention_interval 4`. `--n-cpu-moe` (`common/arg.cpp:2728`)
+only pushes `ffn_*_exps` buffer-type overrides, which match nothing here, and
+`GGML_OP_OFFLOAD_MIN_BATCH` (`ggml-cuda.cu:5501`) is consulted only for weights
+already in a host buffer (`ggml-backend.cpp:959`), of which there are none.
+**Two independent lines, the header and the measurement, agree.**
+
+**And it could not have paid off even with experts.** The 5060 Ti sits on
+**PCIe gen4 ×4** ([results 09](09-hardware.md)) ≈ 7.9 GB/s. The weights are
+~14.9 GB, so one crossing per token is ~0.5 tok/s; even the eight blocks of
+`-ncmoe 8` would cap that share near 4 tok/s against the 45.7 measured here.
+Host DDR5 at 108 GB/s is not the constraint — the slot is.
+
+### What this costs the section above
+
+**The 16,384 figures in this file are a screen, not a verdict.** They are sound
+for the things that do not depend on depth — whether a profile boots, whether
+VRAM moves, whether draft counts and output hashes are identical — and those are
+what closed `n-max 16`, asymmetric KV without `FA_ALL_QUANTS`, and this family.
+Every remaining "no effect" in this section is **unmeasured at the served depth**.
+
+## `--threads` and the KV cache type at the served depth — both keep what we serve, 2026-09-01
+
+Issue #67. ctx 147,456, `real-code-vendor`, three rounds rotated, on the
+`nvfp4-final` winning arm. Raw: `results/threads-147456.jsonl`,
+`results/kv-type-147456.jsonl`.
+
+### `--threads` — lever rank 5, and it is nothing
+
+| arm | rounds | mean | vs served | acceptance |
+|---|---|---|---|---|
+| **`-t 18` (served)** | 45.4 / 44.0 / 45.8 | **45.06** | baseline | 58.8 |
+| `-t 8` | 46.1 / 43.7 / 44.1 | 44.62 | −0.97 % **inconsistent in sign** | 58.8 |
+| `-t 2` | 45.2 / 46.2 / 45.8 | 45.71 | +1.45 % **inconsistent in sign** | 58.8 |
+
+Acceptance is 58.8 in every row of all nine. Unsloth Studio serves the same
+artifact with `--threads 2`; on this machine it is not better. **Keep 18.**
+
+### KV cache type — issue #46, and the pair that needed a rebuild is the loser
+
+All three arms pin `F:\llama-buildaq`, the `GGML_CUDA_FA_ALL_QUANTS=ON` build.
+`-ctk q8_0 -ctv q4_0` does not run slowly on the default binary — it **exits
+during load**, because `fattn.cu:442` drops every K≠V pair unless the flag was
+compiled in. Pinning one arm only would have put the binary inside a KV comparison.
+
+| arm | rounds | mean | vs served | acceptance | `free_after` |
+|---|---|---|---|---|---|
+| **`q4_0`/`q4_0` (served)** | 45.7 / 46.1 / 46.3 | **46.04** | baseline | 58.5 | **2,600** |
+| `q8_0`/`q4_0` | 41.1 / 41.0 / 41.1 | 41.06 | **−10.82 %** | 51.1 | 1,880 |
+| `q8_0`/`q8_0` | 37.5 / 37.6 / 37.7 | 37.58 | **−18.39 % RESOLVED** | 44.4 | 1,158 |
+
+Every row `66+0`. The memory column is the plain cost: 720 MiB for the
+asymmetric pair and 1,442 MiB for `q8_0` both sides, at the served depth where
+headroom is the binding constraint.
+
+**The asymmetric pair was impossible on every binary this project had until a
+rebuild on 2026-09-01, and it loses.** That closes the "strictly better precision
+at the same memory" claim the external sweep carried: it is neither better here
+nor the same memory. The rebuild was still worth doing — it is what turned the
+question from unanswerable into answered.
+
+## The six shallow-screen questions, re-asked at the served depth — 2026-09-01
+
+Issue #67. Every arm is `nvfp4-final`'s winning arm with exactly one thing moved.
+ctx 147,456, `real-code-vendor`, three rounds rotated. Raw:
+`results/{spec-order,mtp-nmax,mtp-pmin,backend-sampling,launch-queues,kv-unified,builds-nvfp4}-147456.jsonl`.
+
+| question | at ctx 16,384 | **at ctx 147,456** | verdict |
+|---|---|---|---|
+| `--spec-type` order reversed | null | **+0.28 %** | null, confirmed |
+| `--spec-draft-n-max` 2 / 3 / 4 | **3 wins** (62.72 / 60.86 / 57.20) | **4 wins** — 43.91 / 46.38 / **49.09** | **REVERSED** |
+| `--spec-draft-p-min 0.7` | −55 % at 0.8, slower at 0.7 | **−25.16 %** | loses, confirmed |
+| `--no-spec-draft-backend-sampling` | null | **+0.06 %** | null, confirmed |
+| `CUDA_SCALE_LAUNCH_QUEUES` 2x / 4x | null | **+0.07 % / −0.04 %** | null, confirmed |
+| `--kv-unified` | never tested | **−0.36 %** | null — lever rank 6 closed |
+| build served / up / faq / arch | null | **−0.16 % / +0.08 % / −1.10 %** | null, confirmed |
+
+Every row of all seven sets is `66+0`.
+
+**One of the seven reversed, and it is the one that matters.** `--spec-draft-n-max`
+ranked 3 > 4 > 2 at 16,384 and ranks **4 > 3 > 2** at the served depth, with
+per-arm spreads of 0.0–0.4 % and the sign consistent in all three rounds.
+Acceptance moves the other way — 67.1 at n2, 58.8 at n3, 56.9 at n4 — so the
+deeper draft trades acceptance for throughput, and at depth the trade pays.
+
+**The other six confirming does not make the screen sound.** The screen also
+called `GGML_CUDA_ALLREDUCE` flat, and that is worth 24 % here. A screen that is
+right six times out of seven and silent about which one it missed is not a filter,
+it is a coin with good odds.
+
+---
+
+## `--cache-ram` — the default is smaller than one of our conversations, 2026-09-02
+
+**MEASURED, on a live session rather than the arena.** Source:
+`logs/serve-20260902-034815.log`, four hours of a two-agent Claude Code session
+on icon 2 — NVFP4-MTP-VERY-LOW, build 10729, ctx 200,704, `draft-mtp,ngram-mod`,
+`--spec-ngram-mod-n-max 64`. 303 completed requests.
+
+| | last 30 min | last 60 min | whole session |
+|---|---|---|---|
+| wall | 1,801 s | 3,601 s | 14,386 s |
+| busy | 1,717 s (95 %) | 3,385 s (94 %) | 10,679 s (74 %) |
+| prefill | 1,478 s / 1,033,213 tok | 2,615 s / 1,837,267 tok | 4,982 s / 3,493,992 tok |
+| decode | 239 s / 7,024 tok @ 29.4 tok/s | 770 s / 27,910 tok @ 36.2 tok/s | 5,696 s / 202,485 tok @ 35.5 tok/s |
+| forced re-prefill | 1,229 s (10 events, **10** after an eviction) | 2,341 s (18, **18**) | 4,393 s (40, **32**) |
+| **share of wall** | **68.2 %** | **65.0 %** | 30.5 % |
+
+**In the last half hour the server prefilled 147 tokens for every token it
+emitted.** The share climbs with the window rather than holding, which is why the
+session average understates it by more than a factor of two.
+
+**The cause is the prompt-cache budget, not the checkpoints.** `--cache-ram`
+defaults to **8192 MiB** (`common/common.h:632`) and no profile here ever passed
+it. At ctx 200,704 one conversation's saved state reaches **9,801 MiB**, so
+llama.cpp refuses to cache it at all — `prompt state size 9801.444 MiB exceeds
+cache size limit 8192.000 MiB, skipping`, three times in that session — and when
+it does fit, the other conversation evicts it: 31 `making room` evictions
+discarding **122,276 MiB**.
+
+The re-prefill that follows is then correct behaviour. `checking checkpoint with
+[45590, 45590] against 3` — the incoming prompt shares **three tokens** with what
+the slot holds, because the main agent is at 160k and a sub-agent at 45k on one
+slot. No checkpoint of a different conversation could have been reused
+(`server-context.cpp:3329-3355`).
+
+**The mechanism is healthy when the entry survives:** 37 prompt-cache restores
+succeeded, one recovering a 35,733-token prefix whole, and `--cache-idle-slots`
+is on by default. 220 `restored context checkpoint` also succeeded, and the
+checkpoint cap was never reached (`created context checkpoint 11 of 32`).
+
+**SERVED FROM 2026-09-02: `--cache-ram 24576`** on every non-`-Beta` profile in
+`worker-q4-dual.ps1`. `-Beta` keeps `--cache-ram 0`, which is Studio's value and
+what that arm exists to measure. Guarded by
+`bench/tests/test_prompt_cache_budget.py`.
+
+### Choosing the value, and the one that must never be passed
+
+Replaying the log's own recorded entry sizes through the same `alloc()`/`update()`
+arithmetic, counting the 52 forced re-prefills that would have found their prefix.
+**A simulation** — the prefix test is a heuristic, not the server's `f_keep`/`f_sim`
+rule:
+
+| `-cram` | recovered | evictions |
+|---|---|---|
+| 8192 (llama.cpp's default) | 0 / 52 | 84 |
+| 16384 | 35 / 52 | 82 |
+| **24576 (served)** | **43 / 52** | 80 |
+| −1, no size limit | 13 / 52 | 84 |
+
+**`-1` is a trap.** `server-task.h:613` maps a negative to `limit_size = 0`, and
+`update()` gates its dynamic token raise on `limit_size > 0` — so `-1` pins the cap
+at its constructor value, `n_ctx` = 200,704 tokens, against two live conversations
+of 167k + 46k = 213k. It evicts by tokens with unlimited RAM.
+
+**16384 shipped first and was wrong about its own cost.** It beat 24576 on "the
+host commits 34.35 GB of 47.7, so a bigger cap trades a re-prefill for paging".
+`--cache-ram` is a **cap, not a reservation** — `alloc()` resizes only to the state
+stored, so raising it costs the difference the cache really holds, ~4–6 GB against
+16.5 GB free commit. And the commit limit is not fixed: `AutomaticManagedPagefile`
+is True on a 932 GB WD_BLACK SN850X, **measured here at 1,809 MB/s write and
+5,332 MB/s read**, so a 7 GiB entry faulted back costs **~1.3 s** against 200–250 s
+of re-prefill. The server already runs mostly paged: **34.5 GB private against a
+4.5 GB working set**.
+
+**This is UNPAIRED and the next real session is the read-out.** Two log lines
+answer it without interpretation — if `making room for prompt cache entry` or
+`exceeds cache size limit` return, 24576 was not enough. If decode falls while the
+hard-fault rate climbs, the paging trade went the wrong way.
+
+### The harness for this existed and was run too shallow
+
+`bench/run_cram_swap.py` + `bench/prompt_cache_swap.py` boot once per `-cram`
+value and run A→B→A→B→A, and on 2026-08-23 measured **118.2 ms at 100 % reuse**
+against **40,596 ms at 0 %** with `-cram 0` (`results/prompt-cache-swap.jsonl`).
+It ran at `CTX = 98304` with `--chars 150000` — about 40k tokens each, whose
+state is **898–928 MiB**, a ninth of the cap. **A depth at which the default
+could not fail.** Re-running it at 200,704 is what would pair this row, and is
+open.
+
+**This is the `GGML_CUDA_ALLREDUCE` failure a second time**: not a missing
+instrument, a real one pointed somewhere the effect does not exist.
+
+---
+
+## `--ctx-checkpoints` — 32 is the default, 3 is the deepest ever used, 2026-09-02
+
+**MEASURED** on `logs/serve-20260902-034815.log`, the same four-hour two-agent
+session. `create_checkpoint` appends the newest at the end
+(`server-context.cpp:2330`) and the restore search walks the list in reverse
+(`std::find_if` over `rbegin()..rend()`, `:3324`), so counting how many entries
+each successful restore probed says how deep the list is ever needed:
+
+| the restore used | count | cumulative |
+|---|---|---|
+| the newest checkpoint | 185 | 77.1 % |
+| the second newest | 52 | 98.8 % |
+| the third newest | **3** | **100.0 %** |
+| deeper | **0** | |
+
+**240 restores, none deeper than the third.** 752 checkpoints were created at
+**151–834 MiB each, median 320**, and the highest slot ever reached is
+`created context checkpoint 11 of 32` — so 28 slots were never touched and 8 of
+the 11 that were held nothing anyone reached for.
+
+**SERVED FROM 2026-09-02: `--ctx-checkpoints 8`.** It was **4** for one commit,
+and the first boot at that value found the flaw in twenty minutes
+(`logs/serve-20260902-094554.log`). **Search depth and backwards reach are
+different needs, and the 240 restores only measured the first.** A **compact**
+rebuilds the conversation and the prefix diverges far back --
+`checking checkpoint with [174482, 174482] against 34785` -- and what is needed
+then is any checkpoint *below* the divergence, however old. One existed, at
+**32,662**, and the cap had just discarded it:
+
+```
+erasing old context checkpoint (pos_min = 32662, size = 277.964 MiB)
+```
+
+That line is the cap loop at `:2317`, not the min-spacing rule. `32662 < 34785`,
+so it would have been restored and the request would have prefilled **38,773
+tokens instead of 71,436** -- about **38 s of the 83** it cost. Six would have
+sufficed; **eight** is a third of margin, costs about 4 x 320 MiB per cached
+entry, and the cache peaked at 11,638 MiB of 24,576 on that boot. **n = 1** --
+one compact, in nineteen minutes. Safe because the cap **evicts the oldest and always admits
+the new one** (`:2317-2324`), so a smaller cap keeps the newest K — the end the
+search starts from. A cap that refused new checkpoints would freeze the set at
+its oldest members and this would be a regression instead of a cleanup.
+
+**Why it belongs beside `--cache-ram`.** `alloc()` counts checkpoints into
+`state_size_new` (`server-task.cpp:1723`), so they are what makes an entry
+overflow the cache. One entry in that log holds **116,241 tokens with 11
+checkpoints at 7,755 MiB**, of which roughly **5,150 MiB is checkpoints**. At
+four it is about 4,500.
+
+**Not zero, and the distinction is CORRECTIONS 39:** `--ctx-checkpoints 0` on
+this hybrid makes every turn re-prefill from token 0, 51.6 s at the served depth.
+Fewer is not none.
+
+**Attribution, which the first boot partly settled.** Both flags moved before
+either was measured, so the disappearance of `making room for prompt cache entry`
+could have belonged to either. **One number separates them:** the cache peaked at
+**11,638 MiB** on that boot, *with only four checkpoints per entry* — already
+above the 8,192 MiB the old default capped at. **The old cap would have evicted
+regardless of the checkpoint budget**, so the zero belongs to `--cache-ram
+24576`. `--ctx-checkpoints` moves entry size, not that verdict, and its own
+evidence is the compact above.
+
+---
+
+## Four flags closed by reading the source, 2026-09-02 — no GPU time spent
+
+Each was proposed in `docs/researchs/re-prefill-prefill-speed-2026-09-02.md` or
+considered here, and each fails on this artifact for a reason that is in the
+code rather than in a measurement.
+
+### `--cache-reuse` — impossible on this model, and images are not the reason
+
+It scans past the matching prefix for chunks of ≥ N tokens that match at a
+**different** position and moves their KV there instead of recomputing
+(`server-context.cpp:3211-3258`). Two gates disable it, and the second cannot be
+lifted:
+
+1. `:1179` — `cache_reuse is not supported by multimodal, it will be disabled`.
+   Our profile passes `-mm`. Reversible only by giving up images.
+2. `:1191` — `llama_memory_can_shift()` is **false** for this model.
+
+The second is structural. The boot log reads `rope type = 40` with
+`mrope sections = [11, 11, 10, 0]`; `40` is `GGML_ROPE_TYPE_IMROPE`
+(`ggml.h:254`), so `llama_hparams::n_pos_per_embd()` returns **4**
+(`llama-hparams.cpp:260-262`), and `llama_kv_cache::get_can_shift()` returns
+false whenever that is above 1. **A position on this model is four numbers —
+time, y, x and a spare — and shifting a chunk means adding one scalar to a
+position.** `llama_memory_hybrid::get_can_shift()` just forwards the attention
+half's answer, so the whole memory refuses.
+
+**`--context-shift` dies on the same gate** (`:1174-1177`).
+
+**And it would not have helped.** Our forced re-prefills happen at a swap between
+two conversations sharing **three** tokens; there are no ≥256-token identical
+chunks to move. The within-conversation case it does fix is already handled —
+`n_past` reaches 45,591 of 45,595.
+
+**This answers issue #42 and issue #49.** #42 asked whether `--cache-reuse`
+leaves the DeltaNet state behind; the question is moot, because the attention
+half cannot shift either. #49 asked for a restore near the edit followed by a
+tail-only prefill; that is the same shifting operation.
+
+### `--cache-ram -1` — removes one cap and freezes the other at its lowest value
+
+`server-task.h:613` maps a negative to `limit_size = 0`, and every `limit_size >
+0` guard then turns off — `alloc()` never refuses an oversize entry and never
+evicts by bytes, which is the one thing it genuinely buys. But the prompt cache
+has a **second** cap in tokens, set once from `n_ctx` (`server-context.cpp:1359`)
+and raised in proportion to the byte budget:
+
+```cpp
+// server-task.cpp:1870
+limit_tokens_cur = limit_size > 0 ? max(limit_tokens, limit_size/size_per_token)
+                                  : limit_tokens;
+```
+
+**The raise is gated on the byte budget being known**, so `-1` pins the token cap
+at 200,704 against two live conversations of 213k. `limit_tokens` has no flag of
+its own, which is why **a large finite number is the only way to lift both**.
+
+### `-np 2 --kv-unified` — the server clears the idle slot on purpose
+
+Under `--kv-unified` each slot sees the whole window
+(`llama-context.cpp:290`, `n_ctx_seq = n_ctx`), which looks like both
+conversations could stay resident. They cannot:
+
+```cpp
+// server-context.cpp:2419  [TAG_IDLE_SLOT_CLEAR]
+if (params_base.kv_unified) {
+    slot.prompt_clear();
+}
+```
+
+**Every idle slot is saved to the prompt cache and then wiped** when a new task
+starts, and `:1425` says why — under a unified cache, clearing a slot returns
+reusable room to the shared pool. So the arrangement collapses to what `-np 1`
+already does, plus a second recurrent cell: `recurrent_rs_size = max(1,
+cparams.n_seq_max)` (`llama-model.cpp:2500`) and the log reads
+`llama_memory_recurrent: size = 598.50 MiB (1 cells…)`.
+
+**Without `--kv-unified` the code does the opposite** — `:1427` *"clearing a slot
+frees no reusable room, so we only publish a RAM-cache copy of idle slots (their
+KV stays in VRAM)"* — which is what we want, but then
+`n_ctx_seq = n_ctx / n_seq_max` = 100,352 per slot and the main conversation is
+160k. Reaching 167k per slot would need `-c` above 334,000, past the model's
+`n_ctx_train` of 262,144.
+
+**Both variants fail, for opposite reasons, and there is no third.** VRAM is not
+even the binding constraint — though it is close: measured mid-session,
+`nvidia-smi` reports **408 MiB free on the 4070 SUPER** and 1,451 on the 5060 Ti,
+and this project has recorded a run dying at 336 and surviving at 488.
+
+### PR #24785 (recurrent shrink/expand) — fixes a fault we removed on 2026-08-29
+
+`ggml-org/llama.cpp#24785`, **open since 2026-06-18, not merged**,
+`reviewDecision = REVIEW_REQUIRED`, +390/−0 across 7 files including
+`llama-context.cpp` and `llama-memory-recurrent.cpp`. `grep -rn
+"recurrent_shrink\|recurrent_expand"` returns nothing at `458681e1d`, so it is
+not in build 10729. The last comment, 2026-08-16, asks the author to rebase onto
+master; there has been no reply, and our tree is 31 August.
+
+Its stated fault is *"the recurrent state gets invalidated during prompt cache
+save/load, forcing full prompt re-processing on **every turn**"* — on a machine
+forced to `--ctx-checkpoints 0` because checkpoints crash ROCm (their #20176).
+**That is CORRECTIONS 39, which this project measured and fixed on 2026-08-29 by
+removing the flag.** Our restores work: 240 checkpoint and 37 prompt-cache.
+
+The one thing it would buy us — a smaller saved state — lands in the wrong place.
+The recurrent memory is **598.5 MiB fixed, independent of prompt length**, so it
+dominates small entries (a **526-token** prompt occupies **463 MiB** of cache)
+and is at most **18.7 %** of a deep one (at 173,685 tokens the saved target state
+is 3,206.7 MiB after subtracting the draft). **The entries that overflow the cap
+are the deep ones.** `--ctx-checkpoints` reaches the same entries for free.
+
+### Coverage: which profiles the fix actually reaches — 2026-09-02
+
+`serve.ps1:171` dispatches to exactly two files —
+`$profileName = if ($Dual) { 'worker-q4-dual.ps1' } else { 'worker-q2kxl-mtp.ps1' }`
+— and all twenty launchers in `launchers/` pass `-Dual`, so nineteen of them
+reach the first and the single-card path reaches the second.
+
+**`worker-q2kxl-mtp.ps1` named neither flag** and had served llama.cpp's 8192 MiB
+and 32 since it was written. It carried a comment asserting that was correct:
+
+> `-cram` is NOT set: its 8192 MiB default is worth 343x on task switching …
+> `--ctx-checkpoints` is NOT set: the default 32 … is right.
+
+The 343× is real (`results/prompt-cache-swap.jsonl`) and "never 0" still stands.
+**What was wrong is inferring the right VALUE from a default that beats zero** —
+that run used two 44K conversations whose state is 898–928 MiB, a ninth of the
+cap. It now passes `--cache-ram 24576 --ctx-checkpoints 8`, **carried over rather
+than measured there**: a different artifact (UD-Q2_K_XL) at a different window
+(147,456), same architecture and same q4_0 KV, and no session recorded on it since.
+
+**The other 45 `production-*.ps1` / `serve-*.ps1` / `worker-iq2*.ps1` scripts were
+left alone.** None is referenced by any launcher, `serve.ps1` or `serve-hub.bat`,
+and all were last committed on 2026-08-21 or 08-24 — several predating the card
+change. A script nothing can launch cannot repeat the fault.
+
+**What prevents recurrence is a guard, not forty-five edits.**
+`bench/tests/test_every_profile_names_the_cache_flags.py` parses the worker list
+out of `serve.ps1` itself and fails if any dispatchable profile does not name
+both flags. It reads source rather than dry-running, so it costs no GPU probe —
+which matters, because the profile dry runs do one per call.
+
+**Still open on that profile, and deliberately not changed here:** it serves
+`--spec-ngram-mod-n-max 32` while the dual profile moved to 64 on 2026-09-01 for
++15.63 / +14.85 / +14.52 % across three arena runs.

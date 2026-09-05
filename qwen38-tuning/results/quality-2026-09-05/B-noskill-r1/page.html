@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google — Organize the World's Information</title>
+<style>
+/* ============================================================
+   GOOGLE — LANDING PAGE
+   Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid
+   Single file. No dependencies.
+   ============================================================ */
+
+:root{
+  --paper:      #F4F4F0;
+  --ink:        #111110;
+  --ink-soft:   #55554F;
+  --line:       rgba(17,17,16,.14);
+  --line-soft:  rgba(17,17,16,.07);
+  --blue:       #4285F4;
+  --red:        #EA4335;
+  --yellow:     #FBBC04;
+  --green:      #34A853;
+  --glass:      rgba(255,255,255,.55);
+  --glass-brd:  rgba(255,255,255,.75);
+  --shadow:     0 1px 2px rgba(17,17,16,.04), 0 12px 40px rgba(17,17,16,.08);
+  --radius:     18px;
+  --col:        12;
+  --gutter:     clamp(16px, 2.2vw, 28px);
+  --measure:    68ch;
+  --font: "Helvetica Neue", Helvetica, "Inter", "Segoe UI", Arial, sans-serif;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{
+  font-family:var(--font);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.5;
+  overflow-x:hidden;
+}
+
+::selection{ background:var(--blue); color:#fff; }
+
+/* ---------- Visible grid: the page's own skeleton, on purpose ---------- */
+.grid-overlay{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  display:grid;
+  grid-template-columns:repeat(var(--col), 1fr);
+  gap:var(--gutter);
+  padding:0 var(--gutter);
+}
+.grid-overlay span{
+  border-left:1px solid var(--line-soft);
+  border-right:1px solid var(--line-soft);
+}
+.grid-overlay span:first-child{ border-left:1px solid var(--line-soft); }
+.grid-overlay span:last-child{ border-right:1px solid var(--line-soft); }
+
+.wrap{
+  position:relative; z-index:1;
+  max-width:1440px; margin:0 auto;
+  padding:0 var(--gutter);
+}
+
+/* ---------- Type system (Swiss: scale, rhythm, restraint) ---------- */
+h1,h2,h3{ font-weight:600; letter-spacing:-0.02em; line-height:1.02; }
+.h-hero{ font-size:clamp(3rem, 8.5vw, 7.5rem); letter-spacing:-0.035em; }
+.h-xl  { font-size:clamp(2.2rem, 5vw, 4rem); }
+.h-lg  { font-size:clamp(1.5rem, 3vw, 2.25rem); }
+.eyebrow{
+  font-size:.72rem; font-weight:600; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--ink-soft);
+}
+.lede{
+  font-size:clamp(1.05rem, 1.6vw, 1.3rem);
+  color:var(--ink-soft); max-width:var(--measure);
+}
+.mono{
+  font-family:"SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size:.72rem; letter-spacing:.08em;
+}
+
+/* ---------- Liquid glass ---------- */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(22px) saturate(1.4);
+  backdrop-filter:blur(22px) saturate(1.4);
+  border:1px solid var(--glass-brd);
+  box-shadow:var(--shadow);
+  border-radius:var(--radius);
+}
+
+/* ---------- Nav ---------- */
+nav{
+  position:fixed; top:16px; left:50%; transform:translateX(-50%);
+  z-index:50; width:min(1440px, calc(100% - 32px));
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 22px;
+}
+.nav-brand{
+  display:flex; align-items:center; gap:10px;
+  font-weight:600; font-size:1.05rem; letter-spacing:-0.01em;
+  text-decoration:none; color:var(--ink);
+}
+.nav-dots{ display:flex; gap:4px; }
+.nav-dots i{ width:9px; height:9px; border-radius:50%; display:block; }
+.nav-dots i:nth-child(1){ background:var(--blue); }
+.nav-dots i:nth-child(2){ background:var(--red); }
+.nav-dots i:nth-child(3){ background:var(--yellow); }
+.nav-dots i:nth-child(4){ background:var(--green); }
+.nav-links{ display:flex; gap:28px; }
+.nav-links a{
+  font-size:.85rem; color:var(--ink-soft); text-decoration:none;
+  transition:color .2s;
+}
+.nav-links a:hover{ color:var(--ink); }
+.nav-cta{
+  font-size:.85rem; font-weight:600; color:#fff; text-decoration:none;
+  background:var(--ink); padding:9px 18px; border-radius:999px;
+  transition:transform .2s, background .2s;
+}
+.nav-cta:hover{ background:var(--blue); transform:translateY(-1px); }
+@media (max-width:760px){ .nav-links{ display:none; } }
+
+/* ---------- Hero ---------- */
+.hero{
+  min-height:100svh;
+  display:flex; flex-direction:column; justify-content:center;
+  padding-top:120px; padding-bottom:64px;
+  position:relative;
+}
+.hero .kicker{
+  display:flex; align-items:center; gap:14px; margin-bottom:28px;
+}
+.hero .kicker .rule{ height:1px; width:64px; background:var(--ink); }
+.hero h1{ max-width:14ch; }
+.hero h1 .accent{ color:var(--blue); }
+.hero-sub{
+  margin-top:32px; display:flex; flex-wrap:wrap; gap:40px;
+  align-items:flex-end; justify-content:space-between;
+}
+.hero-sub .lede{ flex:1 1 380px; }
+
+/* Search bar — the product, front and center */
+.search{
+  margin-top:44px; width:min(680px, 100%);
+  display:flex; align-items:center; gap:14px;
+  padding:18px 22px; border-radius:999px;
+  transition:box-shadow .25s, transform .25s;
+}
+.search:focus-within{
+  box-shadow:0 2px 4px rgba(17,17,16,.05), 0 20px 60px rgba(66,133,244,.18);
+  transform:translateY(-2px);
+}
+.search svg{ flex:none; }
+.search input{
+  flex:1; border:0; outline:0; background:transparent;
+  font-family:var(--font); font-size:1.05rem; color:var(--ink);
+}
+.search input::placeholder{ color:var(--ink-soft); opacity:.7; }
+.search .go{
+  flex:none; font-size:.85rem; font-weight:600; color:#fff;
+  background:var(--blue); border:0; border-radius:999px;
+  padding:10px 20px; cursor:pointer;
+  transition:transform .2s, background .2s;
+}
+.search .go:hover{ background:#2f6fe0; transform:translateY(-1px); }
+
+.hero-meta{
+  margin-top:28px; display:flex; gap:32px; flex-wrap:wrap;
+  color:var(--ink-soft);
+}
+.hero-meta .cell{ display:flex; flex-direction:column; gap:4px; }
+.hero-meta .num{ font-size:1.35rem; font-weight:600; color:var(--ink); letter-spacing:-0.02em; }
+
+/* ---------- Section scaffolding ---------- */
+section{ padding:clamp(72px, 10vw, 128px) 0; }
+.sec-head{
+  display:grid; grid-template-columns:repeat(12, 1fr); gap:var(--gutter);
+  margin-bottom:clamp(40px, 5vw, 64px);
+}
+.sec-head .idx{ grid-column:1 / 3; align-self:start; }
+.sec-head h2{ grid-column:1 / 9; }
+.sec-head .note{ grid-column:9 / 13; align-self:end; color:var(--ink-soft); font-size:.9rem; }
+@media (max-width:760px){
+  .sec-head .idx{ grid-column:1 / -1; margin-bottom:12px; }
+  .sec-head h2{ grid-column:1 / -1; }
+  .sec-head .note{ grid-column:1 / -1; }
+}
+
+/* ---------- Products ---------- */
+.products{
+  display:grid; grid-template-columns:repeat(12, 1fr); gap:var(--gutter);
+}
+.card{
+  padding:28px; border-radius:var(--radius);
+  display:flex; flex-direction:column; gap:14px;
+  min-height:280px;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1), box-shadow .3s;
+}
+.card:hover{ transform:translateY(-6px); box-shadow:0 2px 4px rgba(17,17,16,.05), 0 24px 64px rgba(17,17,16,.12); }
+.card .tag{
+  align-self:flex-start; font-size:.68rem; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase;
+  padding:5px 12px; border-radius:999px;
+  background:rgba(17,17,16,.06); color:var(--ink-soft);
+}
+.card h3{ font-size:1.45rem; }
+.card p{ font-size:.95rem; color:var(--ink-soft); flex:1; }
+.card .link{
+  font-size:.85rem; font-weight:600; color:var(--ink);
+  text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+}
+.card .link .arr{ transition:transform .25s; }
+.card .link:hover .arr{ transform:translateX(5px); }
+.card .link:hover{ color:var(--blue); }
+
+.c-search { grid-column:1 / 6;  grid-row:1 / 3; }
+.c-maps   { grid-column:6 / 10; }
+.c-gemini { grid-column:10 / 13; }
+.c-cloud  { grid-column:6 / 10; }
+.c-android{ grid-column:10 / 13; }
+.c-work   { grid-column:1 / 6; }
+@media (max-width:900px){
+  .c-search,.c-maps,.c-gemini,.c-cloud,.c-android,.c-work{
+    grid-column:1 / -1; grid-row:auto; min-height:220px;
+  }
+}
+.c-search .swatch{
+  height:8px; border-radius:4px; margin-top:auto;
+  background:linear-gradient(90deg, var(--blue) 0 25%, var(--red) 25% 50%, var(--yellow) 50% 75%, var(--green) 75% 100%);
+}
+
+/* ---------- Stats band ---------- */
+.stats{
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  padding:clamp(48px, 6vw, 80px) 0;
+}
+.stats-grid{
+  display:grid; grid-template-columns:repeat(4, 1fr); gap:var(--gutter);
+}
+.stat{ display:flex; flex-direction:column; gap:8px; }
+.stat .num{
+  font-size:clamp(2.2rem, 4.5vw, 3.6rem); font-weight:600;
+  letter-spacing:-0.03em; line-height:1;
+}
+.stat .num .u{ font-size:.5em; color:var(--ink-soft); }
+.stat .lbl{ font-size:.85rem; color:var(--ink-soft); }
+.stat .bar{ height:3px; background:var(--line-soft); border-radius:2px; overflow:hidden; margin-top:6px; }
+.stat .bar i{ display:block; height:100%; background:var(--ink); border-radius:2px; }
+@media (max-width:760px){ .stats-grid{ grid-template-columns:repeat(2, 1fr); row-gap:40px; } }
+
+/* ---------- Principles ---------- */
+.principles{ display:grid; grid-template-columns:repeat(12, 1fr); gap:var(--gutter); }
+.principle{
+  grid-column:span 4;
+  display:flex; flex-direction:column; gap:16px;
+  padding:28px; border-radius:var(--radius);
+}
+.principle .n{
+  font-size:2.6rem; font-weight:600; letter-spacing:-0.03em; line-height:1;
+  color:transparent; -webkit-text-stroke:1.2px var(--ink);
+}
+.principle h3{ font-size:1.2rem; }
+.principle p{ font-size:.92rem; color:var(--ink-soft); }
+@media (max-width:900px){ .principle{ grid-column:span 12; } }
+
+/* ---------- CTA ---------- */
+.cta-band{ padding-bottom:clamp(96px, 12vw, 160px); }
+.cta{
+  padding:clamp(40px, 6vw, 72px);
+  display:grid; grid-template-columns:repeat(12, 1fr); gap:var(--gutter);
+  align-items:center;
+}
+.cta h2{ grid-column:1 / 8; }
+.cta .actions{ grid-column:8 / 13; display:flex; gap:14px; flex-wrap:wrap; }
+.btn{
+  font-size:.95rem; font-weight:600; text-decoration:none;
+  padding:14px 28px; border-radius:999px;
+  transition:transform .2s, box-shadow .2s, background .2s;
+}
+.btn:hover{ transform:translateY(-2px); }
+.btn-dark{ background:var(--ink); color:#fff; }
+.btn-dark:hover{ background:var(--blue); box-shadow:0 12px 32px rgba(66,133,244,.3); }
+.btn-ghost{
+  color:var(--ink);
+  background:rgba(255,255,255,.4);
+  border:1px solid var(--line);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+}
+.btn-ghost:hover{ border-color:var(--ink); }
+@media (max-width:760px){
+  .cta h2{ grid-column:1 / -1; margin-bottom:8px; }
+  .cta .actions{ grid-column:1 / -1; }
+}
+
+/* ---------- Footer ---------- */
+footer{
+  border-top:1px solid var(--line);
+  padding:40px 0 48px;
+}
+.foot{
+  display:flex; flex-wrap:wrap; gap:24px;
+  align-items:center; justify-content:space-between;
+  color:var(--ink-soft); font-size:.82rem;
+}
+.foot .cols{ display:flex; gap:32px; flex-wrap:wrap; }
+.foot a{ color:var(--ink-soft); text-decoration:none; }
+.foot a:hover{ color:var(--ink); }
+
+/* ---------- Ambient color field (keeps the glass something to blur) ---------- */
+.field{
+  position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+}
+.field i{
+  position:absolute; border-radius:50%;
+  filter:blur(90px); opacity:.5;
+  animation:drift 26s ease-in-out infinite alternate;
+}
+.field i:nth-child(1){ width:44vw; height:44vw; background:var(--blue);   top:-14vw; right:-10vw; }
+.field i:nth-child(2){ width:36vw; height:36vw; background:var(--yellow); bottom:-12vw; left:-8vw; animation-delay:-8s; }
+.field i:nth-child(3){ width:30vw; height:30vw; background:var(--green);  top:38%; left:34%; opacity:.32; animation-delay:-16s; }
+@keyframes drift{
+  from{ transform:translate(0,0) scale(1); }
+  to  { transform:translate(4vw,-3vw) scale(1.12); }
+}
+@media (prefers-reduced-motion:reduce){
+  .field i{ animation:none; }
+  html{ scroll-behavior:auto; }
+}
+
+/* ---------- Reveal ---------- */
+.reveal{ opacity:0; transform:translateY(22px); transition:opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1); }
+.reveal.in{ opacity:1; transform:none; }
+@media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; transition:none; } }
+</style>
+</head>
+<body>
+
+<!-- ambient color field, behind everything, so the glass has something to refract -->
+<div class="field" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<!-- the visible grid: 12 columns, deliberately on show -->
+<div class="grid-overlay" aria-hidden="true">
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+</div>
+
+<nav class="glass">
+  <a class="nav-brand" href="#top">
+    <span class="nav-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    Google
+  </a>
+  <div class="nav-links">
+    <a href="#products">Products</a>
+    <a href="#scale">Scale</a>
+    <a href="#principles">Principles</a>
+  </div>
+  <a class="nav-cta" href="#cta">Get started</a>
+</nav>
+
+<main class="wrap" id="top">
+
+  <!-- ================= HERO ================= -->
+  <header class="hero">
+    <div class="kicker reveal">
+      <span class="rule" aria-hidden="true"></span>
+      <span class="eyebrow">Est. 1998 · Mountain View, CA</span>
+    </div>
+
+    <h1 class="h-hero reveal">Organize the<br>world's <span class="accent">information.</span></h1>
+
+    <div class="hero-sub">
+      <p class="lede reveal">
+        A search engine, a map of the planet, a model that reasons —
+        and the infrastructure underneath all of it. Built to be useful,
+        measured in seconds, and open to everyone.
+      </p>
+    </div>
+
+    <form class="search glass reveal" role="search" onsubmit="return false;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#55554F" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+      </svg>
+      <input type="text" placeholder="Search Google or type a URL" aria-label="Search">
+      <button class="go" type="submit">Search</button>
+    </form>
+
+    <div class="hero-meta reveal">
+      <div class="cell"><span class="num">100&nbsp;B+</span><span class="mono">SEARCHES / DAY</span></div>
+      <div class="cell"><span class="num">99.99%</span><span class="mono">UPTIME, MEASURED</span></div>
+      <div class="cell"><span class="num">~200&nbsp;ms</span><span class="mono">MEDIAN RESPONSE</span></div>
+    </div>
+  </header>
+
+  <!-- ================= PRODUCTS ================= -->
+  <section id="products">
+    <div class="sec-head">
+      <span class="idx mono">01 — Products</span>
+      <h2 class="h-xl reveal">One company,<br>many surfaces.</h2>
+      <p class="note reveal">Each product is a different answer to the same question: how do you make information useful, right when you need it?</p>
+    </div>
+
+    <div class="products">
+      <article class="card glass c-search reveal">
+        <span class="tag">Search</span>
+        <h3>Search</h3>
+        <p>The original. Indexes the web, ranks it in milliseconds, and now answers with AI Overview when a paragraph is worth more than a list of links.</p>
+        <a class="link" href="#">Search Google <span class="arr">→</span></a>
+        <div class="swatch" aria-hidden="true"></div>
+      </article>
+
+      <article class="card glass c-maps reveal">
+        <span class="tag">Maps</span>
+        <h3>Maps</h3>
+        <p>The planet, rendered live — streets, transit, terrain, and traffic, from satellite to subway.</p>
+        <a class="link" href="#">Open Maps <span class="arr">→</span></a>
+      </article>
+
+      <article class="card glass c-gemini reveal">
+        <span class="tag">AI</span>
+        <h3>Gemini</h3>
+        <p>Google's frontier model family, woven into Search, Android, and Workspace.</p>
+        <a class="link" href="#">Try Gemini <span class="arr">→</span></a>
+      </article>
+
+      <article class="card glass c-cloud reveal">
+        <span class="tag">Infrastructure</span>
+        <h3>Cloud</h3>
+        <p>Compute, storage, and data at planetary scale — the same systems that run Search, running your workloads.</p>
+        <a class="link" href="#">Explore Cloud <span class="arr">→</span></a>
+      </article>
+
+      <article class="card glass c-android reveal">
+        <span class="tag">Devices</span>
+        <h3>Android</h3>
+        <p>The operating system on more than two billion phones, and the assistant on all of them.</p>
+        <a class="link" href="#">About Android <span class="arr">→</span></a>
+      </article>
+
+      <article class="card glass c-work reveal">
+        <span class="tag">Workspace</span>
+        <h3>Docs · Sheets · Drive</h3>
+        <p>Documents, spreadsheets, and storage that sync everywhere and collaborate in real time.</p>
+        <a class="link" href="#">Sign in <span class="arr">→</span></a>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= SCALE ================= -->
+  <section id="scale" class="stats">
+    <div class="sec-head">
+      <span class="idx mono">02 — Scale</span>
+      <h2 class="h-xl reveal">Numbers that<br>describe a planet.</h2>
+    </div>
+    <div class="stats-grid">
+      <div class="stat reveal">
+        <span class="num">100<span class="u">B+</span></span>
+        <span class="lbl">Searches processed every day</span>
+        <span class="bar"><i style="width:100%"></i></span>
+      </div>
+      <div class="stat reveal">
+        <span class="num">5<span class="u">B+</span></span>
+        <span class="lbl">Map searches every day</span>
+        <span class="bar"><i style="width:50%"></i></span>
+      </div>
+      <div class="stat reveal">
+        <span class="num">3.5<span class="u">PB</span></span>
+        <span class="lbl">New data ingested daily</span>
+        <span class="bar"><i style="width:35%"></i></span>
+      </div>
+      <div class="stat reveal">
+        <span class="num">200<span class="u">ms</span></span>
+        <span class="lbl">Median search response time</span>
+        <span class="bar"><i style="width:20%"></i></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PRINCIPLES ================= -->
+  <section id="principles">
+    <div class="sec-head">
+      <span class="idx mono">03 — Principles</span>
+      <h2 class="h-xl reveal">How the work<br>gets done.</h2>
+      <p class="note reveal">The 1998 ten principles, distilled to the three that still hold.</p>
+    </div>
+    <div class="principles">
+      <article class="principle glass reveal">
+        <span class="n" aria-hidden="true">01</span>
+        <h3>Start with the user</h3>
+        <p>Everything else follows. If it doesn't make the user's day measurably better, it doesn't ship.</p>
+      </article>
+      <article class="principle glass reveal">
+        <span class="n" aria-hidden="true">02</span>
+        <h3>Fast is a feature</h3>
+        <p>Latency is a product decision. Half a second of saved time, multiplied by a hundred billion queries, is a decade of human life.</p>
+      </article>
+      <article class="principle glass reveal">
+        <span class="n" aria-hidden="true">03</span>
+        <h3>Answerable questions</h3>
+        <p>When in doubt, measure. Every claim on this page names the thing it came from — or says it's a hypothesis.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= CTA ================= -->
+  <section id="cta" class="cta-band">
+    <div class="cta glass reveal">
+      <h2 class="h-xl">Ready when you are.</h2>
+      <div class="actions">
+        <a class="btn btn-dark" href="#">Sign in</a>
+        <a class="btn btn-ghost" href="#">Explore products</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>© 2026 · A design study, not an official page.</span>
+    <div class="cols">
+      <a href="#products">Products</a>
+      <a href="#scale">Scale</a>
+      <a href="#principles">Principles</a>
+      <a href="#top">Back to top ↑</a>
+    </div>
+    <span class="mono">EDITORIAL × SWISS × LIQUID GLASS × VISIBLE GRID</span>
+  </div>
+</footer>
+
+<script>
+/* Scroll reveal — respects prefers-reduced-motion via CSS above */
+const io = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach((el, i) => {
+  el.style.transitionDelay = (i % 4) * 70 + 'ms';
+  io.observe(el);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,4 @@
+{"ts": "2026-09-05T07:21:28.408615+00:00", "status": 200, "stream": true, "prompt_tokens": 835, "output_tokens": 489, "cached_tokens": 0, "wall_ms": 16129.73599997349, "error": null, "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5"}
+{"ts": "2026-09-05T07:25:18.710591+00:00", "status": 200, "stream": true, "prompt_tokens": 26595, "output_tokens": 10964, "cached_tokens": 0, "wall_ms": 245486.070199986, "error": null, "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5"}
+{"ts": "2026-09-05T07:26:25.868285+00:00", "status": 200, "stream": true, "prompt_tokens": 35697, "output_tokens": 842, "cached_tokens": 0, "wall_ms": 312131.6411999869, "error": null, "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5"}
+{"ts": "2026-09-05T07:27:00.024914+00:00", "status": 200, "stream": true, "prompt_tokens": 37674, "output_tokens": 629, "cached_tokens": 26368, "wall_ms": 101210.96190001117, "error": null, "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5"}

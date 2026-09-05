@@ -30,6 +30,12 @@ SCANNED_SUFFIXES = (".md", ".ps1", ".sh")
 SKIP_DIRS = (".git", "node_modules", "__pycache__", ".cache", ".venv", "researchs")
 
 RULES = [
+    ("exl3-decode-overstated",
+     r"34–39 tok/s at 144,022|33\.4–34\.3|36\.4–39\.4|80–85 % of llama\.cpp",
+     "EXL3 warm-round decode figures computed as time_generate - time_prefill; "
+     "the generator already excludes prefill, so every warm round was ~3-5 % high",
+     "CORRECTIONS.md 47, results 10"),
+
     ("ngram-magnitude",
      r"\+(?:94\.69|135\.89|200\.22|213\.08|330\.40|114\.64|112\.55|108\.49|120\.54)\s*%",
      "an n-gram figure measured on a prompt that is 84.5 % duplicate lines",
@@ -195,6 +201,30 @@ RULES = [
      "[+1.1, +2.1]",
      "CORRECTIONS.md 32"),
 
+    ("cache-ram-is-not-throughput",
+     # ANCHORED ON THE FLAG. The bare phrase also describes the 12 GB -> 16 GB
+     # card swap ("16 GB bought reliability, not throughput"), which is true and
+     # unrelated. A rule that fires on a correct sentence teaches the next reader
+     # to skip it.
+     r"(?:--cache-ram|-cram\b).{0,400}?reliability(?:,| at depth,?)? not throughput|"
+     r"`?--cache-ram`?[^.\n]{0,80}still the developer's open question",
+     "REFUTED 2026-09-02 (CORRECTIONS 46). --cache-ram is the largest throughput "
+     "lever measured here. Its 8192 MiB default (common/common.h:632) is smaller "
+     "than ONE of our conversations at ctx 200,704, where a saved state reaches "
+     "9,801 MiB and llama.cpp refuses to cache it -- 'exceeds cache size limit "
+     "... skipping'. A live two-agent session lost 68.2 % OF WALL in its last "
+     "half hour to re-prefilling what the prompt cache had just evicted, and "
+     "30.5 % over four hours. The served profiles pass --cache-ram 24576 from "
+     "2026-09-02; -Beta keeps 0, which is Studio's value. NEVER -1: server-task.h:613 "
+     "maps a negative to limit_size = 0 and update() gates its dynamic token raise "
+     "on limit_size > 0, so -1 pins the cap at n_ctx = 200,704 tokens against two "
+     "live conversations of 213k. The 2026-08-23 A-B-A-B-A run that found the "
+     "default already winning by 343x used CTX 98304 and ~40k-token conversations, "
+     "whose entries are 898-928 MiB -- a ninth of the cap, so it could not have "
+     "failed. THE 24576 IS UNPAIRED: the next session's log is its read-out, and "
+     "re-running run_cram_swap.py at 200,704 is open",
+     "CORRECTIONS.md 46"),
+
     ("ts-is-not-a-lever",
      r"tensor-split \*?ratio\*? is not a lever|`?-ts`? is not a lever|"
      r"hard load failure",
@@ -205,8 +235,14 @@ RULES = [
      "card left +317 MiB and produced 0.38 tok/s. And --fit being inert does "
      "NOT give a hard load failure -- it gives a SILENT SPILL to host memory "
      "that returns a working server 85x slow. The profile now computes -ts from "
-     "measured free VRAM and refuses when the budget cannot hold the weights",
-     "CORRECTIONS.md 33"),
+     "measured free VRAM and refuses when the budget cannot hold the weights. "
+     "AND, since 2026-09-01, the RATIO is a lever too on the artifact we serve "
+     "(CORRECTIONS 45): under -sm tensor on NVFP4 at ctx 147,456 it is -18.2 % "
+     "one point down and -18.9 % one point up, both RESOLVED, and one point "
+     "further voids the arm for copying the prompt. The old +1.8 % was -sm "
+     "LAYER on UD-Q4_K_XL, where both cards run the same kernel. Say which "
+     "split mode and which artifact",
+     "CORRECTIONS.md 33 and 45"),
 
     ("nvfp4-ceiling-229376",
      r"\$NVFP4_MAX_CTX = 229376|NVFP4.{0,80}ceiling.{0,40}229,?376|"
@@ -239,15 +275,26 @@ RULES = [
      r"\+?26\s*%%?\s*(decode|from the newer build|on (their|Unsloth's) build)|"
      r"(their|Unsloth's) BUILD gave \+?26|"
      r"[Tt]heir build (changed|gave|is worth) \+?26",
-     "the two binaries have NEVER been paired, so neither +26 % nor NULL is "
-     "supported. The +26 % came from one reading per side in different "
-     "boots, at a depth where the same arm with byte-identical counters "
-     "spans 48.9 % (CORRECTIONS 23). The run that appeared to refute it "
-     "measured ONE BINARY TWICE -- start() launched the module default while "
-     "every row recorded the pin (CORRECTIONS 41) -- and a null is exactly "
-     "what that produces. Say CONTESTED, and say that the pairing has not "
-     "been run",
-     "CORRECTIONS.md 40 and 41"),
+     "the pairing HAS now been run (2026-09-01, issue #67) and the answer is "
+     "+2.6 % decode and -1.1 % prefill at ctx 16,384, three binaries rotated "
+     "over three rounds. It is neither +26 % nor null. The +26 % came from one "
+     "reading per side in different boots, at a depth where the same arm with "
+     "byte-identical counters spans 48.9 % (CORRECTIONS 23); the run that "
+     "appeared to refute it measured ONE BINARY TWICE (CORRECTIONS 41). Say "
+     "+2.6 % and name its depth",
+     "CORRECTIONS.md 40, 41 and 44"),
+
+    # CORRECTIONS 44 settled this, so the phrasings that were CORRECT while it
+    # was open are now the stale ones. Without this the file would keep passing
+    # every document that still calls it contested.
+    ("their-build-is-still-contested",
+     r"(\+?26\s*%%?[^.\n]{0,60}(contested|CONTESTED|never been paired|has not been run))|"
+     r"((contested|CONTESTED)[^.\n]{0,60}\+?26\s*%%?)|"
+     r"[Nn]either side of this has ever been paired",
+     "SUPERSEDED 2026-09-01. The build pairing was run under issue #67: "
+     "+2.58 % decode, -1.14 % prefill, three binaries each self-identifying by "
+     "commit, rotated across three rounds. Do not call it contested",
+     "CORRECTIONS.md 44"),
 
     ("template-file-is-studios-to-omit",
      r"[Oo]nly the template FILE is Studio's to omit|"

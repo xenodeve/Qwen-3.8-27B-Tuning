@@ -1513,3 +1513,211 @@ measurement behind it, carried through an older sweep where they were *held
 constant* rather than chosen. What would settle it is a workload where an
 n-gram fires at all, and this project does not have one — the same blocker as
 the tier-2 question about dropping `ngram-mod` entirely.
+
+## Greedy output is NOT stable across speculative settings — measured 2026-09-01
+
+Issue #67. With `temperature 0, top_k 1, seed 42` on a fixed prompt, the reply
+text changed whenever a speculative parameter changed:
+
+| change | output hash |
+|---|---|
+| `--spec-draft-n-max` 2 vs 3 vs 4 | three different sets, no overlap |
+| `--spec-draft-p-min` 0.0 vs 0.7 | different at every rep |
+| `--spec-type` order reversed | **identical** |
+| build 10499 vs 10729 vs 10730 | **identical** |
+
+It also varies with **request index inside one boot**: reps 0, 1 and 2 of the same
+arm produce three different hashes, and that sequence reproduces exactly across
+boots and across separate sweeps.
+
+**Why this matters beyond the flags.** `qwen38-tuning/bench/sweep_runtime.py`
+clears a config as quality-neutral by comparing a greedy SHA-256 against the
+baseline — *"hash matches -> output is bit-identical; quality is provably
+unchanged"*. That method is sound for the levers it was written for (fit-target,
+threads, batch) and **cannot be used for speculative parameters**, where a hash
+difference is the expected result rather than a quality signal.
+
+Speculative decoding is supposed to be output-preserving, so the likeliest
+mechanism is that different draft lengths change the batch shape the target model
+verifies, changing floating-point reduction order and therefore the argmax at
+near-ties. **Not established** — no one has traced it.
+
+## What Unsloth Studio's history settles about DFlash2 and the tensor split — 2026-09-01
+
+Issue #67. Studio is an independent operator on this exact machine, so its logs answer
+some of our questions without a run. Read-only; `%USERPROFILE%\.unsloth` was not written to.
+
+**Studio has never run DFlash2 under a tensor split.** Cross-tabulating every
+`Starting llama-server:` line in `.unsloth/studio/logs` by split mode and spec type:
+
+| split | spec-type | launches |
+|---|---|---|
+| `--split-mode tensor` | `draft-mtp` | 36 |
+| (none = layer) | (none) | 31 |
+| `--split-mode tensor` | (none) | 21 |
+| (none = layer) | `ngram-mod` | 21 |
+| (none = layer) | **`draft-dflash`** | **12** |
+| `--split-mode tensor` | `ngram-mod,draft-mtp` | 7 |
+| (none = layer) | `draft-mtp` | 7 |
+| (none = layer) | `ngram-mod,draft-mtp` | 3 |
+| (none = layer) | `none` | 2 |
+| `--split-mode tensor` | `ngram-mod` | 1 |
+
+**All 12 DFlash2 launches are layer split.** So "Studio runs DFlash2 fine" is not
+evidence against our abort under `-sm tensor`; the combination was never asked for.
+
+**And Studio would hide it if it were.** Two latches in
+`studio/backend/core/inference/llama_cpp.py`: `_is_tensor_split_assert` (`:15596`) matches
+the **#6415 split-axis warmup assert** — the same `GGML_ASSERT(... != GGML_BACKEND_SPLIT_AXIS_0)`
+our unpatched binary dies on — and `_TENSOR_QUANT_KV_UNSUPPORTED_MARKER` (`:15583`) matches the
+pre-#23792 KV error. Both **latch and downgrade to layer split instead of retrying**, so the
+UI shows a working model and the tensor arm is dropped silently.
+
+**The downgrades actually recorded here were budget-driven**, not abort-driven — ten identical
+events: *"Tensor parallelism requested but the pooled VRAM budget cannot hold the weights, MTP
+reserve, and per-device compute buffers; falling back to layer split."*
+
+**Studio's build is now `10715` (`92cedc867`)**, not the `10679` our probe row records. The
+2026-08-30 result that their build still needs the mirror patch **has not been re-checked on 10715.**
+
+## `--spec-ngram-mod-n-max` — the served 32 is a deviation below llama.cpp's default, and it costs ~15 %
+
+Issue #67. Two independent arena runs, ctx 147,456, `real-code-vendor`, three
+rounds rotated each, on the `nvfp4-final` winning arm with **only `n-max` moving**.
+Raw: `results/ngram-window-147456.jsonl`, `results/ngram-nmax-ladder-147456.jsonl`.
+
+| `n-max` | run 1 | run 2 | mean (run 2) | vs served | acceptance |
+|---|---|---|---|---|---|
+| **32 — served** | 45.4 / 45.9 / 45.6 | 45.7 / 45.5 / 46.5 | 45.92 | baseline | **58.8** |
+| **64 — llama.cpp default** | 53.0 / 52.6 / 52.7 | 52.2 / 52.7 / 53.3 | **52.74** | **+14.85 %** (run 1: +15.63 %) | 47.0 |
+| 96 | — | 46.5 / 46.7 / 47.1 | 46.81 | +1.93 % | 42.8 |
+| 128 | — | 46.3 / 46.9 / 47.1 | 46.78 | +1.87 % | 33.7 |
+
+**`free_after` is 2,586–2,600 MiB in every row of both runs and every row is
+`66+0`.** It costs no memory and nothing spilled.
+
+**64 is a peak, not a trend.** 96 and 128 fall back to about +2 %, so the gain
+belongs to 64 specifically rather than to "more window". Acceptance falls
+monotonically — 58.8 → 47.0 → 42.8 → 33.7 — which is the trade: a wider window
+drafts longer and is accepted less, and past 64 the second effect wins.
+
+### How to read the harness label
+
+Both runs are marked *"clears this run's spread, not the applied floor"*. The
+applied floor is **13.6 %, measured at ctx 16,384 on Ada** — `NOISE_FLOOR_PCT` —
+and `CLAUDE.md` says in as many words that it must be re-derived before use at
+depth. Against that floor a 12.7–15.6 % effect does not clear.
+
+What the runs themselves say: **two independent boot series, six rounds, the same
+sign in all six**, per-arm spreads of 0.8–2.2 %, and two neighbouring rungs that
+do *not* show the effect. **The floor is the wrong yardstick here and re-deriving
+it at 147,456 is the work that would settle the label.**
+
+### Where 32 came from, and the caveat that travels with this
+
+`--help` says *"maximum number of ngram tokens ... (default: 64)"*. **Our 32 is
+a deviation below the default**, and `worker-q4-dual.ps1:1252-1264` records that
+it was never chosen:
+
+> 16/32 were "held constant" rather than chosen … -Beta carried 48/64 for one
+> afternoon and it was **REVERTED WITHOUT A VERDICT**. Both sessions that ran it
+> recorded `ngram-mod: #gen drafts = 0` on either side: the n-gram never fired
+> once on agent traffic, so the change was inert rather than better or worse.
+
+**That is the caveat.** The arena's corpus makes the drafter fire — it declines
+97–98 % of calls but it fires. **Agent traffic recorded it firing zero times.**
+So this is measured on the corpus and **its transfer to the served workload is
+unmeasured**, and would need a run where the n-gram fires at all.
+
+`n-min` is not part of this. In the same run `48/64` measured **−10.58 %**, so
+Studio's pair must not be copied whole — the gain is `n-max` alone. That matches
+[CORRECTIONS 38](../reports/CORRECTIONS.md): 48 and 64 are Studio's defaults, not
+its choices.
+
+## The two winning levers CANCEL — measured, not multiplied, 2026-09-01
+
+Issue #67. The reason `CLAUDE.md` forbids multiplying two figures measured in
+different runs, demonstrated. Raw: `results/won-levers-combo-147456.jsonl`,
+ctx 147,456, `real-code-vendor`, three rounds rotated, one arm set.
+
+| arm | rounds | mean | vs served | acceptance | `free_after` |
+|---|---|---|---|---|---|
+| **served — ngram `n-max 32`, draft `n-max 3`** | 46.3 / 46.2 / 46.4 | 46.31 | baseline | 58.8 | 2,564 |
+| **ngram `n-max 64` only** | 53.1 / 53.1 / 52.9 | **53.04** | **+14.52 %** | 47.0 | 2,562 |
+| draft `n-max 4` only | 49.0 / 49.0 / 49.0 | 48.98 | +5.76 % | 56.9 | 2,466 |
+| **both together** | 44.2 / 44.2 / 44.1 | **44.18** | **−4.61 %** | 46.4 | 2,464 |
+
+**Both together is worse than either alone AND worse than changing nothing.**
+Per-arm spreads are 0.1–0.5 %, so this is not noise. Every row `66+0`.
+
+Naively the two gains would have compounded to about +21 %. They do not add, they
+do not partly add — they **cancel into a loss**. Two flags on two different
+drafters in the same cascade, each widening its own window, and together they
+starve each other: acceptance falls to 46.4, below either arm alone.
+
+**Reproduction across the campaign**, independent boot series each time:
+
+| lever | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| ngram `n-max 64` | +15.63 % | +14.85 % | **+14.52 %** |
+| draft `n-max 4` | +5.84 % | **+5.76 %** | — |
+
+### What this says the profile should be
+
+**`--spec-ngram-mod-n-max 64`, and `--spec-draft-n-max` left at 3.** Not both.
+
+The caveat on the ngram figure is unchanged and still governs adoption: this
+corpus makes the drafter fire, and `worker-q4-dual.ps1:1252-1264` records
+`#gen drafts = 0` on agent traffic. **The gain is measured on the corpus; its
+transfer to the served workload is not.**
+
+## DSpark v2 on the NVFP4 target, and the split-mode crossover it exposed — 2026-09-04
+
+**DSpark v2** (RadixArk, SpecForge, 2026-08-14; Q8_0 GGUF `magnitudedev/Qwen3.8-27B-DSpark-GGUF`)
+was the one drafter this repo had never launched (report 16: *"drafter path
+resolved empty"*). Four attempts today, `bench/dflash2_arena.py` arm sets
+`nvfp4-dspark` and `nvfp4-dspark-layer`, each pinned by a test:
+
+| attempt | shape | outcome | file |
+|---|---|---|---|
+| 1 | served `-sm tensor`, fp16 draft KV | drafter KV 2.9 GB at 147,456 (5 full-attention layers, no sliding window — DFlash2's has 2,048) — `cudaMalloc 2016 MiB` failed | `results/nvfp4-dspark-147456.jsonl` r1 |
+| 2 | + `-ctkd q4_0 -ctvd q4_0` (810 MiB) | drafter loads, then `ggml-backend-meta.cpp:537 GGML_ASSERT(ret.axis != SPLIT_AXIS_UNKNOWN)` — the Markov head has no split axis for the tensor-split meta backend | same file, r2 |
+| 3 | + `-devd CUDA1` (drafter whole on the 5060 Ti), 65,536 | `ggml-backend.cpp:930 pre-allocated tensor (output.weight) in a buffer (Meta()) that cannot run the operation` — the drafter borrows the target's head, which lives in the split buffer; neither this GGUF nor DimInfer's carries its own `token_embd`/`output` (62 tensors each) | `results/nvfp4-dspark-65536.jsonl` |
+| 4 | **`-sm layer` for both arms** (the only shape it loads in on build 10499), rotated, 3 rounds | **runs** at 65,536; at 147,456 the server dies on the first request — `cudaMalloc 1888 MiB on device 0` for compute buffers | `results/nvfp4-dspark-layer-{65536,147456}.jsonl` |
+
+**Attempt 4 at 65,536, same boot series, rounds rotated:**
+
+| arm (`-sm layer -ub 1024`, q4_0 KV, ngram-mod nm24 beside) | decode tok/s | acceptance | draft len |
+|---|---:|---:|---:|
+| `draft-mtp` n3 (the head in the file) | **60.7 / 61.4 / 66.8** | 58.4 % | 2.57 |
+| `draft-dspark` n7 (RadixArk v2, Q8_0, q4_0 draft KV) | 50.3 / 51.4 / 55.4 | 36.9 % | 2.89 |
+
+**DSpark v2 is −17 % against the MTP head on this target** — acceptance 37 %
+against the 58 % the built-in head gets, and the VENDOR 3.4 tokens/step was
+measured on an FP8/NVFP4 target on GB300/H200 at T = 1.0 with thinking on. On
+this NVFP4 GGUF at 65K, greedy, on the arena corpus, it does not transfer.
+**Closed on both engines** (EXL3 side: results 10, pass 7, and the fork raises
+on TP targets — `researchs/exl3-drafters-under-tensor-parallel-2026-09-04.md`).
+
+### What the control arm said instead: `-sm layer` is +55 % at 65,536 and −24 % at 147,456
+
+The `draft-mtp,ngram-mod` control under `-sm layer` today, against the served
+`-sm tensor -ts 7819,15490` arm measured the same morning (`nvfp4-served`,
+`results/nvfp4-dspark-{65536,147456}.jsonl`, 08:09–08:24):
+
+| ctx | `-sm tensor` (served) | `-sm layer` | layer vs tensor |
+|---:|---:|---:|---:|
+| 65,536 | 39.0 / 39.8 / 39.5 | **60.7 / 61.4 / 66.8** | **+55 %** |
+| 147,456 | 40.1 / 40.8 / 40.2 | 30.9 / 30.9 / 30.8 | −24 % (the guide's −31 % row, reproduced) |
+
+**The tensor split is flat with depth (39 → 40); the layer split halves (61–67
+→ 31).** So the guide's *"`-sm tensor` vs `-sm layer`: tensor, −31 % for layer"*
+is a verdict **at 147,456**, and it inverts by 65,536. Same binary, same
+decoder, same KV type, same day; different boots and not rotated against each
+other, so the +55 % is a strong hypothesis, not a paired result — the paired
+sweep across depths is the open item (ledger). Why it might be real: under
+`-sm layer` the 4070 SUPER holds a contiguous block of layers and the two cards
+pipeline; under `-sm tensor` every layer all-reduces across PCIe. At 65K the
+attention work per token is small enough that the all-reduce dominates; at 147K
+the layer split's serial pipeline over a long cache dominates instead.
+Hypothesis, unmeasured.

@@ -429,6 +429,35 @@ def draft_acceptance(timings):
     return round(100.0 * accepted / drafted, 1)
 
 
+# The fork's Job reports time_generate = 0 on some cold jobs (seen 2026-09-03).
+# This is an is-it-zero test, not a domain bound: anything above it is a real
+# counter and is trusted; below it the counter did not run.
+EXL3_MIN_GENERATE_S = 0.05
+
+
+def exl3_decode_seconds(final, wall):
+    """Seconds spent decoding one ExLlama3 Job, and where the figure came from.
+
+    Instrument fault 14, 2026-09-03 (CORRECTIONS 47). The Mia fork's Job
+    accumulates time_prefill = first_token - first_prefill and
+    time_generate = last_token - first_token (exllamav3/generator/job.py:674),
+    two disjoint intervals, so decode time IS time_generate. The first harness
+    subtracted time_prefill from it and overstated every warm round by tp/tg --
+    ~5 % at 144K, and 96 tok/s on one arm whose warm prefill took 9 s.
+
+    time_generate spans new_tokens - 1 emissions (the first token lands inside
+    time_prefill); dividing the full count by it overstates by 1/N, 0.2 % at
+    512, and is left as is so the rows stay comparable.
+
+    When the generator reports ~0 (a cold job), fall back to wall minus prefill
+    and say so in the second value, so a row can be filtered on its source.
+    """
+    tp, tg = final["time_prefill"], final["time_generate"]
+    if tg > EXL3_MIN_GENERATE_S:
+        return tg, "generator"
+    return max(wall - tp, 1e-9), "wall_minus_prefill"
+
+
 def cache_reuse_pct(timings):
     """Share of the submitted prompt that llama-server served from cache.
 

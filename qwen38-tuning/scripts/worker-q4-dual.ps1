@@ -1260,8 +1260,39 @@ $nMatch = if ($Nvfp4) { '24' } else { '12' }
 # NOT THE SAME AS THE DRAFT DEPTH, which was tried and LOST. This one was never
 # exercised, and what would exercise it is a workload where an n-gram fires at
 # all -- which this project does not have.
+#
+# n-max: 32 -> 64 on 2026-09-02, issue #67. The paragraph above stays because it
+# is the honest history of the value, but it is no longer the reason for it.
+# 64 IS llama.cpp's default; 32 was ours and was never chosen. Measured at the
+# SERVED 147,456 on the real-code corpus, three independent boot series:
+# +15.63 %, +14.85 %, +14.52 %. 96 and 128 fall back to about +2 %, so 64 is a
+# peak rather than a direction. Costs nothing: free_after 2,586-2,600 MiB and
+# 66+0 in every row.
+#
+# n-min STAYS 16. Studio's 48/64 is a pair and the pair loses -- 48/64 measured
+# -10.58 % in the same run. The gain is n-max alone.
+#
+# AND THE DRAFT DEPTH STAYS 3. `--spec-draft-n-max 4` is +5.76 % by itself at
+# this depth, but with n-max 64 the two measure -4.61 % TOGETHER, worse than
+# changing neither, at 0.1-0.5 % spreads. Two windows widening in one cascade
+# starve each other. `test_the_default_serves_n_max_64_and_leaves_the_draft_depth_at_3`
+# fails if a later session adopts the second winner because the first one worked.
+#
+# REFUTED 2026-09-02 BY A REAL SESSION, issue #70. The paragraph above says the
+# n-gram never fired on agent traffic. It fires. Over 241 requests in a 2 h 6 m
+# Claude Code session with two sub-agents (logs/serve-20260902-034815.log):
+#   ngram-mod  drafts  1,035   acc_tokens  22,063   mean acc len 22.32
+#   draft-mtp  drafts 62,748   acc_tokens 104,114   mean acc len  2.66
+# It runs 1.6 % as often as MTP and returns 17.5 % of every token speculation
+# produced. What is STILL unmeasured is the SIZE of the n-max 64 gain on that
+# traffic -- the session had no n-max 32 control beside it.
+#
+# WHAT IS STILL UNMEASURED, and it is the reason this could disappoint: the gain
+# is on a corpus where the n-gram FIRES. On agent traffic this profile recorded
+# `#gen drafts = 0`. If the drafter never fires in real use, the window it draws
+# from cannot matter.
 $nMin = '16'
-$nMaxG = '32'
+$nMaxG = '64'
 # Images or not. `--no-mmproj-auto` and `-mm` together is a contradiction for
 # whoever reads the command line next, so it is one or the other.
 $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
@@ -1288,10 +1319,14 @@ $visionArg = if ($Vision) { @('-mm', $MMPROJ) } else { @('--no-mmproj-auto') }
 # The default costs 150.89 MiB per checkpoint, at most 32, no closer together
 # than 8,192 tokens -- about six at the depth we serve, in HOST RAM.
 #
-# --cache-ram 0 STAYS, because it is a different mechanism: the host store for
-# whole prompts that have been evicted, which is what carries a conversation
-# across a slot change rather than across a turn. Whether to restore its 8,192
-# MiB default is still the developer's open question.
+# --cache-ram 0 STAYS IN THE BUNDLE, because it is a different mechanism: the
+# host store for whole prompts that have been evicted, which is what carries a
+# conversation across a slot change rather than across a turn. Studio sets it and
+# -Beta measures Studio.
+#
+# THE SERVED PROFILE NOW SETS IT TOO, at 24576 rather than at llama.cpp's 8192.
+# See $cacheRamArg below. That was the developer's open question and it is
+# answered: 8192 is smaller than one of our conversations.
 # `--no-kv-unified`, NOT the absence of `--kv-unified`. MEASURED 2026-08-30 and
 # the first version of this switch was wrong.
 #
@@ -1310,6 +1345,85 @@ $betaArg = if ($Beta) {
     $(if ($NoKvUnified) { @('--no-kv-unified') } else { @('--kv-unified') })
 } else { @() }
 $threads = if ($Beta) { '2' } else { '18' }
+
+# THE PROMPT CACHE IS SMALLER THAN ONE OF OUR CONVERSATIONS, and until 2026-09-02
+# that was the largest cost this project had ever measured. `--cache-ram` was
+# never passed, so llama.cpp's 8192 MiB default was in force -- the same shape as
+# `--spec-ngram-mod-n-max 32`, a default nobody here chose.
+#
+# MEASURED on `logs/serve-20260902-034815.log`, a live two-agent Claude Code
+# session on icon 2, four hours and 303 completed requests. The LAST THIRTY
+# MINUTES of it:
+#
+#     wall     1,801 s
+#     prefill  1,478 s over 1,033,213 tokens
+#     decode     239 s ->      7,024 tokens @ 29.4 tok/s
+#     FORCED re-prefill 1,229 s = 68.2 % OF WALL, all ten after an eviction
+#
+# 147 tokens prefilled for every token emitted. Over the whole session the same
+# figure is 30.5 % of wall; the average is diluted by the first hour, when the
+# conversation was still small, and it climbs as the window fills.
+#
+# IT IS NOT THE CHECKPOINTS, and the block above is wrong about this case. The
+# log names the cause in the line before every re-prefill:
+#
+#   srv   prompt_save: - saving prompt with length 45619, total state size = 1131.811 MiB
+#   srv         alloc: - making room for prompt cache entry, removing oldest entry (size = 7028.285 MiB)
+#   slot operator (): task 70315 | new prompt, task.n_tokens = 160447
+#   slot operator (): task 70315 | checking checkpoint with [45590, 45590] against 3...
+#   slot operator (): task 70315 | forcing full prompt re-processing
+#
+# `against 3` is `pos_min_thold`: the incoming prompt shares THREE tokens with
+# what the slot holds. Main agent at 160k, sub-agent at 45k, alternating on one
+# slot -- so discarding every checkpoint is CORRECT. The conversation that could
+# have been reused was in the prompt cache and had been evicted one line earlier.
+#
+# 31 evictions discarded 122,276 MiB. Three times a conversation was refused
+# outright: `prompt state size 9801.444 MiB exceeds cache size limit 8192.000
+# MiB, skipping`. The mechanism itself is healthy -- 37 prompt-cache restores
+# succeeded in the same session, one recovering a 35,733-token prefix whole --
+# and `--cache-idle-slots` is on by default. The budget was the bug.
+# Evidence and the source reading: issue #70, comment 5502598376.
+#
+# WHY 24576. Replaying the log's own recorded entry sizes through the same
+# alloc()/update() arithmetic, counting the 52 forced re-prefills that would have
+# found their prefix:
+#
+#      8192 (llama.cpp's default)   0 / 52
+#     16384                        35 / 52
+#     24576                        43 / 52
+#        -1  == no size limit      13 / 52
+#
+# A SIMULATION, and labelled as one: the prefix test is a heuristic, not the
+# server's f_keep/f_sim rule.
+#
+# `-1` IS A TRAP and is the one value never to pass here. server-task.h:613 maps
+# a negative to `limit_size = 0`, and update() gates its dynamic token raise on
+# `limit_size > 0` -- so `-1` pins the cap at its constructor value, n_ctx =
+# 200,704 tokens, against two live conversations of 167k + 46k = 213k.
+#
+# 16384 WAS SERVED FIRST AND FOR A WRONG REASON. It was chosen over 24576 on
+# "the host commits 34.35 GB of 47.7 and a bigger cap trades a re-prefill for
+# paging". Two errors. `--cache-ram` is a CAP, NOT A RESERVATION: alloc() only
+# ever resizes to the state actually being stored, so raising it costs the
+# difference the cache really holds -- about 4-6 GB here, against 16.5 GB of free
+# commit. And the commit limit is not fixed: AutomaticManagedPagefile is True on
+# a 932 GB WD_BLACK SN850X. Measured on that drive, write 1,809 MB/s and read
+# 5,332 MB/s, so a 7 GiB entry faulted back costs ~1.3 s against the 200-250 s
+# re-prefill it replaces. The server ALREADY runs mostly paged -- 34.5 GB private
+# against a 4.5 GB working set.
+#
+# THE LOG STILL READS OUT ITS OWN VERDICT. If `exceeds cache size limit` or
+# `making room` return, 24576 was not enough and the next value is an experiment,
+# not a guess. If decode falls while hard-fault rate climbs, the paging trade
+# went the wrong way and this is one constant to revert.
+#
+# ONE FLAG, NOT TWO. `--ctx-checkpoints` would also shrink an entry and is
+# deliberately left alone: 220 `restored context checkpoint` succeeded in the
+# same session, and the cap is never the limit -- `created context checkpoint
+# 11 of 32` is the highest ever reached. Moving both would leave the next
+# session unable to say which one did it.
+$cacheRamArg = if ($Beta) { @() } else { @('--cache-ram', '24576') }
 
 # HOW THINKING IS TURNED ON, and the two profiles do it differently on purpose.
 #
@@ -1398,9 +1512,58 @@ $argv = @(
     '-t', $threads, '-b', '2048', '-ub', "$UBatch", '-lv', "$Verbosity",
     '--log-colors', $LogColors
 ) + $logFileArg + @(
-    '-ctk', 'q4_0', '-ctv', 'q4_0'
+    '-ctk', 'q4_0', '-ctv', 'q4_0',
+    # 8, not llama.cpp's 32. MEASURED on logs/serve-20260902-034815.log: of 240
+    # successful restores, 185 used the newest checkpoint, 52 the second and 3
+    # the third. NONE went deeper. 752 were created at 151-834 MiB each, median
+    # 320, and the highest slot ever reached is `created context checkpoint
+    # 11 of 32`, so 28 slots were never touched and 8 of the 11 that were held
+    # nothing anyone reached for.
+    #
+    # IT WAS 4 FOR ONE COMMIT, and the first boot at that value found the flaw in
+    # twenty minutes (logs/serve-20260902-094554.log). Search DEPTH and backwards
+    # REACH are different needs and the 240 restores only measured the first. A
+    # COMPACT rebuilds the conversation and the prefix diverges far back -- here
+    # `checking checkpoint with [174482, 174482] against 34785` -- and what is
+    # needed then is any checkpoint BELOW the divergence, however old. One
+    # existed, at 32,662, and the cap had just thrown it away:
+    #
+    #   erasing old context checkpoint (pos_min = 32662, size = 277.964 MiB)
+    #
+    # That message is the cap loop below, not the min-spacing rule. 32662 < 34785,
+    # so it would have been restored: 38,773 tokens to prefill instead of 71,436,
+    # about 38 s of the 83 that request cost. Six would have sufficed; eight is a
+    # third of margin, costs about 4 x 320 MiB per cached entry, and the cache
+    # peaked at 11,638 MiB of 24,576 on that boot. n = 1 -- one compact.
+    #
+    # This is not an arm, it is waste removal, and it is safe because the cap
+    # evicts the OLDEST and always admits the new one (server-context.cpp:2317)
+    # -- a smaller cap keeps the newest K, which is the end the restores search
+    # from (`find_if` over `rbegin()..rend()`, :3324). A cap that refused new
+    # checkpoints would freeze the set at its oldest members instead, and this
+    # change would be a regression.
+    #
+    # WHY IT MATTERS TO $cacheRamArg ABOVE: alloc() counts checkpoints into
+    # state_size_new (server-task.cpp:1723), so they are what makes an entry
+    # overflow. One entry in that log holds 116,241 tokens with 11 checkpoints
+    # at 7,755 MiB, of which about 5,150 MiB is checkpoints. At four it is
+    # about 4,500.
+    #
+    # NOT ZERO, and the distinction is the whole of CORRECTIONS 39:
+    # `--ctx-checkpoints 0` on this hybrid makes EVERY turn re-prefill from
+    # token 0, 51.6 s at the served depth. Fewer is not none.
+    '--ctx-checkpoints', '8'
 ) + $specArg + @(
-) + $ngramArg + $visionArg + $betaArg + $thinkArg + $templateArg + @(
+) + $ngramArg + $visionArg + $cacheRamArg + $betaArg + $thinkArg + @(
+    # Sampling, aligned to the launch reference (Temp 1 / Top-P 0.95 / Top-K 20 /
+    # Min-P 0 / Repeat 1.05). llama.cpp defaults are min_p 0.05 and repeat 1.0,
+    # so these two are set explicitly to match the reference exactly:
+    # --min-p 0 disables the "5% of best" filter; --repeat-penalty 1.05 raises
+    # the repetition penalty above llama.cpp's 1.0 to fight loop/wandering in
+    # long agentic output.
+    '--min-p', '0.0',
+    '--repeat-penalty', '1.05'
+) + $templateArg + @(
     '--sse-ping-interval', "$SsePingIntervalSec",
     '--host', $BindAddress, '--port', "$Port"
 )

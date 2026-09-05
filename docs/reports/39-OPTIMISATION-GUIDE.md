@@ -40,7 +40,7 @@ These cost nothing and they are the reason most of the numbers here survived.
 
 | lever | verdict | evidence |
 |---|---|---|
-| `-sm tensor` vs `-sm layer` | **tensor, −31.0 % [−32.9, −29.6] for layer** on NVFP4 with the served decoder, both `66+0` | MEASURED, `dflash2-arena.jsonl` |
+| `-sm tensor` vs `-sm layer` | **tensor, −31.0 % [−32.9, −29.6] for layer** on NVFP4 with the served decoder, both `66+0` — **at 147,456 only.** At 65,536 the same arms measured the other way on 2026-09-04: layer 60.7–66.8 against tensor 39.0–39.8 (+55 %, different boots, not yet paired — results 02, last section). Settled for the served depth; open below it | MEASURED, `dflash2-arena.jsonl`; `nvfp4-dspark-layer-65536.jsonl` |
 | `-ts` computed vs unset | **compute it.** Unset splits *evenly* (`llama-model.cpp:707`) and produced **0.38 tok/s** — an 85× silent spill | MEASURED, [`CORRECTIONS.md`](CORRECTIONS.md) §33 |
 | `-sm row` | **cannot load.** `device CUDA0 does not support split buffers`; `ggml-cuda.cu` does not export `ggml_backend_split_buffer_type` at this commit | MEASURED |
 | `--fit` under `-sm tensor` | **inert.** `llama_params_fit is not implemented for SPLIT_MODE_TENSOR`; its `abort` is the *fitting step* giving up, not the load | MEASURED |
@@ -101,10 +101,10 @@ should meet it first.
 
 | # | lever | now | try | why |
 |---|---|---|---|---|
-| 1 | `--spec-type` **order** | `draft-mtp,ngram-mod` | `ngram-mod,draft-mtp` | if order decides which is asked first, it may explain 5 drafts in 4,653 calls |
+| ~~1~~ | ~~`--spec-type` **order**~~ **SETTLED 2026-09-01 — no effect** | `draft-mtp,ngram-mod` | — | **MEASURED HERE, issue #67.** Reversed against the same argv at ctx 16,384: **identical draft counts (9,528 / 6,512) and identical output hashes at every rep**, and tok/s equal to the baseline boot that ran straight after it. The flag was confirmed present in the server log. It does not decide which drafter is asked first — [results 05](../results/05-runtime-flags.md) |
 | 2 | `--spec-ngram-mod-n-max` | 32 | 64 | **never swept here at all** |
 | 3 | `--spec-ngram-mod-n-min` | 16 | 48 | recorded as *measured, no effect* — worth one confirmation at the new n-max |
-| 4 | `--spec-draft-n-max` | 3 | 2 | 2 is the **documented default for MTP on GPU** (VENDOR); our 3 is the deviation, and acceptance per position `(0.690, 0.448, 0.284)` says it earns its place. A test we expect to win |
+| ~~4~~ | ~~`--spec-draft-n-max`~~ **SETTLED 2026-09-01 — keep 3** | 3 | — | **MEASURED HERE, issue #67.** 2 / 3 / 4 rotated over three rounds at ctx 16,384: **57.20 / 62.72 / 60.86**, and 3 wins every round against both. 4 drafts 4,100 and accepts 55.2 % where 3 drafts 3,489 and accepts 65.9 %. The vendor default of 2 and the X post's 4 both lose here. **At 16,384 only** — [results 05](../results/05-runtime-flags.md) |
 | 5 | `--threads` | 18 | 2 | everything is GPU-resident; 18 may be contention |
 | 6 | `--kv-unified` | unset | set | may be inert at `-np 1` |
 

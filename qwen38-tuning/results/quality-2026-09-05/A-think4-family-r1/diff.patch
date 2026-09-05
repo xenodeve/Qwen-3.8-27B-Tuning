@@ -1,0 +1,150 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..5fa47fe 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -1,6 +1,11 @@
+ """A tiny in-memory inventory. Quantities are whole units; a SKU is a non-empty string."""
+ import json
+ 
++# Sentinel key total() uses to cache the running sum inside _items. Null bytes make it
++# an unrealistic SKU. The cached value is a (len, total) tuple so total() can tell in
++# O(1) whether the dict's key set changed since the sum was computed.
++_TOTAL = "\x00__total__\x00"
++
+ 
+ class Store:
+     def __init__(self):
+@@ -27,14 +32,20 @@ class Store:
+         return self._items.get(sku, 0)
+ 
+     def total(self):
+-        return sum(self._items.values())
++        d = self._items
++        cached = d.get(_TOTAL)
++        if isinstance(cached, tuple) and cached[0] == len(d):
++            return cached[1]
++        t = sum(v for k, v in d.items() if k != _TOTAL)
++        d[_TOTAL] = (len(d) + (0 if _TOTAL in d else 1), t)
++        return t
+ 
+     def skus(self):
+-        return sorted(self._items)
++        return sorted(k for k in self._items if k != _TOTAL)
+ 
+     def save(self, path):
+         with open(path, "w", encoding="utf-8") as fh:
+-            json.dump(self._items, fh, sort_keys=True)
++            json.dump({k: v for k, v in self._items.items() if k != _TOTAL}, fh, sort_keys=True)
+ 
+     def load(self, path):
+         with open(path, encoding="utf-8") as fh:
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..65efb8d 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -1,3 +1,5 @@
++import time
++
+ from inventory import Store
+ 
+ 
+@@ -27,3 +29,99 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++# --- constraints from the brief -------------------------------------------------
++
++def test_items_is_plain_dict():
++    s = Store()
++    s.add("apple", 3)
++    s.total()
++    assert type(s._items) is dict
++
++
++def test_no_new_instance_attributes():
++    s = Store()
++    s.add("apple", 3)
++    s.total()
++    # total() must not introduce a new attribute on the instance (e.g. self._total)
++    assert set(s.__dict__.keys()) == {"_items"}
++
++
++def test_add_remove_load_untouched():
++    import inspect
++    from inventory import store as mod
++    src = inspect.getsource(mod.Store)
++    # the three methods keep their original bodies (no cache logic smuggled in)
++    assert "self._items[sku] = self._items.get(sku, 0) + qty" in src
++    assert "self._items[sku] = current - qty" in src
++    assert "self._items = {str(k): int(v) for k, v in data.items()}" in src
++
++
++# --- correctness of the cached total -------------------------------------------
++
++def test_total_after_load(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    assert t.total() == 5
++
++
++def test_total_after_adding_new_sku():
++    s = Store()
++    s.add("apple", 3)
++    assert s.total() == 3
++    s.add("pear", 2)  # new SKU -> key set changes -> cache invalidated
++    assert s.total() == 5
++
++
++def test_total_repeated_calls_consistent():
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    assert s.total() == 5
++    assert s.total() == 5
++    assert s.total() == 5
++
++
++def test_skus_and_save_hide_the_cache(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    s.total()  # populates the internal cache
++    assert s.skus() == ["apple", "pear"]
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    assert t.skus() == ["apple", "pear"]
++    assert t.total() == 5
++
++
++# --- O(1): repeated total() calls must not re-sum the dict ---------------------
++
++def test_total_is_o1_on_repeated_calls():
++    n = 50_000
++    s = Store()
++    build_start = time.perf_counter()
++    for i in range(n):
++        s.add(f"sku{i}", 1)
++    build_time = time.perf_counter() - build_start  # O(n) work, the baseline
++
++    s.total()  # warm up: first call computes the sum (O(n))
++
++    calls = 1000
++    t_start = time.perf_counter()
++    for _ in range(calls):
++        s.total()
++    total_time = time.perf_counter() - t_start
++
++    # If total() re-summed the n items on every call, `calls` calls would cost
++    # ~calls * n operations -- far more than building the store. An O(1) cached
++    # total makes `calls` calls far cheaper than the O(n) build.
++    assert total_time < build_time, (
++        f"{calls} total() calls took {total_time:.4f}s, not faster than the "
++        f"O(n) build ({build_time:.4f}s); total() is not O(1)"
++    )

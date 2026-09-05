@@ -1,0 +1,10 @@
+{
+ "allowed_files": [
+  "ledger/parse.py",
+  "ledger/report.py",
+  "ledger/__init__.py",
+  "tests/test_ledger.py",
+  "README.md"
+ ],
+ "note": "__init__.py allowed since 16:45: exporting top() from the package is a legitimate part of the feature (the first no-skill run did it)"
+}

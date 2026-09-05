@@ -1,0 +1,148 @@
+diff --git a/README.md b/README.md
+index 63c0cc3..b0adcaa 100644
+--- a/README.md
++++ b/README.md
+@@ -8,4 +8,20 @@ from ledger import load, monthly_totals
+ monthly_totals(load("data/sample.txt"))
+ ```
+ 
++`top(entries, n)` returns the n most expensive entries of each month, sorted
++expensive-first (ties broken by category):
++
++```python
++from ledger import load, top
++top(load("data/sample.txt"), 2)
++# {'2026-08': [
++#     {'date': '2026-08-03', 'category': 'rent', 'amount': 12000.0},
++#     {'date': '2026-08-15', 'category': 'groceries', 'amount': 1250.0},
++# ],
++#  '2026-09': [
++#     {'date': '2026-09-01', 'category': 'rent', 'amount': 12000.0},
++#     {'date': '2026-09-02', 'category': 'books', 'amount': 890.0},
++# ]}
++```
++
+ Run the tests: `python -m pytest -q`
+diff --git a/ledger/__init__.py b/ledger/__init__.py
+index 6b81679..bdd4f87 100644
+--- a/ledger/__init__.py
++++ b/ledger/__init__.py
+@@ -1,4 +1,4 @@
+ from .parse import parse_line, load
+-from .report import monthly_totals
++from .report import monthly_totals, top
+ 
+-__all__ = ["parse_line", "load", "monthly_totals"]
++__all__ = ["parse_line", "load", "monthly_totals", "top"]
+diff --git a/ledger/parse.py b/ledger/parse.py
+index b8f39e0..0959209 100644
+--- a/ledger/parse.py
++++ b/ledger/parse.py
+@@ -4,11 +4,13 @@ write them: `45.50`, `1,250.00`, `12`. Blank lines and lines starting with # are
+ 
+ def parse_amount(text):
+     text = text.strip()
++    # amounts may use thousands separators: 1,250.00 / 12,000.00
++    cleaned = text.replace(",", "")
+     try:
+-        return float(text)
++        return float(cleaned)
+     except ValueError:
+-        # unparseable amount: keep the line, count it as nothing
+-        return 0.0
++        # an amount we genuinely can't read must not silently count as zero
++        raise ValueError(f"unparseable amount {text!r}")
+ 
+ 
+ def parse_line(line):
+diff --git a/ledger/report.py b/ledger/report.py
+index b9e410e..c429b80 100644
+--- a/ledger/report.py
++++ b/ledger/report.py
+@@ -8,3 +8,16 @@ def monthly_totals(entries):
+     for e in entries:
+         totals[e["date"][:7]] += e["amount"]
+     return dict(sorted(totals.items()))
++
++
++def top(entries, n):
++    """{'YYYY-MM': [entries]} â€” the n most expensive entries of each month,
++    sorted expensive-first; ties broken by category (ascending)."""
++    by_month = defaultdict(list)
++    for e in entries:
++        by_month[e["date"][:7]].append(e)
++    result = {}
++    for month in sorted(by_month):
++        ranked = sorted(by_month[month], key=lambda e: (-e["amount"], e["category"]))
++        result[month] = ranked[:n]
++    return result
+diff --git a/tests/test_ledger.py b/tests/test_ledger.py
+index 2943ba6..782bf98 100644
+--- a/tests/test_ledger.py
++++ b/tests/test_ledger.py
+@@ -1,4 +1,5 @@
+-from ledger import parse_line, load, monthly_totals
++from ledger import parse_line, load, monthly_totals, top
++from ledger.parse import parse_amount
+ 
+ 
+ def test_parse_line_basic():
+@@ -23,3 +24,58 @@ def test_load_skips_comments_and_blanks(tmp_path):
+ def test_monthly_totals_groups_by_month():
+     entries = [parse_line("2026-08-03 | coffee | 45.50"), parse_line("2026-09-02 | books | 890")]
+     assert monthly_totals(entries) == {"2026-08": 45.5, "2026-09": 890.0}
++
++
++def test_parse_amount_handles_thousands_separators():
++    assert parse_amount("1,250.00") == 1250.0
++    assert parse_amount("12,000.00") == 12000.0
++    assert parse_amount("1,250") == 1250.0
++
++
++def test_parse_amount_rejects_unparseable():
++    for bad in ["", "abc", "12.34.56", "1,2,3.4.5"]:
++        try:
++            parse_amount(bad)
++        except ValueError:
++            continue
++        raise AssertionError(f"expected ValueError for {bad!r}")
++
++
++def test_parse_line_rejects_bad_amount():
++    try:
++        parse_line("2026-08-03 | coffee | not-a-number")
++    except ValueError:
++        return
++    assert False
++
++
++def test_monthly_totals_sample_file():
++    totals = monthly_totals(load("data/sample.txt"))
++    assert totals == {"2026-08": 13341.0, "2026-09": 12890.0}
++
++
++def test_top_returns_n_most_expensive_per_month():
++    entries = [
++        parse_line("2026-08-03 | coffee | 45.50"),
++        parse_line("2026-08-03 | rent | 12,000.00"),
++        parse_line("2026-08-15 | groceries | 1,250.00"),
++        parse_line("2026-08-20 | coffee | 45.50"),
++    ]
++    result = top(entries, 2)
++    assert [e["category"] for e in result["2026-08"]] == ["rent", "groceries"]
++    assert [e["amount"] for e in result["2026-08"]] == [12000.0, 1250.0]
++
++
++def test_top_breaks_ties_by_category():
++    entries = [
++        parse_line("2026-08-01 | zebra | 100"),
++        parse_line("2026-08-02 | apple | 100"),
++        parse_line("2026-08-03 | mango | 100"),
++    ]
++    result = top(entries, 3)
++    assert [e["category"] for e in result["2026-08"]] == ["apple", "mango", "zebra"]
++
++
++def test_top_handles_n_larger_than_month():
++    entries = [parse_line("2026-08-01 | coffee | 5")]
++    assert len(top(entries, 10)["2026-08"]) == 1

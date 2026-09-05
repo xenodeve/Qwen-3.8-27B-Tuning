@@ -41,7 +41,7 @@ speculative decoder ยิ่งเดาง่ายยิ่งเร็ว ·
 
 **ดับเบิลคลิก [`serve-hub.bat`](serve-hub.bat)** เป็น `.bat` ไฟล์เดียวที่อยู่บนสุด
 ของ repo · มันถามสองคำถาม คือจะเอา server ตัวไหน และจะเปิดออก LAN ไหม แล้วส่งต่อ
-ให้หนึ่งในสิบสี่ไฟล์ใน [`launchers/`](launchers/) · **ตัวมันเองไม่ถือ flag อะไรเลย
+ให้หนึ่งในสิบแปดไฟล์ใน [`launchers/`](launchers/) · **ตัวมันเองไม่ถือ flag อะไรเลย
 มีหน้าที่เลือกไฟล์อย่างเดียว**
 
 ทุก launcher เปิดโฟลเดอร์แล้วดับเบิลคลิกตรง ๆ ก็ได้ · แต่ละไฟล์**พกหลักฐานของ
@@ -51,7 +51,7 @@ speculative decoder ยิ่งเดาง่ายยิ่งเร็ว ·
 `Ctrl+C` หยุด ปิดหน้าต่างก็หยุด · มีโปรเซสเดียว ไม่ใช่ server ตัวหนึ่งกับตัวเฝ้า log
 อีกตัว
 
-### สิบสี่ icon
+### สิบแปด icon
 
 **เริ่มที่ตระกูล NVFP4 อันนี้คือที่โปรเจกต์แนะนำ**
 
@@ -76,6 +76,31 @@ speculative decoder ยิ่งเดาง่ายยิ่งเร็ว ·
 | [`serve-dual-nvfp4-dflash-theirmirror.bat`](launchers/serve-dual-nvfp4-dflash-theirmirror.bat) | คู่เดียวกันบน**ซอร์ส Unsloth 0.3.0** ที่ใส่ mirror patch ของเราแล้ว — เป็น `llama-server` ตัวที่สี่ในเครื่อง | boot และเสิร์ฟได้ ยังไม่จับคู่วัด |
 | [`serve-dual-nvfp4-beta.bat`](launchers/serve-dual-nvfp4-beta.bat) | เก้าค่าที่ยืมมาทั้งชุดจาก Unsloth Studio ซึ่งรันไฟล์โมเดลเดียวกันบนการ์ดคู่เดียวกัน | boot ละหนึ่งครั้งต่อฝั่ง |
 | [`serve-dual-nvfp4-clone.bat`](launchers/serve-dual-nvfp4-clone.bat) | command line ทั้งบรรทัดของ Studio เป็น baseline โดยมี**หกอย่างที่ตั้งใจไม่ลอก** ระบุไว้ในหัวไฟล์ | baseline |
+
+**engine EXL3 — server ตัวที่สอง key 15 กับ 16 ใน hub, port 8000**
+ExLlama3 (fork ของ Mia-AiLab ที่ build จากซอร์สที่นี่) เสิร์ฟ SC 4.0bpw H5 ของ
+turboderp ด้วยหัว MTP ของโมเดลเอง, KV 4-bit แบบ integer, tensor-parallel ข้ามสอง
+การ์ด ตั้งแต่ 2026-09-04 นี่คือตัวที่ใช้ประจำวันกับ Claude Code: พูด Anthropic
+Messages API ตรง ๆ (`claude-xeno-exl3` ไม่ต้องมี proxy) ถือ **262,144** token และ
+decode ได้ ~81 % ของ llama.cpp ในการจับคู่ boot เดียวกันครั้งเดียวที่วัด (47–55 tok/s
+ใน session จริง 30–70K) คุณภาพวัดไว้ใน
+[`docs/results/11-quality-bench-2026-09-05.md`](docs/results/11-quality-bench-2026-09-05.md)
+
+| | 163,840 | **262,144** ความลึกที่เสิร์ฟ |
+|---|---|---|
+| เฉพาะเครื่องนี้ | [`serve-exl3.bat`](launchers/serve-exl3.bat) | [`serve-exl3-max.bat`](launchers/serve-exl3-max.bat) |
+| เข้าถึงจากเครื่องอื่นได้ | [`serve-exl3-lan.bat`](launchers/serve-exl3-lan.bat) | [`serve-exl3-max-lan.bat`](launchers/serve-exl3-max-lan.bat) |
+
+server เป็นของเราเอง (`qwen38-tuning/serving/exl3/` คือไฟล์ของ fork บวก hook
+ที่ทำเครื่องหมายไว้) และมี guard สามตัวที่ fork ไม่มี แต่ละตัวมาจากความผิดพลาด
+ที่เกิดขึ้นจริงที่นี่: มัน **relaunch ตัวเอง** เมื่อ child ของ tensor-parallel ตาย
+(#75; หยุดโดยตั้งใจได้ทางเดียวคือ `qwen38-tuning\scripts\stop-exl3.cmd`), มัน
+**ตัด generation ที่เสื่อมเป็นการซ้ำ** (#76: รายงานภาษาไทยชิ้นหนึ่งวิ่ง 127,996
+token บนวรรณยุกต์ตัวเดียว) และมัน **ban อักษรจีน** เว้นแต่ prompt จะมีหรือเอ่ยถึง
+ภาษาจีน (#77: อักษร Han 14 ตัวหลุดใน 3 จาก 43 stream ของ bench กลางประโยคไทย
+ทุกครั้ง) `/health` รายงาน `loops_stopped` และ `cjk_chars_total` สูตรอยู่ที่เดียว
+คือ `qwen38-tuning/scripts/serve-exl3.cmd`; launcher ทั้งสี่ส่งแค่ความลึก, split
+cap และ bind address ไม่ส่งอย่างอื่น
 
 ไฟล์ `lan` แยกออกมาแทนที่จะเป็นคำถาม เพราะ `--host` คือ**การควบคุมการเข้าถึงอย่าง
 เดียวที่ server ตัวนี้มี** — ไม่มี API key และ CORS เป็น `*` · การเปิดออกควรเกิด

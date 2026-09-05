@@ -1,0 +1,12 @@
+[34m0.24.874.208[0m [32mI [0mslot print_timing: id  0 | task 1 | prompt eval time =    1298.48 ms /   788 tokens (    1.65 ms per token,   606.87 tokens per second)
+[34m0.24.874.213[0m [32mI [0mslot print_timing: id  0 | task 1 |        eval time =   10099.48 ms /   561 tokens (   18.03 ms per token,    55.45 tokens per second)
+[34m0.24.874.232[0m [32mI [0mslot print_timing: id  0 | task 1 | draft acceptance = 0.54361 (  349 accepted /   642 generated), mean len =  2.63
+[34m4.26.223.884[0m [32mI [0mslot print_timing: id  0 | task 3 | prompt eval time =   25427.26 ms / 25538 tokens (    1.00 ms per token,  1004.36 tokens per second)
+[34m4.26.223.889[0m [32mI [0mslot print_timing: id  0 | task 3 |        eval time =  215773.94 ms / 10773 tokens (   20.03 ms per token,    49.92 tokens per second)
+[34m4.26.223.915[0m [32mI [0mslot print_timing: id  0 | task 3 | draft acceptance = 0.54948 ( 6830 accepted / 12430 generated), mean len =  2.74
+[34m4.43.710.985[0m [32mI [0mslot print_timing: id  0 | task 4180 | prompt eval time =   12454.92 ms / 10869 tokens (    1.15 ms per token,   872.67 tokens per second)
+[34m4.43.710.990[0m [32mI [0mslot print_timing: id  0 | task 4180 |        eval time =    4885.67 ms /   241 tokens (   20.36 ms per token,    49.12 tokens per second)
+[34m4.43.711.012[0m [32mI [0mslot print_timing: id  0 | task 4180 | draft acceptance = 0.43669 (  169 accepted /   387 generated), mean len =  3.49
+[34m5.00.045.809[0m [32mI [0mslot print_timing: id  0 | task 4259 | prompt eval time =     814.67 ms /   356 tokens (    2.29 ms per token,   436.99 tokens per second)
+[34m5.00.045.813[0m [32mI [0mslot print_timing: id  0 | task 4259 |        eval time =   15401.43 ms /   561 tokens (   27.50 ms per token,    36.36 tokens per second)
+[34m5.00.045.830[0m [32mI [0mslot print_timing: id  0 | task 4259 | draft acceptance = 0.33931 (  284 accepted /   837 generated), mean len =  2.02

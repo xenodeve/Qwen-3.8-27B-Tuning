@@ -88,6 +88,11 @@ NVFP4_VERY_LOW = (r"C:\Users\xenod\.cache\huggingface\hub"
 # Measured 2026-08-27: its Meta buffer is 538.42 MiB against 786.35, it reaches
 # 163,840 where Q4_K_M does not, and its author's own table puts throughput
 # within a few percent of the larger file at every n_max.
+DSPARK_Q8 = (r"C:\Users\xenod\.cache\huggingface\hub"
+             r"\models--magnitudedev--Qwen3.8-27B-DSpark-GGUF"
+             r"\snapshots\27b7a55fa4893d0c95abd4ec6e0c6e8b33802e18"
+             r"\Qwen3.8-27B-DSpark-Q8_0.gguf")
+
 DFLASH_SMALL = (r"C:\Users\xenod\.cache\huggingface\hub"
                 r"\models--HermiHg--Qwen3.8-27B-DFlash2-Q2_K_S-MIX-GGUF"
                 r"\snapshots\3a802866ab98104e56d2c0b33442004b5b39ab08"
@@ -1180,6 +1185,56 @@ ARM_SETS = {
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
     ],
 
+    # The served config alone, so llama.cpp can be paired against another
+    # engine in one boot at one boot per round (issue #71, results 10).
+    # Byte-identical to nvfp4-final's "nvfp4-mtp+nm24" -- pinned by
+    # tests/test_served_arm_set_is_the_served_argv.py.
+    "nvfp4-served": [
+        ("nvfp4-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # DSpark v2 (RadixArk, SpecForge, 2026-08-14) on the served profile: the
+    # served arm and the same argv with the drafter swapped for the MTP head.
+    # Report 16 lists draft-dspark as "attempted, drafter path resolved empty,
+    # never launched"; tests/test_dspark_arm_set_pairs_the_served_config.py
+    # pins the file and the one-variable difference. Draft n-max 7 is the
+    # checkpoint's serving gamma (block_size 7).
+    "nvfp4-dspark": [
+        ("nvfp4-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-dspark", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                       "--spec-type", "draft-dspark,ngram-mod",
+                                       "-md", DSPARK_Q8, "-ngld", "99",
+                                       "--spec-draft-n-max", "7",
+                                       # no sliding window on this drafter: 2.9 GB of
+                                       # fp16 draft KV at 147,456 did not fit (08:0x)
+                                       "-ctkd", "q4_0", "-ctvd", "q4_0",
+                                       # the Markov head has no split axis for the meta
+                                       # backend (assert at ggml-backend-meta.cpp:537), so
+                                       # the drafter runs whole on the 5060 Ti
+                                       "-devd", "CUDA1"] + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The same pair under the layer split. On build 10499 the DSpark drafter
+    # cannot ride `-sm tensor` (Markov head: no split axis for the meta backend,
+    # ggml-backend-meta.cpp:537; pinned to one device it borrows the target's
+    # output.weight from a Meta buffer, ggml-backend.cpp:930). Layer split has
+    # neither problem, so this set measures whether DSpark accepts on the NVFP4
+    # target -- a mechanism question. It does not serve: layer split is -31 %.
+    # tests/test_dspark_layer_pair_shares_everything_but_the_drafter.py
+    "nvfp4-dspark-layer": [
+        ("nvfp4-mtp-layer", DUAL_LAYER + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nvfp4-dspark-layer", DUAL_LAYER + ["-m", NVFP4_VERY_LOW,
+                                             "--spec-type", "draft-dspark,ngram-mod",
+                                             "-md", DSPARK_Q8, "-ngld", "99",
+                                             "--spec-draft-n-max", "7",
+                                             "-ctkd", "q4_0", "-ctvd", "q4_0"] + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
     "nvfp4-final": [
         ("q4-ngram-base", DUAL_TENSOR + SERVED_NGRAM,
          {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
@@ -1190,6 +1245,320 @@ ARM_SETS = {
     "graph-opt": [
         ("graph-opt-off", SERVED_NGRAM, {}),
         ("graph-opt-on", SERVED_NGRAM, {"GGML_CUDA_GRAPH_OPT": "1"}),
+    ],
+
+    # `GGML_CUDA_ALLREDUCE` -- task #48, never run. Under `-sm tensor` every
+    # layer pays an all-reduce across the two cards on every token, so this is
+    # the one environment variable sitting directly on our decode path.
+    #
+    #     const char * env = getenv("GGML_CUDA_ALLREDUCE");   // ggml-cuda.cu:1222
+    #     ... "nccl" | "internal" | "none"                    // :1231-1240
+    #
+    # NCCL is not compiled into our binary -- the code warns and falls back --
+    # and Windows defaults to `internal`, so the A/B that exists here is the
+    # default against `none`, and `nccl` would only re-measure the default.
+    #
+    # The argv is `nvfp4-final`'s winning arm, reused rather than retyped: this
+    # has to be comparable with the +63.1 % row in nvfp4-final-147456.jsonl, and
+    # a first attempt measured at ctx 16,384 with a short synthetic prompt was
+    # rejected for exactly that reason. Run it the way that row was run:
+    #
+    #     python dflash2_arena.py --arms allreduce --ctx 147456 \
+    #         --regime real-code-vendor --rounds 3
+    #
+    # WHAT THIS CANNOT SHOW: nothing in argv or the boot banner echoes the
+    # variable back, so the row records the env the launcher set, not a value
+    # read from the process.
+    "allreduce": [
+        ("internal-default", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("allreduce-none", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "GGML_CUDA_ALLREDUCE": "none"}),
+    ],
+
+    # The tensor-split RATIO on an NVFP4 artifact -- a different question from
+    # the one `-ts 1,1` answered.
+    #
+    # That row (results 09, "+1.8 %, noise", and the page carries a red
+    # retraction on the sentence after it) was measured under `-sm layer` on
+    # `UD-Q4_K_XL`, where BOTH cards run the same kernel and a ratio has nothing
+    # to buy. The same page closes native FP4 as "unreachable for us" and says
+    # exactly why: *"Native FP4 needs MXFP4 or NVFP4 weights. That is an artifact
+    # swap, not a flag."*
+    #
+    # The artifact was swapped. On NVFP4, `mmq.cu:131`
+    #
+    #     const bool use_native_fp4 = blackwell_mma_available(cc) &&
+    #         (src0->type == GGML_TYPE_MXFP4 || src0->type == GGML_TYPE_NVFP4);
+    #
+    # is true on the 5060 Ti and false on the 4070 SUPER, where
+    # blackwell_mma_available() is false by construction. The cards run DIFFERENT
+    # kernels over the same tensors, and `-sm tensor` splits every layer across
+    # both -- so no layer runs the fast path alone. Tilting the budget toward the
+    # Blackwell card is the only knob that changes that balance.
+    #
+    # Three points with the total held constant, so the proportion is the single
+    # variable and the claim -- that the line slopes -- can fail. Headroom is the
+    # binding limit: at runtime the 4070 holds ~11.2 GB of 12.0 and the 5060 Ti
+    # ~14.5 GB of 16.0, so `tilt-5060` is the largest push those numbers allow.
+    # If it OOMs, that is the answer to how far this can go.
+    "ts-ratio": [
+        ("control", ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("tilt-5060", ["-sm", "tensor", "-ts", "7309,16000", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("tilt-4070", ["-sm", "tensor", "-ts", "9009,14300", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # `--threads` -- lever rank 5, never swept once. Everything is GPU-resident,
+    # so 18 may only be contention; Unsloth Studio serves the same artifact with
+    # 2. `arm_parts` already puts `-t 18` in the base argv, which is what the
+    # worker serves, so the control adds nothing and the arms override.
+    "threads": [
+        ("t18", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("t8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-t", "8"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("t2", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-t", "2"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The `ngram-mod` window -- lever rank 2, and `--spec-ngram-mod-n-max` has
+    # NEVER been swept here at any depth. Every arena run on this artifact
+    # reports the drafter declining 97-98 % of the calls it receives, so the
+    # window is worth asking about. Two steps rather than one jump: n-max alone,
+    # then Studio's 48/64 pair, so a result can be attributed to a half.
+    # CORRECTIONS 38 is why Studio's numbers are a candidate and not a
+    # recommendation -- 48 and 64 are its defaults, not its choices.
+    "ngram-window": [
+        ("ours-16-32", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-64", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("studio-48-64", DUAL_TENSOR + _nvfp4_mtp() + _ngram(48, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The two levers that WON at the served depth, separately and together.
+    #
+    #   --spec-ngram-mod-n-max 64   +14.85 % (two independent runs)
+    #   --spec-draft-n-max 4        +5.84 %
+    #
+    # They are different flags on different drafters, so they may compound, may
+    # not, or may cancel -- and CLAUDE.md forbids multiplying two figures
+    # measured in different runs. The `both` arm is the only way to know.
+    #
+    # n4 is also a VERDICT REVERSAL ACROSS DEPTH, which is why it is re-measured
+    # here rather than quoted: at ctx 16,384 the ranking was n3 > n4 > n2
+    # (62.72 / 60.86 / 57.20), and at 147,456 it is n4 > n3 > n2
+    # (49.09 / 46.38 / 43.91).
+    "won-levers-combo": [
+        ("served-32-n3", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax64-only", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("n4-only", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-n-max", "4"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("both", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64) + ["--spec-draft-n-max", "4"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # THE SHALLOW SCREEN, RE-RUN WHERE IT CAN BE SEEN.
+    #
+    # Six levers were screened at ctx 16,384 on a short synthetic prompt and
+    # reported as null or as small losses. Then GGML_CUDA_ALLREDUCE, screened the
+    # same way and equally flat, turned out to be worth 24 % at 147,456 resolved
+    # at a 0.3 % spread -- so "no effect at 16,384" is not a verdict about the
+    # served depth, it is a statement about an instrument that could not see one.
+    # Each set below re-asks one of those questions on nvfp4-final's winning arm,
+    # with the served n-match 24 / n-min 16 / n-max 32 held so the rows stay
+    # comparable with every other run in this campaign.
+
+    "spec-order": [
+        ("mtp-first", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ngram-first", DUAL_TENSOR + ["-m", NVFP4_VERY_LOW,
+                                       "--spec-type", "ngram-mod,draft-mtp",
+                                       "--spec-draft-n-max", "3"] + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # draft-mtp's own default is 2 (common.h); the served profile deviates to 3.
+    "mtp-nmax": [
+        ("n3-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("n2-default", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-n-max", "2"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("n4", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-n-max", "4"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The X post ships p-min 0.7 in a production profile. At 16,384 it was slower
+    # AND it changed the emitted text under greedy.
+    "mtp-pmin": [
+        ("pmin-0-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("pmin-0.7", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--spec-draft-p-min", "0.7"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # --spec-draft-backend-sampling is "(default: enabled)", and under -sm tensor
+    # the server logs the CPU fallback on every boot. The arm that can move is
+    # the negation.
+    "backend-sampling": [
+        ("default-on", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("explicit-off", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24)
+         + ["--no-spec-draft-backend-sampling"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    "launch-queues": [
+        ("unset", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("scale-2x", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "CUDA_SCALE_LAUNCH_QUEUES": "2x"}),
+        ("scale-4x", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "CUDA_SCALE_LAUNCH_QUEUES": "4x"}),
+    ],
+
+    # --kv-unified: lever rank 6, never tested at any depth. Studio sets it; our
+    # profile does not, and it may be inert at -np 1.
+    "kv-unified": [
+        ("off-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("on", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--kv-unified"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The build A/B on the NVFP4 arm. EVERY arm pins its binary: `arm_exe` falls
+    # back to the module EXE, and a build comparison whose arms silently share a
+    # binary is what CORRECTIONS 41 was.
+    "builds-nvfp4": [
+        ("served-10499", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, ENV_VAR: DEFAULT_EXE}),
+        ("upstream-10729", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\up\build\bin\llama-server.exe"}),
+        ("upstream-faq", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+        ("upstream-arch", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\arch\build\bin\llama-server.exe"}),
+    ],
+
+    # Confirm the +15.63 %, and find whether 64 is the peak.
+    #
+    # `ngram-window-147456.jsonl`: n-max 64 measured 52.76 against the served
+    # 32's 45.63, per-arm spreads 0.8 % and 1.2 %, every row 66+0 with free_after
+    # inside 26 MiB. The harness labelled it "clears this run's spread, not the
+    # applied floor" -- that floor is 13.6 %, measured at ctx 16,384 on Ada, and
+    # CLAUDE.md says it must be re-derived at depth. Unconfirmed until repeated.
+    #
+    # 64 IS llama.cpp's own default. `--help`: "maximum number of ngram tokens
+    # ... (default: 64)". Our 32 is a deviation BELOW it, and
+    # worker-q4-dual.ps1:1252-1264 says why -- 16/32 were "held constant rather
+    # than chosen", and a 48/64 attempt was "REVERTED WITHOUT A VERDICT" because
+    # on agent traffic the drafter recorded `#gen drafts = 0` and the change was
+    # inert either way.
+    #
+    # THAT CAVEAT TRAVELS WITH ANY RESULT HERE. This corpus makes the drafter
+    # fire; the served workload may not. The ladder measures the corpus.
+    #
+    # n-min stays at 16: studio-48-64 was -10.58 % in the same run, so carrying
+    # 48 up the ladder would fold a measured loss into every rung.
+    "ngram-nmax-ladder": [
+        ("nmax-32-served", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 32),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-64-default", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 64),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-96", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 96),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("nmax-128", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24, 128),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # KV cache type at the served depth -- issue #46, and the asymmetric arm was
+    # IMPOSSIBLE until 2026-09-01. `-ctk q8_0 -ctv q4_0` exits during load on
+    # every binary this project had, because `fattn.cu:442` drops each K != V
+    # pair unless GGML_CUDA_FA_ALL_QUANTS was compiled in; a build with it ON now
+    # exists at F:\llama-build\faq and runs the pair.
+    #
+    # ALL THREE arms pin that build. Pinning only the asymmetric one would put a
+    # second variable -- the binary -- inside a KV comparison.
+    #
+    # `arm_parts` already passes `-ctk q4_0 -ctv q4_0`, so the control adds
+    # nothing and the others override by last-wins.
+    "kv-type": [
+        ("q4-q4", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+        ("q8-q4", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-ctk", "q8_0", "-ctv", "q4_0"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+        ("q8-q8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["-ctk", "q8_0", "-ctv", "q8_0"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS,
+          ENV_VAR: r"F:\llama-build\faq\build\bin\llama-server.exe"}),
+    ],
+
+    # The step between the served ratio and the one that broke.
+    #
+    # `ts-ratio` found the slope and its edge in one run: tilt-4070 at 61.3 % is
+    # -18.2 % [-20.6, -16.5] RESOLVED, and tilt-5060 at 68.6 % was VOIDED in all
+    # three rounds -- not for memory (it loaded 66+0 with 2,286 MiB free) but by
+    # the prompt-copy guard, copied_frac [0, 0, 0.539] reproducing to the digit.
+    # Acceptance peaks at the control too: 44.2 / 58.8 / 50.9 across the three.
+    #
+    # `push` is the voided ratio carried forward unchanged. The 5060 Ti was
+    # emptied to 14 MiB of 16,311 before this run, which should NOT matter --
+    # the arm was rejected for output, not for OOM. If it scores now, that
+    # reading was wrong and the void was memory pressure after all.
+    "ts-ratio-fine": [
+        ("control", ["-sm", "tensor", "-ts", "7819,15490", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("mid", ["-sm", "tensor", "-ts", "7573,15736", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("push", ["-sm", "tensor", "-ts", "7309,16000", "-ub", "1024"]
+         + _nvfp4_mtp() + _ngram(16, 24), {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+    ],
+
+    # The MoE-offload family, at the depth that can see it.
+    #
+    # Measured twice at ctx 16,384 on a short synthetic prompt: the first pass
+    # put `GGML_OP_OFFLOAD_MIN_BATCH=8` at +8.01 %, and a second pass with the
+    # arms rotated through every position brought the same arm to +0.38 % with
+    # VRAM identical across all four to within 14 MiB. Neither is comparable
+    # with nvfp4-final-147456.jsonl, and that shallow instrument has since been
+    # shown to miss a 24 % effect the arena resolves at 0.3 % spread
+    # (allreduce-147456.jsonl). So it is re-run here, properly.
+    #
+    #   --n-cpu-moe N   common/arg.cpp:2728 -- pushes an ffn_*_exps buffer-type
+    #                   override for each of the first N blocks
+    #   --cpu-moe       common/arg.cpp:2721 -- the same for every block. Kept as
+    #                   the MAXIMUM-effect arm: if the family does anything at
+    #                   all here, this is where it shows
+    #   GGML_OP_OFFLOAD_MIN_BATCH   ggml-cuda.cu:5501, default 32. It gates
+    #                   ggml_backend_cuda_device_offload_op, which the scheduler
+    #                   consults ONLY for weights already in a host buffer
+    #                   (ggml-backend.cpp:959) -- so without one of the two
+    #                   flags above it has nothing to act on
+    #
+    # WHAT THE ARTIFACT SAYS, and what the run has to confirm or refute: reading
+    # the served GGUF's header gives 1,202 tensors and **zero** whose name
+    # contains `exps` -- 48 `ssm_*` blocks and 17 attention blocks, dense FFN
+    # throughout, no `expert_count` key. If that is right the overrides match
+    # nothing and all four arms are one configuration. The measurement decides.
+    "cpumoe": [
+        ("off", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("ncmoe8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--n-cpu-moe", "8"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("cmoe-all", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24) + ["--cpu-moe"],
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS}),
+        ("minbatch8", DUAL_TENSOR + _nvfp4_mtp() + _ngram(16, 24),
+         {"CUDA_VISIBLE_DEVICES": BOTH_CARDS, "GGML_OP_OFFLOAD_MIN_BATCH": "8"}),
     ],
 
     # `--spec-ngram-mod-n-min` -- MEASURED, NO EFFECT. Kept so nobody re-runs it.

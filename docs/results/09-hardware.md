@@ -830,3 +830,62 @@ it:**
   verdict
 
 *Raw: `logs/dflash2-hwbase-98304.log`, `bench/hardware_baseline.py`. Issue #40.*
+
+## The tensor-split RATIO on NVFP4 — a sharp peak, not a plateau, 2026-09-01
+
+Issue #67. `bench/dflash2_arena.py --arms ts-ratio,ts-ratio-fine --ctx 147456
+--regime real-code-vendor --rounds 3`. Raw: `results/ts-ratio-147456.jsonl` and
+`results/ts-ratio-fine-147456.jsonl`. Total budget held at 23,309 MiB in every
+arm, so the proportion is the only thing that moves.
+
+| `-ts` | 5060 Ti share | tg_med | vs served | acceptance | `copied_frac` |
+|---|---|---|---|---|---|
+| `9009,14300` | 61.3 % | 37.26 / 35.06 / 38.01 | **−18.2 % [−20.6, −16.5] RESOLVED** | 44.2 | [0, 0, 0] |
+| **`7819,15490`** | **66.5 % (served)** | **45.51 / 46.36 / 46.39** | baseline | **58.8** | [0, 0.006, 0.029] |
+| `7573,15736` | 67.5 % | 37.67 / 37.63 / 36.87 | **−18.9 % [−20.5, −17.2] RESOLVED** | 49.3 | [0, 0, 0.217] |
+| `7309,16000` | 68.6 % | **VOIDED, 3 of 3 rounds** | — | 50.9 | [0, 0, **0.539**] |
+
+Every row loaded `66+0`; nothing spilled.
+
+**The served ratio is a peak barely a percentage point wide.** One point either
+way costs about eighteen percent, and the two penalties are the same size in
+opposite directions — 61.3 % is −18.2 % and 67.5 % is −18.9 %.
+
+**Acceptance peaks with it**: 44.2 → **58.8** → 49.3 → 50.9. The served value is
+not only the fastest, it is where the drafts survive.
+
+**Tilting toward the Blackwell card degrades the output, monotonically.**
+`copied_frac` runs 0.029 → 0.217 → 0.539 as the 5060 Ti's share rises, and at
+68.6 % the harness refuses to score the arm at all: *"generations copy the prompt
+rather than answer it"*. It is not that the tilt buys nothing — it breaks things.
+
+**The void is about output, not memory, and that was tested rather than argued.**
+The developer emptied the 5060 Ti to **14 MiB of 16,311** between the two runs.
+The `push` arm was carried forward byte-for-byte and voided again in all three
+rounds with `copied_frac` identical to the digit, acceptance identical at 50.9,
+and `free_after` **better** than before, 2,424 against 2,286.
+
+### Why the earlier reading does not apply
+
+The `-ts 1,1` row above — *"+1.8 %, noise"* — was measured under **`-sm layer`**
+on **`UD-Q4_K_XL`**, an artifact on which both cards run the same kernel, so a
+ratio had nothing to buy. On NVFP4 they do not: at `mmq.cu:131`
+
+```c
+const bool use_native_fp4 = blackwell_mma_available(cc) &&
+    (src0->type == GGML_TYPE_MXFP4 || src0->type == GGML_TYPE_NVFP4);
+```
+
+is true on the 5060 Ti and false on the 4070 SUPER, where
+`blackwell_mma_available()` is false by construction. This page already said what
+it would take: *"Native FP4 needs MXFP4 or NVFP4 weights. That is an artifact
+swap, not a flag."* **The artifact was swapped.** See [CORRECTIONS 45](../reports/CORRECTIONS.md).
+
+### The part that should worry a reader
+
+`worker-q4-dual.ps1` computes `-ts` **at launch** from `nvidia-smi` free VRAM
+minus a reserve on the display card. The peak is under a percentage point wide
+and the 4070 SUPER's desktop load moves by hundreds of MiB between a quiet
+session and a busy one. **Nothing warns when the computed ratio lands off the
+peak**, and the cost is around eighteen percent with no other symptom — every row
+here loaded `66+0` and looked healthy.

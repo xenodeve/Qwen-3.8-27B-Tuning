@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google — จัดระเบียบข้อมูลของโลก</title>
+<meta name="description" content="Google จัดระเบียบข้อมูลของโลกให้เข้าถึงได้และใช้ประโยชน์ได้สำหรับทุกคน — Search, Gemini, Android, Workspace, Cloud และ Maps ในระบบเดียว">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Google">
+<meta property="og:title" content="Google — จัดระเบียบข้อมูลของโลก">
+<meta property="og:description" content="Search, Gemini, Android, Workspace, Cloud และ Maps — ระบบเดียวสำหรับข้อมูลของโลก">
+<meta property="og:image" content="og-cover.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Fonts: 2 families (Thai-capable) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@300;400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --blue:#4285F4;
+  --red:#EA4335;
+  --yellow:#FBBC05;
+  --green:#34A853;
+
+  --bg:#F7F6F3;
+  --ink:#111110;
+  --ink-soft:#5A5A55;
+  --line:rgba(17,17,16,.14);
+  --line-strong:rgba(17,17,16,.30);
+  --glass:rgba(247,246,243,.55);
+  --glass-brd:rgba(17,17,16,.12);
+  --card:#FFFFFF;
+
+  --serif:"Noto Serif Thai",Georgia,serif;
+  --sans:"IBM Plex Sans Thai",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+
+  --gutter:clamp(20px,4vw,56px);
+  --maxw:1280px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0E0E0D;
+    --ink:#F2F1ED;
+    --ink-soft:#A3A39B;
+    --line:rgba(242,241,237,.14);
+    --line-strong:rgba(242,241,237,.32);
+    --glass:rgba(14,14,13,.55);
+    --glass-brd:rgba(242,241,237,.14);
+    --card:#161615;
+  }
+}
+
+/* ============ BASE ============ */
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--blue);color:#fff}
+
+/* ============ VISIBLE GRID (12-col, structural) ============ */
+.grid-layer{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  gap:0;
+  padding:0 var(--gutter);
+  max-width:var(--maxw);
+  margin:0 auto;
+  width:100%;
+}
+.grid-layer span{
+  border-left:1px solid var(--line);
+  border-right:1px solid var(--line);
+}
+.grid-layer span:first-child{border-left-color:var(--line-strong)}
+.grid-layer span:last-child{border-right-color:var(--line-strong)}
+
+.wrap{
+  position:relative;z-index:1;
+  max-width:var(--maxw);
+  margin:0 auto;
+  padding:0 var(--gutter);
+}
+
+/* ============ TYPE UTILITIES ============ */
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.eyebrow-th{
+  font-family:var(--sans);
+  font-size:13px;
+  font-weight:500;
+  color:var(--ink-soft);
+}
+.display{
+  font-family:var(--serif);
+  font-weight:300;
+  font-size:clamp(42px,8vw,104px);
+  line-height:1.15;
+  letter-spacing:-.02em;
+}
+.display em{font-style:normal;font-weight:400}
+.h2{
+  font-family:var(--serif);
+  font-weight:400;
+  font-size:clamp(28px,4.5vw,52px);
+  line-height:1.25;
+  letter-spacing:-.015em;
+}
+.lede{
+  font-size:clamp(16px,1.6vw,20px);
+  line-height:1.8;
+  color:var(--ink-soft);
+  max-width:52ch;
+}
+
+/* ============ GLASS ============ */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  backdrop-filter:blur(18px) saturate(1.4);
+  border:1px solid var(--glass-brd);
+}
+
+/* ============ NAV ============ */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+}
+.nav-inner{
+  max-width:var(--maxw);
+  margin:0 auto;
+  padding:14px var(--gutter);
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+}
+.wordmark{
+  font-family:var(--serif);
+  font-weight:500;
+  font-size:22px;
+  letter-spacing:-.01em;
+  display:flex;align-items:center;gap:10px;
+}
+.dots{display:inline-flex;gap:4px}
+.dots i{width:7px;height:7px;border-radius:50%;display:block}
+.dots i:nth-child(1){background:var(--blue)}
+.dots i:nth-child(2){background:var(--red)}
+.dots i:nth-child(3){background:var(--yellow)}
+.dots i:nth-child(4){background:var(--green)}
+.nav-links{display:flex;gap:28px;align-items:center}
+.nav-links a{
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:500;
+  color:var(--ink-soft);
+  transition:color .2s;
+}
+.nav-links a:hover{color:var(--ink)}
+.nav-cta{
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:600;
+  border:1px solid var(--line-strong);
+  border-radius:999px;
+  padding:9px 20px;
+  transition:background .2s,color .2s;
+}
+.nav-cta:hover{background:var(--ink);color:var(--bg)}
+@media (max-width:640px){
+  .nav-links a:not(.nav-cta){display:none}
+}
+
+/* ============ HERO ============ */
+.hero{
+  min-height:100svh;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  padding-top:130px;
+  padding-bottom:48px;
+}
+.hero-top{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  gap:24px;margin-bottom:auto;
+}
+.hero-title{margin-top:9vh}
+.hero-title .display{max-width:14ch}
+.hero-rule{
+  display:flex;align-items:center;gap:16px;
+  margin:36px 0 28px;
+}
+.hero-rule .bar{height:1px;background:var(--line-strong);flex:1;min-width:0}
+.hero-rule .tag{
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.hero-bottom{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:32px;align-items:end;
+}
+.hero-search{
+  margin-top:28px;
+  border-radius:16px;
+  padding:6px;
+  max-width:560px;
+}
+.hero-search .row{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;
+  border-radius:12px;
+  background:var(--card);
+  border:1px solid var(--glass-brd);
+}
+.hero-search .q{
+  font-family:var(--sans);font-size:15px;color:var(--ink-soft);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.hero-search .q b{color:var(--ink);font-weight:600}
+.hero-search .go{
+  margin-left:auto;
+  font-family:var(--sans);font-size:13px;font-weight:600;
+  border:1px solid var(--line-strong);border-radius:999px;padding:8px 18px;
+  white-space:nowrap;
+}
+.hero-meta{
+  font-family:var(--sans);font-size:13px;font-weight:500;
+  color:var(--ink-soft);
+  text-align:right;
+  line-height:2.1;
+  white-space:nowrap;
+}
+@media (max-width:640px){
+  .hero-bottom{grid-template-columns:1fr}
+  .hero-meta{text-align:left}
+}
+
+/* ============ TICKER ============ */
+.ticker{
+  border-top:1px solid var(--line-strong);
+  border-bottom:1px solid var(--line-strong);
+  overflow:hidden;
+  white-space:nowrap;
+  padding:14px 0;
+}
+.ticker-track{
+  display:inline-flex;gap:48px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-soft);
+  animation:tick 40s linear infinite;
+}
+.ticker-track span{white-space:nowrap}
+.ticker-track .dot{color:var(--red)}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ============ SECTION HEAD ============ */
+.sec-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:24px;
+  margin-bottom:48px;
+}
+.sec-head .idx{
+  font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--ink-soft);
+  white-space:nowrap;
+}
+
+/* ============ PRODUCTS ============ */
+.products{padding:120px 0}
+.prod-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+}
+.prod{
+  background:var(--card);
+  padding:32px 28px 36px;
+  display:flex;flex-direction:column;gap:18px;
+  min-height:280px;
+  position:relative;
+  transition:background .25s;
+}
+.prod:hover{background:var(--bg)}
+.prod .num{
+  font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--ink-soft);
+}
+.prod .swatch{width:34px;height:3px}
+.prod h3{
+  font-family:var(--serif);font-weight:400;font-size:26px;letter-spacing:-.01em;
+  line-height:1.3;
+}
+.prod p{
+  font-size:14.5px;line-height:1.8;color:var(--ink-soft);
+  max-width:36ch;
+}
+.prod .foot{
+  margin-top:auto;
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-soft);
+  display:flex;justify-content:space-between;
+}
+.prod .foot .arr{transition:transform .25s}
+.prod:hover .foot .arr{transform:translateX(6px)}
+@media (max-width:900px){.prod-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.prod-grid{grid-template-columns:1fr}}
+
+/* ============ MANIFESTO ============ */
+.manifesto{
+  padding:140px 0;
+  border-top:1px solid var(--line-strong);
+}
+.mani-grid{
+  display:grid;grid-template-columns:5fr 7fr;gap:48px;align-items:start;
+}
+.mani-left{position:sticky;top:120px}
+.mani-quote{
+  font-family:var(--serif);font-weight:300;
+  font-size:clamp(24px,3.2vw,40px);
+  line-height:1.5;letter-spacing:-.01em;
+}
+.mani-quote .hl-b{color:var(--blue)}
+.mani-quote .hl-r{color:var(--red)}
+.mani-quote .hl-y{color:var(--yellow)}
+.mani-quote .hl-g{color:var(--green)}
+.mani-src{
+  margin-top:28px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.mani-body p{
+  font-size:16.5px;line-height:1.9;color:var(--ink-soft);
+  margin-bottom:24px;max-width:56ch;
+}
+.mani-body p b{color:var(--ink);font-weight:600}
+@media (max-width:800px){
+  .mani-grid{grid-template-columns:1fr}
+  .mani-left{position:static}
+}
+
+/* ============ NUMBERS ============ */
+.numbers{
+  padding:120px 0;
+  border-top:1px solid var(--line-strong);
+}
+.stat-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:1px;background:var(--line);border:1px solid var(--line);
+}
+.stat{
+  background:var(--card);
+  padding:36px 28px;
+}
+.stat .val{
+  font-family:var(--serif);font-weight:300;
+  font-size:clamp(34px,4.5vw,56px);
+  line-height:1.2;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.stat .val small{
+  font-size:.45em;font-family:var(--mono);letter-spacing:.1em;
+  color:var(--ink-soft);vertical-align:super;
+}
+.stat .lbl{
+  margin-top:14px;
+  font-family:var(--sans);font-size:13px;font-weight:500;
+  color:var(--ink-soft);
+  line-height:1.8;
+}
+@media (max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:480px){.stat-grid{grid-template-columns:1fr}}
+
+/* ============ CTA ============ */
+.cta{
+  padding:140px 0;
+  text-align:center;
+}
+.cta .display{max-width:16ch;margin:0 auto}
+.cta-btns{
+  margin-top:44px;
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;
+}
+.btn{
+  font-family:var(--sans);font-size:14px;font-weight:600;
+  border-radius:999px;padding:16px 34px;
+  border:1px solid var(--line-strong);
+  transition:transform .2s,background .2s,color .2s;
+}
+.btn:hover{transform:translateY(-2px)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* ============ FOOTER ============ */
+footer{
+  border-top:1px solid var(--line-strong);
+  padding:56px 0 40px;
+}
+.foot-grid{
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;
+}
+.foot-grid h4{
+  font-family:var(--sans);font-size:13px;font-weight:600;
+  color:var(--ink-soft);margin-bottom:16px;
+}
+.foot-grid ul{list-style:none}
+.foot-grid li{margin-bottom:10px}
+.foot-grid a{font-size:14px;color:var(--ink-soft);transition:color .2s}
+.foot-grid a:hover{color:var(--ink)}
+.foot-brand p{
+  font-size:14px;color:var(--ink-soft);max-width:34ch;margin-top:14px;line-height:1.8;
+}
+.foot-base{
+  margin-top:48px;padding-top:24px;
+  border-top:1px solid var(--line);
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+@media (max-width:800px){.foot-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:480px){.foot-grid{grid-template-columns:1fr}}
+
+/* ============ MOTION ============ */
+@media (prefers-reduced-motion: reduce){
+  .ticker-track{animation:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- Visible 12-column grid -->
+<div class="grid-layer" aria-hidden="true">
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+</div>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="nav-inner glass">
+    <a class="wordmark" href="#top">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      Google
+    </a>
+    <nav class="nav-links" aria-label="เมนูหลัก">
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#mission">พันธกิจ</a>
+      <a href="#numbers">ตัวเลข</a>
+      <a class="nav-cta" href="#cta">เริ่มต้น</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero wrap">
+    <div class="hero-top">
+      <p class="eyebrow">Est. 1998 · Mountain View, CA</p>
+      <p class="eyebrow">Index 00 / 04</p>
+    </div>
+
+    <div class="hero-title">
+      <h1 class="display">ข้อมูลของโลก<br><em>จัดระเบียบแล้ว</em></h1>
+    </div>
+
+    <div class="hero-rule">
+      <span class="tag">Search · Gemini · Android · Workspace · Cloud · Maps</span>
+      <span class="bar"></span>
+    </div>
+
+    <div class="hero-bottom">
+      <div>
+        <p class="lede">มากว่ายี่สิบห้าปี คำถามเดียวขับเคลื่อนงานนี้ —
+        จะทำให้ข้อมูลของโลก<b>เข้าถึงได้และใช้ประโยชน์ได้สำหรับทุกคน</b>ได้อย่างไร
+        คำตอบคือระบบ ไม่ใช่ผลิตภัณฑ์</p>
+        <div class="hero-search glass" role="search" aria-label="ตัวอย่างการค้นหา">
+          <div class="row">
+            <span class="q">search engine <b>ทำงานอย่างไร</b>?</span>
+            <span class="go">ค้นหา</span>
+          </div>
+        </div>
+      </div>
+      <p class="hero-meta">
+        9B+ การค้นหาต่อวัน<br>
+        200+ ประเทศและภูมิภาค<br>
+        100+ ภาษา
+      </p>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span>Search</span><span class="dot">●</span>
+      <span>Gemini</span><span class="dot">●</span>
+      <span>Android</span><span class="dot">●</span>
+      <span>Workspace</span><span class="dot">●</span>
+      <span>Cloud</span><span class="dot">●</span>
+      <span>Maps</span><span class="dot">●</span>
+      <span>YouTube</span><span class="dot">●</span>
+      <span>Chrome</span><span class="dot">●</span>
+      <span>Search</span><span class="dot">●</span>
+      <span>Gemini</span><span class="dot">●</span>
+      <span>Android</span><span class="dot">●</span>
+      <span>Workspace</span><span class="dot">●</span>
+      <span>Cloud</span><span class="dot">●</span>
+      <span>Maps</span><span class="dot">●</span>
+      <span>YouTube</span><span class="dot">●</span>
+      <span>Chrome</span><span class="dot">●</span>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <section class="products wrap" id="products">
+    <div class="sec-head">
+      <h2 class="h2">ระบบนี้ ในหกส่วน</h2>
+      <span class="idx">01 — Products</span>
+    </div>
+    <div class="prod-grid">
+      <article class="prod">
+        <span class="num">01</span>
+        <span class="swatch" style="background:var(--blue)"></span>
+        <h3>Search</h3>
+        <p>เครื่องมือชิ้นแรก คำถามนับพันล้านต่อวัน ตอบในเสี้ยววินาที ในทุกภาษาที่โลกพูด</p>
+        <div class="foot"><span>Since 1998</span><span class="arr">→</span></div>
+      </article>
+      <article class="prod">
+        <span class="num">02</span>
+        <span class="swatch" style="background:var(--red)"></span>
+        <h3>Gemini</h3>
+        <p>โมเดลแนวหน้า — การให้เหตุผล การสร้างเนื้อหา และ agent ผูกเข้ากับการค้นหา Workspace และ Android</p>
+        <div class="foot"><span>Since 2023</span><span class="arr">→</span></div>
+      </article>
+      <article class="prod">
+        <span class="num">03</span>
+        <span class="swatch" style="background:var(--green)"></span>
+        <h3>Android</h3>
+        <p>ระบบปฏิบัติการบนอุปกรณ์กว่า 3,000 ล้านเครื่อง — พื้นผิวที่ใหญ่ที่สุดของอินเทอร์เน็ตเปิด</p>
+        <div class="foot"><span>Since 2008</span><span class="arr">→</span></div>
+      </article>
+      <article class="prod">
+        <span class="num">04</span>
+        <span class="swatch" style="background:var(--yellow)"></span>
+        <h3>Workspace</h3>
+        <p>Gmail, Docs, Drive, Meet — ที่ที่งานเกิดขึ้น พร้อม AI ถักทออยู่ในทุกเอกสาร</p>
+        <div class="foot"><span>Since 2006</span><span class="arr">→</span></div>
+      </article>
+      <article class="prod">
+        <span class="num">05</span>
+        <span class="swatch" style="background:var(--blue)"></span>
+        <h3>Cloud</h3>
+        <p>โครงสร้างพื้นฐานสำหรับยุค AI — compute, data และ Gemini APIs สำหรับทีมที่กำลังสร้างสิ่งถัดไป</p>
+        <div class="foot"><span>Since 2011</span><span class="arr">→</span></div>
+      </article>
+      <article class="prod">
+        <span class="num">06</span>
+        <span class="swatch" style="background:var(--red)"></span>
+        <h3>Maps</h3>
+        <p>โลกที่ถูกวาดขึ้น — ภาพระดับถนน การจราจรแบบเรียลไทม์ และเส้นทางสำหรับทุกถนนบนโลก</p>
+        <div class="foot"><span>Since 2005</span><span class="arr">→</span></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- MANIFESTO -->
+  <section class="manifesto" id="mission">
+    <div class="wrap mani-grid">
+      <div class="mani-left">
+        <span class="eyebrow">02 — Mission</span>
+        <p class="mani-quote" style="margin-top:24px">
+          “จัดระเบียบ<span class="hl-b">ข้อมูลของโลก</span>
+          และทำให้<span class="hl-r">เข้าถึงได้</span>
+          <span class="hl-y">สำหรับทุกคน</span>
+          และ<span class="hl-g">ใช้ประโยชน์ได้</span>”
+        </p>
+        <p class="mani-src">— พันธกิจตั้งต้น, 1998</p>
+      </div>
+      <div class="mani-body">
+        <p>มันเริ่มจากงานวิจัยเพื่อทำความเข้าใจโครงสร้างของเว็บเอง
+        ผลลัพธ์ — <b>PageRank</b> — เปลี่ยนกราฟลิงก์ให้กลายเป็นอันดับ
+        และเปลี่ยนอันดับให้กลายเป็นอินเทอร์เฟซที่ถูกใช้มากที่สุดในประวัติศาสตร์มนุษย์</p>
+        <p>พันธกิจไม่ได้เปลี่ยน สิ่งที่เปลี่ยนคือขนาด วันนี้หลักการเดียวกัน
+        ทำงานผ่าน<b>ทุกชั้นของ stack</b> — ชิป โมเดล ผลิตภัณฑ์ และดาวจันทร์
+        TPU, Gemini, Search, และดวงจันทร์</p>
+        <p>นี่คือส่วนสวิสของ Google — <b>กริดเดียว ชุดความคิดเดียว
+        และจังหวะซ้ำเดียว</b> คือรับข้อมูลของโลกมาทำให้เข้าถึงได้และใช้ประโยชน์ได้
+        สิ่งอื่นทั้งหมดคือ การแปรผัน ของธีมเดียวกัน</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- NUMBERS -->
+  <section class="numbers wrap" id="numbers">
+    <div class="sec-head">
+      <h2 class="h2">สเกล ในสี่ตัวเลข</h2>
+      <span class="idx">03 — Numbers</span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="val">9B<small>+</small></div>
+        <div class="lbl">การค้นหาต่อวัน ทั่วโลก</div>
+      </div>
+      <div class="stat">
+        <div class="val">3B<small>+</small></div>
+        <div class="lbl">อุปกรณ์ Android ที่ใช้งานอยู่</div>
+      </div>
+      <div class="stat">
+        <div class="val">200<small>+</small></div>
+        <div class="lbl">ประเทศและภูมิภาคที่ให้บริการ</div>
+      </div>
+      <div class="stat">
+        <div class="val">100<small>+</small></div>
+        <div class="lbl">ภาษาในการค้นหา</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta wrap" id="cta">
+    <span class="eyebrow">04 — Begin</span>
+    <h2 class="display" style="margin-top:24px">ถามอะไร<br><em>ก็ได้</em></h2>
+    <div class="cta-btns">
+      <a class="btn primary" href="https://www.google.com" target="_blank" rel="noopener">เปิด Google</a>
+      <a class="btn" href="https://gemini.google.com" target="_blank" rel="noopener">ลอง Gemini</a>
+    </div>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="wordmark" href="#top">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          Google
+        </a>
+        <p>จัดระเบียบข้อมูลของโลกตั้งแต่ปี 1998 — งานศึกษาเชิงบรรณาธิการในกริดสวิส แก้วเหลว และตัวอักษร</p>
+      </div>
+      <div>
+        <h4>ผลิตภัณฑ์</h4>
+        <ul>
+          <li><a href="#products">Search</a></li>
+          <li><a href="#products">Gemini</a></li>
+          <li><a href="#products">Android</a></li>
+          <li><a href="#products">Workspace</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>บริษัท</h4>
+        <ul>
+          <li><a href="#mission">พันธกิจ</a></li>
+          <li><a href="#numbers">ตัวเลข</a></li>
+          <li><a href="https://about.google" target="_blank" rel="noopener">เกี่ยวกับเรา</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>ที่อื่น</h4>
+        <ul>
+          <li><a href="https://blog.google" target="_blank" rel="noopener">Blog</a></li>
+          <li><a href="https://cloud.google.com" target="_blank" rel="noopener">Cloud</a></li>
+          <li><a href="https://maps.google.com" target="_blank" rel="noopener">Maps</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-base">
+      <span>© 2026 — งานศึกษาเชิงบรรณาธิการ ไม่เกี่ยวข้องกับ Google LLC</span>
+      <span>Swiss Grid · Liquid Glass · 12 Columns</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

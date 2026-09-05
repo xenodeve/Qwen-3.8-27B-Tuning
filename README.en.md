@@ -44,7 +44,7 @@ feels like.** Never swap them.
 
 **Double-click [`serve-hub.bat`](serve-hub.bat).** It is the only `.bat` at the
 top of this repository. It asks two questions — which server, and whether to
-expose it on the LAN — then hands off to one of the fourteen in
+expose it on the LAN — then hands off to one of the eighteen in
 [`launchers/`](launchers/). It holds no flags of its own; it only picks a file.
 
 Every launcher also works if you open that folder and double-click it directly.
@@ -55,7 +55,7 @@ Each one carries its own evidence in its header, and there are tests that
 `Ctrl+C` stops it, and so does closing the window. There is one process, not a
 server beside a log-watcher.
 
-### The fourteen icons
+### The eighteen icons
 
 **Start here — the NVFP4 family. This is what the project recommends.**
 
@@ -80,6 +80,32 @@ server beside a log-watcher.
 | [`serve-dual-nvfp4-dflash-theirmirror.bat`](launchers/serve-dual-nvfp4-dflash-theirmirror.bat) | the same pairing on **Unsloth's 0.3.0 source** with our mirror patch applied — the fourth `llama-server` on this machine | boots and serves; unpaired |
 | [`serve-dual-nvfp4-beta.bat`](launchers/serve-dual-nvfp4-beta.bat) | nine settings borrowed whole from Unsloth Studio, which runs this same model file on these same two cards | one boot per side |
 | [`serve-dual-nvfp4-clone.bat`](launchers/serve-dual-nvfp4-clone.bat) | Studio's entire command line as a baseline, with **six deliberate deviations** listed in the file header | baseline |
+
+**The EXL3 engine — the second server, hub keys 15 and 16, port 8000.**
+ExLlama3 (the Mia-AiLab fork built from source here) serving turboderp's
+SC 4.0bpw H5 with the model's own MTP head, integer 4-bit KV, tensor-parallel
+across both cards. Since 2026-09-04 this is the daily driver for Claude Code:
+it speaks the Anthropic Messages API directly (`claude-xeno-exl3`, no proxy),
+holds **262,144** tokens, and decodes at ~81 % of llama.cpp in the one
+same-boot pairing taken (47–55 tok/s in real 30–70K sessions). Quality is
+measured in [`docs/results/11-quality-bench-2026-09-05.md`](docs/results/11-quality-bench-2026-09-05.md).
+
+| | 163,840 | **262,144**, the served depth |
+|---|---|---|
+| loopback only | [`serve-exl3.bat`](launchers/serve-exl3.bat) | [`serve-exl3-max.bat`](launchers/serve-exl3-max.bat) |
+| reachable from other machines | [`serve-exl3-lan.bat`](launchers/serve-exl3-lan.bat) | [`serve-exl3-max-lan.bat`](launchers/serve-exl3-max-lan.bat) |
+
+The server is ours (`qwen38-tuning/serving/exl3/`, the fork's file plus marked
+hooks) and carries three guards the fork does not, each from a fault that
+happened here: it **relaunches itself** when its tensor-parallel children die
+(#75; stop it on purpose only with `qwen38-tuning\scripts\stop-exl3.cmd`), it
+**cuts a generation that has degenerated into repetition** (#76: one Thai
+report ran 127,996 tokens on a single tone mark), and it **bans Chinese
+characters** unless the prompt carries or names Chinese (#77: 14 Han characters
+leaked into 3 of 43 bench streams, always mid-Thai-sentence). `/health` reports
+`loops_stopped` and `cjk_chars_total`. The recipe lives in one place,
+`qwen38-tuning/scripts/serve-exl3.cmd`; the four launchers pass a depth, the
+split caps and the bind address, nothing else.
 
 The `lan` files are separate rather than a prompt because `--host` is the **only
 access control this server has** — no API key, CORS `*`. Exposure should happen

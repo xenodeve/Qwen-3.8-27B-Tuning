@@ -128,6 +128,15 @@ param(
     # shipped. Requires -Dflash. See the profile for why it is not -TheirBuild.
     [switch]$TheirMirror,
     [switch]$TheirBuild,
+    # Upstream master, built here 2026-09-01 from commit 458681e1d and staged to
+    # C:\AI\llama.cpp-upstream. NOT a speed change: measured against the served
+    # 10499 at ctx 147,456 on the real-code corpus it is -0.16 %, inside the
+    # noise (results/builds-nvfp4-147456.jsonl). It is here so the newer source
+    # can be SERVED and not only benchmarked, and so the choice is one flag
+    # rather than an edited default -- overwriting llama.cpp-blackwell would
+    # switch the runtime under icons 1, 2, 3, 4, 7, 8, 9 and C at once, which is
+    # the failure build-dflash2.ps1's header exists to warn about.
+    [switch]$Upstream,
     # Serve the artifact's own chat template rather than our one-line patch.
     # Without the patch every Claude Code request comes back HTTP 500.
     # The reason lives in qwen38-tuning/templates/README.md and only there --
@@ -489,6 +498,24 @@ if ($TheirBuild) {
         exit 1
     }
     $profileArgs['TheirBuild'] = $true
+}
+if ($Upstream) {
+    # Same refusal as -Dflash/-TheirBuild: three switches that each choose the
+    # executable, and a run whose binary two of them disagree about is a row
+    # nobody can attribute.
+    if ($Dflash -or $TheirBuild -or $TheirMirror) {
+        Write-Host "FATAL: -Upstream, -Dflash, -TheirMirror and -TheirBuild all choose the binary; pick one." -ForegroundColor Red
+        exit 1
+    }
+    $exe = 'C:\AI\llama.cpp-upstream\llama-server.exe'
+    if (-not (Test-Path $exe)) {
+        # Refuse rather than fall back. A build A/B that silently serves the old
+        # binary is CORRECTIONS 41, and this project has already paid for it.
+        Write-Host "FATAL: -Upstream asked for $exe and it is not there." -ForegroundColor Red
+        Write-Host "  Stage it from the build tree, or drop -Upstream." -ForegroundColor Yellow
+        exit 1
+    }
+    $profileArgs['Exe'] = $exe
 }
 if ($Vision) {
     if (-not $Dual) {

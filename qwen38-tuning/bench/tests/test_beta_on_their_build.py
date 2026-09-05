@@ -124,9 +124,21 @@ def test_it_keeps_the_bundle_flags():
 def test_checkpoints_are_still_on():
     """`--ctx-checkpoints 0` left the -Beta bundle on 2026-08-29 after it made
     every request re-read the prompt from token 0 (CORRECTIONS 39). It must not
-    come back through the binary switch."""
+    come back through the binary switch.
+
+    This asserted the flag was ABSENT until 2026-09-02, when the profile started
+    naming it on its own evidence -- of 240 restores in
+    `logs/serve-20260902-034815.log`, 185 used the newest checkpoint, 52 the
+    second, 3 the third and none went deeper, against a default of 32. Absence
+    was only ever a proxy for "not zero", and that is what the guard now says.
+
+    It shipped at **4** and moved to **8** the same day: a compact diverges far
+    back and needs any checkpoint *below* the divergence, which is a different
+    quantity from search depth. See
+    `test_prompt_cache_budget.test_the_checkpoint_budget_is_eight_because_a_compact_reached_past_four`.
+    """
     v = argv(*BETA, "-TheirBuild")
-    assert "--ctx-checkpoints" not in v, v
+    assert v[v.index("--ctx-checkpoints") + 1] == "8", v
 
 
 # ------------------------------------------------------------------ plumbing

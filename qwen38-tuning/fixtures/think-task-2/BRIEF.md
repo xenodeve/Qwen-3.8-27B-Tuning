@@ -1,0 +1,1 @@
+ใน repo นี้ แก้ bug ใน `inventory/report.py`: ฟังก์ชัน `summary()` นับ sku ซ้ำเมื่อโหลดจากไฟล์สองครั้ง ให้แก้ให้นับครั้งเดียว เขียน test ใน `tests/test_report.py` แล้วรัน `python -m pytest -q` ให้ผ่าน แก้เฉพาะสองไฟล์นี้

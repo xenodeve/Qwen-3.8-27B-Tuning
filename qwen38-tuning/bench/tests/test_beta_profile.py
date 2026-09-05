@@ -113,11 +113,34 @@ def test_beta_applies_the_whole_bundle():
 
 
 def test_without_beta_none_of_it_appears():
-    """Opt-in. The bundle is unmeasured and must not leak into the default."""
+    """Opt-in. The bundle is unmeasured and must not leak into the default.
+
+    `--cache-ram` LEFT THIS LIST 2026-09-02, and it is not a leak. The default
+    profile now names the flag at its own MEASURED value, `24576`, for a reason
+    that has nothing to do with Studio: llama.cpp's 8192 MiB default is smaller
+    than one of our conversations at ctx 200,704, and a live session spent
+    68.2 % of its last half hour re-prefilling what the prompt cache had just
+    evicted (issue #70, `bench/tests/test_prompt_cache_budget.py`).
+
+    `--ctx-checkpoints` LEFT IT TOO, 2026-09-02, for the same reason and with
+    the sharper version of the same evidence. Of 240 successful restores in that
+    session, 185 used the newest checkpoint, 52 the second, 3 the third and none
+    went deeper, while the default holds 32. The profile now names it at **4**.
+    Studio's value is **0**, which CORRECTIONS 39 measured as a fault on this
+    hybrid -- every turn re-prefills from token 0, 51.6 s at the served depth.
+
+    What the guard has to say is therefore narrower and stronger than "absent":
+    the default must not carry Studio's VALUES. `--cache-ram 0` disables the
+    store and 24576 raises it; `--ctx-checkpoints 0` disables checkpoints and 8
+    trims them. Same flags, opposite decisions.
+    """
     out = _whatif(PROFILE, "-Nvfp4")
-    for flag in ("--cache-ram", "--ctx-checkpoints", "--load-mode",
-                 "--kv-unified", "--metrics"):
+    for flag in ("--load-mode", "--kv-unified", "--metrics"):
         assert flag not in out, (flag, out)
+    assert not re.search(r"--cache-ram\s+0\b", out), out
+    assert re.search(r"--cache-ram\s+24576\b", out), out
+    assert not re.search(r"--ctx-checkpoints\s+0\b", out), out
+    assert re.search(r"--ctx-checkpoints\s+8\b", out), out
     assert re.search(r"-t\s+18\b", out), out
 
 
@@ -435,11 +458,34 @@ def _retired_test_beta_takes_unsloths_ngram_bounds():
     assert re.search(r"--spec-ngram-mod-n-match\s+24\b", out), out
 
 
-def test_the_default_keeps_our_values():
+def test_the_default_serves_n_max_64_and_leaves_the_draft_depth_at_3():
+    r"""`n-max` 32 -> 64 on 2026-09-02, and the draft depth deliberately NOT moved.
+
+    64 is llama.cpp's own default; our 32 was carried through an older sweep
+    where it was "held constant" rather than chosen. Measured at the served
+    147,456 on the real-code corpus, three independent boot series:
+    **+15.63 %, +14.85 %, +14.52 %** (`results/ngram-window-147456.jsonl`,
+    `results/ngram-nmax-ladder-147456.jsonl`, `results/won-levers-combo-147456.jsonl`).
+    96 and 128 fall back to about +2 %, so 64 is a peak and not a direction.
+
+    **The draft depth stays at 3 and that is the whole reason this test names
+    both.** `--spec-draft-n-max 4` is +5.76 % on its own at this depth -- itself a
+    reversal of the 16,384 screen, where 3 beat 4 -- but the two together measure
+    **-4.61 %**, worse than changing nothing, at 0.1-0.5 % spreads. Naive
+    multiplication would have predicted +21 %. A future reader who adopts the
+    second winner because the first one worked will make the profile slower, so
+    the assertion below is a guard and not bookkeeping.
+
+    `n-min` stays 16: 48/64 measured -10.58 % in the same run, so Studio's pair
+    must not be copied whole (CORRECTIONS 38).
+    """
     out = _whatif(PROFILE, "-Nvfp4", "-Deep")
     assert re.search(r"--spec-draft-n-max\s+3\b", out), out
     assert re.search(r"--spec-ngram-mod-n-min\s+16\b", out), out
-    assert re.search(r"--spec-ngram-mod-n-max\s+32\b", out), out
+    assert re.search(r"--spec-ngram-mod-n-max\s+64\b", out), out
+    assert not re.search(r"--spec-draft-n-max\s+4\b", out), (
+        "the draft depth was raised to 4 alongside n-max 64; measured together "
+        "they are -4.61 %, worse than changing neither")
 
 
 # --------------------------------------------- context checkpoints, and the 51 s

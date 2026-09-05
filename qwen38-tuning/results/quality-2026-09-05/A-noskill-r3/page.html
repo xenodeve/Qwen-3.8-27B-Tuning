@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — The Search for Everything</title>
+<style>
+  /* ============================================================
+     GOOGLE — Editorial Minimalism × Modern Swiss × Liquid Glass
+     Single-file landing page. No dependencies.
+     ============================================================ */
+
+  :root {
+    /* Swiss / editorial palette */
+    --paper:      #f4f2ee;   /* warm off-white, editorial paper */
+    --paper-2:    #eceae4;
+    --ink:        #141414;   /* near-black ink */
+    --ink-soft:   #4a4a48;
+    --ink-faint:  #8a8880;
+    --line:       rgba(20,20,20,0.10);
+    --line-strong:rgba(20,20,20,0.22);
+
+    /* Swiss red accent */
+    --red:        #ea0027;
+
+    /* Google brand hues — used sparingly, as data ink */
+    --g-blue:     #4285F4;
+    --g-red:      #EA4335;
+    --g-yellow:   #FBBC05;
+    --g-green:    #34A853;
+
+    /* Liquid glass */
+    --glass:      rgba(255,255,255,0.55);
+    --glass-brd:  rgba(255,255,255,0.75);
+    --glass-sh:   0 18px 50px -20px rgba(20,20,20,0.28);
+
+    --maxw: 1320px;
+    --gut:  clamp(20px, 4vw, 56px);
+    --serif: "Georgia", "Times New Roman", serif;
+    --sans:  "Helvetica Neue", "Arial", "Segoe UI", system-ui, sans-serif;
+    --mono:  "SFMono-Regular", "Consolas", "Menlo", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ---------- VISIBLE GRID (structural column guides) ---------- */
+  .grid-scaffold {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 0;
+    padding: 0 var(--gut);
+    max-width: var(--maxw);
+    margin: 0 auto;
+  }
+  .grid-scaffold .col {
+    border-left: 1px solid var(--line);
+  }
+  .grid-scaffold .col:last-child { border-right: 1px solid var(--line); }
+
+  /* ambient liquid blobs behind glass */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.5;
+    will-change: transform;
+  }
+  .blob.b1 { width: 520px; height: 520px; background: var(--g-blue);   top: -120px; left: -80px; }
+  .blob.b2 { width: 460px; height: 460px; background: var(--g-yellow); top: 20%; right: -140px; }
+  .blob.b3 { width: 560px; height: 560px; background: var(--g-green);  bottom: -160px; left: 30%; }
+  .blob.b4 { width: 380px; height: 380px; background: var(--g-red);    top: 55%; left: -120px; }
+
+  /* ---------- LAYOUT SHELL ---------- */
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 var(--gut);
+  }
+
+  /* ---------- TOP BAR ---------- */
+  header.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    background: rgba(244,242,238,0.6);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 16px var(--gut);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .wordmark {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+  .wordmark .c1 { color: var(--g-blue); }
+  .wordmark .c2 { color: var(--g-red); }
+  .wordmark .c3 { color: var(--g-yellow); }
+  .wordmark .c4 { color: var(--g-blue); }
+  .wordmark .c5 { color: var(--g-green); }
+  .wordmark .c6 { color: var(--g-red); }
+
+  nav.nav {
+    display: flex;
+    gap: 28px;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  nav.nav a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    position: relative;
+    padding: 4px 0;
+  }
+  nav.nav a::after {
+    content: "";
+    position: absolute;
+    left: 0; bottom: 0;
+    width: 0; height: 1.5px;
+    background: var(--red);
+    transition: width .3s ease;
+  }
+  nav.nav a:hover { color: var(--ink); }
+  nav.nav a:hover::after { width: 100%; }
+
+  .topbar .meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  /* ---------- HERO ---------- */
+  .hero {
+    padding: clamp(60px, 10vw, 130px) 0 clamp(50px, 8vw, 90px);
+    position: relative;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--red);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .kicker::before {
+    content: "";
+    width: 42px; height: 1px;
+    background: var(--red);
+  }
+
+  h1.display {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(48px, 9vw, 128px);
+    line-height: 0.94;
+    letter-spacing: -0.03em;
+    max-width: 15ch;
+  }
+  h1.display em {
+    font-style: italic;
+    color: var(--red);
+  }
+  h1.display .outline {
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--ink);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 24px;
+    margin-top: clamp(40px, 6vw, 72px);
+    align-items: end;
+  }
+  .hero-lede {
+    grid-column: 1 / span 6;
+    font-size: clamp(18px, 1.6vw, 22px);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 46ch;
+  }
+  .hero-lede strong { color: var(--ink); font-weight: 600; }
+
+  /* liquid glass search card */
+  .glass {
+    background: var(--glass);
+    backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    border: 1px solid var(--glass-brd);
+    box-shadow: var(--glass-sh);
+    border-radius: 22px;
+  }
+  .search-card {
+    grid-column: 7 / span 6;
+    padding: 26px;
+  }
+  .search-card .row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 14px 20px;
+    background: rgba(255,255,255,0.5);
+  }
+  .search-card .row .q {
+    flex: 1;
+    font-size: 16px;
+    color: var(--ink-soft);
+  }
+  .search-card .row .q .caret {
+    display: inline-block;
+    width: 2px; height: 1.1em;
+    background: var(--red);
+    vertical-align: text-bottom;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .search-card .go {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 15px;
+  }
+  .search-card .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-soft);
+    background: rgba(255,255,255,0.4);
+  }
+  .chip .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 7px;
+    vertical-align: middle;
+  }
+
+  /* ---------- SECTION HEAD ---------- */
+  section { padding: clamp(56px, 8vw, 110px) 0; position: relative; }
+  .sec-head {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 24px;
+    align-items: end;
+    margin-bottom: clamp(36px, 5vw, 60px);
+  }
+  .sec-head .idx {
+    grid-column: 1 / span 2;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .sec-head h2 {
+    grid-column: 3 / span 9;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(34px, 5vw, 68px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+  }
+  .sec-head h2 em { font-style: italic; color: var(--red); }
+
+  /* ---------- PRODUCT GRID (Swiss asymmetric) ---------- */
+  .products {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 20px;
+  }
+  .card {
+    padding: 30px;
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .4s cubic-bezier(.2,.7,.2,1), box-shadow .4s;
+  }
+  .card:hover { transform: translateY(-6px); }
+  .card .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    margin-bottom: 22px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .card h3 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .card p {
+    color: var(--ink-soft);
+    font-size: 15px;
+    max-width: 40ch;
+  }
+  .card .bar {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; height: 4px;
+  }
+  .card.big   { grid-column: 1 / span 7;  min-height: 300px; display: flex; flex-direction: column; justify-content: space-between; }
+  .card.mid   { grid-column: 8 / span 5; }
+  .card.small { grid-column: span 4; }
+  .card .big-tag {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(40px, 6vw, 84px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    margin-top: 24px;
+  }
+  .card .accent-blue   { background: var(--g-blue); }
+  .card .accent-red    { background: var(--g-red); }
+  .card .accent-yellow { background: var(--g-yellow); }
+  .card .accent-green  { background: var(--g-green); }
+
+  /* ---------- STATS BAND ---------- */
+  .stats {
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+  .stat {
+    padding: clamp(30px, 4vw, 54px) 24px;
+    border-right: 1px solid var(--line);
+  }
+  .stat:last-child { border-right: none; }
+  .stat .figure {
+    font-family: var(--serif);
+    font-size: clamp(40px, 5.5vw, 76px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .stat .figure .u { font-size: 0.4em; color: var(--red); vertical-align: super; }
+  .stat .label {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- QUOTE / EDITORIAL ---------- */
+  .quote-wrap {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 24px;
+    align-items: center;
+  }
+  .quote {
+    grid-column: 2 / span 10;
+    font-family: var(--serif);
+    font-size: clamp(28px, 4vw, 54px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  .quote .mark { color: var(--red); }
+  .quote .attr {
+    display: block;
+    margin-top: 26px;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /* ---------- CTA ---------- */
+  .cta {
+    text-align: center;
+  }
+  .cta h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(40px, 7vw, 96px);
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    max-width: 18ch;
+    margin: 0 auto 34px;
+  }
+  .cta h2 em { font-style: italic; color: var(--red); }
+  .btn-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 16px 34px;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: transform .25s ease, background .25s ease, color .25s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn.primary { background: var(--ink); color: #fff; }
+  .btn.primary:hover { transform: translateY(-3px); background: var(--red); }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    backdrop-filter: blur(10px);
+  }
+  .btn.ghost:hover { transform: translateY(-3px); border-color: var(--ink); }
+
+  /* ---------- FOOTER ---------- */
+  footer {
+    border-top: 1px solid var(--line-strong);
+    padding: clamp(40px, 6vw, 70px) 0 40px;
+    position: relative;
+    z-index: 1;
+  }
+  .foot-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 24px;
+  }
+  .foot-brand { grid-column: 1 / span 5; }
+  .foot-brand .wordmark { font-size: 30px; margin-bottom: 16px; }
+  .foot-brand p { color: var(--ink-soft); font-size: 14px; max-width: 34ch; }
+  .foot-col { grid-column: span 2; }
+  .foot-col h4 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 16px;
+  }
+  .foot-col a {
+    display: block;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 14px;
+    padding: 5px 0;
+  }
+  .foot-col a:hover { color: var(--red); }
+  .foot-base {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+  }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 900px) {
+    nav.nav { display: none; }
+    .hero-lede { grid-column: 1 / -1; }
+    .search-card { grid-column: 1 / -1; }
+    .sec-head h2 { grid-column: 1 / -1; }
+    .sec-head .idx { grid-column: 1 / -1; margin-bottom: 8px; }
+    .card.big, .card.mid, .card.small { grid-column: 1 / -1; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(2) { border-right: none; }
+    .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid var(--line); }
+    .quote { grid-column: 1 / -1; }
+    .foot-brand { grid-column: 1 / -1; }
+    .foot-col { grid-column: span 4; }
+  }
+  @media (max-width: 520px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .stat { border-right: none; border-bottom: 1px solid var(--line); }
+    .foot-col { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- structural column guides -->
+  <div class="grid-scaffold" aria-hidden="true">
+    <div class="col"></div><div class="col"></div><div class="col"></div>
+    <div class="col"></div><div class="col"></div><div class="col"></div>
+    <div class="col"></div><div class="col"></div><div class="col"></div>
+    <div class="col"></div><div class="col"></div><div class="col"></div>
+  </div>
+
+  <!-- ambient liquid color -->
+  <div class="ambient" aria-hidden="true">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+    <div class="blob b4"></div>
+  </div>
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="wordmark" aria-label="Google">
+        <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c5">l</span><span class="c6">e</span>
+      </div>
+      <nav class="nav">
+        <a href="#products">Products</a>
+        <a href="#scale">Scale</a>
+        <a href="#mission">Mission</a>
+        <a href="#start">Start</a>
+      </nav>
+      <div class="meta">Est. 1998 · Mountain View</div>
+    </div>
+  </header>
+
+  <div class="shell">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="kicker">The search for everything</div>
+      <h1 class="display">
+        Ten&nbsp;blue&nbsp;letters.<br>
+        <span class="outline">One</span> <em>question</em><br>
+        at a time.
+      </h1>
+
+      <div class="hero-grid">
+        <p class="hero-lede">
+          Google began as a <strong>research project</strong> to map the web, and grew
+          into the front door of the internet. Every day it answers
+          <strong>billions of questions</strong> — translating, mapping, remembering,
+          and quietly organizing information that is, to a rough degree, the whole world.
+        </p>
+
+        <div class="glass search-card">
+          <div class="row">
+            <span class="q">how does the internet actually work<span class="caret"></span></span>
+            <span class="go">→</span>
+          </div>
+          <div class="chips">
+            <span class="chip"><span class="dot" style="background:var(--g-blue)"></span>Search</span>
+            <span class="chip"><span class="dot" style="background:var(--g-red)"></span>Maps</span>
+            <span class="chip"><span class="dot" style="background:var(--g-yellow)"></span>Translate</span>
+            <span class="chip"><span class="dot" style="background:var(--g-green)"></span>Workspace</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PRODUCTS ============ -->
+    <section id="products">
+      <div class="sec-head">
+        <div class="idx">01 / The stack</div>
+        <h2>One company,<br><em>many doors</em> in.</h2>
+      </div>
+
+      <div class="products">
+        <article class="glass card big">
+          <div class="bar accent-blue"></div>
+          <div class="num"><span>A.01</span><span>Core</span></div>
+          <div>
+            <h3>Search</h3>
+            <p>The original. A ranking engine that turned a chaotic web into an answer you can trust in under a second.</p>
+          </div>
+          <div class="big-tag">Search.</div>
+        </article>
+
+        <article class="glass card mid">
+          <div class="bar accent-red"></div>
+          <div class="num"><span>A.02</span><span>Everywhere</span></div>
+          <h3>Maps</h3>
+          <p>Street-level reality, live traffic, and a route that actually gets you there — the planet, navigable.</p>
+        </article>
+
+        <article class="glass card small">
+          <div class="bar accent-yellow"></div>
+          <div class="num"><span>A.03</span><span>Work</span></div>
+          <h3>Workspace</h3>
+          <p>Docs, Drive, Meet, Gmail — the office that fits in a browser tab.</p>
+        </article>
+
+        <article class="glass card small">
+          <div class="bar accent-green"></div>
+          <div class="num"><span>A.04</span><span>Devices</span></div>
+          <h3>Android</h3>
+          <p>The operating system on more than a billion phones, quietly running the world's pocket.</p>
+        </article>
+
+        <article class="glass card small">
+          <div class="bar accent-blue"></div>
+          <div class="num"><span>A.05</span><span>Future</span></div>
+          <h3>Cloud &amp; AI</h3>
+          <p>From data centers to Gemini — the infrastructure and models behind the next decade of computing.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ STATS ============ -->
+    <section id="scale" class="stats">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="figure">9.3<span class="u">B</span></div>
+          <div class="label">Searches per day</div>
+        </div>
+        <div class="stat">
+          <div class="figure">200<span class="u">+</span></div>
+          <div class="label">Languages &amp; regions</div>
+        </div>
+        <div class="stat">
+          <div class="figure">1<span class="u">B+</span></div>
+          <div class="label">Android devices</div>
+        </div>
+        <div class="stat">
+          <div class="figure">1998</div>
+          <div class="label">Founded, Stanford</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ QUOTE ============ -->
+    <section id="mission">
+      <div class="quote-wrap">
+        <blockquote class="quote">
+          <span class="mark">“</span>Our mission is to organize the world's
+          information and make it <em>universally accessible</em> and useful.
+          <span class="mark">”</span>
+          <span class="attr">— The Google mission, unchanged since day one</span>
+        </blockquote>
+      </div>
+    </section>
+
+    <!-- ============ CTA ============ -->
+    <section id="start" class="cta">
+      <h2>Ask it <em>anything.</em></h2>
+      <div class="btn-row">
+        <a class="btn primary" href="#">Start searching →</a>
+        <a class="btn ghost" href="#">Explore the products</a>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="shell">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <div class="wordmark">
+            <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c5">l</span><span class="c6">e</span>
+          </div>
+          <p>Organizing the world's information since 1998. A design study in editorial minimalism, Swiss structure, and liquid glass.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Products</h4>
+          <a href="#">Search</a>
+          <a href="#">Maps</a>
+          <a href="#">Workspace</a>
+          <a href="#">Android</a>
+        </div>
+        <div class="foot-col">
+          <h4>Company</h4>
+          <a href="#">About</a>
+          <a href="#">Careers</a>
+          <a href="#">Newsroom</a>
+          <a href="#">Investors</a>
+        </div>
+        <div class="foot-col">
+          <h4>Follow</h4>
+          <a href="#">X / Twitter</a>
+          <a href="#">LinkedIn</a>
+          <a href="#">YouTube</a>
+          <a href="#">Blog</a>
+        </div>
+      </div>
+      <div class="foot-base">
+        <span>© 2026 — Design study. Not affiliated with Google LLC.</span>
+        <span>Editorial × Swiss × Liquid Glass × Grid</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -39,6 +39,11 @@ EXPECTED = sorted([
     "serve-dual-nvfp4-clone-theirbuild-lan.bat",
     "serve-dual-nvfp4-beta-theirbuild.bat",
     "serve-dual-nvfp4-beta-theirbuild-lan.bat",
+    # ExLlama3 (issue #71): hub keys F and G. These call
+    # qwen38-tuning\scripts\serve-exl3.cmd, not serve.ps1 -- a different engine
+    # with its own single flag holder (tests/test_exl3_launcher.py).
+    "serve-exl3.bat", "serve-exl3-lan.bat",
+    "serve-exl3-max.bat", "serve-exl3-max-lan.bat",
 ])
 
 
@@ -69,8 +74,11 @@ def test_each_launcher_reaches_the_entry_point_from_where_it_now_lives(name):
     live = [l for l in text.splitlines() if not l.strip().lower().startswith("rem")]
     # A line can NAME serve.ps1 without pointing at it -- the failure
     # message echoes it. Only the anchored ones are paths.
-    hits = [l for l in live if "serve.ps1" in l and "%~dp0" in l]
-    assert hits, "%s no longer names serve.ps1" % name
+    # Two entry points exist since 2026-09-04: serve.ps1 for every llama.cpp
+    # profile, qwen38-tuning\scripts\serve-exl3.cmd for the ExLlama3 keys.
+    hits = [l for l in live
+            if ("serve.ps1" in l or "serve-exl3.cmd" in l) and "%~dp0" in l]
+    assert hits, "%s no longer names an entry point" % name
     for line in hits:
         i = line.index("%~dp0")
         rel = line[i + len("%~dp0"):].split('"')[0]

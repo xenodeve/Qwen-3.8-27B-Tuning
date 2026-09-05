@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google — A Field Guide · Design Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Instrument+Serif:ital@1&family=Noto+Sans+Thai:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   GOOGLE — A FIELD GUIDE
+   Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid
+   ============================================================ */
+:root{
+  --paper:#F6F5F0;
+  --paper-deep:#EFEEE7;
+  --ink:#101010;
+  --ink-soft:rgba(16,16,16,.62);
+  --line:rgba(16,16,16,.09);
+  --line-strong:rgba(16,16,16,.30);
+  --blue:#4285F4;
+  --red:#EA4335;
+  --yellow:#FBBC04;
+  --green:#34A853;
+  --glass:rgba(255,255,255,.55);
+  --glass-brd:rgba(255,255,255,.75);
+  --serif:"Instrument Serif", Georgia, serif;
+  --sans:"Archivo","Noto Sans Thai",-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --thai:"Noto Sans Thai","Archivo",sans-serif;
+  --frame:max(920px, 84vw);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--thai);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ---------- Visible grid: 12 columns across the viewport ---------- */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(to right,var(--line) 1px,transparent 1px);
+  background-size:calc(100% / 12) 100%;
+  transition:background-image .3s;
+}
+body.grid-on::before{
+  background-image:linear-gradient(to right,rgba(234,67,53,.28) 1px,transparent 1px);
+  background-size:calc(100% / 12) 100%;
+}
+
+/* ---------- Left registration rail ---------- */
+.rail{
+  position:fixed;left:14px;top:0;bottom:0;width:1px;background:var(--line-strong);
+  z-index:5;
+}
+.rail span{
+  position:absolute;top:50%;left:-6px;transform:rotate(180deg) translateY(50%);
+  writing-mode:vertical-rl;font-family:var(--sans);font-size:9px;letter-spacing:.32em;
+  text-transform:uppercase;color:var(--ink-soft);white-space:nowrap;
+}
+@media(max-width:1023px){.rail{display:none}}
+
+/* ---------- Frame (content column) ---------- */
+.frame{max-width:var(--frame);margin:0 auto;position:relative;z-index:1}
+.section{
+  position:relative;border-left:1px solid var(--line-strong);border-right:1px solid var(--line-strong);
+  padding:clamp(56px,9vw,120px) clamp(20px,4.5vw,64px);
+}
+.tag{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  font-family:var(--sans);font-size:10px;letter-spacing:.3em;text-transform:uppercase;
+  color:var(--ink-soft);margin-bottom:clamp(28px,4vw,56px);
+}
+.tag b{color:var(--red);font-weight:700}
+
+/* ---------- Column ticks (01–12) ---------- */
+.ticks{display:flex;max-width:var(--frame);margin:0 auto;padding:0 clamp(20px,4.5vw,64px);position:relative;z-index:1}
+.ticks span{
+  flex:1;font-family:var(--sans);font-size:9px;letter-spacing:.1em;color:var(--ink-soft);
+  border-bottom:1px solid var(--line-strong);padding-bottom:6px;
+  opacity:0;transition:opacity .3s;
+}
+body.grid-on .ticks span{opacity:1}
+
+/* ---------- Navigation (liquid glass) ---------- */
+nav{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:50;
+  display:flex;align-items:center;gap:28px;
+  background:var(--glass);border:1px solid var(--glass-brd);
+  backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);
+  padding:10px 24px;border-radius:999px;
+  box-shadow:0 8px 32px rgba(16,16,16,.08);
+}
+.wordmark{font-family:var(--sans);font-weight:700;font-size:17px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink)}
+.wordmark i{display:flex;gap:3px}
+.wordmark i b{width:7px;height:7px;border-radius:50%;display:block}
+nav .links{display:flex;gap:22px}
+nav .links a{font-family:var(--sans);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;transition:color .2s}
+nav .links a:hover{color:var(--red)}
+nav .cta{
+  font-family:var(--sans);font-size:10px;letter-spacing:.24em;text-transform:uppercase;
+  background:var(--ink);color:var(--paper);text-decoration:none;padding:9px 18px;border-radius:999px;
+  transition:background .2s,transform .2s;
+}
+nav .cta:hover{background:var(--red);transform:translateY(-1px)}
+@media(max-width:760px){nav .links{display:none}}
+
+/* ---------- Hero ---------- */
+.hero{padding-top:clamp(140px,20vh,220px)}
+.kicker{
+  display:flex;align-items:center;gap:14px;font-family:var(--sans);font-size:11px;
+  letter-spacing:.3em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:28px;
+}
+.kicker::before{content:"";width:34px;height:1px;background:var(--red)}
+.hero h1{
+  font-family:var(--sans);font-weight:900;font-size:clamp(72px,13.5vw,184px);
+  line-height:.92;letter-spacing:-.045em;margin-bottom:18px;
+}
+.strip{display:flex;height:6px;width:min(420px,60%);margin:26px 0 34px}
+.strip i{flex:1}
+.hero p.lede{
+  font-family:var(--thai);font-weight:300;font-size:clamp(16px,1.8vw,19px);
+  line-height:1.9;color:var(--ink-soft);max-width:560px;
+}
+.hero p.lede em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink)}
+.scroll-hint{
+  display:flex;align-items:center;gap:12px;margin-top:clamp(48px,7vw,96px);
+  font-family:var(--sans);font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-soft);
+}
+.scroll-hint i{width:1px;height:52px;background:var(--line-strong);position:relative;overflow:hidden;display:block}
+.scroll-hint i::after{content:"";position:absolute;left:0;top:-16px;width:1px;height:16px;background:var(--red);animation:drop 1.8s ease-in-out infinite}
+@keyframes drop{to{top:52px}}
+
+/* ---------- Marquee ---------- */
+.marquee{border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong);overflow:hidden;padding:14px 0;background:var(--ink);color:var(--paper)}
+.marquee .track{display:flex;width:max-content;animation:scroll 28s linear infinite}
+.marquee span{
+  font-family:var(--sans);font-size:13px;letter-spacing:.42em;text-transform:uppercase;
+  white-space:nowrap;padding-right:2.5rem;display:flex;align-items:center;gap:2.5rem;
+}
+.marquee b{color:var(--yellow);font-weight:400}
+@keyframes scroll{to{transform:translateX(-50%)}}
+
+/* ---------- Stats (glass over color field) ---------- */
+.stats{position:relative}
+.stats .field{position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(58% 70% at 12% 30%,rgba(66,133,244,.16),transparent 70%),
+  radial-gradient(50% 60% at 88% 25%,rgba(52,168,83,.15),transparent 70%),
+  radial-gradient(45% 55% at 55% 90%,rgba(251,188,4,.14),transparent 70%);
+}
+.stats .grid-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;position:relative}
+.stat{
+  background:var(--glass);border:1px solid var(--glass-brd);border-radius:18px;
+  backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);
+  padding:30px 26px;box-shadow:0 12px 40px rgba(16,16,16,.06);
+  transition:transform .3s,box-shadow .3s;
+}
+.stat:hover{transform:translateY(-4px);box-shadow:0 20px 56px rgba(16,16,16,.10)}
+.stat .num{font-family:var(--sans);font-weight:900;font-size:clamp(30px,3.4vw,46px);letter-spacing:-.03em;line-height:1}
+.stat .num small{font-size:.42em;font-weight:600;color:var(--ink-soft)}
+.stat .lbl{margin-top:14px;font-size:13.5px;font-weight:400;color:var(--ink-soft);line-height:1.7}
+.stat .note{margin-top:8px;font-family:var(--sans);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--red)}
+@media(max-width:900px){.stats .grid-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.stats .grid-row{grid-template-columns:1fr}}
+
+/* ---------- Products ---------- */
+.products .field{position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(55% 45% at 18% 22%,rgba(66,133,244,.30),transparent 70%),
+  radial-gradient(45% 42% at 82% 18%,rgba(52,168,83,.26),transparent 70%),
+  radial-gradient(40% 40% at 50% 95%,rgba(251,188,4,.24),transparent 70%),
+  radial-gradient(35% 40% at 90% 80%,rgba(234,67,53,.20),transparent 70%);
+}
+.prod-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;position:relative}
+.card{
+  background:var(--glass);border:1px solid var(--glass-brd);border-radius:22px;
+  backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);
+  padding:30px 28px 26px;box-shadow:0 14px 44px rgba(16,16,16,.07);
+  position:relative;overflow:hidden;cursor:pointer;
+  transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s;
+}
+.card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--c,var(--blue))}
+.card:hover{transform:translateY(-6px);box-shadow:0 28px 72px rgba(16,16,16,.13)}
+.card .idx{font-family:var(--sans);font-size:10px;letter-spacing:.26em;color:var(--ink-soft);display:flex;justify-content:space-between}
+.card h3{font-family:var(--sans);font-weight:700;font-size:clamp(20px,2.1vw,25px);letter-spacing:-.02em;margin-top:26px}
+.card p{margin-top:12px;font-size:14.5px;font-weight:300;line-height:1.8;color:var(--ink-soft)}
+.card .go{margin-top:22px;display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink);transition:gap .25s}
+.card:hover .go{gap:14px}
+@media(max-width:960px){.prod-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.prod-grid{grid-template-columns:1fr}}
+
+/* ---------- Editorial quote ---------- */
+.editorial .cols{display:grid;grid-template-columns:1fr 72px 1.4fr;gap:0}
+.editorial .cols > *{padding-right:8px}
+.editorial .rule{border-left:1px solid var(--line-strong);align-self:stretch}
+.pull{
+  font-family:var(--serif);font-style:italic;font-size:clamp(34px,4.6vw,58px);
+  line-height:1.22;letter-spacing:-.01em;
+}
+.pull .dot{color:var(--red)}
+.editorial thai-block p{font-size:15px;font-weight:300;line-height:2;color:var(--ink-soft);margin-bottom:20px}
+.editorial thai-block .src{font-family:var(--sans);font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--red);margin-top:28px}
+@media(max-width:860px){.editorial .cols{grid-template-columns:1fr}.editorial .rule,.editorial thai-block{display:none}}
+
+/* ---------- Timeline ---------- */
+.tl{border-collapse:collapse;width:100%}
+.tl tr{border-bottom:1px solid var(--line-strong);transition:background .2s}
+.tl tr:hover{background:rgba(66,133,244,.05)}
+.tl td{padding:22px 8px;vertical-align:top}
+.tl .yr{font-family:var(--sans);font-weight:900;font-size:clamp(18px,2vw,24px);letter-spacing:-.02em;width:130px;white-space:nowrap}
+.tl .yr small{display:block;font-weight:400;font-size:9px;letter-spacing:.26em;color:var(--ink-soft);text-transform:uppercase;margin-top:6px}
+.tl td.txt{font-size:15px;font-weight:300;line-height:1.85;color:var(--ink-soft)}
+.tl td.txt b{font-weight:500;color:var(--ink)}
+
+/* ---------- CTA band ---------- */
+.cta-band{text-align:center;background:var(--ink);color:var(--paper)}
+.cta-band .tag{color:rgba(246,245,240,.5);justify-content:center}
+.cta-band h2{font-family:var(--sans);font-weight:900;font-size:clamp(48px,8vw,108px);letter-spacing:-.04em;line-height:.95}
+.cta-band h2 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--yellow)}
+.cta-band .btns{display:flex;gap:14px;justify-content:center;margin-top:clamp(36px,5vw,56px);flex-wrap:wrap}
+.btn{
+  font-family:var(--sans);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+  padding:16px 32px;border-radius:999px;text-decoration:none;transition:transform .2s,box-shadow .2s;
+}
+.btn.solid{background:var(--paper);color:var(--ink)}
+.btn.ghost{border:1px solid rgba(246,245,240,.35);color:var(--paper)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.35)}
+
+/* ---------- Footer ---------- */
+footer{border-top:1px solid var(--line-strong);padding:28px clamp(20px,4.5vw,64px);max-width:var(--frame);margin:0 auto;position:relative;z-index:1}
+.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font-family:var(--sans);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft)}
+
+/* ---------- Reveal ---------- */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s cubic-bezier(.22,1,.36,1)}
+.reveal.in{opacity:1;transform:none}
+
+@media(prefers-reduced-motion:reduce){
+  .marquee .track{animation:none}
+  .reveal{opacity:1;transform:none;transition:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<div class="rail"><span>Google — A Field Guide · Editorial × Swiss × Glass · N°01–07</span></div>
+
+<nav aria-label="Navigation">
+  <a class="wordmark" href="#top">Google<i><b style="background:var(--blue)"></b><b style="background:var(--red)"></b><b style="background:var(--yellow)"></b><b style="background:var(--green)"></b></i></a>
+  <div class="links">
+    <a href="#overview">ภาพรวม</a>
+    <a href="#products">ผลิตภัณฑ์</a>
+    <a href="#story">เรื่องเล่า</a>
+    <a href="#timeline">เส้นเวลา</a>
+  </div>
+  <a class="cta" href="https://about.google" target="_blank" rel="noopener">Learn More ↗</a>
+</nav>
+
+<div class="ticks" aria-hidden="true">
+  <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+  <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+</div>
+
+<!-- ============ 01 · HERO ============ -->
+<header class="section hero" id="top">
+  <div class="kicker reveal">แนะนำ Google — 1998 → ปัจจุบัน · Overview</div>
+  <h1 class="reveal">Google<span style="color:var(--red)">.</span></h1>
+  <div class="strip reveal"><i style="background:var(--blue)"></i><i style="background:var(--red)"></i><i style="background:var(--yellow)"></i><i style="background:var(--green)"></i></div>
+  <p class="lede reveal">
+    เริ่มต้นจากการนับลิงก์ในห้องสมุดสแตนฟอร์ดในปี 1998 วันนี้ Google คือ
+    <em>โครงสร้างพื้นฐานของอินเทอร์เน็ต</em> — เครื่องมือที่ผู้คนหลายพันล้านคนใช้
+    ค้นหา เดินทาง ทำงาน และสร้างสรรค์ ตั้งแต่เช้าจนค่ำ
+  </p>
+  <div class="scroll-hint reveal">Scroll <i></i> เริ่มสำรวจ</div>
+</header>
+
+<!-- ============ Marquee ============ -->
+<div class="marquee" aria-hidden="true">
+  <div class="track">
+    <span>Search <b>◆</b> Gemini <b>◆</b> Maps <b>◆</b> Workspace <b>◆</b> Cloud <b>◆</b> Android <b>◆</b> YouTube <b>◆</b> Chrome <b>◆</b></span>
+    <span>Search <b>◆</b> Gemini <b>◆</b> Maps <b>◆</b> Workspace <b>◆</b> Cloud <b>◆</b> Android <b>◆</b> YouTube <b>◆</b> Chrome <b>◆</b></span>
+  </div>
+</div>
+
+<!-- ============ 02 · STATS ============ -->
+<section class="section stats" id="overview">
+  <div class="field"></div>
+  <div class="tag reveal"><span><b>02</b> — ตัวเลขนับเร็ว · At a Glance</span><span>โดยประมาณ / Approx.</span></div>
+  <div class="grid-row">
+    <div class="stat reveal">
+      <div class="num">≈90,000<small> ครั้ง</small></div>
+      <div class="lbl">การค้นหาใน Google ทุก ๆ นาทีทั่วโลก</div>
+      <div class="note">Search volume</div>
+    </div>
+    <div class="stat reveal">
+      <div class="num">200<small>+ ประเทศ</small></div>
+      <div class="lbl">ประเทศและดินแดนที่มีบริการ Google</div>
+      <div class="note">Global reach</div>
+    </div>
+    <div class="stat reveal">
+      <div class="num">1998</div>
+      <div class="lbl">ปีก่อตั้ง — เริ่มจากโปรเจกต์ Backrub ที่สแตนฟอร์ด</div>
+      <div class="note">Founded</div>
+    </div>
+    <div class="stat reveal">
+      <div class="num">$400B<small>+ / ปี</small></div>
+      <div class="lbl">รายได้ประจำปีของกลุ่ม Alphabet (ตัวเลขล่าสุด)</div>
+      <div class="note">Annual revenue</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 · PRODUCTS ============ -->
+<section class="section products" id="products">
+  <div class="field"></div>
+  <div class="tag reveal"><span><b>03</b> — ผลิตภัณฑ์หลัก · Core Products</span><span>06 items</span></div>
+  <div class="prod-grid">
+    <article class="card reveal" style="--c:var(--blue)">
+      <div class="idx"><span>01</span><span>Search</span></div>
+      <h3>Google Search</h3>
+      <p>ประตูบานแรกของอินเทอร์เน็ตสำหรับคนส่วนใหญ่ — ค้นหาคำตอบ ข่าว แผนที่ และข้อมูลได้ภายในเสี้ยววินาที</p>
+      <span class="go">google.com →</span>
+    </article>
+    <article class="card reveal" style="--c:var(--green)">
+      <div class="idx"><span>02</span><span>AI</span></div>
+      <h3>Gemini</h3>
+      <p>โมเดล AI ที่ฝังอยู่ในทุกผลิตภัณฑ์ — ช่วยคิด ช่วยเขียน ช่วยโค้ด และสรุปข้อมูลแทนคุณ</p>
+      <span class="go">gemini.google.com →</span>
+    </article>
+    <article class="card reveal" style="--c:var(--yellow)">
+      <div class="idx"><span>03</span><span>Maps</span></div>
+      <h3>Google Maps</h3>
+      <p>แผนที่ที่เดินทางไปกับคุณ — ทางลัด การจราจรแบบเรียลไทม์ และรีวิวจากคนท้องถิ่น</p>
+      <span class="go">maps.google.com →</span>
+    </article>
+    <article class="card reveal" style="--c:var(--red)">
+      <div class="idx"><span>04</span><span>Workspace</span></div>
+      <h3>Workspace</h3>
+      <p>Docs, Sheets, Gmail และ Meet — ห้องทำงานที่ทีมทั่วโลกใช้ร่วมกันได้พร้อมกัน</p>
+      <span class="go">workspace.google.com →</span>
+    </article>
+    <article class="card reveal" style="--c:var(--blue)">
+      <div class="idx"><span>05</span><span>Cloud</span></div>
+      <h3>Google Cloud</h3>
+      <p>โครงสร้างพื้นฐานและ AI สำหรับองค์กร — จากเซิร์ฟเวอร์ไปจนถึงโมเดลระดับ Frontier</p>
+      <span class="go">cloud.google.com →</span>
+    </article>
+    <article class="card reveal" style="--c:var(--green)">
+      <div class="idx"><span>06</span><span>Mobile</span></div>
+      <h3>Android</h3>
+      <p>ระบบปฏิบัติการที่รันอยู่บนมือถือกว่าพันล้านเครื่องทั่วโลก — และยังคงเปิดกว้าง</p>
+      <span class="go">android.com →</span>
+    </article>
+  </div>
+</section>
+
+<!-- ============ 04 · EDITORIAL QUOTE ============ -->
+<section class="section editorial" id="story">
+  <div class="tag reveal"><span><b>04</b> — คติพจน์ · The Mission</span><span>EST. 1998</span></div>
+  <div class="cols">
+    <blockquote class="pull reveal">“Our mission is to organize the world’s information<span class="dot">.</span>”</blockquote>
+    <div class="rule" aria-hidden="true"></div>
+    <div class="thai-block reveal">
+      <p>ภารกิจของ Google คือการจัดระเบียบข้อมูลของโลก — และทำให้มันเข้าถึงได้อย่างสากลและเป็นประโยชน์กับทุกคน</p>
+      <p>จากคำมั่นนั้นเกิดเป็นทุกอย่างที่ตามมาให้ ตั้งแต่หน้าค้นหายอดฮิตไปจนถึงห้องปฏิบัติการ AI ที่กำลังจะเปลี่ยนวิธีที่มนุษยชาติค้นหาความรู้อีกครั้ง</p>
+      <div class="src">— Google mission statement, Stanford, 1998</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 · TIMELINE ============ -->
+<section class="section" id="timeline">
+  <div class="tag reveal"><span><b>05</b> — เส้นเวลา · Milestones</span><span>1998–2023</span></div>
+  <table class="tl reveal">
+    <tr><td class="yr">1998<small>จุดเริ่มต้น</small></td><td class="txt"><b>Backrub</b> — Larry และ Sergey เริ่มนับลิงก์ในห้องพักที่ Menlo Park และตั้งชื่อเล่นว่า “Google” (มาจาก googol)</td></tr>
+    <tr><td class="yr">2004<small>IPO</small></td><td class="txt"><b>เข้าตลาดหุ้น</b> — Google ทุบสถิติ IPO ใหญ่สุดในขณะนั้น และเริ่มขยายจาก Search ไปสู่ Gmail, Ads และ Maps</td></tr>
+    <tr><td class="yr">2015<small>Alphabet</small></td><td class="txt"><b>โครงสร้างบริษัทใหม่</b> — Google กลายเป็นบริษัทลูกภายใต้ Alphabet เพื่อแยกธุรกิจที่แตกต่างออกจากกัน</td></tr>
+    <tr><td class="yr">2023<small>Gemini</small></td><td class="txt"><b>ยุคของ AI</b> — Gemini เปิดตัว และ AI เริ่มถูกทักลงใน Search, Workspace และอุปกรณ์ทุกชิ้น</td></tr>
+  </table>
+</section>
+
+<!-- ============ 06 · CTA ============ -->
+<section class="section cta-band" id="cta">
+  <div class="tag reveal"><span><b>06</b> — เริ่มต้น · Get Started</span></div>
+  <h2 class="reveal">ค้นหาสิ่งต่อไปนี้<br><em>today.</em></h2>
+  <div class="btns reveal">
+    <a class="btn solid" href="https://www.google.com" target="_blank" rel="noopener">google.com</a>
+    <a class="btn ghost" href="https://about.google" target="_blank" rel="noopener">about.google ↗</a>
+  </div>
+</section>
+
+<!-- ============ 07 · FOOTER ============ -->
+<footer>
+  <div class="foot">
+    <span>Design Study — ไม่ใช่หน้าทางการของ Google</span>
+    <span>Editorial Minimalism × Swiss × Liquid Glass × Visible Grid</span>
+    <span>12-Column Grid · กด G เพื่อเปิด/ปิดกริดเด่น</span>
+  </div>
+</footer>
+
+<script>
+/* scroll reveal */
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+}), { threshold: .12 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+/* toggle strong grid on 'g' */
+document.addEventListener('keydown', e => {
+  if (e.key === 'g' || e.key === 'G') document.body.classList.toggle('grid-on');
+});
+</script>
+</body>
+</html>

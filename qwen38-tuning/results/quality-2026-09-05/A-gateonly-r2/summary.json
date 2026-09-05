@@ -1,0 +1,77 @@
+{
+  "cell": "A",
+  "arm": "gateonly",
+  "rep": 2,
+  "task": "page",
+  "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5",
+  "backend": "exl3",
+  "ctx": 262144,
+  "effort": "medium",
+  "brief": "สร้าง Landing Page แนะนำ Google โดยใช้ Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid | ทำเป็น HTML ไฟล์เดียว | จบด้วย /design-ship-gate",
+  "rc": 0,
+  "timed_out": false,
+  "wall_s": 652.1,
+  "started": "2026-09-05T07:27:28.825428+00:00",
+  "ended": "2026-09-05T07:38:20.916553+00:00",
+  "vram_before": "NVIDIA GeForce RTX 4070 SUPER, 11528 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 13774 MiB, 16311 MiB",
+  "vram_after": "NVIDIA GeForce RTX 4070 SUPER, 11549 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 13774 MiB, 16311 MiB",
+  "assistant_messages": 38,
+  "api_calls": 14,
+  "tool_calls": {
+    "Write": 2,
+    "Skill": 1,
+    "Edit": 4,
+    "Grep": 1,
+    "Read": 1,
+    "Bash": 5
+  },
+  "thinking_chars": 26741,
+  "text_chars": 3089,
+  "num_turns": 16,
+  "duration_api_ms": 649111,
+  "duration_ms": 651113,
+  "output_tokens": 26209,
+  "input_tokens": 58696,
+  "cache_read": 628480,
+  "is_error": false,
+  "subtype": "success",
+  "final_text": "\n\nผ่านครบแล้ว — รายงาน gate:\n\n## GATE: 8/8\n\n```\nGATE: 8/8  (fonts 2 · og 3/3 · dark yes · invisible 0 · overflow 0 · colliding 0 · span-rule none · tracking ok)\nbrief table: 7 rows, all filled\n```\n\n### 0. Brief coverage\n\n| the brief names | element(s) that deliver it |\n|---|---|\n| Editorial Minimalism | whitespace 120–140 px, serif display `Noto Serif Thai` (`.display`, `.h2`), lede, manifesto section |\n| Modern Swiss | 12-col grid, mono labels, index numbers `01–04`, strict baseline alignment, 4 brand swatches |\n| Liquid Glass | `.glass` (nav + hero search) — `backdrop-filter: blur(18px) saturate(1.4)` |\n| Visible Grid | `.grid-layer` — fixed 12-column lines behind all content |\n| dark mode | `@media (prefers-color-scheme: dark)` token block |\n| Open Graph tags | `og:title` / `og:description` / `og:image` + `twitter:card` |\n| brief's language (ไทย) | copy ทัวไปเป็นไทย, `lang=\"th\"` — ทิ้ง product names/labels โครงสร้างไว้อังกฤษตามธรรมเนียม |\n\n### Command outputs\n\n**1. Fonts (≤2):**\n```\nIBM Plex Sans Thai\nNoto Serif Thai\n```\n(2 families — mono labels ใช้ `ui-monospace` stack จาก system ไม่โหลดเพิ่ม)\n\n**2. OG:**\n```\nproperty=\"og:description\"\nproperty=\"og:image\"\nproperty=\"og:title\"\n```\n\n**3. Dark mode:** `1`\n\n**4. Dark visibility:** `invisible: 0 []`\n\n**5. 390 px overflow:** `overflow: 0` — (รอบแรก fail ที่ 68 px: `.hero-rule .tag` nowrap กว้าง 438 px → ให้ wrap ได้แล้ว rerun ผ่าน)\n\n**6. Hero collisions:** `colliding: 0 []` — ตรวจตาแล้ว: nav fixed อยูก่อน hero title (padding-top 130 px + margin 9vh) ไม่ทับ\n\n**7. Number span rules:** nothing printed — unit `+` อยู้ใน `.val` เดียวกับตัวเลข (`.val` มี `white-space:nowrap` + `tabular-nums`)\n\n**8. Tight tracking:** nothing printed — tracking ลบที่อยูก้ `-0.02em` / `-0.015em` / `-0.01em` ทังหมดอยู้ที่ display ≥ 24 px\n\n### สาระสำคัญ\n- ไฟล์: `google-landing.html` (เดียว, self-contained, โหลดฟอนต์ 2 ตระกูลจาก Google Fonts)\n- แก้บั๊ก 2 ข้อยาก่อนผ่าน gate: คำ Cyrillic หลุดเข้้าไปใน manifesto และ overflow 390 px\n- หมายเหตุ: `og:im",
+  "pages": [
+    "google-landing.html"
+  ],
+  "page_bytes": 24892,
+  "page_lines": 690,
+  "gate": {
+    "fonts": [
+      "IBM Plex Sans Thai",
+      "Noto Serif Thai"
+    ],
+    "fonts_n": 2,
+    "og": [
+      "description",
+      "image",
+      "title"
+    ],
+    "dark_matches": 1,
+    "span_rule": [],
+    "tracking_candidates": 0,
+    "thai_chars": 1633,
+    "invisible": 0,
+    "invisible_raw": "invisible: 0 []",
+    "overflow": 0,
+    "overflow_raw": "overflow: 0",
+    "colliding": 0,
+    "colliding_raw": "colliding: 0 []",
+    "screenshots": "desktop-light errors: 0 []\ndesktop-dark errors: 0 []\nmobile errors: 0 []",
+    "unknown": 0,
+    "score": "8/8"
+  },
+  "server_evidence": {
+    "requests": 15,
+    "output_tokens_server": 26637,
+    "prompt_tokens_max": 57370,
+    "errors": 0,
+    "server_log": "C:\\AI\\qwen38-tuning\\logs\\exl3-serve-20260905-142018.log",
+    "timing_lines": 84
+  }
+}

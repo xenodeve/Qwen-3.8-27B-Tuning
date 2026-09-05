@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>กูเกิล — คู่มือฉบับสนาม</title>
+<meta name="description" content="โลกทั้งใบ อยู่ในช่องค้นหาเดียว — เรื่องราวของกูเกิล ตั้งแต่ห้องปฏิบัติการสแตนฟอร์ดปี 1998 ถึงโครงสร้างพื้นฐานของอินเทอร์เน็ต">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="กูเกิล — คู่มือฉบับสนาม">
+<meta property="og:description" content="โลกทั้งใบ อยู่ในช่องค้นหาเดียว — เรื่องราวของกูเกิล ตั้งแต่สแตนฟอร์ด 1998 ถึงโครงสร้างพื้นฐานของอินเทอร์เน็ต">
+<meta property="og:image" content="https://placehold.co/1200x630/F6F4EF/16150F?text=Google+Field+Guide">
+<meta property="og:locale" content="th_TH">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<script>document.documentElement.classList.add('js');</script>
+
+<style>
+/* ============================================================
+   GOOGLE — FIELD GUIDE
+   Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid
+   Type: IBM Plex Sans Thai (grotesque) + IBM Plex Mono (technical)
+   60-30-10: paper 60 / ink 30 / Swiss red 10
+   ============================================================ */
+
+:root{
+  --gap: clamp(8px, 1.4vw, 20px);
+  --pad: clamp(16px, 4vw, 40px);
+
+  --paper: #F6F4EF;
+  --ink: #16150F;
+  --ink-soft: #5C5A52;
+  --line: rgba(22,21,15,0.14);
+  --line-strong: rgba(22,21,15,0.34);
+  --surface: #FFFFFF;
+  --glass: rgba(255,255,255,0.55);
+  --glass-border: rgba(255,255,255,0.75);
+  --accent: #E4002B;
+  --accent-hover: #C40025;
+  --accent-ink: #FFFFFF;
+
+  --font-sans: 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper: #0D0D0F;
+    --ink: #F1EFE8;
+    --ink-soft: #9C9A92;
+    --line: rgba(241,239,232,0.14);
+    --line-strong: rgba(241,239,232,0.4);
+    --surface: #16161A;
+    --glass: rgba(22,22,26,0.5);
+    --glass-border: rgba(241,239,232,0.16);
+    --accent: #FF3B4E;
+    --accent-hover: #FF5A6A;
+    --accent-ink: #FFFFFF;
+  }
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust:100%; }
+
+body{
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a{ color: inherit; }
+
+/* ---------- container + visible grid ---------- */
+.wrap{
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-left: var(--pad);
+  padding-right: var(--pad);
+}
+
+.page{ position: relative; }
+
+.grid-overlay{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--gap);
+  border-left: 1px solid var(--line);
+  pointer-events: none;
+  z-index: 0;
+}
+.grid-overlay i{ border-right: 1px solid var(--line); }
+
+/* every content row shares the same 12-col grid + gap => aligns to the lines */
+.row{
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--gap);
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- masthead (liquid glass bar) ---------- */
+.masthead{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--line);
+}
+.masthead-inner{
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--gap);
+  align-items: center;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.brand{ grid-column: 1 / 4; display: flex; align-items: center; gap: 10px; }
+.brand .wordmark{
+  font-weight: 700;
+  font-size: 1.375rem;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.brand .sub{
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+.brand .stack{ display: flex; flex-direction: column; }
+
+nav.main{
+  grid-column: 4 / 10;
+  display: flex;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 32px);
+}
+nav.main a{
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--ink-soft);
+  padding: 6px 0;
+  position: relative;
+  transition: color .18s ease;
+}
+nav.main a::after{
+  content:""; position:absolute; left:0; bottom:0; height:1px; width:0;
+  background: var(--accent); transition: width .22s ease;
+}
+nav.main a:hover{ color: var(--ink); }
+nav.main a:hover::after{ width:100%; }
+
+.masthead .cta-slot{ grid-column: 10 / 13; display: flex; justify-content: flex-end; }
+
+/* ---------- buttons (4 states) ---------- */
+.btn{
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1;
+  padding: 14px 28px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, transform .08s ease;
+}
+.btn-primary{ background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover{ background: var(--accent-hover); }
+.btn-primary:active{ transform: scale(0.98); }
+.btn-primary:disabled, .btn-primary[aria-disabled="true"]{ opacity:.5; cursor: not-allowed; }
+
+.btn-ghost{ background: transparent; color: var(--ink); border-color: var(--line-strong); }
+.btn-ghost:hover{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn-ghost:active{ transform: scale(0.98); }
+
+/* ---------- column ruler (01–12) ---------- */
+.ruler{
+  padding-top: 20px;
+  padding-bottom: 8px;
+}
+.ruler span{
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  text-align: left;
+}
+
+/* ---------- hero ---------- */
+.hero{ padding-top: clamp(40px, 8vw, 96px); padding-bottom: clamp(48px, 8vw, 96px); }
+.hero .kicker{
+  grid-column: 1 / 13;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hero .kicker::before{ content:""; width: 32px; height: 1px; background: var(--accent); }
+
+.hero h1{
+  grid-column: 1 / 13;
+  margin-top: 24px;
+  font-weight: 700;
+  font-size: clamp(2.75rem, 11vw, 6.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+.hero h1 .l2{ color: var(--accent); }
+
+.hero .standfirst{
+  grid-column: 1 / 9;
+  margin-top: 32px;
+  font-size: clamp(1.125rem, 2.2vw, 1.5rem);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ink);
+  max-width: 46ch;
+}
+.hero .meta{
+  grid-column: 9 / 13;
+  margin-top: 32px;
+  align-self: end;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  text-align: right;
+  line-height: 1.9;
+}
+
+/* glass search — the calling card */
+.search-row{ margin-top: 40px; }
+.search{
+  grid-column: 1 / 13;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 8px 8px 8px 24px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.10);
+}
+.search input{
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  color: var(--ink);
+}
+.search input::placeholder{ color: var(--ink-soft); }
+.search .btn{ border-radius: 999px; padding: 12px 26px; }
+
+.hero .actions{
+  grid-column: 1 / 13;
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+.link-arrow{
+  font-weight: 500;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: 2px;
+  transition: border-color .18s ease, color .18s ease;
+}
+.link-arrow:hover{ color: var(--accent); border-color: var(--accent); }
+
+/* ---------- section header ---------- */
+.sec-head{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: clamp(56px, 9vw, 104px);
+  padding-bottom: 24px;
+  border-top: 1px solid var(--line-strong);
+}
+.sec-head .idx{
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+.sec-head h2{
+  font-size: clamp(1.953rem, 4vw, 3.052rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- manifesto ---------- */
+.manifesto .pull{
+  grid-column: 1 / 8;
+  font-size: clamp(1.5625rem, 3.4vw, 2.441rem);
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: -0.01em;
+}
+.manifesto .pull em{ font-style: normal; color: var(--accent); }
+.manifesto .body{
+  grid-column: 8 / 13;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  padding-top: 8px;
+}
+
+/* ---------- stats band ---------- */
+.stats{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  margin-top: clamp(48px, 8vw, 88px);
+}
+.stat{ padding: 32px 0; }
+.stat-num{
+  font-weight: 700;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.stat-label{
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-top: 14px;
+}
+
+/* ---------- product index ---------- */
+.index-list{ margin-top: 8px; }
+.index-row{
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--gap);
+  align-items: baseline;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  transition: background .2s ease;
+}
+.index-row::before{
+  content:""; position:absolute; left: calc(-1 * var(--pad)); top:0; bottom:0;
+  width: 2px; background: var(--accent);
+  transform: scaleY(0); transform-origin: top; transition: transform .25s ease;
+}
+.index-row:hover::before{ transform: scaleY(1); }
+.idx-num{ grid-column: 1 / 2; font-family: var(--font-mono); font-size: 0.875rem; color: var(--ink-soft); transition: color .2s ease; }
+.index-row:hover .idx-num{ color: var(--accent); }
+.idx-name{ grid-column: 2 / 5; font-weight: 600; font-size: 1.5625rem; letter-spacing: -0.01em; }
+.idx-tag{ grid-column: 5 / 7; font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.idx-desc{ grid-column: 7 / 13; color: var(--ink-soft); font-size: 0.9375rem; line-height: 1.5; }
+
+/* ---------- timeline ---------- */
+.tl-list{ margin-top: 8px; }
+.tl-row{
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--gap);
+  align-items: baseline;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tl-year{ grid-column: 1 / 4; font-family: var(--font-mono); font-size: 1.5rem; font-weight: 500; letter-spacing: -0.01em; }
+.tl-text{ grid-column: 4 / 13; font-size: 1.0625rem; line-height: 1.5; }
+.tl-text b{ font-weight: 600; }
+
+/* ---------- closing CTA ---------- */
+.cta{ padding: clamp(72px, 12vw, 144px) 0; text-align: left; }
+.cta h2{
+  font-size: clamp(2.5rem, 8vw, 5.5rem);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  max-width: 16ch;
+}
+.cta h2 .dot{ color: var(--accent); }
+.cta .cta-actions{ margin-top: 40px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+
+/* ---------- footer ---------- */
+.footer{ border-top: 1px solid var(--line-strong); padding-top: 56px; padding-bottom: 40px; }
+.footer-grid{
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--gap);
+}
+.footer .f-brand{ grid-column: 1 / 5; }
+.footer .f-brand .wordmark{ font-weight: 700; font-size: 1.5rem; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+.footer .f-brand p{ margin-top: 16px; color: var(--ink-soft); font-size: 0.9375rem; max-width: 30ch; line-height: 1.5; }
+.footer .f-col{ grid-column: span 3; }
+.footer .f-col h3{ font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; margin-bottom: 16px; }
+.footer .f-col a{ display: block; text-decoration: none; color: var(--ink); font-size: 0.9375rem; padding: 5px 0; transition: color .16s ease; }
+.footer .f-col a:hover{ color: var(--accent); }
+
+.footer .f-bottom{
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+/* ---------- reveal ---------- */
+.js .reveal{ opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+.js .reveal.in{ opacity: 1; transform: none; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 860px){
+  .masthead-inner{ grid-template-columns: 1fr auto; }
+  .brand{ grid-column: 1 / 2; }
+  .masthead .cta-slot{ grid-column: 2 / 3; }
+  nav.main{ display: none; }
+
+  .hero .standfirst{ grid-column: 1 / 13; }
+  .hero .meta{ grid-column: 1 / 13; text-align: left; margin-top: 24px; }
+
+  .manifesto .pull{ grid-column: 1 / 13; }
+  .manifesto .body{ grid-column: 1 / 13; margin-top: 24px; padding-top: 0; }
+
+  .stats{ grid-template-columns: repeat(2, 1fr); }
+
+  .index-row{ grid-template-columns: 1fr 1fr; row-gap: 6px; }
+  .idx-num{ grid-column: 1 / 2; grid-row: 1; }
+  .idx-name{ grid-column: 2 / 3; grid-row: 1; font-size: 1.375rem; }
+  .idx-tag{ grid-column: 1 / 2; grid-row: 2; }
+  .idx-desc{ grid-column: 1 / 3; grid-row: 3; }
+
+  .tl-row{ grid-template-columns: 1fr; row-gap: 8px; }
+  .tl-year{ grid-column: 1 / 2; }
+  .tl-text{ grid-column: 1 / 2; }
+
+  .footer .f-brand{ grid-column: 1 / 13; }
+  .footer .f-col{ grid-column: span 6; }
+}
+
+@media (max-width: 480px){
+  .search{ padding-left: 18px; }
+  .search .btn{ padding: 12px 18px; }
+  .footer .f-col{ grid-column: 1 / 13; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .js .reveal{ opacity: 1; transform: none; transition: none; }
+  *{ animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ MASTHEAD (liquid glass) ============ -->
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+        <circle cx="6" cy="6" r="3.4" fill="#4285F4"/>
+        <circle cx="16" cy="6" r="3.4" fill="#EA4335"/>
+        <circle cx="6" cy="16" r="3.4" fill="#FBBC05"/>
+        <circle cx="16" cy="16" r="3.4" fill="#34A853"/>
+      </svg>
+      <div class="stack">
+        <span class="wordmark">GOOGLE</span>
+        <span class="sub">Field Guide</span>
+      </div>
+    </div>
+
+    <nav class="main" aria-label="หลัก">
+      <a href="#overview">ภาพรวม</a>
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#numbers">ตัวเลข</a>
+      <a href="#timeline">ไทม์ไลน์</a>
+      <a href="#contact">ติดต่อ</a>
+    </nav>
+
+    <div class="cta-slot">
+      <a class="btn btn-primary" href="#overview">เริ่มค้นหา</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============ PAGE (visible grid) ============ -->
+<div class="wrap page">
+  <div class="grid-overlay" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <!-- column ruler 01–12 -->
+  <div class="row ruler" aria-hidden="true">
+    <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+    <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+  </div>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <section class="hero row" id="overview">
+      <p class="kicker reveal">A Field Guide · No.01</p>
+      <h1 class="reveal">
+        <span class="l1">ทุกอย่าง</span><br>
+        <span class="l2">ถูกจัดเรียงแล้ว</span>
+      </h1>
+      <p class="standfirst reveal">เริ่มจากห้องปฏิบัติการที่สแตนฟอร์ดในปี 1998 วันนี้กูเกิลคือโครงสร้างพื้นฐานของอินเทอร์เน็ต — เครื่องค้นหาที่ตอบคำถามราวเก้าพันล้านครั้งต่อวัน ในกว่า 200 ประเทศและดินแดน</p>
+      <div class="meta reveal">
+        EST. 1998<br>
+        MOUNTAIN VIEW, CA<br>
+        VOL. 01
+      </div>
+
+      <div class="search-row row">
+        <form class="search reveal" onsubmit="return false;">
+          <input type="text" placeholder="ค้นหาอะไรก็ได้…" aria-label="ค้นหา">
+          <button class="btn btn-primary" type="submit">ค้นหา</button>
+        </form>
+      </div>
+
+      <div class="actions reveal">
+        <a class="btn btn-ghost" href="#products">ดูดัชนีผลิตภัณฑ์</a>
+        <a class="link-arrow" href="#timeline">อ่านเรื่องราวของกูเกิล →</a>
+      </div>
+    </section>
+
+    <!-- ============ MANIFESTO ============ -->
+    <section class="manifesto row">
+      <div class="sec-head row" style="grid-column:1/13;">
+        <span class="idx">01 — Manifesto</span>
+        <h2>ภารกิจ</h2>
+      </div>
+      <p class="pull reveal">เราไม่ได้สร้างเครื่องมือค้นหา<br>เราสร้าง<em>แผนที่ของความรู้</em></p>
+      <p class="body reveal">ภารกิจของกูเกิลคือการจัดระเบียบข้อมูลระดับโลก และทำให้มันเข้าถึงได้และใช้ได้จริงสำหรับทุกคน — คำมั่นที่เขียนไว้ในเอกสารก่อตั้งตั้งแต่ปี 1998 และยังคงเป็นแกนกลางของทุกผลิตภัณฑ์ตั้งแต่นั้นมา</p>
+    </section>
+
+    <!-- ============ STATS ============ -->
+    <section id="numbers">
+      <div class="stats">
+        <div class="stat reveal">
+          <div class="stat-num">9B+</div>
+          <div class="stat-label">การค้นหา / วัน</div>
+        </div>
+        <div class="stat reveal">
+          <div class="stat-num">200+</div>
+          <div class="stat-label">ประเทศและดินแดน</div>
+        </div>
+        <div class="stat reveal">
+          <div class="stat-num">3B+</div>
+          <div class="stat-label">อุปกรณ์ Android</div>
+        </div>
+        <div class="stat reveal">
+          <div class="stat-num">1998</div>
+          <div class="stat-label">ปีที่ก่อตั้ง</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PRODUCT INDEX ============ -->
+    <section class="row" id="products">
+      <div class="sec-head row" style="grid-column:1/13;">
+        <span class="idx">02 — The Index</span>
+        <h2>ดัชนีผลิตภัณฑ์</h2>
+      </div>
+
+      <div class="index-list">
+        <div class="index-row reveal">
+          <span class="idx-num">01</span>
+          <span class="idx-name">Search</span>
+          <span class="idx-tag">การค้นหา</span>
+          <span class="idx-desc">หัวใจของกูเกิล — จัดระเบียบข้อมูลระดับโลกและตอบคำถามทุกวินาที</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">02</span>
+          <span class="idx-name">Android</span>
+          <span class="idx-tag">ระบบปฏิบัติการ</span>
+          <span class="idx-desc">ระบบปฏิบัติการมือถือที่คนใช้มากที่สุดในโลก</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">03</span>
+          <span class="idx-name">Chrome</span>
+          <span class="idx-tag">เบราว์เซอร์</span>
+          <span class="idx-desc">เบราว์เซอร์ที่เร็ว ปลอดภัย และเป็นส่วนตัว</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">04</span>
+          <span class="idx-name">YouTube</span>
+          <span class="idx-tag">วิดีโอ</span>
+          <span class="idx-desc">แพลตฟอร์มวิดีโอที่ใหญ่ที่สุดในโลก</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">05</span>
+          <span class="idx-name">Gmail</span>
+          <span class="idx-tag">อีเมล</span>
+          <span class="idx-desc">อีเมลที่ปลอดภัยและฉลาด เข้าถึงได้จากทุกที่</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">06</span>
+          <span class="idx-name">Maps</span>
+          <span class="idx-tag">แผนที่</span>
+          <span class="idx-desc">นำทางโลกทั้งใบ ทั้งบนถนนและในอากาศ</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">07</span>
+          <span class="idx-name">Gemini</span>
+          <span class="idx-tag">ปัญญาประดิษฐ์</span>
+          <span class="idx-desc">โมเดลภาษาและระบบ AI ของกูเกิล</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">08</span>
+          <span class="idx-name">Waymo</span>
+          <span class="idx-tag">รถยนต์</span>
+          <span class="idx-desc">รถไร้คนขับที่วิ่งจริงบนท้องถนน</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">09</span>
+          <span class="idx-name">Pixel</span>
+          <span class="idx-tag">ฮาร์ดแวร์</span>
+          <span class="idx-desc">สมาร์ทโฟนที่กูเกิลออกแบบเองทั้งระบบ</span>
+        </div>
+        <div class="index-row reveal">
+          <span class="idx-num">10</span>
+          <span class="idx-name">DeepMind</span>
+          <span class="idx-tag">วิจัย</span>
+          <span class="idx-desc">งานวิจัย AI ระดับโลก ตั้งแต่ AlphaGo ถึงวิทยาศาสตร์</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TIMELINE ============ -->
+    <section class="row" id="timeline">
+      <div class="sec-head row" style="grid-column:1/13;">
+        <span class="idx">03 — Timeline</span>
+        <h2>เส้นทาง</h2>
+      </div>
+
+      <div class="tl-list">
+        <div class="tl-row reveal">
+          <span class="tl-year">1998</span>
+          <span class="tl-text"><b>ก่อตั้งที่สแตนฟอร์ด</b> โดยラリー เพจ และเซียร์เกย์ บริน — เริ่มจากโปรเจกต์ค้นหากว่า 25 ล้านหน้าเว็บ</span>
+        </div>
+        <div class="tl-row reveal">
+          <span class="tl-year">2004</span>
+          <span class="tl-text"><b>เข้าตลาดหุ้น (IPO)</b> ที่ตลาดแนสแด็ก ด้วยราคาเปิด 104 ดอลลาร์ต่อหุ้น</span>
+        </div>
+        <div class="tl-row reveal">
+          <span class="tl-year">2006</span>
+          <span class="tl-text"><b>ซื้อ YouTube</b> และเริ่มพัฒนา Android — สองการเดิมพันที่เปลี่ยนอินเทอร์เน็ต</span>
+        </div>
+        <div class="tl-row reveal">
+          <span class="tl-year">2015</span>
+          <span class="tl-text"><b>ก่อตั้ง Alphabet</b> บริษัทแม่ที่แยกธุรกิจระยะยาวออกจากธุรกิจหลัก</span>
+        </div>
+        <div class="tl-row reveal">
+          <span class="tl-year">2022</span>
+          <span class="tl-text"><b>เปิดตัว Gemini</b> โมเดล AI รุ่นใหม่ ที่ขับเคลื่อนทุกผลิตภัณฑ์ของกูเกิล</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CLOSING CTA ============ -->
+    <section class="cta row" id="contact">
+      <h2 class="reveal">อินเทอร์เน็ตกำลัง<br>รอคุณ<span class="dot">.</span></h2>
+      <div class="cta-actions reveal">
+        <a class="btn btn-primary" href="#overview">เริ่มค้นหา</a>
+        <a class="link-arrow" href="#products">สำรวจผลิตภัณฑ์ →</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="footer-grid">
+      <div class="f-brand">
+        <div class="wordmark">
+          <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
+            <circle cx="6" cy="6" r="3.4" fill="#4285F4"/>
+            <circle cx="16" cy="6" r="3.4" fill="#EA4335"/>
+            <circle cx="6" cy="16" r="3.4" fill="#FBBC05"/>
+            <circle cx="16" cy="16" r="3.4" fill="#34A853"/>
+          </svg>
+          GOOGLE
+        </div>
+        <p>คู่มือฉบับสนาม — หน้านี้แนะนำกูเกิลในฐานะโครงสร้างพื้นฐานของอินเทอร์เน็ต</p>
+      </div>
+
+      <div class="f-col">
+        <h3>ผลิตภัณฑ์</h3>
+        <a href="#products">Search</a>
+        <a href="#products">Android</a>
+        <a href="#products">Chrome</a>
+        <a href="#products">YouTube</a>
+        <a href="#products">Gmail</a>
+        <a href="#products">Maps</a>
+      </div>
+
+      <div class="f-col">
+        <h3>บริษัท</h3>
+        <a href="#overview">เรื่องราว</a>
+        <a href="#timeline">ไทม์ไลน์</a>
+        <a href="#numbers">ตัวเลข</a>
+        <a href="#contact">Alphabet</a>
+      </div>
+
+      <div class="f-col">
+        <h3>ทรัพยากร</h3>
+        <a href="#products">Developers</a>
+        <a href="#products">Research</a>
+        <a href="#products">Waymo</a>
+        <a href="#products">DeepMind</a>
+      </div>
+    </div>
+
+    <div class="f-bottom">
+      <span>© 2026 — งานออกแบบเพื่อการสาธิต ไม่ใช่หน้าทางการของกูเกิล</span>
+      <span>Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var els = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)){
+    els.forEach(function(el){ el.classList.add('in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  els.forEach(function(el){ io.observe(el); });
+})();
+</script>
+</body>
+</html>
