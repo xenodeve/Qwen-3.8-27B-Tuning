@@ -324,3 +324,27 @@ pinned-memory reduce path past 90 s. The test is cheap — close the desktop GPU
 processes, repeat the two-agent 130K/43K alternation, and look for the line.
 Not a VRAM figure to plan by until then.
 
+### The server's own guards (2026-09-05 → 06): a watchdog, a loop guard, and a Han ban — issues #75, #76, #77
+
+Three faults that only showed up once Claude Code ran against the EXL3 server
+for whole days, and what the server now does about each. All three live in
+`qwen38-tuning/serving/exl3/` as sibling modules of the fork file, with their
+tests in `bench/tests/test_exl3_{watchdog,loop_guard,cjk_guard}.py`.
+
+| fault | measured | what the server does now | instrument |
+|---|---|---|---|
+| **TP children die, `/health` stays `ok`** (#75). After `pg_all_reduce_cpu_kernel` sync timeouts every completion 500s in 0.4 s; a human noticed after an hour | 2026-09-04 21:00 and 2026-09-05 (two boots) | `watchdog.check(e)` on the fatal signatures writes `logs/exl3-restart.flag` and exits 3; `serve-exl3.cmd` relaunches after any exit that was not asked for, refuses a held :8000, gives up after three deaths within 420 s; a `/health` self-probe catches a deaf server; `stop-exl3.cmd` is the only intended stop | the flag's reason line; the relaunch log |
+| **Runaway repetition under the window-sized output cap** (#76). A Thai report locked onto tone mark U+0E48 for 127,996 tokens / 46 min; a thinking phase cycled three sentences ~1,000 times to the same count | 2026-09-05 13:19 and 19:03, 4.0bpw H5 at medium | `loop_guard.feed()` on every text chunk: ≤ 2 distinct characters in the last 512 of content, or a prose unit of 64 characters ×8 in the last 4,096 of thinking → `generator.cancel`, `finish_reason length`, `timings.stop_reason = "loop"`. Replayed over the 43 bench streams: trips on the two runaways only | `/health.loops_stopped` |
+| **Chinese characters mid-Thai-sentence** (#77). 14 Han characters in 3 of 43 streams (`โมเดล前沿…`, `协作`, `这套`): sampling drift where the Thai continuation is diffuse, which no prompt line reaches | 2026-09-05 bench streams | `cjk_guard`: every vocab piece with a Han character (55,328 of 248,044) at `-inf` in `ComboSampler`'s `logit_bias`, thinking included, unless the prompt carries Han or names Chinese (`จีน`/`china`/`chinese`/`mandarin`) or `EXL3_ALLOW_CJK=1`. Live 2026-09-06 06:11: five Thai briefs of the leaking shape 0 Han each at 49–61 tok/s; a `你好` prompt 219 Han; "แปลเป็นภาษาจีน" with no Han typed answered in Chinese | `timings.cjk_chars`, `/health.cjk_chars_total` |
+
+**What is proven and what is not.** The Han ban is proven by construction plus
+the live pairs above: the mask test decodes the real `tokenizer.json`
+independently and checks every Han piece is in the mask and no other piece is,
+so a Han character in a banned completion would be a bug in the mask, not a
+model quirk. The loop guard's thinking rule was fitted on the two incidents and
+replayed on 43 streams, but **has not yet tripped live**. The watchdog's relaunch
+has run (the 2026-09-05 relaunch storm is what added the held-port refusal) but
+the cause of the sync timeouts is still issue #63's open hypothesis A — the 4070
+within 0.6 GB of full behind desktop tenants. None of the three exists for the
+llama.cpp profiles: llama.cpp has no per-token ban that scales to 55K tokens,
+and the loop and dead-child modes have not been seen there.

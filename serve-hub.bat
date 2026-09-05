@@ -49,7 +49,7 @@ echo   ONE CARD, UD-Q2_K_XL
 echo.
 echo     6   the single-GPU profile
 echo.
-echo   BOTH CARDS, EXL3  -- a second engine, port 8000, OpenAI API only
+echo   BOTH CARDS, EXL3  -- a second engine, port 8000, OpenAI + Anthropic API
 echo.
 echo     F   163,840 context, Mia 3.5bpw + MTP     ~81%% of 1 at 147K; 47-55 tok/s at 30-70K
 echo     G   262,144 context, native maximum      197K measured on 4.0bpw H5
