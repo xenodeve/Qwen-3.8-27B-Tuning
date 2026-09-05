@@ -63,8 +63,8 @@ def _trace(rid, ev, obj, t0):
                "stop": (d or {}).get("stop_reason") if isinstance(d, dict) else None}
         with open(TRACE_PATH, "a", encoding = "utf-8") as fh:
             fh.write(json.dumps(rec, separators = (",", ":")) + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f" ## anthropic: trace write failed ({TRACE_PATH}): {e!r}", flush = True)
 
 
 def _error(message, status = 400, kind = "invalid_request_error"):
@@ -105,8 +105,8 @@ def _capture_request(body):
         with open(path, "w", encoding = "utf-8") as fh:
             json.dump(body, fh, indent = 2, ensure_ascii = False)
             fh.write("\n")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f" ## anthropic: capture write failed ({directory}): {e!r}", flush = True)
 
 
 def _as_int(value):
@@ -158,8 +158,8 @@ def _append_request_log(metrics, started):
         with open(path, "a", encoding = "utf-8") as fh:
             json.dump(record, fh, separators = (",", ":"))
             fh.write("\n")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f" ## anthropic: request log write failed ({path}): {e!r}", flush = True)
 
 
 def _prompt_tokens(request, req, server):

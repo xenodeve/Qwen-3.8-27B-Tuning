@@ -34,7 +34,7 @@ rem Relaunch loop (issue #75). The server comes back after ANY exit that was not
 rem for: a TP sync timeout (the server writes exl3-restart.flag with the reason and exits),
 rem a crash with no Python exception, or the self-probe finding /health deaf. Stopping on
 rem purpose = stop-exl3.cmd, which writes exl3-stop.flag first. cmd cannot read python's
-rem exit code through the Tee pipe, so files are the signal. Three exits within 120 s of
+rem exit code through the Tee pipe, so files are the signal. Three exits within 420 s of
 rem their start stop the loop, 420 s because a model load alone is 2-4 min (a missing model or a
 rem cache that does not fit would otherwise
 rem relaunch every 5 s forever). Each pass stamps its own log.

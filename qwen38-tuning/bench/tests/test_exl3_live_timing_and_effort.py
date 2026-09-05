@@ -52,3 +52,12 @@ def test_effort_resolves_aliases_and_falls_back_to_the_default():
     assert [effort.resolve(v, default = "xhigh") for v in
             (None, "medium", "low", "high", "xhigh", "max", "minimal", "banana", "MEDIUM")] == \
         ["xhigh", "medium", "low", "xhigh", "xhigh", "xhigh", "low", "xhigh", "medium"]
+
+
+def test_an_unknown_effort_falls_back_loudly(capsys):
+    """Review 2026-09-06: a typo or a new client value silently became the
+    default; the fallback stays but says which value it dropped."""
+    assert effort.resolve("ultra") == effort.DEFAULT
+    assert "ultra" in capsys.readouterr().out
+    assert effort.resolve(None) == effort.DEFAULT
+    assert capsys.readouterr().out == ""       # no value given is not a fallback

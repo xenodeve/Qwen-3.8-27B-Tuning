@@ -393,6 +393,7 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
         timings["stop_reason"] = "loop"   # xeno
     leaked = cjk_guard.count_han(text)   # xeno: #77, the instrument; 0 with the ban on is the claim
     timings["cjk_chars"] = leaked   # xeno
+    timings["cjk_ban"] = ban is not None   # xeno: so a 0 above is readable as "clean" or "not banned"
     if leaked:   # xeno
         print(f" ## cjk guard: {leaked} Han character(s) in the completion, ban {'on' if ban else 'off'}", flush = True)   # xeno
         with stats_lock:   # xeno

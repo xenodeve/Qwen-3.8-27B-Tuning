@@ -184,3 +184,18 @@ def test_the_server_starts_the_self_probe_once_the_app_is_up():
     server = read(os.path.join(SERVING, "server.py"))
     assert "watchdog.start_self_probe(" in server
     assert "on_startup" in server
+
+
+def test_die_says_so_when_the_flag_cannot_be_written(tmp_path, monkeypatch, capsys):
+    """Review 2026-09-06: the flag write was `except Exception: pass`, so a
+    relaunch would lose the one diagnostic the loop prints (the reason). The
+    exit must still happen, and the failure must be on the console."""
+    blocker = tmp_path / "not-a-dir"
+    blocker.write_text("x")
+    monkeypatch.setattr(watchdog, "FLAG_PATH", str(blocker / "exl3-restart.flag"))
+    monkeypatch.setattr(watchdog, "_dying", False)
+    codes = []
+    watchdog.die("CPU reduce process timeout", exit_fn = codes.append, delay_s = 0)
+    assert codes == [watchdog.RESTART_CODE]
+    out = capsys.readouterr().out
+    assert "flag" in out and "CPU reduce process timeout" in out

@@ -51,8 +51,8 @@ def die(reason, exit_fn = os._exit, delay_s = 1.0):
         os.makedirs(os.path.dirname(os.path.abspath(FLAG_PATH)), exist_ok = True)
         with open(FLAG_PATH, "w", encoding = "utf-8") as fh:
             fh.write(str(reason).strip() + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f" ## watchdog: could not write the restart flag {FLAG_PATH}: {e!r}", flush = True)
     print(f" ## watchdog: TP children dead ({reason}); exiting {RESTART_CODE} for relaunch", flush = True)
     if delay_s:
         threading.Timer(delay_s, exit_fn, [RESTART_CODE]).start()

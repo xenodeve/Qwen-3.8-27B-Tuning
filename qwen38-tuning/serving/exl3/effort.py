@@ -17,4 +17,7 @@ def resolve(value, default = None):
     default = default or DEFAULT
     v = str(value or default).lower()
     v = ALIAS.get(v, v)
-    return v if v in EFFORTS else default
+    if v not in EFFORTS:
+        print(f" ## effort: unknown reasoning_effort {value!r}, using {default}", flush = True)
+        return default
+    return v
