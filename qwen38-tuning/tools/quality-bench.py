@@ -45,6 +45,10 @@ ARMS = {
     "designonly": dict(skills=DESIGN_SUITE, brief=BRIEF + " | /using-design  /ask-xeno"),
     "both":       dict(skills=DESIGN_SUITE + ["design-ship-gate"], brief=BRIEF_SKILL),
     "skill":      dict(skills=None, brief=BRIEF_SKILL),   # the developer's whole ~/.claude
+    # tuning #79: `both` plus the Claude Code tool guide. The guessed-SKILL.md Reads and the
+    # cd-prefixed Bash calls happened in the page cells that carried skills, so the pair for
+    # qwen38-claude-code is both vs ccguide, judged on tool_errors / bash_cd, not on the gate.
+    "ccguide":    dict(skills=DESIGN_SUITE + ["design-ship-gate", "qwen38-claude-code"], brief=BRIEF_SKILL + " | โหลด /qwen38-claude-code ก่อนใช้ tool"),
 }
 USER_SKILLS = os.path.join(os.path.expanduser("~"), ".claude", "skills")
 
@@ -58,6 +62,9 @@ CODE_ARMS = {
     "codegate": dict(skills=["qwen38-code-gate"], suffix=" | จบด้วย /qwen38-code-gate"),
     "think":    dict(skills=["qwen38-think"], suffix=" | เริ่มด้วย /qwen38-think"),
     "family":   dict(skills=["using-qwen38", "qwen38-think", "qwen38-code-gate", "karpathy-guidelines"], suffix=" | /using-qwen38"),
+    # the Claude Code tool guide alone (xeno-skills #355 slice; tuning #79): judged on tool_errors,
+    # bash_cd and ended_with_question, not on the hidden tests
+    "ccguide":  dict(skills=["qwen38-claude-code"], suffix=" | โหลด /qwen38-claude-code ก่อนใช้ tool"),
 }
 
 CELLS = {
@@ -289,6 +296,10 @@ def run_cell(cell, arm, rep, task="page"):
 
 def parse_stream(path):
     tools, turns, result, thinking_chars, text_chars, api_calls = {}, 0, None, 0, 0, 0
+    # tuning #79: the three counts the qwen38-claude-code pair is judged on. Baseline over
+    # the 43 streams of 2026-09-05: 12 tool errors in 10 cells, 87 of 195 Bash calls with a
+    # `cd` prefix, 2 runs that ended by asking a developer who was not there.
+    tool_errors, bash_cd, last_text = 0, 0, ""
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -304,15 +315,24 @@ def parse_stream(path):
                 for part in (o.get("message") or {}).get("content") or []:
                     if part.get("type") == "tool_use":
                         tools[part.get("name")] = tools.get(part.get("name"), 0) + 1
+                        if part.get("name") == "Bash" and ((part.get("input") or {}).get("command") or "").lstrip().startswith("cd "):
+                            bash_cd += 1
                     elif part.get("type") == "thinking":
                         thinking_chars += len(part.get("thinking") or "")
                     elif part.get("type") == "text":
                         text_chars += len(part.get("text") or "")
+                        last_text = part.get("text") or last_text
+            elif t == "user":
+                content = (o.get("message") or {}).get("content")
+                for part in (content if isinstance(content, list) else []):
+                    if part.get("type") == "tool_result" and part.get("is_error"):
+                        tool_errors += 1
             elif t == "stream_event" and (o.get("event") or {}).get("type") == "message_start":
                 api_calls += 1
             elif t == "result":
                 result = o
-    out = dict(assistant_messages=turns, api_calls=api_calls, tool_calls=tools, thinking_chars=thinking_chars, text_chars=text_chars)
+    out = dict(assistant_messages=turns, api_calls=api_calls, tool_calls=tools, thinking_chars=thinking_chars, text_chars=text_chars,
+               tool_errors=tool_errors, bash_cd=bash_cd, ended_with_question=last_text.rstrip().endswith("?"))
     if result:
         u = result.get("usage") or {}
         out.update(num_turns=result.get("num_turns"), duration_api_ms=result.get("duration_api_ms"), duration_ms=result.get("duration_ms"),
