@@ -90,7 +90,7 @@ def main():
     if tasks:
         out.append("## The `qwen38` family's pairs — code and think tasks (xeno-skills #356, #357)\n")
         out.append("Fixtures in `qwen38-tuning/fixtures/`; the gate is computed by the runner. Arms: `noskill` = no skills; `codegate` / `think` = that one skill alone; `family` = `using-qwen38` + `qwen38-think` + `qwen38-code-gate` + `karpathy-guidelines`. Every cell of this batch also carried the tuning repo's `CLAUDE.md` (see the incidents).\n")
-        out.append("| cell | task | arm | gate | detail | turns | turns before first edit | wall | output tok |")
+        out.append("| cell | task | arm | gate | detail | turns | turns before first edit | wall | output tok | tool errors / cd-prefixed Bash / ended with a question |")
         out.append("|---|---|---|---|---|---:|---:|---:|---:|")
         for c in tasks:
             g = c.get("gate") or {}
@@ -98,8 +98,28 @@ def main():
                 detail = f"hidden {g.get('hidden_passed')}/{g.get('hidden_passed', 0) + g.get('hidden_failed', 0)} · scope {'ok' if g.get('scope_ok') else 'NO'} · test runs seen {g.get('test_runs_seen')} · red→green {'yes' if g.get('red_then_green') else 'no'}"
             else:
                 detail = f"{g.get('flaw')} · pushback {'yes' if g.get('pushback') else 'NO'} · invented {g.get('invented') or 'none'} · asked a question {'YES' if g.get('asked_question') else 'no'} · THINK line {'yes' if g.get('think_line') else 'no'}"
-            out.append(f"| {c['cell']}-{c['task']}-{c['arm']}-r{c['rep']} | {c['task']} | {c['arm']} | **{g.get('score', '-')}** | {detail} | {c.get('num_turns', '-')} | {g.get('turns_before_edit', '-')} | {c.get('wall_s', 0) / 60:.1f} min | {c.get('output_tokens', '-')} |")
+            out.append(f"| {c['cell']}-{c['task']}-{c['arm']}-r{c['rep']} | {c['task']} | {c['arm']} | **{g.get('score', '-')}** | {detail} | {c.get('num_turns', '-')} | {g.get('turns_before_edit', '-')} | {c.get('wall_s', 0) / 60:.1f} min | {c.get('output_tokens', '-')} | {c.get('tool_errors', '-')} / {c.get('bash_cd', '-')} / {'yes' if c.get('ended_with_question') else 'no'} |")
         out.append("")
+    # tuning #79 / xeno-skills #355: the qwen38-claude-code pair — `both` vs `both` + the guide,
+    # judged on the three tool-use counts. Older summaries predate the counts, so they are
+    # recomputed from the stream when it is on disk (streams are not tracked; a fresh clone shows -).
+    pair = [c for c in cells if c.get("task", "page") == "page" and c.get("arm") in ("both", "ccguide")]
+    if any(c.get("arm") == "ccguide" for c in pair):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("qb", os.path.join(os.path.dirname(os.path.abspath(__file__)), "quality-bench.py"))
+        qb = importlib.util.module_from_spec(spec); spec.loader.exec_module(qb)
+        out.append("## The `qwen38-claude-code` pair (2026-09-06, tuning #79, xeno-skills #355)\n")
+        out.append("The Claude Code tool guide was written from this bench's own streams: over the 44 stream files, 14 tool results came back as errors in 9 cells (6 of them a `Read` on a guessed `…/SKILL.md` path, 3 `Edit` misses, 5 Bash failures), 87 of 195 Bash calls carried a `cd` prefix, and 2 runs ended by asking a developer who was not there. The bench now emits those three counts for every cell (`tool_errors`, `bash_cd`, `ended_with_question`). The pair is the page brief with the `both` skill set plus the guide (`ccguide`) against the `both` runs, same artifact and effort:\n")
+        out.append("| cell | gate | tool errors | Bash calls with `cd` | ended with a question | Skill loads | wall | output tokens |")
+        out.append("|---|---|---|---|---|---|---|---|")
+        for c in pair:
+            st = os.path.join(c["_dir"], "stream.jsonl")
+            m = c if "tool_errors" in c else (qb.parse_stream(st) if os.path.exists(st) else {})
+            tc = m.get("tool_calls") or {}
+            out.append(f"| {os.path.basename(c['_dir'])} | {(c.get('gate') or {}).get('score', '-')} | {m.get('tool_errors', '-')} | {m.get('bash_cd', '-')} of {tc.get('Bash', '-')} | {'yes' if m.get('ended_with_question') else 'no'} | {tc.get('Skill', '-')} | {c.get('wall_s', 0) / 60:.1f} min | {c.get('output_tokens') or '-'} |")
+        out.append("")
+        out.append("**What closed:** the guessed-path Read — A-ccguide-r1 loaded all six skills by name and typed no path it had not seen (A-both-r1 had two such Reads). **What did not:** the heredoc-pasted script broke on the same `replace(/\\\\/g,'/')` as A-both-r3, and five Bash calls still carried `cd … && node …`; both got their own row in the guide afterwards. **Cost:** twice the wall and output of the `both` reps (n = 1; the run also made 5 Edits and 6 Writes where `both` made 1–7 and 1–2). **The guide's `CC:` report line did not appear**: the arm carried no `using-qwen38`, and the last skill invoked (`design-ship-gate`) owned the report — rule 9 of `qwen38-skill-style` seen again; in daily use the router is injected at session start, so the shape holds there, unmeasured.\n")
+
     out.append("## Time per task (server-side, from `print_timing`)\n")
     for s in cells:
         rows = cell_rows(s)
