@@ -1,5 +1,7 @@
 # spark1.3 observability: structured logs + immediate stall triggers
 
+> **See also:** [problem inventory](2026-09-16-spark13-problem-inventory.md) - every defect hit during this investigation (P1a-P5 client-visible, P6-P14 in our own tooling), with evidence and status.
+
 Date: 2026-09-16 (Asia/Bangkok)
 Component: `claude-spark1.3` launcher chain
 Status: implemented and verified; one upstream defect found and left open (see

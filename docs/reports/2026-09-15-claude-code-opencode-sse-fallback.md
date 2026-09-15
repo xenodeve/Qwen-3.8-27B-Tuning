@@ -1,5 +1,7 @@
 # Engineering record — Claude Code Spark1.3 SSE fallback
 
+> **See also:** [problem inventory](2026-09-16-spark13-problem-inventory.md) - every defect hit during this investigation (P1a-P5 client-visible, P6-P14 in our own tooling), with evidence and status.
+
 **Date:** 2026-09-15  
 **Status:** Mitigation applied; end-to-end validation in a real interactive session is still pending  
 **Affected path:** `claude-spark1.3` → `127.0.0.1:4003` (`spark13_wrap.py`) → `127.0.0.1:4002` (LiteLLM) → OpenCode Go Responses API  
