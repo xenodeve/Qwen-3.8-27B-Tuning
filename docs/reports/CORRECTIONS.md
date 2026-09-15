@@ -2065,3 +2065,111 @@ Stated so the list above is not read as "nothing here is reliable":
 - **Bits per weight tracks quality** across five artifacts and two vendors —
   still a hypothesis, but nothing has contradicted it.
 - **Depth is limited by VRAM, not the model.** `n_ctx_train = 262144`.
+
+## 48. Two code cells scored `5/5` on a RED that was a `Read` of a source file
+
+`quality-bench.py`'s `code_gate` decided whether a run did RED-before-GREEN by
+scanning every tool result for `\d+ (passed|failed)|FAILED|Error` and asking
+whether a failure-shaped one came before a passing one. **`Error` matched
+anywhere in the text**, and `code-task-1`'s `store.py` and `code-task-2`'s
+`parse.py` both raise `ValueError` — so **reading the source file counted as
+running a test**.
+
+Two published cells are wrong. Verified by hand on the raw stream, 2026-09-07:
+
+| cell | published | actual | what the "RED" really was |
+|---|---|---|---|
+| `A-code1-codegate-r1` | **5/5**, `red_then_green: True` | **4/5**, False | a `Read` whose tail held `ValueError("... file must hold an object")`. Both real Bash test runs printed `10 passed` — there was never a failing test |
+| `A-code1-noskill-r1` | **5/5**, `red_then_green: True` | **4/5**, False | the same shape |
+
+`test_runs_seen` was inflated in **every** code cell, by exactly the number of
+source files read: 3 → 1 on the `noskill` cells, 5 → 3 on `codegate`. So
+**check 3 of that gate — "a test command ran" — passed for free on every run of
+these fixtures**, whether or not a test ever ran.
+
+A second bug sat in the same function and hid it: the scan *selected* on the
+full text and *classified* on `text[-300:]`, so an entry could be counted as a
+test run and then vote neither red nor green.
+
+### The general form
+
+**A detector whose filter is a substring of ordinary source code measures the
+source, not the behaviour.** `Error` is in `ValueError`, and every Python file
+in these fixtures raises one. The repair was to bind the check to the thing that
+can actually run a test — a `Bash` tool result — and to classify on the same
+text the selection saw.
+
+And the tell was in a column that was already being printed: `test_runs_seen: 3`
+on a run whose transcript contains one `pytest` invocation. Nobody read it
+against the transcript until a fourth artifact made the number look odd.
+
+**Guarded by** `bench/tests/test_quality_bench_remote_cell.py`
+(`test_reading_a_file_that_mentions_ValueError_is_not_a_test_run` and five
+others) and `scripts/audit-stale-claims.py`, rule `code1-red-then-green`.
+
+## 49. "ESC cancels the EXL3 job" - verified in decode, blind through prefill
+
+2026-09-15, issue #83: the first cancel fix was closed as verified on a live
+test that cut the stream after 5 chunks (busy false at 0.5 s, tokens frozen).
+The same day a real Claude Code session ESC'd during a ~115k-token prefill
+and the prefill timings climbed on. The test had exercised only the
+write-failure path (chunks flowing, dead `resp.write` raises); the
+`transport.is_closing()` probe underneath never fired once -- asyncio sets it
+only on LOCAL close, never on a peer FIN, and a 30 s prefill attempts no
+write at all. Measured on aiohttp 3.14.2 and the server's own 3.14.3: after
+the peer closes, `request.transport` becomes `None` within 0.5 s. That -- not
+`is_closing()` -- is the disconnect signal, and the outer pump needed a
+`should_stop` callback because its 5 s ping was the only thing that ever
+touched the dead socket. Repair verified per regime: decode cut -> free at
+0.5 s; prefill cut (1 data chunk = `message_start` only) -> free at ~5 s,
+bounded by one in-flight prefill chunk the engine will not interrupt.
+
+### The general form
+
+**A passing live test proves the regime it ran in, not the symptom it was
+closed against.** The unit tests were green throughout -- they tested a probe
+helper against a mock whose transport dutifully reported `is_closing() ==
+True`, a situation the real stack never produces. The mock and the helper
+agreed with each other and neither met the wire.
+
+**Guarded by** `bench/tests/test_exl3_cancel.py`
+(`test_a_detached_transport_means_the_client_is_gone`, measured against both
+aiohttp builds) and `scripts/audit-stale-claims.py`, rule
+`exl3-cancel-decode-only`.
+
+## 50. "LiteLLM flushes the Anthropic SSE stream in bursts" - it was our own wrapper withholding the bytes
+
+Published 2026-09-16 in `[2026-09-16-spark13-observability-and-batch-flush.md]`
+and in the ledger, on the strength of a direct `:4002` capture in which frames
+arrived in two groups (2.44 s and 5.47 s). The batching was real. The
+attribution was wrong: **the same two-group shape appears with the custom
+logger removed** (A/B on a second instance, `:4006` vs `:4002`, identical
+frames at 1.20/1.86 s then 3.66/4.05 s), and Zen Go's `/v1/responses` streams
+incrementally (`response.created`, `in_progress`, `output_text.delta` frames
+over 3.1 s).
+
+The actual mechanism was in `spark13_wrap.py`: the reader called
+`upstream.read(65536)`, and `BufferedReader.read(n)` **blocks until n bytes or
+EOF**, so every response smaller than 64 KiB was held until the stream
+completed. Measured on one identical request against `:4002`:
+
+```text
+read(65536)  -> 1 read  at 4.26s, 1093 bytes   (everything at the end)
+read1(65536) -> 5 reads at 1.27s, 1.27s, 1.27s, 3.69s, 3.69s
+```
+
+Consequence, and it is the same sentence the retracted claim made about
+LiteLLM: Claude Code saw no message event for as long as the generation took,
+so its stall tracker starved and it painted `Waiting for API response`. On the
+production path the client's own log measured `[API:timing] first byte after
+38524ms` before the fix and `2502ms` after it, on a 232 KB request.
+
+**Why the first capture misled:** every measurement in that capture went
+through the wrapper, so the wrapper's own defect was inside the instrument.
+The discriminator that settled it - one identical request against `:4002` with
+`read` and `read1` side by side - took a minute and should have run before the
+claim was written.
+
+*Correction: `docs/reports/2026-09-16-spark13-observability-and-batch-flush.md`,
+`docs/OPEN-WORK-LEDGER.md`. Fixed in `~/.claude/spark13_wrap.py`
+(`read1` + a thinking heartbeat).*

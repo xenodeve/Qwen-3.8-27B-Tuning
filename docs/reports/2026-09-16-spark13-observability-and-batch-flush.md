@@ -94,7 +94,72 @@ with memory, and the last 25 timeline events.
    `CLAUDE_STREAM_IDLE_TIMEOUT_MS=1800000` is visibly applied
    (`idleDeadlineMs=1800000`).
 
-## New finding: LiteLLM flushes the Anthropic SSE stream in batches
+## Root cause found and fixed (2026-09-16 00:20)
+
+**This supersedes the "LiteLLM flushes in bursts" reading below, which is
+retracted: see CORRECTIONS 50.** There were two independent causes, both inside
+our own stack, and both are now fixed and measured.
+
+### Cause 1: `spark13_wrap.py` held the whole stream with `read(65536)`
+
+`BufferedReader.read(n)` blocks until `n` bytes **or EOF**. Every response
+smaller than 64 KiB was therefore accumulated in the socket buffer and handed
+downstream only when the stream finished. Identical request, same port, one
+minute apart:
+
+```text
+read(65536)  -> 1 read  at 4.26s, 1093 bytes          (all at the end)
+read1(65536) -> 5 reads at 1.27s, 1.27s, 1.27s, 3.69s, 3.69s
+```
+
+On the production path (232 KB request, `req w-74c5cae9`) the client's own log
+went from `[API:timing] first byte after 38524ms` to `first byte after 2502ms`,
+and the wrapper's `first_byte_ms` from 38516 to 2500. Fixed by reading with
+`read1`, which returns as soon as any bytes arrive.
+
+### Cause 2: nothing resets Claude Code's stall tracker during a silent thinking phase
+
+Zen Go delivers the reasoning as **one completed item**
+(`response.output_item.done`, ~3 KB in the probe) and emits no incremental
+thinking deltas. LiteLLM faithfully opens the `thinking` block early and then
+sends nothing until the reasoning finishes — 21.5 s of silence in the captured
+production request. Claude Code's tracker resets only on real message events
+(`ping` is dropped by `HJ(e)`), so it paints the banner:
+
+```text
+[WARN] [Stall] stream_idle_partial lastChunkAgeMs=15000 bytesTotal=1494 idleDeadlineMs=1800000
+```
+
+Fixed by a **thinking heartbeat**: while an upstream gap exceeds 10 s and a
+`thinking` block is open, the wrapper emits
+`content_block_delta {thinking_delta, ""}` — a real message event carrying no
+characters, which holds the tracker without changing the visible output.
+
+### Verification of the fix
+
+| check | result |
+| --- | --- |
+| `read` vs `read1` discrimination, one request, `:4002` | 4.26 s / 1093 B vs 1.27 s + 4 more reads |
+| Real client, 78 s of a deliberately silent thinking phase, heartbeat ON | **0** `[Stall]` ticks, 7 heartbeats injected |
+| Same, heartbeat OFF | **3** `[Stall]` ticks (15 s, 30 s, 45 s) |
+| Production request `w-74c5cae9` with the fix | 2 heartbeats, client `first byte after 2502ms`, message complete (`message_stop`, `stop_reason end_turn`, no problems) |
+| A/B with and without the LiteLLM custom logger (`:4006` vs `:4002`) | identical frame timing — the callback is not implicated |
+
+### Still open
+
+- Trailing `stream_idle_partial` ticks can still appear when no thinking block
+  is open (before the first upstream batch, or a non-thinking response whose
+  upstream stalls); the heartbeat has nothing to hold onto there.
+- Claude Code's internal **auto-mode classifier** requests model
+  `claude-sonnet-5`, which this endpoint rejects (`http_400`), then retries with
+  the served model. Visible in the client debug log; every permission decision
+  pays for it. Worth pinning explicitly.
+
+## Retracted reading: "LiteLLM flushes the Anthropic SSE stream in batches"
+
+**Kept only as the measurement that started the investigation.** The batching is
+real; the attribution to LiteLLM is not (CORRECTIONS 50: the same shape appears
+with the custom logger removed, and Zen Go streams incrementally).
 
 Captured 2026-09-16 00:0x with a direct client on `:4002` (wrapper bypassed):
 
