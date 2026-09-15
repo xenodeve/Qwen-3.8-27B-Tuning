@@ -266,3 +266,39 @@ the heartbeat only.
 - upstream ตอบ 429/5xx และยังไม่มี output → รอ 2s แล้วยิงใหม่
 - wrapper/LiteLLM ไม่ listening → restart ผ่าน `spark13_ensure.py` แล้วตรวจ port ซ้ำ (วัดจริง: wrapper กลับมาใน 3.5s)
 - retry เกิดได้เฉพาะเมื่อ **ยังไม่มีอะไรลง client** เท่านั้น จึงไม่ทำให้ข้อความซ้ำ/สลับ
+
+## The real cause of the persistent banner: the response never ended (2026-09-16 01:35)
+
+All the earlier work made the *inside* of the stream healthy - the client's
+first byte went 38524 ms -> ~2.5 s and the silent thinking phase is now covered
+by keepalives - and the banner still came back on every turn. The reason was the
+**end** of the response.
+
+`stream.headers` served the stream as:
+
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache, no-transform
+Connection: keep-alive          <-- and no Content-Length, no Transfer-Encoding
+```
+
+An unbounded body on an HTTP/1.0 reply, kept alive: the client can never learn
+that the body finished. So Claude Code's stall tracker armed at the last chunk
+and kept firing 15 s / 30 s / 60 s / 120 s later with `bytesTotal` frozen, on
+every single turn, even though the answer had already arrived and the tools had
+already run. That is the `✻ Waiting for API response` that survived every other
+fix.
+
+Fix (`spark13_wrap.py`): speak HTTP/1.1, declare `Transfer-Encoding: chunked`,
+write every SSE payload as one chunk, and send the terminating `0`-chunk exactly
+once from `_relay_stream`'s `finally`.
+
+| measurement | before | after |
+| --- | --- | --- |
+| raw response headers from `:4003` | `Connection: keep-alive`, body unbounded | `HTTP/1.1 200 OK` + `Transfer-Encoding: chunked` |
+| raw body tail | no terminator | `... message_stop \n\n` `0\r\n\r\n` |
+| headless `claude -p` (full profile) | never exited, killed at 150 s | **exits on its own in 14 s**, correct answer |
+| `[Stall] stream_idle` ticks per run | 3-4 | **0** |
+| client `first byte after` | 38524 ms | 2346 ms |
+
+See CORRECTIONS 51 for the wrong reading this replaces.

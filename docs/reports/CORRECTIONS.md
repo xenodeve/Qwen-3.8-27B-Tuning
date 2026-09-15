@@ -2173,3 +2173,34 @@ claim was written.
 *Correction: `docs/reports/2026-09-16-spark13-observability-and-batch-flush.md`,
 `docs/OPEN-WORK-LEDGER.md`. Fixed in `~/.claude/spark13_wrap.py`
 (`read1` + a thinking heartbeat).*
+
+## 51. "Trailing `[Stall]` ticks after a complete response are a client-side quirk"
+
+**Claimed:** 2026-09-16 ~01:05 - after `message_stop` had been relayed, Claude
+Code still ticked `[Stall] stream_idle_partial` while `bytesTotal` stayed
+constant. Read at the time as the client's own bookkeeping, "benign", with the
+thinking heartbeat named as the mitigation.
+
+**Actually:** the wrapper never ended the HTTP response. `stream.headers`
+served `text/event-stream` with `Cache-Control: no-cache, no-transform` and
+`Connection: keep-alive`, and **no `Content-Length` and no `Transfer-Encoding`**
+- an unbounded body on an HTTP/1.0 reply. The client has no end-of-body signal
+in that shape, so it kept the stream open and its stall tracker kept firing
+after the answer had already arrived. Every stall tick in the interactive log
+sat 15 s after the last chunk with `bytesTotal` frozen, which is exactly what
+this predicts.
+
+**Fix:** `protocol_version = "HTTP/1.1"`, `Transfer-Encoding: chunked`, every
+SSE payload written as one chunk, and a terminating `0`-chunk sent exactly once
+from `_relay_stream`'s `finally` (`finish_stream`).
+
+**Evidence:** raw socket against `:4003` now shows
+`HTTP/1.1 200 OK` + `Transfer-Encoding: chunked` and the body ending
+`34\r\n event: message_stop ... \r\n 0\r\n\r\n`. A real headless client
+(`claude -p`, full profile) **exits on its own in 14 s with 0 `[Stall]` ticks**;
+the same command before the fix never exited and was killed at 150 s with 3-4
+ticks per run.
+
+**Lesson:** "the client is quirky" was a conclusion drawn from a *missing*
+observation - we had never looked at the bytes the wrapper actually puts on the
+wire. Read the actual response framing before blaming the peer.
