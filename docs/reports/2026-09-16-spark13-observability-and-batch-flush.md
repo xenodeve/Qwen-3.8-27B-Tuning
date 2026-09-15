@@ -221,3 +221,48 @@ python ~/.claude/spark13_watch.py --replay FILE
 Discord delivery: cron job `spark13 stall trigger feed`
 (`~/.hermes/scripts/spark13-incident-feed.py`, every 1 min) posts new incidents
 to the originating thread and stays silent when nothing new happened.
+
+## Automatic remediation on trigger (2026-09-16 01:0x)
+
+Requested: "แก้ไขอัตโนมัติเมื่อมีการ trigger ทันที". Three actions now fire by
+themselves, each one verified against an upstream built to misbehave
+(`flaky.py`, scratch `SPARK13_LOG_DIR` so an induced stall cannot be mistaken
+for a production incident).
+
+| trigger | automatic action | where | verified |
+| --- | --- | --- | --- |
+| client `[Stall]` tick / banner line | `POST /__spark13/heartbeat` to the wrapper, which injects an empty `thinking_delta` into every stream with an open thinking block **immediately** | `spark13_watch.py` -> `spark13_wrap.py` | nudge at 10 s into a 60 s silent thinking phase: `nudged: 1`, client received the extra `content_block_delta` |
+| upstream silent >= 20 s with **zero** output relayed | abandon that attempt and re-send the same request (up to 2 attempts) | `spark13_wrap.py` | attempt 1 silent, attempt 2 answered: client received the complete message (`heal.retry_silent` -> `heal.abandon` -> `heal.retry_start`) |
+| upstream HTTP 429/500/502/503/504 with **zero** output relayed | wait 2 s, re-send the same request | `spark13_wrap.py` | 503 then success: complete message delivered (`heal.retry_status`) |
+| wrapper or LiteLLM not listening | restart it through `spark13_ensure.py` (never a second instance), then verify the port | `spark13_watch.py` (5 s poll) | production wrapper killed by hand: back on :4003 in **3.5 s**, `heal.restart_result listening: true` |
+
+Design rules that keep this safe:
+
+- A retry is only ever allowed while **nothing has been relayed downstream**
+  (`downstream_events == 0`). Once the client has seen a token, the relay keeps
+  streaming that attempt and relies on the heartbeat instead, so a retry can
+  never duplicate or reorder visible output.
+- Each upstream attempt writes into its **own queue**; an abandoned attempt
+  cannot feed the client after the retry starts.
+- Abandoning uses `socket.shutdown(SHUT_RDWR)`, not `HTTPResponse.close()`:
+  `close()` deadlocks, because it wants the `BufferedReader` lock the reader
+  thread is holding inside `read1()`. That deadlock was found by this
+  verification, in the first version of the retry path.
+- The wait loop is wrapped so a defect in it records `wrap.loop_error` and
+  keeps the stream alive instead of killing the relay thread silently.
+- Restarts go through the launcher, which checks pid **and** port, so the
+  watcher and the `.bat` cannot start two wrappers.
+- Restarts are rate-limited (60 s per component) so a component that cannot
+  start does not spin.
+
+Still open: a request whose upstream is silent **after** content has started
+cannot be retried (the client already has part of the answer). It is covered by
+the heartbeat only.
+
+### ภาษาไทย
+
+- client ขึ้น `[Stall]`/banner → watcher ยิง nudge ให้ wrapper ฉีด heartbeat เข้า stream ทันที
+- upstream เงียบ ≥20s และยังไม่ส่งอะไรลง client → ยกเลิก attempt นั้นแล้วยิง request ใหม่ (สูงสุด 2 ครั้ง)
+- upstream ตอบ 429/5xx และยังไม่มี output → รอ 2s แล้วยิงใหม่
+- wrapper/LiteLLM ไม่ listening → restart ผ่าน `spark13_ensure.py` แล้วตรวจ port ซ้ำ (วัดจริง: wrapper กลับมาใน 3.5s)
+- retry เกิดได้เฉพาะเมื่อ **ยังไม่มีอะไรลง client** เท่านั้น จึงไม่ทำให้ข้อความซ้ำ/สลับ
