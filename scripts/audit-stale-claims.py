@@ -30,6 +30,14 @@ SCANNED_SUFFIXES = (".md", ".ps1", ".sh")
 SKIP_DIRS = (".git", "node_modules", "__pycache__", ".cache", ".venv", "researchs")
 
 RULES = [
+    ("thai-dict-v2-fp0",
+     r"dict v2[^\n]{0,100}(?:40\s*(?:->|→)\s*0|FP\s*0)|"
+     r"40\s*(?:->|→)\s*0[^\n]{0,80}FP\s*0",
+     "the eleven-pattern counter could not see corruption created outside its own "
+     "list; the substring dictionary corrupts correct Thai and the original "
+     "FP 0 verdict is retracted",
+     "CORRECTIONS.md 52, results 18, issue #89"),
+
     ("exl3-decode-overstated",
      r"34–39 tok/s at 144,022|33\.4–34\.3|36\.4–39\.4|80–85 % of llama\.cpp",
      "EXL3 warm-round decode figures computed as time_generate - time_prefill; "

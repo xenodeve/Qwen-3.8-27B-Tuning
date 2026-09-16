@@ -22,6 +22,16 @@ re-prefill**.
 Neither was hidden. Both were in reports. **Reports are narrative — they say
 what a night meant — and a fact stated once inside a story is not findable.**
 
+## 18 — Thai repair correction
+
+[`18-thai-repair-2026-09-16.md`](18-thai-repair-2026-09-16.md) retracts the
+original **40 -> 0, FP 0** dictionary verdict. The counter could not see
+corruption it created outside its eleven-pattern list; the old regex changes 23
+correct target occurrences in the two source sessions and 172 entries in the
+62,101-word clean corpus. The precision-first 29-rule subset changes zero known
+clean words and repairs 68 + 11 auditable occurrences, while the old detector
+moves only 36 -> 22 and 4 -> 2. It remains offline and is not a shipping result.
+
 ---
 
 ## How this folder differs from the other three
