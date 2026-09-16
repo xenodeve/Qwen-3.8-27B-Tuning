@@ -4,7 +4,7 @@
 
 The offline Thai repair experiment reported `40 -> 0, FP 0` while its substring
 dictionary changed correct Thai such as `ไฟล์` to `ไฟล์์`. Issue #89 and commit
-`7d5c046` replace the self-referential metric with an expected-text oracle, keep
+`d0f02f1` replace the self-referential metric with an expected-text oracle, keep
 only a precision-first 29-rule subset, protect structured spans, withdraw the
 unsafe float-token ban, and retract the shipping verdict. The repair remains
 offline.
@@ -52,7 +52,7 @@ say `FP 0`.
 
 ## Fix
 
-Commit `7d5c046` makes four changes:
+Commit `d0f02f1` makes four changes:
 
 - `DICT` keeps only 29 malformed forms that occur in no entry of the pinned
   clean-word corpus. The 20 ambiguous forms return raw text.
