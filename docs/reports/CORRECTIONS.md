@@ -2065,3 +2065,35 @@ Stated so the list above is not read as "nothing here is reliable":
 - **Bits per weight tracks quality** across five artifacts and two vendors —
   still a hypothesis, but nothing has contradicted it.
 - **Depth is limited by VRAM, not the model.** `n_ctx_train = 262144`.
+
+## 52. "Thai dict v2 repairs 40 -> 0 with FP 0" - the FP detector could not see the corruption
+
+The 2026-09-16 Thai repair report called a 49-pair substring dictionary a ship
+candidate after its eleven-pattern counter moved from 40 hits to zero and reported
+`rows_worse: 0`. That counter did not compare repaired text with expected text.
+It only asked whether one of the same eleven patterns increased, so corruption
+created outside that list was invisible.
+
+The original repair changes correct Thai: `ไฟล์` becomes `ไฟล์์`, `เว็บไซต์`
+becomes `เว็บไซต์์`, `โปรเจกต์` becomes `โปรเจกต์์`, and `หรือ` becomes
+`หรืออ`. The two source sessions contain 23 correct target occurrences that the
+old regex corrupts while still reporting `FP 0`; across PyThaiNLP's 62,101-word
+`thai_words()` corpus it changes 172 known words.
+
+The precision-first replacement keeps only 29 malformed forms that occur in no
+known correct `thai_words()` entry, protects Markdown code, URLs, Windows paths,
+JSON, and tool payloads, and requires explicit `expected` text before the CLI
+will report false positives. Replayed on the same two captured sessions, those
+rules expose 68 + 11 repairable occurrences, but the old incident counter moves
+only **36 -> 22** and **4 -> 2**. This is deliberately not called precision:
+the occurrence artifact marks every row `gold: false` until an independent
+human-corrected reference exists.
+
+The proposed unconditional ban on 21 mark-only Thai token IDs is withdrawn too.
+The real tokenizer uses at least one of those IDs in 26,875 of the 62,101 known
+Thai words; "not a valid word start" did not imply "not a valid continuation".
+The repair remains offline and is not wired into streaming serving.
+
+**Evidence:** `qwen38-tuning/bench/tests/test_thai_repair.py`,
+`qwen38-tuning/bench/results/thai-repair-safe-20260916.jsonl`, and issue #89.
+Guarded by `scripts/audit-stale-claims.py`, rule `thai-dict-v2-fp0`.
