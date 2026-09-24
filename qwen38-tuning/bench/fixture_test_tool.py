@@ -23,7 +23,8 @@ def _mount(path: Path, target: str, *, readonly: bool = True) -> str:
 
 def run_sandboxed_pytest(workspace: Path, image: str, arguments: Sequence[str],
                            stdout_path: Path, stderr_path: Path, timeout: float,
-                           *, trusted_test: Path | None = None) -> dict[str, object]:
+                           *, trusted_test: Path | None = None,
+                           init: bool = False) -> dict[str, object]:
     """Run untrusted candidate Python with no host authority or network.
 
     The candidate tree is read-only. A parent-owned hidden test may be mounted
@@ -38,6 +39,10 @@ def run_sandboxed_pytest(workspace: Path, image: str, arguments: Sequence[str],
                '--mount', _mount(workspace, '/workspace'),
                '-e', 'HOME=/tmp/home', '-e', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD=1',
                '-e', 'PYTHONDONTWRITEBYTECODE=1']
+    if init:
+        # Reap orphans: without an init, pytest is PID 1 and a killed grandchild
+        # stays a zombie that process-group checks still see (openclink #144).
+        command.append('--init')
     target_arguments = list(arguments)
     if trusted_test is not None:
         command += ['--mount', _mount(trusted_test, '/oracle/test_hidden.py')]

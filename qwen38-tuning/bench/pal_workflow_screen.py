@@ -36,10 +36,10 @@ def _counts(text: str) -> dict[str,int]:
 
 
 def _run(workspace: Path,image: str,arguments:list[str],output:Path,name:str,
-         trusted_test:Path|None=None) -> dict[str,object]:
+         trusted_test:Path|None=None,init:bool=False) -> dict[str,object]:
     stdout_path,stderr_path=output/(name+'.stdout'),output/(name+'.stderr')
     execution=run_sandboxed_pytest(workspace,image,arguments,stdout_path,stderr_path,180,
-                                   trusted_test=trusted_test)
+                                   trusted_test=trusted_test,init=init)
     text=stdout_path.read_text(encoding='utf-8',errors='replace')
     return {**_counts(text),**execution,'stdout_ref':stdout_path.name,'stderr_ref':stderr_path.name}
 
