@@ -1,0 +1,8 @@
+item K-B-ctl1 rc=1 10:18:12
+item K-C-0 rc=1 10:18:12
+item K-C-32 rc=0 10:20:10
+item K-C-64 rc=0 10:21:50
+item K-C-96 rc=0 10:23:25
+item K-C-64i4 rc=0 10:24:58
+item K-B-ctl2 rc=1 10:24:59
+queue done

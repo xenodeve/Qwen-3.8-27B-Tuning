@@ -1,0 +1,70 @@
+{
+  "date": "2026-09-24",
+  "context": 65536,
+  "effort": "medium",
+  "client": "Claude Code 2.1.281 (~/.local/bin/claude.exe)",
+  "order": "ABBA: gsq-a, flash_next-a, flash_next-b, gsq-b",
+  "flash_next_argv": "served 128k profile J (serve-flash-next.ps1) at -c 65536; gsq_compare.flash_next_argv",
+  "gsq_argv": "result22 selected: -sm tensor -ts 8500,15468, draft-mtp n3 + ngram-mod 24/16/64",
+  "private_evidence": {
+    "code1": "C:/Users/xenod/AppData/Local/Temp/qwen-preliminary-cli-9nqpdf5a",
+    "pal": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-remaining-tcossc4c"
+  },
+  "code1": {
+    "gsq-a": {
+      "status": "verified",
+      "task_wall_s": 111.625
+    },
+    "flash_next-a": {
+      "status": "verified",
+      "task_wall_s": 181.625
+    },
+    "flash_next-b": {
+      "status": "verified",
+      "task_wall_s": 186.437
+    },
+    "gsq-b": {
+      "status": "verified",
+      "task_wall_s": 116.234
+    }
+  },
+  "pal": {
+    "gsq-a": {
+      "status": "original_verified_audit_pending",
+      "task_wall_s": 344.859,
+      "hidden": "8/8",
+      "overlap_audit": "4/4",
+      "red_then_green": true,
+      "test_runs": 4,
+      "accepted": true
+    },
+    "flash_next-a": {
+      "status": "original_verified_audit_pending",
+      "task_wall_s": 755.344,
+      "hidden": "8/8",
+      "overlap_audit": "0/4",
+      "red_then_green": true,
+      "test_runs": 3,
+      "accepted": false
+    },
+    "flash_next-b": {
+      "status": "model_failure",
+      "task_wall_s": 1503.875,
+      "hidden": "8/8",
+      "overlap_audit": "4/4",
+      "red_then_green": false,
+      "test_runs": 6,
+      "accepted": false
+    },
+    "gsq-b": {
+      "status": "original_verified_audit_pending",
+      "task_wall_s": 244.235,
+      "hidden": "8/8",
+      "overlap_audit": "0/4",
+      "red_then_green": true,
+      "test_runs": 3,
+      "accepted": false
+    }
+  },
+  "overlap_audit_method": "pal.verify_pal_workspace with bench/fixtures/pal_registry_overlap_audit.py as the suite, sandbox qwen-pal-test:20260921, on a copy of each final work tree, after the campaign"
+}

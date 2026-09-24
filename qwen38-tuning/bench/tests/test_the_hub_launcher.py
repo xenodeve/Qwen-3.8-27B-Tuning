@@ -44,6 +44,7 @@ OFFERED = [
     "serve-dual-mtp.bat", "serve-dual-mtp-lan.bat",
     "serve-dual-dflash.bat", "serve-dual-dflash-lan.bat",
     "serve.bat", "serve-lan.bat",
+    "serve-gsq.bat", "serve-gsq-lan.bat",
 ]
 
 

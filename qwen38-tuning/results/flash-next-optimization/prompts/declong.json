@@ -1,0 +1,1 @@
+{"messages": [{"role": "user", "content": "Write a complete, well-commented Python module implementing an LRU cache class with get, put, delete, resize and statistics methods, followed by unit tests using unittest. Write the full code."}], "temperature": 0, "max_tokens": 512, "ignore_eos": true, "chat_template_kwargs": {"enable_thinking": false}}

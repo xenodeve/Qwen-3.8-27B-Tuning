@@ -1,0 +1,1 @@
+{"messages":[{"role":"user","content":"Write a Python one-liner that prints the sum of 1..10. Output only the code."}],"max_tokens":64,"temperature":0}

@@ -1,0 +1,142 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$global:STUDY = 'C:\AI\qwen38-tuning\results\flash-next-optimization'
+$global:EXE = 'C:\AI\llama.cpp-unsloth-mirror\build-mirror\bin\llama-server.exe'
+$global:MODEL = 'C:\AI\models\ISTA-DASLab-Qwen3.8-Flash-Next-GSQ-RCO\Q2_0\Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf'
+$global:GPU0 = 'GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4'
+$global:GPU1 = 'GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e'
+$global:PROC = $null
+$global:BOOTLOG = $null
+
+function Read-Vram {
+  . C:\AI\qwen38-tuning\scripts\Get-GpuVram.ps1
+  $g = Get-GpuVram -Uuid $global:GPU0
+  $g1 = Get-GpuVram -Uuid $global:GPU1
+  if ($null -eq $g) { throw ('Read-Vram: GPU0 unreadable') }
+  if ($null -eq $g1) { throw ('Read-Vram: GPU1 unreadable') }
+  return ,@([int]$g.Used, [int]$g1.Used)
+}
+
+function Read-GpuUtil {
+  $out = nvidia-smi --query-gpu=utilization.gpu --id=$global:GPU0,$global:GPU1 --format=csv,noheader,nounits 2>$null
+  if ($out -is [string]) { return ,@([string]$out, [string]$out) }
+  return ,@([string]$out[0], [string]$out[1])
+}
+
+function Clear-Server {
+  Get-Process llama-server -ErrorAction SilentlyContinue | Stop-Process -Force
+  Start-Sleep -Seconds 3
+}
+
+function Start-FlashServer {
+  param([int]$Ctx = 16384, [int]$NcMoE = 34, [string]$Ts, [int]$Threads = 14,
+        [int]$ThreadsBatch = 20, [int]$Batch = 2048, [int]$Ubatch = 512,
+        [int]$Port = 8099, [string]$LogName = 'boot.log')
+  Clear-Server
+  $logPath = Join-Path "$global:STUDY\logs" $LogName
+  $args = @(
+    '-m', $global:MODEL, '-c', "$Ctx", '-ctk', 'q4_0', '-ctv', 'q4_0',
+    '-b', "$Batch", '-ub', "$Ubatch", '-ngl', 'all', '-ncmoe', "$NcMoE",
+    '-sm', 'tensor', '-ts', $Ts, '-fit', 'off', '-lm', 'mmap',
+    '--tensor-read-lazy', 'on', '-fa', 'on', '-np', '1',
+    '-t', "$Threads", '-tb', "$ThreadsBatch",
+    '--host', '127.0.0.1', '--port', "$Port"
+  )
+  $env:CUDA_VISIBLE_DEVICES = "$global:GPU0,$global:GPU1"
+  $proc = Start-Process -FilePath $global:EXE -ArgumentList $args -PassThru `
+           -WindowStyle Hidden -RedirectStandardOutput $logPath -RedirectStandardError ($logPath -replace '\.log$','-err.log')
+  $global:PROC = $proc
+  $global:BOOTLOG = $logPath
+  Write-Log ("boot: port=$Port ncmoe=$NcMoE ts=$Ts t=$Threads tb=$ThreadsBatch b=$Batch ub=$Ubatch")
+  return $proc
+}
+
+function Wait-Healthy {
+  param([int]$Port = 8099, [int]$TimeoutSec = 300)
+  $deadline = (Get-Date).AddSeconds($TimeoutSec)
+  while ((Get-Date) -lt $deadline) {
+    Start-Sleep -Seconds 5
+    if ($global:PROC -and $global:PROC.HasExited) { return $false }
+    try {
+      $h = curl.exe -s --max-time 8 "http://127.0.0.1:$Port/health" 2>$null
+      if ($h -match '"ok"') { return $true }
+    } catch {}
+  }
+  return $false
+}
+
+function Send-Request {
+  param([string]$PromptFile, [int]$Port = 8099)
+  $t0 = Get-Date
+  $resp = curl.exe -s --max-time 900 "http://127.0.0.1:$Port/v1/chat/completions" `
+            -H 'Content-Type: application/json' -d "@$PromptFile"
+  $wall = [math]::Round(((Get-Date) - $t0).TotalSeconds, 2)
+  $zero = @{ ok=$false; prompt_tokens=0; out_tokens=0; prompt_tps=0.0; decode_tps=0.0;
+             prompt_ms=0.0; wall=$wall; content=''; raw=$resp }
+  try {
+    $j = $resp | ConvertFrom-Json
+    if ($j.PSObject.Properties.Match('error').Count -gt 0) { return $zero + @{ why='server-error' } }
+    return @{
+      ok = $true
+      prompt_tokens = [int]$j.usage.prompt_tokens
+      out_tokens = [int]$j.usage.completion_tokens
+      prompt_tps = [double]$j.timings.prompt_per_second
+      decode_tps = [double]$j.timings.predicted_per_second
+      prompt_ms = [double]$j.timings.prompt_ms
+      wall = $wall
+      content = [string]$j.choices[0].message.content
+    }
+  } catch {
+    return $zero + @{ why=('parse-fail: ' + $Error[0].ToString().Replace([char]10, ' ').Replace([char]13, ' ').Substring(0, [Math]::Min(180, $Error[0].ToString().Length))) }
+  }
+}
+
+function Get-ProcTelemetry {
+  $os = Get-CimInstance Win32_OperatingSystem
+  $ramUsedMb = [int](($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1024)
+  $ramAvailMb = [int]($os.FreePhysicalMemory / 1024)
+  $p = $null
+  if ($global:PROC -and -not $global:PROC.HasExited) {
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId=$($global:PROC.Id)"
+  }
+  $ws = if ($p) { [int]($p.WorkingSetSize / 1MB) } else { 0 }
+  $priv = if ($p) { [int]($p.PrivatePageCount / 1MB) } else { 0 }
+  $pg = if ($p) { [int]($p.PageFileUsage / 1024) } else { 0 }
+  return @{ ramUsedMb=$ramUsedMb; ramAvailMb=$ramAvailMb; wsMb=$ws; privMb=$priv; pgMb=$pg }
+}
+
+function Write-Log {
+  param([string]$Msg)
+  $line = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss', [System.Globalization.CultureInfo]::InvariantCulture) + '  ' + $Msg
+  Add-Content -Path (Join-Path "$global:STUDY\logs" 'study.log') -Value $line
+}
+
+function Add-Result {
+  param([hashtable]$Row)
+  $csv = Join-Path $global:STUDY 'results.csv'
+  if (-not (Test-Path $csv)) {
+    $header = 'run_id,timestamp,artifact_revision,runtime_commit,ctx_allocated,kv_k,kv_v,batch,ubatch,split_mode,tensor_split,placement,n_cpu_moe,threads,threads_batch,load_mode,tensor_read_lazy,prompt_tokens,output_tokens,prompt_tps,decode_tps,ttft_proxy_s,request_wall_s,gpu0_used_mb,gpu0_free_mb,gpu1_used_mb,gpu1_free_mb,total_dedicated_mb,gpu0_util,gpu1_util,ram_used_mb,ram_avail_mb,proc_ws_mb,proc_priv_mb,pagefile_mb,success,failure_reason,notes'
+    Set-Content -Path $csv -Encoding UTF8 $header
+  }
+  $vals = @(
+    $Row.run_id, (Get-Date).ToString('yyyy-MM-dd HH:mm:ss', [System.Globalization.CultureInfo]::InvariantCulture), '2c4721899b4382bd07dfb61ae4fbad90c09caf7d', '9f55aee',
+    $Row.ctx, 'q4_0', 'q4_0', $Row.b, $Row.ub, 'tensor', $Row.ts, $Row.nm, $Row.nm,
+    $Row.t, $Row.tb, 'mmap', 'on',
+    $Row.pt, $Row.ot, $Row.ptps, $Row.dtps, $Row.ttft, $Row.wall,
+    $Row.g0u, $Row.g0f, $Row.g1u, $Row.g1f, $Row.tot, $Row.u0, $Row.u1,
+    $Row.rmu, $Row.rma, $Row.ws, $Row.pr, $Row.pg,
+    $Row.ok, $Row.why, $Row.note
+  )
+  Add-Content -Path $csv -Encoding UTF8 ($vals -join ',')
+}
+
+function Write-Manifest {
+  param([string]$RunId, [string]$Ts, [int]$NcMoE, [int]$Threads, [int]$ThreadsBatch)
+  $sha1 = (Get-FileHash $global:EXE -Algorithm SHA256).Hash.ToLower()
+  $path = Join-Path "$global:STUDY\run-manifests" ($RunId + '.json')
+  @{ run_id=$RunId; exe='0.3.0-dev build 215 commit 9f55aee (unsloth)'; exe_sha256=$sha1;
+     model=$global:MODEL; ctx=16384; ncmoe=$NcMoE; ts=$Ts; t=$Threads; tb=$ThreadsBatch;
+     b=2048; ub=512; sm='tensor'; fit='off'; lm='mmap'; lazy='on'; kv='q4_0';
+     cuda_visible=$env:CUDA_VISIBLE_DEVICES } | ConvertTo-Json | Set-Content -Path $path -Encoding UTF8
+}
