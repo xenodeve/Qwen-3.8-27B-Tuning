@@ -1,0 +1,67 @@
+{
+  "argv": [
+    "C:\\AI\\exllama3-venv\\Scripts\\python.exe",
+    "C:\\AI\\qwen38-tuning\\serving\\exl3\\server.py",
+    "-m",
+    "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5",
+    "-dm",
+    "mtp",
+    "-cs",
+    "262144",
+    "-cq",
+    "4",
+    "--port",
+    "8000",
+    "--host",
+    "127.0.0.1",
+    "--extra",
+    "-tp -tpb native -gs 9,15.5 -ndt 3"
+  ],
+  "cwd": "C:\\AI\\exllamav3-mia",
+  "artifact": "exl3",
+  "ctx": 262144,
+  "spec": "served",
+  "round": 1,
+  "gpu_before": [
+    "0, GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4, NVIDIA GeForce RTX 4070 SUPER, 12282, 2190, 9808, 616.64",
+    "1, GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e, NVIDIA GeForce RTX 5060 Ti, 16311, 0, 16050, 616.64"
+  ],
+  "comparison": "short-quality-screen; not deep-context certification",
+  "files": [
+    {
+      "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\model-00001-of-00002.safetensors",
+      "bytes": 8548255745,
+      "sha256": "2633b0cbcc4b250a2837f78fac315d2f4d6c9ce3decc51a625bbf30a2a5b214f"
+    },
+    {
+      "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\model-00002-of-00002.safetensors",
+      "bytes": 8152973892,
+      "sha256": "23879b3c29049377af1c14ba78a1a998d0bc7053bd9237f4a352821730a83c12"
+    }
+  ],
+  "head": "d769a678120c2738ac914ace620672ce9e02ed84",
+  "server_source_sha256": "9bb7a7edfae157e69af60f81402aa5ee018f572f03d1aefbdcd3c9690a26b40a",
+  "pid": 38992,
+  "health": {
+    "ok": true,
+    "busy": false,
+    "backend": "exl3",
+    "prompt_tokens_total": 0,
+    "completion_tokens_total": 0,
+    "context_length": 262144,
+    "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5",
+    "loops_stopped": 0,
+    "cjk_chars_total": 0,
+    "cancelled": 0
+  },
+  "gpu_loaded": [
+    "0, GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4, NVIDIA GeForce RTX 4070 SUPER, 12282, 9797, 2201, 616.64",
+    "1, GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e, NVIDIA GeForce RTX 5060 Ti, 16311, 11858, 4193, 616.64"
+  ],
+  "exit_before_cleanup": null,
+  "exit_after_cleanup": 1,
+  "gpu_end": [
+    "0, GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4, NVIDIA GeForce RTX 4070 SUPER, 12282, 2183, 9815, 616.64",
+    "1, GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e, NVIDIA GeForce RTX 5060 Ti, 16311, 0, 16050, 616.64"
+  ]
+}

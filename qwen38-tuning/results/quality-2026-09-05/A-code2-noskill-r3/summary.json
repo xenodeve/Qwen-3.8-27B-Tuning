@@ -48,7 +48,7 @@
     "hidden_last": "8 passed in 0.01s",
     "hidden_passed": 8,
     "hidden_failed": 0,
-    "test_runs_seen": 3,
+    "test_runs_seen": 1,
     "red_then_green": false,
     "score": "4/5"
   },

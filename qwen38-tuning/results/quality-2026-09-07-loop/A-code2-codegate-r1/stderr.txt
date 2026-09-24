@@ -1,0 +1,1 @@
+[claude-code:unrecognized_model] {"model":"turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5","query_source":"generate_session_title"}

@@ -1,0 +1,44 @@
+[
+  {
+    "case": "thinking-candidate-1",
+    "passed": false,
+    "exit_code": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 29, in <module>\nAttributeError: 'LFUCache' object has no attribute 'put'\n",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\nvfp4-thinking-recovery-demo\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": false,
+    "status": "functional-failure",
+    "verification_s": 0.06811939999897731,
+    "time_spent_s": 20.507793799995852,
+    "single_call_verified_task_s": null
+  },
+  {
+    "case": "thinking-candidate-2",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\nvfp4-thinking-recovery-demo\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "status": "accepted",
+    "verification_s": 0.0710131999985606,
+    "time_spent_s": 113.3691278999977,
+    "single_call_verified_task_s": 113.3691278999977
+  },
+  {
+    "case": "thinking-candidate-3",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\nvfp4-thinking-recovery-demo\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "status": "accepted",
+    "verification_s": 0.06814890000168816,
+    "time_spent_s": 152.2222112999989,
+    "single_call_verified_task_s": 152.2222112999989
+  }
+]

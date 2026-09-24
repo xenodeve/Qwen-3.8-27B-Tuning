@@ -44,6 +44,15 @@ EXPECTED = sorted([
     # with its own single flag holder (tests/test_exl3_launcher.py).
     "serve-exl3.bat", "serve-exl3-lan.bat",
     "serve-exl3-max.bat", "serve-exl3-max-lan.bat",
+    # GSQ IQ3_S-MTP (issue #149): hub key H. These call
+    # qwen38-tuning\scripts\serve-gsq.cmd, the llama.cpp recipe holder.
+    "serve-gsq.bat", "serve-gsq-lan.bat",
+    # Qwen3.8-Flash-Next GSQ-RCO Q2_0 (arch qwen4exp): hub keys I (262,144)
+    # and J (131,072). These call qwen38-tuning\scripts\serve-flash-next.cmd,
+    # a second llama.cpp recipe holder, because this model needs a different
+    # binary than the 27B pair. Two contexts, measured 2026-09-23 (D-D, D-C).
+    "serve-flash-next.bat", "serve-flash-next-lan.bat",
+    "serve-flash-next-128k.bat", "serve-flash-next-128k-lan.bat",
 ])
 
 
@@ -74,10 +83,14 @@ def test_each_launcher_reaches_the_entry_point_from_where_it_now_lives(name):
     live = [l for l in text.splitlines() if not l.strip().lower().startswith("rem")]
     # A line can NAME serve.ps1 without pointing at it -- the failure
     # message echoes it. Only the anchored ones are paths.
-    # Two entry points exist since 2026-09-04: serve.ps1 for every llama.cpp
-    # profile, qwen38-tuning\scripts\serve-exl3.cmd for the ExLlama3 keys.
+    # Four entry points now: serve.ps1 for every 27B llama.cpp profile,
+    # qwen38-tuning\scripts\serve-exl3.cmd for the ExLlama3 keys,
+    # qwen38-tuning\scripts\serve-gsq.cmd for the GSQ key, and
+    # qwen38-tuning\scripts\serve-flash-next.cmd for the qwen4exp key.
     hits = [l for l in live
-            if ("serve.ps1" in l or "serve-exl3.cmd" in l) and "%~dp0" in l]
+            if ("serve.ps1" in l or "serve-exl3.cmd" in l or
+                "serve-gsq.cmd" in l or "serve-flash-next.cmd" in l)
+            and "%~dp0" in l]
     assert hits, "%s no longer names an entry point" % name
     for line in hits:
         i = line.index("%~dp0")

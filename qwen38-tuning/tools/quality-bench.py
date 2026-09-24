@@ -25,7 +25,10 @@ template default xhigh while A/B run --effort medium.
 import argparse, datetime, glob, json, os, re, shutil, subprocess, sys, time, urllib.request
 
 ROOT = r"C:\AI"
-RESULTS = os.path.join(ROOT, "qwen38-tuning", "results", "quality-2026-09-05")
+RESULTS = os.path.join(ROOT, "qwen38-tuning", "results",
+                       os.environ.get("QBENCH_RESULTS", "quality-2026-09-05"))
+# The default folder is named for the day the baseline was taken. A later run must not
+# land in it, or its rows read as measurements from that date -- set QBENCH_RESULTS.
 WORK_ROOT = os.environ.get("QBENCH_WORK_ROOT", r"D:\qbench-work")   # no CLAUDE.md in any ancestor
 GATE_DIR = os.path.join(os.path.expanduser("~"), ".claude", "skills", "design-ship-gate")
 NODE_PATH = r"C:\Users\xenod\AppData\Local\npm-cache\_npx\361ceb562f3b3235\node_modules"
@@ -62,6 +65,25 @@ CODE_ARMS = {
     "codegate": dict(skills=["qwen38-code-gate"], suffix=" | จบด้วย /qwen38-code-gate"),
     "think":    dict(skills=["qwen38-think"], suffix=" | เริ่มด้วย /qwen38-think"),
     "family":   dict(skills=["using-qwen38", "qwen38-think", "qwen38-code-gate", "karpathy-guidelines"], suffix=" | /using-qwen38"),
+    # 2026-09-07 loop: `codegate2` is `codegate` with ONE change -- a step 0.5 that tells the
+    # model to write the test and run it RED before touching the source. Everything else in the
+    # file is byte-identical, so a difference in red_then_green is that step's.
+    "codegate2": dict(skills=["qwen38-code-gate-v2"], suffix=" | จบด้วย /qwen38-code-gate-v2"),
+    # v3: the original file plus ONE short line saying the brief's list order is not the build
+    # order. Targets the mechanism results 12 found -- the edit order matched the brief's own
+    # enumeration in all 20 runs, and the brief names the test last.
+    "codegate3": dict(skills=["qwen38-code-gate-v3"], suffix=" | จบด้วย /qwen38-code-gate-v3"),
+    # 2026-09-08 control: a skill of the same shape that says nothing about tests, order,
+    # checks or reports. Separates "was told to load a skill" from "loaded THIS skill".
+    "placebo":  dict(skills=["qwen38-placebo"], suffix=" | จบด้วย /qwen38-placebo"),
+    # 2026-09-08: the brief table ALONE (section 0), checks 1-6 dropped. 2,138 bytes against
+    # 4,786. Asks how much of the skill's effect the table by itself carries, since the full
+    # skill costs 2.4x the output tokens of no skill (results 13).
+    "codegatemin": dict(skills=["qwen38-code-gate-min"], suffix=" | จบด้วย /qwen38-code-gate-min"),
+    # 2026-09-08 ablations: which check produces the ordering?
+    #   no6 = the full skill minus check 6 (RED before GREEN); t6 = the table plus check 6 only.
+    "codegateno6": dict(skills=["qwen38-code-gate-no6"], suffix=" | จบด้วย /qwen38-code-gate-no6"),
+    "codegatet6":  dict(skills=["qwen38-code-gate-t6"],  suffix=" | จบด้วย /qwen38-code-gate-t6"),
     # the Claude Code tool guide alone (xeno-skills #355 slice; tuning #79): judged on tool_errors,
     # bash_cd and ended_with_question, not on the hidden tests
     "ccguide":  dict(skills=["qwen38-claude-code"], suffix=" | โหลด /qwen38-claude-code ก่อนใช้ tool"),
@@ -73,7 +95,97 @@ CELLS = {
     "B": dict(backend="exl3", model_dir=r"C:\AI\models\Mia-AiLab-Qwen3.8-27B-EXL3-3.5bpw",
               model="Mia-AiLab-Qwen3.8-27B-EXL3-3.5bpw", base="http://127.0.0.1:8000", ctx=262144, expect_min=28),
     "C": dict(backend="llama", model="Qwen3.8-27B-NVFP4-MTP", base="http://127.0.0.1:8080", ctx=200704, expect_min=40),
+    # D is remote and starts nothing. The 9arm gateway serves the same 27B at FP8 on vLLM, so
+    # it is a fourth artifact -- NOT a frontier control, and not comparable to A on speed.
+    # `model` is what the assistant message reported on 2026-09-07; the profile asks for
+    # "qwen3.8-27b-fp8" and the client logs `unrecognized_model` while the gateway answers.
+    # `request_model` is what the gateway ACCEPTS; `model` is what it reported serving. They
+    # are different strings and the 403 on the first run proved it:
+    #   "This team can only access models=['qwen3.8-27b-fp8']. Tried to access vllm/Qwen/..."
+    "D": dict(backend="remote", model="vllm/Qwen/Qwen3.8-27B-FP8", request_model="qwen3.8-27b-fp8",
+              base="https://gateway.9arm.co", ctx=131072, expect_min=None,
+              skills_explicit=True,
+              profile=os.path.join(os.path.expanduser("~"), ".claude-9arm.json")),
 }
+
+
+def brief_suffix(cell_cfg, spec):
+    """The arm's brief suffix, asking for the Skill tool by name where the token does not carry.
+
+    2026-09-07: the `family` arm called Skill 4x per rep on EXL3 4.0bpw and 0 times on the
+    9arm FP8 gateway, so the D cells measured nothing about skills at all. It is not a
+    registration problem -- both streams' init events list the same 48 slash commands
+    including all four qwen ones, and `Skill` is in `tools`. Asked in words the gateway
+    model loads the skill and quotes it correctly. A slash token in a `-p` prompt is simply
+    not a reliable way to make every endpoint call the tool.
+
+    A and C keep the token so the 2026-09-05 baseline stays comparable; an arm run on D is
+    NOT the same arm as on A, and that is why the flag lives on the cell.
+    """
+    if not cell_cfg.get("skills_explicit") or not spec.get("skills"):
+        return spec["suffix"]
+    return _explicit_clause(spec["skills"])
+
+
+def _explicit_clause(skills):
+    names = " ".join("/" + s for s in skills)
+    return f" | ใช้ Skill tool โหลด {names} ก่อนเริ่มงาน แล้วทำตามที่เขียนไว้"
+
+
+def page_brief(cell_cfg, spec):
+    """A page arm's brief, with the same treatment the code path gets.
+
+    Page arms carry their slash tokens inside `brief` rather than in a suffix, so the fix
+    that made D load skills for code tasks did not reach them -- a frontend run on the
+    gateway would have repeated the zero-Skill-calls fault. `skills=None` (the developer's
+    whole ~/.claude) is left alone: there is no list to name.
+    """
+    if not cell_cfg.get("skills_explicit") or not spec.get("skills"):
+        return spec["brief"]
+    return spec["brief"] + _explicit_clause(spec["skills"])
+
+
+def void_reason(summary, rc, timed_out):
+    """Why this cell must NOT be scored, or None.
+
+    2026-09-07: the gateway answered 403, the run ended rc=1 in 0.0 min with 0 output
+    tokens, and the runner still printed `gate=1/5  hidden 1 passed / 7 failed`. The
+    hidden tests fail on an untouched fixture, so a run that never happened scores the
+    same as a run that did nothing -- a believable number in place of a failure.
+    """
+    if summary.get("is_error"):
+        return f"the run reported an error: {(summary.get('final_text') or '')[:200]}"
+    if not timed_out and not summary.get("output_tokens"):
+        return f"the model produced 0 output tokens (rc={rc})"
+    return None
+
+
+def skills_not_loaded(summary, skills):
+    """Why this cell did not test the arm it names, or None.
+
+    2026-09-09: `D-designonly-r4` scored 6/8 with 0 Thai and no dark mode while the arm's
+    skills sat unread -- `Skill` called zero times, two turns, one Write, 2.7 minutes. Its
+    number is indistinguishable from a run that read the rules and ignored them, and the two
+    have different fixes. Twelve sibling cells loaded the skill and every one followed the
+    rules that existed when it ran.
+
+    `noskill` has nothing to load, so an empty or absent skills list is never flagged.
+    """
+    if not skills:
+        return None
+    if (summary.get("tool_calls") or {}).get("Skill"):
+        return None
+    return (f"the arm names {len(skills)} skill(s) and the run never called the Skill tool: "
+            f"{', '.join(skills)}")
+
+
+def auth_token(c):
+    """Local servers take anything; a gateway needs its real key, and the key lives in the
+    profile file rather than in this source."""
+    prof = c.get("profile")
+    if not prof:
+        return "sk-local"
+    return json.load(open(prof, encoding="utf-8"))["env"]["ANTHROPIC_AUTH_TOKEN"]
 
 
 def _rmtree(path):
@@ -131,6 +243,15 @@ def start_hidden(bat, env_extra=None):
 
 def ensure_server(cell):
     c = CELLS[cell]
+    # Dispatch explicitly. This used to be `if exl3: ... else: <boot llama-server>`, so any
+    # backend that was not exl3 stopped both servers and started the GPU one. A remote cell
+    # falling into that branch would boot the card for nothing (2026-09-07).
+    if c["backend"] == "remote":
+        log(f"remote backend: {c['model']} at {c['base']} - no local server is started or stopped")
+        return
+    if c["backend"] not in ("exl3", "llama"):
+        raise RuntimeError(f"unknown backend {c['backend']!r} for cell {cell}: refusing to guess "
+                           f"which server to start")
     if c["backend"] == "exl3":
         h = get(c["base"] + "/health")
         if h and h.get("ok") and h.get("model") == c["model"] and h.get("context_length") == c["ctx"]:
@@ -194,13 +315,13 @@ def run_cell(cell, arm, rep, task="page"):
     ensure_server(cell)
 
     env = os.environ.copy()
-    env.update(ANTHROPIC_BASE_URL=c["base"], ANTHROPIC_AUTH_TOKEN="sk-local", NODE_PATH=NODE_PATH,
+    env.update(ANTHROPIC_BASE_URL=c["base"], ANTHROPIC_AUTH_TOKEN=auth_token(c), NODE_PATH=NODE_PATH,
                CLAUDE_CODE_MAX_CONTEXT_TOKENS=str(c["ctx"]), CLAUDE_CODE_AUTO_COMPACT_WINDOW=str(c["ctx"]),
                CLAUDE_AUTOCOMPACT_PCT_OVERRIDE="95", API_TIMEOUT_MS="3600000",
                CLAUDE_CODE_MAX_OUTPUT_TOKENS=str(c["ctx"] if c["backend"] == "exl3" else 32768))
     if task == "page":
         spec = ARMS[arm]
-        brief = spec["brief"]
+        brief = page_brief(c, spec)
     else:
         fixture = os.path.join(FIXTURES, TASK_FIXTURE[task])
         spec = CODE_ARMS[arm]
@@ -208,7 +329,7 @@ def run_cell(cell, arm, rep, task="page"):
         # (the rest of the brief AND the flags) is lost -- the 15:53 noskill cell saw only the
         # brief's first line and answered "which two tasks?" as plain text.
         raw = open(os.path.join(fixture, "BRIEF.md"), encoding="utf-8").read()
-        brief = " ".join(l.strip() for l in raw.splitlines() if l.strip()) + spec["suffix"]
+        brief = " ".join(l.strip() for l in raw.splitlines() if l.strip()) + brief_suffix(c, spec)
         # seed the fixture into work/ as a git checkout (the gate's scope check diffs against
         # HEAD); hidden/ stays out until the run is over
         for item in os.listdir(fixture):
@@ -237,7 +358,7 @@ def run_cell(cell, arm, rep, task="page"):
                 raise RuntimeError(f"skill {skill_name} not installed under {USER_SKILLS}")
             shutil.copytree(src, os.path.join(sk, skill_name))
         env["CLAUDE_CONFIG_DIR"] = cfg
-    cmd = [CLAUDE, "-p", brief, "--model", c["model"], "--strict-mcp-config", "--effort", "medium",
+    cmd = [CLAUDE, "-p", brief, "--model", c.get("request_model", c["model"]), "--strict-mcp-config", "--effort", "medium",
            "--dangerously-skip-permissions", "--output-format", "stream-json", "--verbose", "--include-partial-messages"]
 
     log(f"== {name}: start ({c['model']} @ {c['ctx']}, arm {arm})")
@@ -253,7 +374,9 @@ def run_cell(cell, arm, rep, task="page"):
             # the client is dead but the server keeps generating for it (a 128K-token think on
             # 2026-09-05 13:19-14:05); the next cell would queue behind that orphan. Restart.
             log(f"== {name}: TIMEOUT -> restarting the server so the orphaned generation does not delay the next cell")
-            if c["backend"] == "exl3":
+            if c["backend"] == "remote":
+                log("   (remote gateway: nothing local to restart)")
+            elif c["backend"] == "exl3":
                 stop_exl3()
             else:
                 stop_llama()
@@ -267,6 +390,27 @@ def run_cell(cell, arm, rep, task="page"):
                    brief=brief, rc=rc, timed_out=timed_out, wall_s=round(wall, 1), started=t0_iso, ended=t1_iso,
                    vram_before=before, vram_after=after)
     summary.update(parse_stream(os.path.join(d, "stream.jsonl")))
+
+    # Refuse to score a cell that never reached the model. Everything below this point
+    # computes a number, and every one of those numbers is meaningful only if the run
+    # happened.
+    summary["void"] = void_reason(summary, rc, timed_out)
+    # Not a void: the run happened and its page is real. But it did not test the arm it is
+    # labelled with, so the row must say that rather than be averaged in silently.
+    summary["skills_not_loaded"] = skills_not_loaded(summary, spec.get("skills"))
+    if summary["skills_not_loaded"]:
+        log(f"== {name}: WARNING {summary['skills_not_loaded']}")
+    served = summary.get("served_model")
+    if served and served != c["model"]:
+        summary["served_model_mismatch"] = f"cell says {c['model']!r}, the stream says {served!r}"
+        log(f"== {name}: WARNING {summary['served_model_mismatch']}")
+    if summary["void"]:
+        summary["gate"] = None
+        log(f"== {name}: VOID -- {summary['void']}")
+        summary["server_evidence"] = server_evidence(c, t0_iso, t1_iso, d)
+        with open(os.path.join(d, "summary.json"), "w", encoding="utf-8") as fh:
+            json.dump(summary, fh, indent=2, ensure_ascii=False)
+        return summary
 
     if task == "page":
         pages = [p for p in glob.glob(os.path.join(work, "**", "*.html"), recursive=True)]
@@ -300,6 +444,7 @@ def parse_stream(path):
     # the 43 streams of 2026-09-05: 12 tool errors in 10 cells, 87 of 195 Bash calls with a
     # `cd` prefix, 2 runs that ended by asking a developer who was not there.
     tool_errors, bash_cd, last_text = 0, 0, ""
+    served = set()          # what the SERVER said it was, not what the cell claims
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -312,6 +457,9 @@ def parse_stream(path):
             t = o.get("type")
             if t == "assistant":
                 turns += 1
+                m = (o.get("message") or {}).get("model")
+                if m and m != "<synthetic>":
+                    served.add(m)
                 for part in (o.get("message") or {}).get("content") or []:
                     if part.get("type") == "tool_use":
                         tools[part.get("name")] = tools.get(part.get("name"), 0) + 1
@@ -332,7 +480,8 @@ def parse_stream(path):
             elif t == "result":
                 result = o
     out = dict(assistant_messages=turns, api_calls=api_calls, tool_calls=tools, thinking_chars=thinking_chars, text_chars=text_chars,
-               tool_errors=tool_errors, bash_cd=bash_cd, ended_with_question=last_text.rstrip().endswith("?"))
+               tool_errors=tool_errors, bash_cd=bash_cd, ended_with_question=last_text.rstrip().endswith("?"),
+               served_model=(sorted(served)[0] if len(served) == 1 else (sorted(served) or None)))
     if result:
         u = result.get("usage") or {}
         out.update(num_turns=result.get("num_turns"), duration_api_ms=result.get("duration_api_ms"), duration_ms=result.get("duration_ms"),
@@ -402,6 +551,122 @@ def gate(page, d):
     return res
 
 
+# A test-runner summary, not the word "Error" in a source file. The first version matched
+# bare `Error` anywhere in a tool_result, so a Read of ledger/parse.py -- which raises
+# ValueError -- counted as a test run, and check 3 ("a test command ran") passed on runs
+# where no test had run at all (2026-09-07, both D code2 cells: test_runs_seen 3, actual 1).
+TEST_SUMMARY = re.compile(r"\d+ (passed|failed|error|skipped)\b|^FAILED |^ERROR |^OK$|^Ran \d+ tests?", re.M)
+TEST_FAILED = re.compile(r"\d+ (failed|error)\b|^FAILED |^ERROR |^FAILED \(", re.M)
+TEST_PASSED = re.compile(r"\d+ passed\b", re.M)
+
+
+def test_command_outputs(stream_path):
+    """Tool results, in order, that are a test runner's output -- Bash results only.
+
+    Reading a file is not running a test. Classification below uses the SAME text this
+    selects on; the first version selected on the whole body and classified on the last
+    300 characters, so a selected entry could vote neither red nor green.
+    """
+    names, outs = {}, []
+    for line in open(stream_path, encoding="utf-8", errors="replace"):
+        if not line.startswith("{"):
+            continue
+        try:
+            o = json.loads(line)
+        except ValueError:
+            continue
+        t = o.get("type")
+        if t == "assistant":
+            for part in (o.get("message") or {}).get("content") or []:
+                if isinstance(part, dict) and part.get("type") == "tool_use":
+                    names[part.get("id")] = part.get("name")
+        elif t == "user":
+            for part in (o.get("message") or {}).get("content") or []:
+                if not (isinstance(part, dict) and part.get("type") == "tool_result"):
+                    continue
+                if names.get(part.get("tool_use_id")) != "Bash":
+                    continue
+                c = part.get("content")
+                text = c if isinstance(c, str) else " ".join(
+                    x.get("text", "") for x in (c or []) if isinstance(x, dict))
+                if TEST_SUMMARY.search(text):
+                    outs.append(text)
+    return outs
+
+
+def _is_test_file(path):
+    p = (path or "").replace("\\", "/").lower()
+    return "/tests/" in p or os.path.basename(p).startswith("test_")
+
+
+def _is_source_file(path):
+    """Implementation, as opposed to a test or a document. A README is neither: counting it
+    as source would fail a run that documented first and still tested before implementing."""
+    p = (path or "").replace("\\", "/").lower()
+    if not p or _is_test_file(p):
+        return False
+    return not p.endswith((".md", ".rst", ".txt"))
+
+
+def tdd_order(stream_path):
+    """Did a test RUN before the source was first edited?
+
+    `red_then_green` does not answer this and was read as though it did. Across the 20
+    paired code2 runs of 2026-09-07 it was True 7/10 and 9/10, while in all 20 the model
+    wrote parse.py, report.py, __init__.py and README.md before its first line of test --
+    "a test failed and later passed" is just what iteration looks like when the first
+    implementation is buggy. Measured as an order, the same runs give 5/10 and 1/10.
+    """
+    names, turn = {}, 0
+    first_test_run = first_test_edit = first_source_edit = None
+    for line in open(stream_path, encoding="utf-8", errors="replace"):
+        if not line.startswith("{"):
+            continue
+        try:
+            o = json.loads(line)
+        except ValueError:
+            continue
+        t = o.get("type")
+        if t == "assistant":
+            turn += 1
+            for part in (o.get("message") or {}).get("content") or []:
+                if not (isinstance(part, dict) and part.get("type") == "tool_use"):
+                    continue
+                names[part.get("id")] = (part.get("name"), turn)
+                if part.get("name") in ("Edit", "Write", "NotebookEdit"):
+                    fp = (part.get("input") or {}).get("file_path")
+                    if _is_test_file(fp) and first_test_edit is None:
+                        first_test_edit = turn
+                    elif _is_source_file(fp) and first_source_edit is None:
+                        first_source_edit = turn
+        elif t == "user":
+            for part in (o.get("message") or {}).get("content") or []:
+                if not (isinstance(part, dict) and part.get("type") == "tool_result"):
+                    continue
+                nm = names.get(part.get("tool_use_id"))
+                if not nm or nm[0] != "Bash":
+                    continue
+                c = part.get("content")
+                text = c if isinstance(c, str) else " ".join(
+                    x.get("text", "") for x in (c or []) if isinstance(x, dict))
+                if TEST_SUMMARY.search(text) and first_test_run is None:
+                    first_test_run = nm[1]
+    return dict(first_test_run_turn=first_test_run,
+                first_test_edit_turn=first_test_edit,
+                first_source_edit_turn=first_source_edit,
+                tested_before_source_edit=(first_test_run is not None
+                                           and first_source_edit is not None
+                                           and first_test_run < first_source_edit))
+
+
+def red_before_green(outputs):
+    """A failing run strictly before a later all-passing run."""
+    first_fail = next((i for i, t in enumerate(outputs) if TEST_FAILED.search(t)), None)
+    last_pass = next((i for i, t in reversed(list(enumerate(outputs)))
+                      if TEST_PASSED.search(t) and not TEST_FAILED.search(t)), None)
+    return first_fail is not None and last_pass is not None and first_fail < last_pass
+
+
 def code_gate(work, fixture, d, stream_path):
     """Scored by the harness, never by the model: diff scope against the brief's files,
     placeholders, whether a test command ran, hidden tests, RED before GREEN."""
@@ -432,26 +697,12 @@ def code_gate(work, fixture, d, stream_path):
     m = re.search(r"(\d+) passed", last); res["hidden_passed"] = int(m.group(1)) if m else 0
     m = re.search(r"(\d+) failed", last); res["hidden_failed"] = int(m.group(1)) if m else 0
     m = re.search(r"(\d+) error", last); res["hidden_failed"] += int(m.group(1)) if m else 0
-    outputs = []
-    for line in open(stream_path, encoding="utf-8", errors="replace"):
-        if not line.startswith("{"):
-            continue
-        try:
-            o = json.loads(line)
-        except ValueError:
-            continue
-        if o.get("type") != "user":
-            continue
-        for part in (o.get("message") or {}).get("content") or []:
-            if isinstance(part, dict) and part.get("type") == "tool_result":
-                c = part.get("content")
-                text = c if isinstance(c, str) else " ".join(x.get("text", "") for x in (c or []) if isinstance(x, dict))
-                if re.search(r"\d+ (passed|failed)|FAILED|Error", text):
-                    outputs.append(text[-300:])
+    outputs = test_command_outputs(stream_path)
     res["test_runs_seen"] = len(outputs)
-    first_fail = next((i for i, t in enumerate(outputs) if re.search(r"\d+ failed|FAILED|Error", t)), None)
-    last_pass = next((i for i, t in reversed(list(enumerate(outputs))) if re.search(r"\d+ passed", t) and not re.search(r"\d+ failed", t)), None)
-    res["red_then_green"] = first_fail is not None and last_pass is not None and first_fail < last_pass
+    res["red_then_green"] = red_before_green(outputs)
+    # The order is what the skill actually asks for; red_then_green is kept because the
+    # 2026-09-05 baseline is scored on it. They disagree -- see tdd_order's docstring.
+    res.update(tdd_order(stream_path))
     checks = [res["scope_ok"], not res["placeholders"], res["test_runs_seen"] > 0, res["hidden_failed"] == 0 and res["hidden_passed"] > 0, res["red_then_green"]]
     res["score"] = f"{sum(1 for c in checks if c)}/5"
     return res
@@ -509,6 +760,10 @@ def think_gate(work, fixture, d, stream_path, final_text):
 
 def server_evidence(c, t0_iso, t1_iso, d):
     ev = {}
+    if c["backend"] == "remote":
+        # Say there is none rather than returning an empty dict a reader would take for
+        # "the server logged nothing".
+        return {"server_evidence": "n/a: remote gateway, no local server log"}
     if c["backend"] == "exl3":
         src = os.path.join(ROOT, "qwen38-tuning", "logs", "exl3-requests.jsonl")
         rows = []
@@ -578,6 +833,14 @@ def main():
             summ = json.load(open(sj, encoding="utf-8"))
             task = summ.get("task", "page")
             work = summ.get("work_dir") or os.path.join(sd, "work")
+            # The same refusal run_cell applies. Without it --regate happily scored the
+            # dead 403 cell 3/5 out of a summary.json that already said rc=1, 0 tokens.
+            summ["void"] = void_reason(summ, summ.get("rc"), summ.get("timed_out"))
+            if summ["void"]:
+                summ["gate"] = None
+                print(os.path.basename(sd), "VOID --", summ["void"][:80])
+                json.dump(summ, open(sj, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+                continue
             if task == "page" and os.path.exists(page):
                 if a.only_tasks:
                     continue

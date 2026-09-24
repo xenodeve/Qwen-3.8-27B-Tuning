@@ -1,0 +1,8 @@
+{
+  "source": "qwen38-tuning\\bench\\corpora\\real-code-deep.txt",
+  "source_sha256": "1a3ae4b813dd84474e40ff997aaff80718ff68f76f315bf491456d5aef716901",
+  "excerpt_chars": 154249,
+  "boundary": "last complete file boundary before character 160000",
+  "type": "synthetic conversation containing real source code; NOT original-session replay",
+  "token_depth": "unmeasured until response usage; no padded or silently truncated history"
+}

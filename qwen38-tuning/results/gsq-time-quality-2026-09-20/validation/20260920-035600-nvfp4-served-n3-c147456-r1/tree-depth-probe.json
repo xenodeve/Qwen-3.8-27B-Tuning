@@ -1,0 +1,7 @@
+{
+  "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-035600-nvfp4-served-n3-c147456-r1\\responses.jsonl",
+  "kind": "supplementary depth robustness; original functional score unchanged",
+  "exit_code": 0,
+  "stdout": "{\"depth\": 1500, \"round_trip\": false, \"error\": \"RecursionError\"}\n",
+  "stderr": ""
+}

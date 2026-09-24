@@ -1,0 +1,30 @@
+[
+  {
+    "case": "session-lfu_cache",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-043535-exl3-served-n3-c147456-r3\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "status": "accepted",
+    "verification_s": 0.06728259999727015,
+    "time_spent_s": 58.101844099997834,
+    "single_call_verified_task_s": 58.101844099997834
+  },
+  {
+    "case": "session-tree_codec",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-043535-exl3-served-n3-c147456-r3\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "status": "accepted",
+    "verification_s": 0.06807589999880292,
+    "time_spent_s": 23.502696299998206,
+    "single_call_verified_task_s": 23.502696299998206
+  }
+]

@@ -92,6 +92,21 @@ def test_ban_ids_picks_pieces_with_han_and_bias_is_minus_inf():
     assert cjk_guard.bias(ids) == {1: float("-inf"), 2: float("-inf"), 6: float("-inf")}
 
 
+class _TokenizerWithThaiMarks:
+    def get_id_to_piece_list(self, include_special_tokens = False):
+        assert include_special_tokens
+        return ["hello", "前", "่", "ทุ้ง", "协作", "์"]
+
+
+def test_thai_mark_continuation_tokens_remain_available(monkeypatch):
+    """Issue #89: the Han guard must not ban Thai continuation marks."""
+    monkeypatch.delenv(cjk_guard.ENV, raising = False)
+    cjk_guard._bias_cache.clear()
+    got = cjk_guard.bias_for(
+        _TokenizerWithThaiMarks(), [{"role": "user", "content": "ภาษาไทย"}])
+    assert got == {1: float("-inf"), 4: float("-inf")}
+
+
 class _Tokenizer:
     """The fork's tokenizer surface the server hands over: the piece list with specials."""
     calls = 0
@@ -104,12 +119,13 @@ class _Tokenizer:
 
 def test_bias_for_is_none_when_the_prompt_has_han_and_scans_the_vocab_once(monkeypatch):
     monkeypatch.delenv(cjk_guard.ENV, raising = False)
+    cjk_guard._bias_cache.clear()
     tok = _Tokenizer()
     _Tokenizer.calls = 0
     assert cjk_guard.bias_for(tok, [{"role": "user", "content": "你好"}]) is None
     b = cjk_guard.bias_for(tok, [{"role": "user", "content": "ไทย"}])
     assert b == {1: float("-inf"), 4: float("-inf")}
-    assert cjk_guard.bias_for(tok, [{"role": "user", "content": "more"}]) is b   # no per-request rebuild
+    assert cjk_guard.bias_for(tok, [{"role": "user", "content": "more"}]) == b   # no per-request rebuild
     assert _Tokenizer.calls == 1
 
 

@@ -1,5 +1,12 @@
 # researchs — external material. NOT our measurements
 
+[GSQ-RCO provenance](gsq-rco-2026-09-20.md) records the pinned model card and
+artifact identity for [evaluation #92](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/92).
+
+[Sharp, Swift and TURBO pinned inputs](sharp-swift-turbo-2026-09-20.md) separates
+creator claims from local preflight and names the exact revisions/hashes used by
+the three-candidate extension.
+
 Everything here came from outside this machine: deep-research replies, vendor
 documentation, model cards, screenshots.
 
@@ -142,3 +149,27 @@ of MTP**", AtomicChat plots raw file size. The same artifact sits at different
 x-positions on the two charts.
 
 - [`unsloth-studio-config-2026-08-29.md`](unsloth-studio-config-2026-08-29.md) — **the `llama-server` command line Unsloth Studio builds for OUR artifact on THIS machine**, read out of its own logs and settings database rather than off a web page. It agrees with us on `q4_0` KV, MTP beside an n-gram, the tensor split, and — independently — on **`n-match 24`**. It differs on eleven other flags, including turning the prompt cache and context checkpoints **off**, which is where our 34 GB of host RAM goes. Nothing applied; seven items ranked by cost at the end.
+
+## Which agent thinking principles hold across every task
+
+[`agent-thinking-principles-2026-09-07.md`](agent-thinking-principles-2026-09-07.md) —
+the task-neutral half of how an agent should work, gathered from this repo's own
+nineteen recorded method failures (`../agents/traps.md`), the `### The general
+form` distillations in `CORRECTIONS.md` §§30 and 33–39, the 2026-09-05 quality
+bench, and four outside sources. Every row tagged **MEASURED HERE** / **EXTERNAL**
+/ **UNMEASURED**, and separately marked for whether it has ever been tested **on
+Qwen** — most have not.
+
+**Two findings carry the document.** The first is the filter: a principle belongs
+in the shared layer only if it constrains *how you decide and check*, never *what
+a good artifact contains*. The second is the price of breaking that filter —
+loading the design suite, **the document that states the two-font cap**, took the
+model from 3/3 to **0/3** on that same cap and scored 4/8 against 6/8 for no skill
+at all. An unexecutable rule can be worse than silence about its own subject.
+
+The spine both bodies of evidence converge on: **replace every judgement with an
+observation whose failure looks different from its success.** Fifteen of the
+nineteen traps here produced a plausible number rather than an error, and
+[arXiv:2310.01798](https://arxiv.org/abs/2310.01798) finds self-correction
+without external feedback can *degrade* performance. Two gaps in the current
+router follow from it, both one bench arm to test; neither is applied.

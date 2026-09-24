@@ -1,0 +1,19 @@
+{
+  "model": "C:\\AI\\models\\ISTA-DASLab-Qwen3.8-Flash-Next-GSQ-RCO\\Q2_0\\Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf",
+  "lm": "mmap",
+  "b": 2048,
+  "ub": 512,
+  "exe": "0.3.0-dev build 215 commit 9f55aee (unsloth)",
+  "ncmoe": 34,
+  "t": 14,
+  "sm": "tensor",
+  "run_id": "nf1-baseline",
+  "fit": "off",
+  "exe_sha256": "32b47164f360ec761c2e737865f631b9f203a74fad0710636b306c02160f6cbb",
+  "lazy": "on",
+  "ctx": 16384,
+  "cuda_visible": "GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4,GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e",
+  "tb": 20,
+  "kv": "q4_0",
+  "ts": "8449,15452"
+}

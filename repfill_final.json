@@ -1,0 +1,184 @@
+{
+  "sources_total": 18,
+  "top_candidates": [
+    "เพิ่ม --cache-ram ให้สูงกว่า size ของ KV state จริง (~9801 MiB) → ตั้ง 16384 หรือ -1 (unlimited) เพื่อหยุดข้อความ \"prompt state size exceeds cache size limit ... skipping\" ที่ทำให้ทุก task ถูกบังคับ full re-prefill 160k (200-250s) — ขีดจำกัดเป็น GLOBAL เหนือทุก slot/state ไม่ใช่ต่อ-slot (ซอร์ส server-task.cpp 'if (limit_size>0 && state_size_new>limit_size) SKIP' + วัดจริง unsloth#9037 / reddit 1td9stc)",
+    "รักษา prefix (system+tools+history) ให้ byte-identical ข้าม task — ต้นเหตุดั้งเดิมของ 'forcing full prompt re-processing due to lack of cache data' (trace -lv 4) — ห้าม harness แทรก timestamp/date/reasoning-effort ที่เปลี่ยนเข้า prefix (mykolaaleksandrov วัด 160k prefill -> เหลือ 212 token)",
+    "ลด -cms (--checkpoint-min-step default 8192) ลงราว median turn + เพิ่ม -ctxcp (default 32) — เพราะ checkpoint ที่กั้นเกิน 8192 token ถูก 'erasing ... too close' ลบทิ้ง; ระวัง hybrid-recurrent (Qwen) ที่ #24055 ว่า checkpoint invalidate ตลอด",
+    "เปิด --cache-idle-slots + ควบคุม -np / --kv-unified เพื่อให้ KV/checkpoint ของ idle slot ถูก export ไป RAM reuse ข้าม slot แทน cold prefill (PR #24190; วัด 15.42s->0.755s ใน i22942)",
+    "เพิ่ม -ub/--ubatch-size (default 512->2048) ให้ prefill throughput สูงขึ้น + -fa flash-attn auto; dzx.fr วัด 1119->2001 tok/s (pp2048) บน RTX 5080",
+    "ใต้ -mm: รู้ว่า --cache-reuse ถูก force-disable ทั้งเส้น และภาพแต่ละใบทำ KV state ~1000 token/128 MiB กิน cache-ram เร็ว — ทางถูกคือยก --cache-ram + ตรึง prefix เพราะ checkpoint restore ยังทำงาน (ผู้ใช้เห็น '220 restores')"
+  ],
+  "findings": [
+    {
+      "technique": "ยก --cache-ram ให้สูงกว่าขนาด state จริงของ casual conversation (ขีดจำกัด GLOBAL เหนือทุก slot) เพื่อหยุดการ skip การ save state",
+      "category": "cache-ram sizing / (a)",
+      "exact_command": "--cache-ram 16384   (หรือ -1 = ไม่จำกัด infinite, 0 = ปิด cache)   env: LLAMA_ARG_CACHE_RAM",
+      "source_url": "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/server-task.cpp",
+      "claimed_gain": "ซอร์ส condition 'if (limit_size>0 && state_size_new>limit_size) SKIP' — ถ้า state เดียว (~9801 MiB) ใหญ่กว่า default 8192 MiB จะไม่ถูก cache เลย ทุก task ต้อง prefill 160k ใหม่ (200-250s). ยกเป็น 16384: in-process reuse ทำงาน f_keep=1.0 prefill เหลือ ~24 token (unsloth#9037 Qwen3.8-27B state ~9681 MiB); reddit 1td9stc ยืนยัน root-cause",
+      "hardware_measured": "Qwen3.8-27B-UD-Q4_K_XL / AMD 8060S ROCm 128GB (unsloth#9037); env ผู้ใช้ 5060 Ti 16GB + 4070 SUPER 12GB -sm tensor",
+      "confidence": "measured"
+    },
+    {
+      "technique": "eviction/skip mechanics ของ cache-ram: global LRU pool เหนือทุก slot ไม่ใช่ per-slot; state ก้อนใหญ่เกิน cap -> skip ทั้งก้อน",
+      "category": "cache-ram sizing / (a)",
+      "exact_command": "--cache-ram N  (+ --cache-prompt default on) (+ --cache-idle-slots default on เมื่อ cache-ram>0)",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/22942",
+      "claimed_gain": "server_prompt_cache::alloc() เก็บ state ใน pool กลาง แล้ว update() บังคับ LRU ('cache size limit reached, removing oldest entry') — แต่อันตราย: state ก้อนเดียวใหญ่เกิน cap ถูก skip ทั้งก้อนไม่ใช่ evict บางส่วน. เก่าใน #22629 eviction reactive บน bad_alloc (Linux overcommit) ทำให้ cap ช้า/OOM; แก้ PR #23561 เป็น proactive. ถ้า -np>N งบ cache = ผลรวม state ทุก slot",
+      "hardware_measured": "AMD gfx1201 Vulkan / Qwen3.6-35B-A3B w/ mmproj / 32GB RAM (#22629)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "ทำให้ state เล็กลงเพื่ออยู่ใต้ cache-ram: -ctk/-ctv quant + -c ให้พอดี workload ไม่ใช่ 200k เต็ม",
+      "category": "cache-ram sizing / (a)",
+      "exact_command": "--cache-type-k q4_0 --cache-type-v q4_0  (และพิจารณาลด -c เหลือเท่าที่ใช้จริง)",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/20509",
+      "claimed_gain": "state ~3517MiB ที่ -c 129k บน Qwen3.5-27B q8_0 KV — ยิ่ง -c ใหญ่ + KV quant ต่ำ ต่อ MB ได้ token มากขึ้น. ผู้ใช้ q4_0 อยู่แล้ว แต่ -c 200k + ภาพ (-mm) ทำให้ state โตถึง ~9801 MiB; ลด -c เหลือเท่าที่ workload จริงลด state โดยตรง",
+      "hardware_measured": "Qwen3.5-27B tensor-split 114,71 / -c 129024 / q8_0 KV (i20509)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "ปรับ checkpoint knobs: -ctxcp จำนวน/slot, -cms (--checkpoint-min-step) เป็น eviction floor",
+      "category": "ctx-checkpoints / (b)",
+      "exact_command": "--ctx-checkpoints 64 --checkpoint-min-step 1024   (env: LLAMA_ARG_CTX_CHECKPOINTS / LLAMA_ARG_CHECKPOINT_MIN_SPACING_NT)",
+      "source_url": "https://github.com/ggml-org/llama.cpp/pull/15293",
+      "claimed_gain": "-cpent ถูกลบ PR #22929; checkpoint สร้างที่ user-message boundary (PR #24176) โดย -cms default 8192 เป็น min spacing + eviction floor (PR #25472) — ถ้า agent turn สั้นกว่า 8192 token checkpoint จะถูก 'erasing ... too close' ลบทิ้ง -> reuse ล้ม. ลด -cms ลงราว median turn + เพิ่ม -ctxcp. แต่ละ checkpoint 62-213 MiB/ตัว x -ctxcp x -np",
+      "hardware_measured": "ซอร์ส common/arg.cpp + server-context.cpp master (particula)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "hybrid-recurrent (Qwen) checkpoint invalidate ตลอด — ปัญหาเชิงโครงสร้างของ recurrent state ที่ rollback ย้อนได้แค่ n_rs_seq",
+      "category": "ctx-checkpoints / (b)",
+      "exact_command": "-lv 4  | grep -E 'forcing full|invalidated context checkpoint|created context checkpoint'   + ลด -cms/เพิ่ม -ctxcp",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/24055",
+      "claimed_gain": "บน Qwen/hybrid: 'created context checkpoint' แล้วturnถัดไป 'forcing full prompt re-processing ... erased invalidated context checkpoint (n_swa=1)' — recurrent state ไม่ partial rollback ลึกได้ ต่างจาก full-attention truncate. ใช้ตรวจแยกว่า re-prefill ที่เห็นจริงมาจาก cache-ram cap หรือ recurrent invalidation (ผลเหมือนกัน)",
+      "hardware_measured": "Qwopus3.6-27B Q4_K_M / 2x P100 16GB tensor-split (i24055)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "checkpoint ข้าม task เป็น slot-local เดิม -> แก้โดย export idle slot KV ไป RAM (--cache-idle-slots)",
+      "category": "ctx-checkpoints / (b)",
+      "exact_command": "--cache-idle-slots  (default on; ต้องการ --cache-ram)  + ควบคุม -np",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/22942",
+      "claimed_gain": "i22942 วัด: แก้ slot-local เป็น shared pool + global LCP-aware slot selection แล้ว exact-prefix probe 15.42s -> 0.755s (re-prefill หาย). PR #24190 (9-June-2026) idle slot publish KV ไป RAM reuse ข้าม slot ได้แม้ไม่ใช้ -kvu — ตรงกับ workload agent หลาย task",
+      "hardware_measured": "-np 2 / diverse, 15.42s->0.755s (i22942)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "slot-prompt-similarity (-sps) ควบคุม slot reuse โดย longest-common-prefix similarity",
+      "category": "prompt/prefix caching / (c)",
+      "exact_command": "--slot-prompt-similarity 0.10   (default 0.10; 0.0 = disable reuse)",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/15082",
+      "claimed_gain": "ถ้า f_sim_best > -sps -> เลือก slot prefill เฉพาะหางต่าง (log 'selected slot by LCP similarity'); ไม่ผ่าน -> full prefill. ถ้า log กลายเป็น 'selected slot by LRU' แปลว่า slot ถูก steal ด้วย LRU ไม่ใช่ prefix match — จุดที่ควรลด -np หรือ-เพิ่ม -sps",
+      "hardware_measured": "Qwen3.8-27B / RTX 3090-class (i15082)",
+      "confidence": "plausible"
+    },
+    {
+      "technique": "--cache-reuse N (KV-shift prefix reuse) เปิด in-slot prefix reuse ด้วย KV shifting — เฉพาะ full-attention",
+      "category": "prompt/prefix caching / (c)",
+      "exact_command": "--cache-reuse 256   (num chunks; default 0 = off)",
+      "source_url": "https://manpages.debian.org/unstable/llama.cpp-tools/llama-server.1.en.html",
+      "claimed_gain": "min chunk สำหรับ reuse ผ่าน KV shift; ใช้ได้เฉพาะ context ที่ทำ KV shifting และถูก force-disable เมื่อเปิด -mm; สำหรับ Qwen hybrid-recurrent reuse หลักมาจาก checkpoint ไม่ใช่ KV shifting นี้",
+      "hardware_measured": "ซอร์ส/manpage master",
+      "confidence": "plausible"
+    },
+    {
+      "technique": "--kv-unified: KV buffer เดียว shared ทุก sequence/slot -> ลด VRAM, เปิด idle-slot clear + cross-slot pool reuse",
+      "category": "prompt/prefix caching / (c)",
+      "exact_command": "--kv-unified   (default on เฉพาะเมื่อ -np เป็น auto)",
+      "source_url": "https://github.com/ggml-org/llama.cpp/discussions/4130",
+      "claimed_gain": "ถ้า -np ตั้งค่าคงที่เอง (เช่น -np 4) kv-unified default off -> KV หารต่อ slot (ตรงคำเตือน 'without kv-unified 100k/-np4=25k/slot'). เปิด -kvu ให้ใช้ pool ร่วม. ต่างมิติจาก -sm tensor split (แนว GPU vs แนว sequence)",
+      "hardware_measured": "ซอร์ส/README server master",
+      "confidence": "plausible"
+    },
+    {
+      "technique": "prefix-mutation เป็นต้นเหตุ 'forcing full prompt re-processing' — cache ทั้งก้อน invalid",
+      "category": "ลด forced full re-prefill / (d)",
+      "exact_command": "--reasoning-preserve --log-prompts-dir /tmp/llama-prompts   + ไม่สลับ reasoning-effort/-reasoning-budget",
+      "source_url": "https://particula.tech/blog/prompt-reprocessing-swa-hybrid-models-kv-cache",
+      "claimed_gain": "ไลน์ 'forcing full re-processing' แสดงที่ trace (-lv 4) ไม่ใช่ default. เปลี่ยน reasoning-effort -> reasoning/knowing tokens ถูก strip -> cache invalid + prefill ใหม่ทั้งหมด; วัดจริง unsloth#9037: แค่เปลี่ยน Thinking=High -> re-prefill ~160k 19+ นาที. ใช้ --reasoning-preserve + dump prompts diff",
+      "hardware_measured": "Qwen3.8-27B ~160k (unsloth#9037), 27B dense/7800XT (particula)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "หยุด harness แทรก transient metadata (date/env/attribution) เข้า prefix เพราะเปลี่ยน token prefix -> KV reuse ปฏิเสธ",
+      "category": "ลด forced full re-prefill / (d)",
+      "exact_command": "Claude Code: CLAUDE_CODE_ATTRIBUTION_HEADER=0; opencode: ย้าย <environment_details> ให้ date ไม่เปลี่ยนใน prefix",
+      "source_url": "https://mykolaaleksandrov.dev/posts/2026/06/claude-code-llamacpp-prompt-cache-fix/",
+      "claimed_gain": "ลบ attribution/date block จากต้น system prompt -> log เปลี่ยนจาก 'forcing full prompt re-processing' เป็น 'restored context checkpoint' + 'prompt eval time = 511.40 ms / 212 tokens' (แทน full 160k). Reddit: ที่ midnight opencode แทรก date ใหม่ -> ทุก session/subagent global cache miss",
+      "hardware_measured": "RTX 4090, Qwen3.6-27B, MTP, 170k ctx (measured)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "pre-flight token budget / compact ก่อนชนเพดาน -c — request เกิน -c ถูก reject -> slot flip LRU ล้าง checkpoint ทั้งหมด",
+      "category": "ลด forced full re-prefill / (d)",
+      "exact_command": "client-side: ตรวจ tokenized length, compact ก่อนส่ง; -c เผื่อ overhead system/tools (~18k)",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/22746",
+      "claimed_gain": "เคส decomposed: request 86082 > 65536 reject -> task ถัดไป slot แบบ LRU -> n_past ตกเหลือ 3 -> 15 checkpoints 149MiB erase + เต็ม reprocess ซ้ำทุก turn. แก้ด้วย compact ก่อนถึงกำแพง ไม่ใช่ flag",
+      "hardware_measured": "27B dense, RX 7800XT 16GB, -c 131072 -np 2 (i22746)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "reduce -c / mmap / mlock / load-mode ไม่ได้ลด prefill ซ้ำ — อย่าเสียเวลา",
+      "category": "ลด forced full re-prefill / (d)",
+      "exact_command": "-c / --mmap / --mlock / --load-mode ไม่มีผลต่อ re-prefill reuse; --swa-full no-op เมื่อ n_swa=0",
+      "source_url": "https://particula.tech/blog/prompt-reprocessing-swa-hybrid-models-kv-cache",
+      "claimed_gain": "ลด -c ไม่ทำให้ prefill ราย token เบาลง (แค่จำกัดความยาว); mmap/mlock/load-mode เกี่ยวกับโหลด weight/KV buffer ไม่ใช่ caching; --swa-full no-op บน Qwen (n_swa=0); --context-shift ใช้เฉพาะ infinite expanding",
+      "hardware_measured": "ซอร์ส/รายงานหลายราย",
+      "confidence": "measured"
+    },
+    {
+      "technique": "-mm / mmproj บังคับปิด --cache-reuse (KV-shift) ทั้งเส้น — สิ่งที่หายและสิ่งที่เหลือ",
+      "category": "multimodal -mm effect / (e)",
+      "exact_command": "โหลด mmproj -> log 'srv load_model: cache_reuse is not supported by multimodal, it will be disabled'",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/21468",
+      "claimed_gain": "ในสถานะ -mm: KV-shift reuse (--cache-reuse) หายทั้งเส้น ไม่ว่า -fa หรือ --swa-full. แต่ checkpoint-based RAM prefix restore ยังทำงาน (จึงเห็น '220 restores'). ที่เหลือ: intraslot cached_tokens reuse + checkpoint restore; ที่หายคือ cache_reuse/KV shift",
+      "hardware_measured": "macOS Apple M4 Metal, build b8680 (i21468)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "ใต้ -mm ภาพแต่ละใบทำ KV state ~1000 token/128 MiB -> กิน cache-ram เร็ว, เป็นเหตุ state ~9801 MiB เกิน 8192",
+      "category": "multimodal -mm effect / (e)",
+      "exact_command": "--cache-ram เผื่อภาพหลายรูป; ทางแก้คือยก cache-ram หลัง PR #23561 proactive",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/22629",
+      "claimed_gain": "แต่ละภาพ = serialized KV ~128 MiB; cache ภาพ+text รวมกันพัง cap เร็ว. workaround เก่า = ลบ --cache-prompt (in-slot cached_tokens ยัง reuse) แต่ทางถูก = เพิ่ม cache-ram",
+      "hardware_measured": "Qwen3.6-35B-A3B mmproj, AMD Vulkan, 32GB (i22629)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "prefill throughput: เพิ่ม -ub (physical batch) + -b logical ตาม VRAM headroom",
+      "category": "prefill speed / (f)",
+      "exact_command": "-b 8192 -ub 2048   (defaults -b 2048, -ub 512)",
+      "source_url": "https://xhinker.medium.com/two-batch-sizes-n-batch-and-n-ubatch-in-llama-cpp-deab9d35b828",
+      "claimed_gain": "ubatch ใหญ่ = prefill เร็วขึ้น (dzx.fr 511->2001 tok/s pp2048). แต่ขึ้นกับ hardware: Ada+ discrete batch เล็กดีกว่า (L2 I/O), unified/expert batch ใหญ่. ต้อง benchmark; MoE offload 512->3200 ได้ ~272-538 tok/s (RFC23262). ระวัง VRAM/CUDA timeout บน 2 GPU VRAM จำกัด",
+      "hardware_measured": "RTX 5080 Laptop 16GB/Qwen3.6-35B-A3B (dzx); RTX 2080 (RFC)",
+      "confidence": "measured"
+    },
+    {
+      "technique": "UBBoost (RFC #23262): ubatch ใหญ่เฉพาะ prompt-processing ผ่าน runtime ชั่วคราว",
+      "category": "prefill speed / (f)",
+      "exact_command": "--promptprocessing-ubatchboost-size 3200 --promptprocessing-ubatchboost-gpu-layers 1 --promptprocessing-ubatchboost-n-cpu-moe 99",
+      "source_url": "https://github.com/ggml-org/llama.cpp/discussions/23262",
+      "claimed_gain": "RFC อ้าง prefill เร็วถึง 2x ใน VRAM จำกัด; Qwen3.6-35B-A3B Q8 121-389 -> 272-538 T/s (+~38%). Experimental/unmerged; เหมาะ MoE offload มากกว่า GPU เต็ม",
+      "hardware_measured": "RTX 2080 8GB + R9 5900X + 64GB (RFC)",
+      "confidence": "unverified"
+    },
+    {
+      "technique": "FlashAttention (-fa auto/on) ช่วย prefill เร็ว & ลด VRAM โดยเฉพาะ 160-200k; NVFP4-MTP ช่วย decode แต่ไม่ใช่ prefill",
+      "category": "prefill speed / (f)",
+      "exact_command": "--flash-attn auto  (+ NVFP4/MTP draft ช่วย decode ไม่ใช่ prefill)",
+      "source_url": "https://hexdocs.pm/llama_cpp_ex/performance.html",
+      "claimed_gain": "ลด compute attention + เปิด batch ใหญ่ขึ้นใน VRAM เดิม; -fa auto เลือก backend. บน Blackwell (5060 Ti) MXFP4/MTP draft ช่วย decode; แต่โฟกัส prefill 160k ต้องอาศัย cache reuse + ubatch",
+      "hardware_measured": "คู่มือ générale + forum NVIDIA Blackwell MXFP4",
+      "confidence": "plausible"
+    },
+    {
+      "technique": "threads & backend-sampling ไม่ใช่ lever หลัก prefill บน GPU-offload เต็ม",
+      "category": "prefill speed / (f)",
+      "exact_command": "--threads -1 --threads-batch -1  (มีผลเมื่อ CPU-offload); --backend-sampling ไม่ใช่ prefill",
+      "source_url": "https://github.com/ggml-org/llama.cpp/discussions/23262",
+      "claimed_gain": "บน GPU เต็ม threads ผลน้อย; threads-batch ผลเมื่อมีชั้น CPU offload (--n-cpu-moe). backend-sampling คือ global sampling graph บน GPU ไม่ใช่เร่ง prefill",
+      "hardware_measured": "เชิงซอร์ส/ปฏิบัติ",
+      "confidence": "plausible"
+    }
+  ]
+}

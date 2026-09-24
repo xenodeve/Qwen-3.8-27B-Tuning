@@ -1,0 +1,9 @@
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 0.0, "label": "nvfp4-served-deep"}
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 5.0, "label": "nvfp4-served-deep"}
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 10.0, "label": "nvfp4-served-deep"}
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 15.0, "label": "nvfp4-served-deep"}
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 20.0, "label": "nvfp4-served-deep"}
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 25.0, "label": "nvfp4-served-deep"}
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 30.0, "label": "nvfp4-served-deep"}
+{"pid": 22972, "dedicated_mib": 23239.1, "shared_mib": 2260, "t": 35.0, "label": "nvfp4-served-deep"}
+{"label": "nvfp4-served-deep", "kind": "SUMMARY", "samples": 8, "peak_shared_mib": 2260, "peak_dedicated_mib": 23239.1, "shared_pct_of_dedicated": 9.72, "free_vram_mib": 1425, "under_load": false}

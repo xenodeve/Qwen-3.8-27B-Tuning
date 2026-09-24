@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# SYNC: this file must stay BYTE-IDENTICAL to skills/t4/t4-project-bootstrap/references/hooks/t4-gate
+#       (tests/hooks/test-bootstrap-sync.sh). Edit here, then copy over -- the bootstrap
+#       ships its own copies so a repo installed without the plugin is self-contained.
+# T4 PreToolUse gate — the one hard-enforcement layer. It only ever BLOCKS a
+# tool call (deny); silence means "no opinion, let the normal flow proceed".
+# Scoped to T4 repos via the `.claude/t4.json` marker.
+#
+# Rules:
+#   - dangerous git is blocked     (reset --hard, force-push, clean -f, branch -D)
+#   - PR needs a referenced issue  (PRD -> issues -> PR gate)
+#   - ship gate: a green `verify` (.claude/t4.json) is required to MERGE a PR
+#   - CI gate (opt-in "requireGreenCI"): every server-side check must be green
+#   - before-merge: `gh pr merge` asks to confirm review ran — skipped when
+#     .claude/t4.json sets "autoMerge"/"afk": true (AFK / standing authorization)
+set -uo pipefail
+
+input="$(cat)"
+[ -f ".claude/t4.json" ] || exit 0
+
+# hooks.json already scopes this to the Bash tool; this in-process check is a
+# cheap defensive guard for the bootstrap path, no subprocess.
+tool=""
+[[ "$input" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]] && tool="${BASH_REMATCH[1]}"
+[ "$tool" = "Bash" ] || exit 0
+
+cmd="$(printf '%s' "$input" | perl -0777 -ne '
+  if (/"command"\s*:\s*"((?:\\.|[^"\\])*)"/s) {
+    my $c=$1; $c=~s/\\n/\n/g; $c=~s/\\t/\t/g; $c=~s/\\"/"/g; $c=~s/\\\\/\\/g; print $c;
+  }')"
+
+_decide() {  # $1 = deny|ask ; $2 = reason
+  local r="$2"
+  r="${r//\\/\\\\}"; r="${r//\"/\\\"}"; r="${r//$'\n'/\\n}"; r="${r//$'\r'/\\r}"; r="${r//$'\t'/\\t}"
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' "$1" "$r"
+  exit 0
+}
+deny() { _decide deny "$1"; }
+ask()  { _decide ask  "$1"; }
+
+# Runs the repo's configured verify command (.claude/t4.json "verify") itself, so
+# the ship gate is real, un-forgeable enforcement — not a claim to trust.
+# Returns 0 when it passes OR when nothing is configured; 1 when it fails.
+run_verify() {
+  local vcmd
+  vcmd="$(perl -0777 -ne 'print $1 if /"verify"\s*:\s*"((?:\\.|[^"\\])*)"/' < .claude/t4.json 2>/dev/null)"
+  vcmd="${vcmd//\\\"/\"}"; vcmd="${vcmd//\\\\/\\}"
+  [ -n "$vcmd" ] || return 0
+  local rc
+  if command -v timeout >/dev/null 2>&1; then
+    VERIFY_OUTPUT="$(timeout 600 bash -c "$vcmd" 2>&1)"; rc=$?
+  else
+    VERIFY_OUTPUT="$(bash -c "$vcmd" 2>&1)"; rc=$?
+  fi
+  return "$rc"
+}
+
+# Asks GitHub whether the PR's checks are green (.claude/t4.json
+# "requireGreenCI": true). Branch protection with required checks is the better
+# guarantee — this is the fallback for repos that can't use it, and it turns a
+# server-side rejection into an actionable local message either way.
+# `gh pr checks` exits 0 = all passing, 1 = a check failed (or none reported),
+# 8 = still pending. Anything non-zero is not shippable.
+check_ci() {
+  local target="" rest rc
+  # Take the argument right after `pr merge` (the PR number) without depending on
+  # capture-group numbering inside the anchored POS/GHH patterns.
+  rest="${cmd#*pr }"; rest="${rest#merge}"
+  [[ "$rest" =~ ^[[:space:]]+([0-9]+) ]] && target="${BASH_REMATCH[1]}"
+  # $target is intentionally unquoted/word-split: empty means "the current branch".
+  if command -v timeout >/dev/null 2>&1; then
+    CI_OUTPUT="$(timeout 120 gh pr checks $target 2>&1)"; rc=$?
+  else
+    CI_OUTPUT="$(gh pr checks $target 2>&1)"; rc=$?
+  fi
+  return "$rc"
+}
+
+# --- command-position anchoring ----------------------------------------------
+# A real command starts at the beginning or right after a shell separator
+# (`;` `&` `|` `` ` `` `(`). Anchoring detection to a command position — and to the
+# git/gh *subcommand* — tells a genuine invocation apart from the same words
+# inside a quoted argument. So `git reset "--hard"` (a quoted FLAG) is still
+# caught, while `git commit -m "reset --hard"` (the words in a message) is not.
+POS='(^|[;&|`(])[[:space:]]*'
+GITH='git(\.exe)?([[:space:]]+-[cC][[:space:]]+[^[:space:]]+)*[[:space:]]+'
+GHH='gh(\.exe)?([[:space:]]+-{1,2}[^[:space:]]+)*[[:space:]]+pr[[:space:]]+'
+FLAG_F="[[:space:]\"']-f([[:space:]\"']|$)"
+
+# A repo under standing AFK authorization (.claude/t4.json "afk": true) needs to
+# revert an in-flight item to "last green" when a gate parks it (see t4-afk) —
+# reset --hard / clean are exactly those revert tools, so the gate must not
+# deadlock them. force-push and branch -D are NOT revert tools (higher blast
+# radius; t4-afk parks them regardless), so they stay blocked even under afk.
+is_afk=""
+grep -Eq '"afk"[[:space:]]*:[[:space:]]*true' .claude/t4.json 2>/dev/null && is_afk="yes"
+
+# --- dangerous git -----------------------------------------------------------
+if [ -z "$is_afk" ] && [[ "$cmd" =~ ${POS}${GITH}reset[[:space:]].*--hard ]]; then
+  deny "T4 gate: 'git reset --hard' is destructive (discards working-tree changes). Park it, run it yourself, or set .claude/t4.json \"afk\": true for an unattended revert-to-green run."
+fi
+if [[ "$cmd" =~ ${POS}${GITH}push[[:space:]] ]] && [[ ! "$cmd" =~ --force-with-lease ]] \
+   && { [[ "$cmd" =~ --force([^-]|$) ]] || [[ "$cmd" =~ $FLAG_F ]]; }; then
+  deny "T4 gate: force-push is blocked. Use --force-with-lease, or run it yourself if intended."
+fi
+if [ -z "$is_afk" ] && [[ "$cmd" =~ ${POS}${GITH}clean[[:space:]] ]] && { [[ "$cmd" =~ [-][a-zA-Z]*f ]] || [[ "$cmd" =~ --force ]]; }; then
+  deny "T4 gate: 'git clean -f' deletes untracked files irreversibly. Park it, run it yourself, or set .claude/t4.json \"afk\": true for an unattended revert-to-green run."
+fi
+if [[ "$cmd" =~ ${POS}${GITH}branch[[:space:]].*-D ]]; then
+  deny "T4 gate: 'git branch -D' force-deletes a branch (unmerged work lost). Use -d, or run it yourself."
+fi
+
+# --- PR needs a referenced issue --------------------------------------------
+# Detect the command via the anchored `gh ... pr create` (so a commit message
+# that merely says "gh pr create" doesn't trip it); detect the issue ref on the
+# raw `cmd` (so a ref inside a quoted --body still counts).
+if [[ "$cmd" =~ ${POS}${GHH}create ]]; then
+  ref=""
+  [[ "$cmd" =~ \#[0-9]+ ]] && ref="yes"
+  if [ -z "$ref" ] && [[ "$cmd" =~ --body-file[[:space:]=]+([^[:space:]]+) ]]; then
+    bf="${BASH_REMATCH[1]}"
+    [ -f "$bf" ] && grep -Eq '#[0-9]+' "$bf" && ref="yes"
+  fi
+  [ -n "$ref" ] || deny "T4 gate: a PR needs a referenced issue (PRD -> issues -> PR). Add an issue number (e.g. 'Closes #12') to the PR body/title, or file an issue first."
+fi
+
+# --- ship gate: MERGE is the ship point (verify + review) -------------------
+# verify runs on `merge` only, not the iterative `create` (CI builds on push).
+# Keep .claude/t4.json "verify" a FAST suite (unit + build + lint) and leave
+# e2e to the CI required-check.
+if [[ "$cmd" =~ ${POS}${GHH}merge ]]; then
+  # CI first: it's one cheap network call, and "a check is red/pending" is a
+  # faster, more useful answer than a local suite that passes anyway.
+  if grep -Eq '"requireGreenCI"[[:space:]]*:[[:space:]]*true' .claude/t4.json 2>/dev/null; then
+    check_ci || deny "T4 gate: the PR's checks are not green (failing or still pending). CI is the real ship gate — wait for it, or fix the failing check.
+--- gh pr checks ---
+$(printf '%s' "${CI_OUTPUT:-}" | tail -n 15)"
+  fi
+  run_verify || deny "T4 gate: verify failed — the configured verify command (.claude/t4.json \"verify\") did not pass. A green verify is the ship gate; fix it before merging.
+--- last verify output ---
+$(printf '%s' "${VERIFY_OUTPUT:-}" | tail -n 15)"
+  # Standing authorization (AFK / auto-merge) skips the review-confirm ask — the
+  # developer already authorized the batch, and re-asking a decided call is the
+  # 'sticking' anti-pattern. The checkable guard (verify, above) still holds.
+  if grep -Eq '"(autoMerge|afk)"[[:space:]]*:[[:space:]]*true' .claude/t4.json 2>/dev/null; then
+    exit 0
+  fi
+  ask "T4 before-merge gate: confirm /scrutinize + /code-review (and /security-review if a boundary was touched) have run against the final change. Proceed with the merge?"
+fi
+
+exit 0

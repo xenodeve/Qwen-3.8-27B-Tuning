@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — ค้นหาส่ิงท่ีเป็็นไปไม่ได้</title>
+<meta name="description" content="Google รวมเครื่่องมืือค้้นหา แผนท่ี Gmail และ AI เข้าดว้่ยกััน เพื่่อพาคุุณไปให่้ถึึงคำตอบท่ีเร็วขึ้้น ปลอดภัยขึ้้น และใกล้ตวัคุุณมากขึ้้น" />
+
+<!-- Open Graph / social sharing -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Google" />
+<meta property="og:title" content="Google — ค้้นหาส่ิงท่ีเป็็นไปไม่ได้" />
+<meta property="og:description" content="เครื่่องมืือค้้นหา แผนท่ี Gmail และ AI ท่ีทำงานร่ว่่มกััน เพื่่อพาคุุณไปให่้ถึึงคำตอบท่ีเร็วขึ้้น ปลอดภัยขึ้้น และใกล้ตวัคุุณมากขึ้้น" />
+<meta property="og:image" content="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_48dp.png" />
+<meta property="og:url" content="https://www.google.com/" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<!-- Fonts: exactly two families — Space Grotesk (display) + IBM Plex Sans Thai (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  /* ============================================================
+     TOKENS
+     60-30-10:  60% paper (neutral) · 30% surface (gray) · 10% accent (blue)
+     Type scale: Major Third 1.25x from 16px base.
+     Spacing: 8pt grid.
+     ============================================================ */
+  :root{
+    --paper:#ffffff;
+    --surface:#f6f7f9;
+    --ink:#17181c;
+    --ink-soft:#4b4f57;
+    --line:#e6e8ec;
+    --accent:#1a73e8;
+    --accent-ink:#ffffff;
+
+    --font-display:"Space Grotesk","IBM Plex Sans Thai",system-ui,sans-serif;
+    --font-body:"IBM Plex Sans Thai","Space Grotesk",system-ui,sans-serif;
+
+    /* Major Third scale */
+    --t-base:1rem;        /* 16 */
+    --t-h6:1.25rem;       /* 20 */
+    --t-h5:1.5625rem;     /* 25 */
+    --t-h4:1.953rem;      /* 31 */
+    --t-h3:2.441rem;      /* 39 */
+    --t-h2:3.052rem;      /* 49 */
+    --t-h1:3.815rem;      /* 61 */
+    --t-hero:clamp(2.75rem,7.5vw,5.75rem);
+
+    --pad:clamp(20px,5vw,64px);
+    --maxw:1200px;
+    --r:20px;
+    --ease:cubic-bezier(.2,.7,.2,1);
+    --dur:700ms;
+  }
+
+  /* ---- Dark mode: elevation via LIGHTER surfaces, not shadows ---- */
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#0b0c0f;
+      --surface:#15171c;
+      --ink:#f3f4f7;
+      --ink-soft:#a2a7b2;
+      --line:rgba(255,255,255,.12);
+      --accent:#5a9bff;
+      --accent-ink:#061129;
+    }
+  }
+
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:var(--t-base);
+    line-height:1.5;              /* body 150% leading */
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:clip;              /* safety net; nothing should overflow anyway */
+  }
+  img{ max-width:100%; display:block; }
+  a{ color:inherit; text-decoration:none; }
+  ::selection{ background:var(--accent); color:var(--accent-ink); }
+
+  /* Headline Pro hack: -2.5% tracking, ~112% leading (display sizes only) */
+  h1,h2,h3{
+    font-family:var(--font-display);
+    letter-spacing:-0.025em;
+    line-height:1.12;
+    font-weight:600;
+    margin:0;
+  }
+  p{ margin:0; }
+
+  .wrap{ width:100%; max-width:var(--maxw); margin:0 auto; padding-left:var(--pad); padding-right:var(--pad); }
+
+  /* ---- Visible Grid: the 12 columns, always drawn (the literal "Visible Grid") ---- */
+  .gridlines{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    display:grid; grid-template-columns:repeat(12,1fr);
+    gap:clamp(8px,1.1vw,20px);
+    padding:0 var(--pad);
+  }
+  .gridlines i{ border-left:1px solid var(--line); border-right:1px solid var(--line); }
+
+  /* ---- Liquid Glass: ambient color field (backgrounds only, no text, no overflow) ---- */
+  .field{
+    position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+    background:
+      radial-gradient(60% 55% at 12% 8%,  color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%),
+      radial-gradient(55% 50% at 92% 18%, color-mix(in srgb, #34a853 16%, transparent), transparent 60%),
+      radial-gradient(50% 45% at 78% 96%, color-mix(in srgb, #ea4335 12%, transparent), transparent 60%),
+      radial-gradient(45% 40% at 30% 88%, color-mix(in srgb, #fbbc05 14%, transparent), transparent 60%);
+    filter:blur(48px);
+  }
+
+  /* ============================================================
+     NAV — mental model: logo top-left, links center, CTA top-right
+     ============================================================ */
+  .nav{
+    position:sticky; top:0; z-index:50;
+    background:color-mix(in srgb, var(--paper) 72%, transparent);
+    -webkit-backdrop-filter:blur(18px) saturate(160%);
+    backdrop-filter:blur(18px) saturate(160%);
+    border-bottom:1px solid var(--line);
+  }
+  .nav .wrap{ display:flex; align-items:center; gap:24px; height:64px; }
+  .brand{ display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:600; font-size:1.25rem; letter-spacing:-0.025em; }
+  .brand .dot{ width:20px; height:20px; border-radius:6px; background:conic-gradient(from 210deg,#4285f4,#34a853,#fbbc05,#ea4335,#4285f4); }
+  .nav .links{ display:flex; gap:28px; margin-left:16px; font-size:.9375rem; color:var(--ink-soft); }
+  .nav .links a{ transition:color var(--dur) var(--ease); }
+  .nav .links a:hover{ color:var(--ink); }
+  .nav .spacer{ margin-left:auto; }
+
+  /* Buttons — 4 states: default / hover / active / disabled */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    height:44px; padding:0 24px; border-radius:999px;
+    font-family:var(--font-body); font-size:.9375rem; font-weight:600;
+    border:1px solid transparent; cursor:pointer;
+    transition:transform 200ms var(--ease), background 200ms var(--ease), border-color 200ms var(--ease), color 200ms var(--ease), box-shadow 200ms var(--ease);
+  }
+  .btn-primary{ background:var(--accent); color:var(--accent-ink); }
+  .btn-primary:hover{ background:color-mix(in srgb, var(--accent) 88%, #000); transform:translateY(-1px); box-shadow:0 10px 24px -12px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .btn-primary:active{ transform:translateY(0) scale(.98); }
+  .btn-primary:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn-ghost{ background:transparent; color:var(--ink); border-color:var(--line); }
+  .btn-ghost:hover{ border-color:var(--ink-soft); background:var(--surface); }
+  .btn-ghost:active{ transform:scale(.98); }
+  .btn-ghost:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* ============================================================
+     HERO — one dominant leverage point + glass search bar
+     ============================================================ */
+  .hero{ position:relative; z-index:1; padding-top:clamp(56px,9vw,120px); padding-bottom:clamp(48px,7vw,96px); }
+  .kicker{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:var(--font-display); font-size:.8125rem; font-weight:500;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft);
+  }
+  .kicker::before{ content:""; width:24px; height:1px; background:var(--accent); }
+
+  .hero h1{
+    margin-top:24px;
+    font-size:var(--t-hero);
+    max-width:15ch;
+  }
+  .hero h1 .accent{ color:var(--accent); }
+  .lede{
+    margin-top:24px; max-width:52ch;
+    font-size:var(--t-h6); color:var(--ink-soft); line-height:1.55;
+  }
+
+  /* Glass search bar — the Liquid Glass object, in normal flow below the headline (gate-safe) */
+  .search{
+    margin-top:40px;
+    display:flex; align-items:center; gap:12px;
+    max-width:640px; height:64px; padding:0 8px 0 20px;
+    border-radius:999px;
+    background:color-mix(in srgb, var(--paper) 55%, transparent);
+    -webkit-backdrop-filter:blur(20px) saturate(160%);
+    backdrop-filter:blur(20px) saturate(160%);
+    border:1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+    box-shadow:0 24px 48px -28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .search .s-icon{ flex:none; color:var(--ink-soft); }
+  .search input{
+    flex:1; min-width:0; border:0; background:transparent; outline:none;
+    font-family:var(--font-body); font-size:1rem; color:var(--ink);
+  }
+  .search input::placeholder{ color:var(--ink-soft); }
+  .chips{ display:flex; flex-wrap:wrap; gap:12px; margin-top:24px; }
+  .chip{
+    display:inline-flex; align-items:center; height:36px; padding:0 16px;
+    border-radius:999px; border:1px solid var(--line);
+    font-size:.875rem; color:var(--ink-soft);
+    transition:color 200ms var(--ease), border-color 200ms var(--ease), background 200ms var(--ease);
+  }
+  .chip:hover{ color:var(--ink); border-color:var(--ink-soft); background:var(--surface); }
+
+  /* ============================================================
+     VISIBLE-GRID RULER — 01..12 in normal flow (not positioned → gate-safe)
+     ============================================================ */
+  .ruler{ position:relative; z-index:1; }
+  .ruler .wrap{ display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(8px,1.1vw,20px); }
+  .ruler span{
+    font-family:var(--font-display); font-size:.75rem; letter-spacing:.08em;
+    color:var(--ink-soft); text-align:center; padding:12px 0;
+    border-bottom:1px solid var(--line);
+  }
+
+  /* ============================================================
+     STATS BAND — numbers stay on one line with their unit
+     ============================================================ */
+  .stats{ position:relative; z-index:1; padding:clamp(48px,7vw,96px) 0; }
+  .stats .grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:clamp(16px,3vw,40px); }
+  .stat .num{
+    font-family:var(--font-display); font-weight:600;
+    font-size:var(--t-h2); letter-spacing:-0.025em; line-height:1;
+    white-space:nowrap; color:var(--ink);
+  }
+  .stat .num .u{ color:var(--accent); }
+  .stat .cap{ margin-top:12px; font-size:.9375rem; color:var(--ink-soft); }
+
+  /* ============================================================
+     PRODUCTS — Quiet Ledger (sticky left index + rows)
+     ============================================================ */
+  .products{ position:relative; z-index:1; padding:clamp(48px,7vw,96px) 0; }
+  .products .cols{ display:grid; grid-template-columns:5fr 7fr; gap:clamp(24px,5vw,72px); align-items:start; }
+  .products .index{ position:sticky; top:96px; }
+  .products .index .kicker{ margin-bottom:24px; }
+  .products .index h2{ font-size:var(--t-h2); max-width:14ch; }
+  .products .index p{ margin-top:24px; color:var(--ink-soft); max-width:34ch; }
+
+  .ledger{ display:flex; flex-direction:column; }
+  .row{
+    display:grid; grid-template-columns:64px 1fr auto; gap:24px; align-items:center;
+    padding:32px 0; border-top:1px solid var(--line);
+    transition:background 300ms var(--ease), padding 300ms var(--ease);
+  }
+  .row:last-child{ border-bottom:1px solid var(--line); }
+  .row:hover{ background:var(--surface); padding-left:12px; padding-right:12px; border-radius:16px; }
+  .row .no{ font-family:var(--font-display); font-size:.875rem; color:var(--ink-soft); letter-spacing:.05em; }
+  .row h3{ font-size:var(--t-h4); }
+  .row p{ margin-top:8px; color:var(--ink-soft); font-size:.9375rem; max-width:40ch; }
+  .row .arrow{ font-family:var(--font-display); font-size:1.5rem; color:var(--ink-soft); transition:transform 300ms var(--ease), color 300ms var(--ease); }
+  .row:hover .arrow{ transform:translateX(6px); color:var(--accent); }
+
+  /* ============================================================
+     PULL QUOTE — LIFT "Linger" (eye slows down)
+     ============================================================ */
+  .quote{ position:relative; z-index:1; padding:clamp(64px,10vw,140px) 0; }
+  .quote blockquote{
+    margin:0; max-width:20ch;
+    font-family:var(--font-display); font-weight:500;
+    font-size:var(--t-h3); letter-spacing:-0.025em; line-height:1.2;
+  }
+  .quote blockquote .accent{ color:var(--accent); }
+  .quote cite{ display:block; margin-top:32px; font-style:normal; font-size:.9375rem; color:var(--ink-soft); }
+
+  /* ============================================================
+     CTA — LIFT "Release" (vast open space around the button)
+     ============================================================ */
+  .cta{ position:relative; z-index:1; padding:clamp(64px,10vw,140px) 0; text-align:center; }
+  .cta h2{ font-size:var(--t-h2); max-width:18ch; margin:0 auto; }
+  .cta p{ margin:24px auto 0; max-width:44ch; color:var(--ink-soft); }
+  .cta .actions{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:40px; }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  .foot{ position:relative; z-index:1; border-top:1px solid var(--line); padding:48px 0 56px; }
+  .foot .cols{ display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; }
+  .foot .brand{ margin-bottom:16px; }
+  .foot p{ color:var(--ink-soft); font-size:.875rem; max-width:32ch; }
+  .foot h4{ font-family:var(--font-display); font-size:.8125rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 16px; font-weight:500; }
+  .foot ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; }
+  .foot ul a{ font-size:.9375rem; color:var(--ink); transition:color 200ms var(--ease); }
+  .foot ul a:hover{ color:var(--accent); }
+  .foot .base{ margin-top:48px; padding-top:24px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:16px; justify-content:space-between; font-size:.8125rem; color:var(--ink-soft); }
+
+  /* ============================================================
+     Motion — staggered reveal, weighted load (LIFT "Impact")
+     ============================================================ */
+  .reveal{ opacity:0; transform:translateY(24px); transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease); }
+  .reveal.in{ opacity:1; transform:none; }
+  .stagger > *{ opacity:0; transform:translateY(24px); transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease); }
+  .stagger.in > *{ opacity:1; transform:none; }
+  .stagger.in > *:nth-child(1){ transition-delay:.05s; }
+  .stagger.in > *:nth-child(2){ transition-delay:.15s; }
+  .stagger.in > *:nth-child(3){ transition-delay:.25s; }
+  .stagger.in > *:nth-child(4){ transition-delay:.35s; }
+  .stagger.in > *:nth-child(5){ transition-delay:.45s; }
+  .stagger.in > *:nth-child(6){ transition-delay:.55s; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+    .reveal,.stagger > *{ opacity:1 !important; transform:none !important; }
+  }
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width:1023px){
+    .products .cols{ grid-template-columns:1fr; gap:40px; }
+    .products .index{ position:static; }
+    .foot .cols{ grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:767px){
+    .nav .links{ display:none; }
+    .stats .grid{ grid-template-columns:1fr 1fr; gap:32px 24px; }
+    .row{ grid-template-columns:40px 1fr; }
+    .row .arrow{ display:none; }
+    .foot .cols{ grid-template-columns:1fr; gap:32px; }
+  }
+  @media (max-width:479px){
+    .stats .grid{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Visible Grid: 12 drawn columns -->
+  <div class="gridlines" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+  <!-- Liquid Glass ambient field -->
+  <div class="field" aria-hidden="true"></div>
+
+  <!-- NAV -->
+  <header class="nav">
+    <div class="wrap">
+      <a class="brand" href="#top"><span class="dot" aria-hidden="true"></span>Google</a>
+      <nav class="links" aria-label="เมนูหลัก">
+        <a href="#products">ผลิตภัณฑ์</a>
+        <a href="#scale">ขนาด</a>
+        <a href="#about">เกี่ยวกับ</a>
+        <a href="#contact">ติดต่อ</a>
+      </nav>
+      <span class="spacer"></span>
+      <a class="btn btn-ghost" href="#products">เข้าสู่ระบบ</a>
+      <a class="btn btn-primary" href="#contact">เริ่มใช้งาน</a>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap">
+        <span class="kicker reveal">Search · Maps · Gmail · AI</span>
+        <h1 class="reveal">ค้นหาสิ่งที่เป็นไปไม่ได้ <span class="accent">ทุกวัน</span></h1>
+        <p class="lede reveal">Google รวมเครื่องมือค้นหา แผนที่ Gmail และ AI เข้าด้วยกัน เพื่อพาคุณไปให้ถึงคำตอบที่เร็วขึ้น ปลอดภัยขึ้น และใกล้ตัวคุณมากขึ้น</p>
+        <div class="search reveal">
+          <svg class="s-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" aria-label="ค้นหาใน Google" placeholder="ค้นหาสิ่งที่เป็นไปไม่ได้…" />
+          <a class="btn btn-primary" href="#contact">ค้นหา</a>
+        </div>
+        <div class="chips reveal">
+          <a class="chip" href="#products">Maps</a>
+          <a class="chip" href="#products">Gmail</a>
+          <a class="chip" href="#products">Gemini</a>
+          <a class="chip" href="#products">Chrome</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISIBLE GRID RULER -->
+    <div class="ruler" aria-hidden="true">
+      <div class="wrap">
+        <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+        <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <section class="stats" id="scale">
+      <div class="wrap">
+        <div class="grid stagger">
+          <div class="stat">
+            <div class="num">9.4<span class="u">B</span></div>
+            <div class="cap">การค้นหาต่อวันทั่วโลก</div>
+          </div>
+          <div class="stat">
+            <div class="num">200<span class="u">+</span></div>
+            <div class="cap">ภาษาและภูมิภาคที่รองรับ</div>
+          </div>
+          <div class="stat">
+            <div class="num">1.5<span class="u">B</span></div>
+            <div class="cap">ผู้ใช้ Gmail ทั่วโลกต่อวัน</div>
+          </div>
+          <div class="stat">
+            <div class="num">1998</div>
+            <div class="cap">ปีก่อตั้งที่ Stanford</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section class="products" id="products">
+      <div class="wrap">
+        <div class="cols">
+          <div class="index reveal">
+            <span class="kicker">ผลิตภัณฑ์</span>
+            <h2>ทุกอย่างที่คุณใช้ ทุกวัน อยู่ในมือเดียว</h2>
+            <p>จากคำถามแรกจนถึงงานที่เสร็จ Google ออกแบบเครื่องมือให้ทำงานร่วมกันอย่างลื่นไหล ไร้รอยต่อ</p>
+          </div>
+          <div class="ledger stagger">
+            <a class="row" href="#contact">
+              <span class="no">01</span>
+              <div>
+                <h3>Search</h3>
+                <p>คำตอบที่เร็วและตรงประเด็นที่สุด จากดัชนีที่ครอบคลุมโลก</p>
+              </div>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+            <a class="row" href="#contact">
+              <span class="no">02</span>
+              <div>
+                <h3>Maps</h3>
+                <p>นำทางไปยังจุดหมาย ด้วยข้อมูลเรียลไทม์และรีวิวจากชุมชน</p>
+              </div>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+            <a class="row" href="#contact">
+              <span class="no">03</span>
+              <div>
+                <h3>Gmail</h3>
+                <p>อีเมลที่ปลอดภัย จัดระเบียบ และฉลาดพอจะหาอะไรก็เจอ</p>
+              </div>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+            <a class="row" href="#contact">
+              <span class="no">04</span>
+              <div>
+                <h3>Chrome</h3>
+                <p>เบราว์เซอร์ที่เร็ว ปลอดภัย และทำงานได้ทุกระบบ</p>
+              </div>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+            <a class="row" href="#contact">
+              <span class="no">05</span>
+              <div>
+                <h3>Gemini</h3>
+                <p>AI ที่ช่วยคิด ช่วยเขียน และช่วยทำงานเคียงข้างคุณ</p>
+              </div>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PULL QUOTE -->
+    <section class="quote" id="about">
+      <div class="wrap">
+        <blockquote class="reveal">“เราเชื่อว่า <span class="accent">ข้อมูลควรเป็นของทุกคน</span> และนั่นคือเหตุผลที่เราสร้าง Google”</blockquote>
+        <cite class="reveal">— สตีฟ จอบส์ &amp; เลนีย์ เพจ ผู้ก่อตั้ง Google</cite>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta" id="contact">
+      <div class="wrap">
+        <h2 class="reveal">พร้อมค้นหาสิ่งใหม่แล้วหรือยัง</h2>
+        <p class="reveal">สมัครใช้งานฟรียังวันนี้ ไม่ต้องใช้บัตรเครดิต เริ่มต้นได้ในไม่กี่วินาที</p>
+        <div class="actions reveal">
+          <a class="btn btn-primary" href="#top">สร้างบัญชี Google</a>
+          <a class="btn btn-ghost" href="#products">เรียนรู้เพิ่มเติม</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="foot">
+    <div class="wrap">
+      <div class="cols">
+        <div>
+          <a class="brand" href="#top"><span class="dot" aria-hidden="true"></span>Google</a>
+          <p>ค้นหาสิ่งที่เป็นไปไม่ได้ เพื่อทุกคน ทั่วโลก ทุกวัน</p>
+        </div>
+        <div>
+          <h4>ผลิตภัณฑ์</h4>
+          <ul>
+            <li><a href="#products">Search</a></li>
+            <li><a href="#products">Maps</a></li>
+            <li><a href="#products">Gmail</a></li>
+            <li><a href="#products">Gemini</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>บริษัท</h4>
+          <ul>
+            <li><a href="#about">เกี่ยวกับเรา</a></li>
+            <li><a href="#about">ความยั่งยืน</a></li>
+            <li><a href="#about">ร่วมงานกับเรา</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>ช่วยเหลือ</h4>
+          <ul>
+            <li><a href="#contact">ศูนย์ช่วยเหลือ</a></li>
+            <li><a href="#contact">ความเป็นส่วนตัว</a></li>
+            <li><a href="#contact">เงื่อนไขการใช้งาน</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="base">
+        <span>© 2026 Google — หน้าสาธิตเพื่อการออกแบบ (demo)</span>
+        <span>ออกแบบด้วย Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid</span>
+      </div>
+    </div>
+  </footer>
+
+<script>
+  // Staggered reveal — weighted load (LIFT "Impact"). Honors reduced-motion.
+  (function(){
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelectorAll('.reveal,.stagger').forEach(function(el){ el.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, { threshold:0.12, rootMargin:'0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal,.stagger').forEach(function(el){ io.observe(el); });
+  })();
+</script>
+</body>
+</html>

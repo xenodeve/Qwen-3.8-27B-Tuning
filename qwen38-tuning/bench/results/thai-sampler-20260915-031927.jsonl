@@ -1,0 +1,9 @@
+{"stamp": "20260915-031927", "round": 0, "prompt": 0, "arm": "A", "thai_sampler": 0, "broken": 0, "thai_chars": 213, "seconds": 5.8}
+{"stamp": "20260915-031927", "round": 0, "prompt": 0, "arm": "B", "thai_sampler": 1, "broken": 0, "thai_chars": 233, "seconds": 6.3}
+{"stamp": "20260915-031927", "round": 0, "prompt": 1, "arm": "B", "thai_sampler": 1, "broken": 1, "thai_chars": 183, "seconds": 6.2}
+{"stamp": "20260915-031927", "round": 0, "prompt": 1, "arm": "A", "thai_sampler": 0, "broken": 1, "thai_chars": 162, "seconds": 6.7}
+{"stamp": "20260915-031927", "round": 0, "prompt": 2, "arm": "A", "thai_sampler": 0, "broken": 0, "thai_chars": 288, "seconds": 6.2}
+{"stamp": "20260915-031927", "round": 0, "prompt": 2, "arm": "B", "thai_sampler": 1, "broken": 0, "thai_chars": 288, "seconds": 6.3}
+{"stamp": "20260915-031927", "round": 0, "prompt": 3, "arm": "B", "thai_sampler": 1, "broken": 0, "thai_chars": 212, "seconds": 5.5}
+{"stamp": "20260915-031927", "round": 0, "prompt": 3, "arm": "A", "thai_sampler": 0, "broken": 0, "thai_chars": 219, "seconds": 5.1}
+{"stamp": "20260915-031927", "round": 0, "prompt": 4, "arm": "A", "thai_sampler": 0, "broken": 0, "thai_chars": 6, "seconds": 5.4}

@@ -1,0 +1,78 @@
+{
+  "cell": "D",
+  "arm": "gateonly",
+  "rep": 1,
+  "task": "page",
+  "model": "vllm/Qwen/Qwen3.8-27B-FP8",
+  "backend": "remote",
+  "ctx": 131072,
+  "work_dir": "D:\\qbench-work\\D-gateonly-r1",
+  "effort": "medium",
+  "brief": "สร้าง Landing Page แนะนำ Google โดยใช้ Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid | ทำเป็น HTML ไฟล์เดียว | จบด้วย /design-ship-gate | ใช้ Skill tool โหลด /design-ship-gate ก่อนเริ่มงาน แล้วทำตามที่เขียนไว้",
+  "rc": 0,
+  "timed_out": false,
+  "wall_s": 1535.5,
+  "started": "2026-09-08T01:59:43.519754+00:00",
+  "ended": "2026-09-08T02:25:19.056877+00:00",
+  "vram_before": "NVIDIA GeForce RTX 4070 SUPER, 1874 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 0 MiB, 16311 MiB",
+  "vram_after": "NVIDIA GeForce RTX 4070 SUPER, 1846 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 0 MiB, 16311 MiB",
+  "assistant_messages": 44,
+  "api_calls": 46,
+  "tool_calls": {
+    "Skill": 1,
+    "Bash": 7,
+    "Read": 6,
+    "TaskCreate": 2,
+    "TaskUpdate": 3,
+    "Write": 1
+  },
+  "thinking_chars": 0,
+  "text_chars": 4308,
+  "tool_errors": 0,
+  "bash_cd": 5,
+  "ended_with_question": false,
+  "served_model": "vllm/Qwen/Qwen3.8-27B-FP8",
+  "num_turns": 22,
+  "duration_api_ms": 1527971,
+  "duration_ms": 1534651,
+  "output_tokens": 26106,
+  "input_tokens": 385051,
+  "cache_read": 0,
+  "is_error": false,
+  "subtype": "success",
+  "final_text": "\n\nเสร็จแล้ครับ ✅ Landing Page แนะนำ Google เป็น HTML ไฟล์เดียว (`D:\\qbench-work\\D-gateonly-r1\\index.html`) สไตล์ **Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid** — ผ่าน gate ทัง 8 ข้อ\n\n## 0. Brief coverage\n\n| the brief names | element(s) that deliver it |\n|---|---|\n| **Editorial Minimalism** | `h1`/`h2` display, `.sec-head` (idx + rule + lede), `.quote` pull-quote, generous whitespace, `--muted` body copy |\n| **Modern Swiss** | `.grid-overlay` 12-col, `.products` grid `grid-template-columns:repeat(12,1fr)` + `gap:1px` hairlines, `.stats` 4-col, `.tl-row` baseline grid, grotesque type |\n| **Liquid Glass** | `.glass` search, `header.top`, `.cta` — `backdrop-filter:blur() saturate()` + `--glass` translucent fill + border + shadow |\n| **Visible Grid** | `.grid-overlay` (fixed 12-col repeating-linear-gradient) + `1px` hairline grid on products/stats |\n| **dark mode** | `@media (prefers-color-scheme: dark)` block re-maps every `--` token |\n| **Open Graph tags** | `og:title`, `og:description`, `og:image` (+ `og:type`) |\n| **brief's language (Thai)** | ทุก copy บนหน้าเป็นภาษาไทย (`lang=\"th\"`, Thai font `IBM Plex Sans Thai`) |\n\nทัง 7 แถวมีของเติม — ไม่มีแถวใดว่าง\n\n## GATE: 8/8  (fonts 2 · og 3/3 · dark yes · invisible 0 of 13 candidates · overflow 0 clipped 0 · colliding 0 · span-rule none · tracking ok)\n\n**1. Font families (≤2):**\n```\nIBM Plex Sans Thai\nSpace Grotesk\n```\n**2. Open Graph (all 3):**\n```\nproperty=\"og:description\"\nproperty=\"og:image\"\nproperty=\"og:title\"\n```\n**3. Dark mode exists (≥1):**\n```\n1\n```\n**4. Dark-mode stats visible (invisible 0, candidates >0):**\n```\ninvisible: 0 candidates: 13 []\n```\n**5. No horizontal overflow @390 (overflow 0, clipped 0):**\n```\noverflow: 0 clipped: 0\n```\n**6. No text collides with headline (colliding 0):**\n```\ncolliding: 0 []\n```\n**7. Number stays on one line with unit (nothing prints):**\n```\n(end check 7)\n```\n**8. Nothing under 24px tracked tighter than −0.025em (nothing prints):**\n```\n(end check 8)\n```\n\n## หม",
+  "void": null,
+  "pages": [
+    "index.html"
+  ],
+  "page_bytes": 21533,
+  "page_lines": 469,
+  "gate": {
+    "fonts": [
+      "IBM Plex Sans Thai",
+      "Space Grotesk"
+    ],
+    "fonts_n": 2,
+    "og": [
+      "description",
+      "image",
+      "title"
+    ],
+    "dark_matches": 1,
+    "span_rule": [],
+    "tracking_candidates": 0,
+    "thai_chars": 1671,
+    "invisible": 0,
+    "invisible_raw": "invisible: 0 candidates: 13 []",
+    "overflow": 0,
+    "overflow_raw": "overflow: 0 clipped: 0",
+    "colliding": 0,
+    "colliding_raw": "colliding: 0 []",
+    "screenshots": "desktop-light errors: 0 []\ndesktop-dark errors: 0 []\nmobile errors: 0 []",
+    "unknown": 0,
+    "score": "8/8"
+  },
+  "server_evidence": {
+    "server_evidence": "n/a: remote gateway, no local server log"
+  }
+}

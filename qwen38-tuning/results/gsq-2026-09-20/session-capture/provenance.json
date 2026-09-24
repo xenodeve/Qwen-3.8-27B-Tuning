@@ -1,0 +1,30 @@
+{
+  "argv": [
+    "C:/Users/xenod/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+    "--resume",
+    "096ebcae-a6ae-4b80-b608-3b60f60a3fac",
+    "--fork-session",
+    "--no-session-persistence",
+    "--settings",
+    "C:\\AI\\qwen38-tuning\\results\\gsq-2026-09-20\\session-capture\\capture-settings.json",
+    "--strict-mcp-config",
+    "--model",
+    "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5",
+    "--effort",
+    "medium",
+    "--output-format",
+    "json",
+    "-p",
+    "อธิบายความคืบหน้าของโปรเจกต์และปัญหาภาษาไทยเป็นภาษาไทย 8 ประโยค ตอบจากประวัติที่มีเท่านั้น ไม่เรียกใช้เครื่องมือและไม่แก้ไขไฟล์"
+  ],
+  "exit_code": 0,
+  "source_sha256_before": "cb20525e58b6e8d1de0f2c6e507f1635a96cbac996f41eeb87bbcb75c15d4537",
+  "source_sha256_after": "cb20525e58b6e8d1de0f2c6e507f1635a96cbac996f41eeb87bbcb75c15d4537",
+  "original_unchanged": true,
+  "kind": "current-client resume of original session; no model inference",
+  "limitations": [
+    "current system/tool configuration may differ from incident",
+    "MCP disabled during capture; token count requires engine tokenizer",
+    "count_tokens response is a capture stub, never measurement evidence"
+  ]
+}

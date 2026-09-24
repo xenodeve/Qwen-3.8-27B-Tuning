@@ -1,0 +1,65 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..dff9a2d 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -27,6 +27,16 @@ class Store:
+         return self._items.get(sku, 0)
+ 
+     def total(self):
++        """Sum of all quantities. O(n) in the number of SKUs, not O(1).
++
++        A running total is not maintainable under the project constraints:
++        add()/remove() mutate self._items in place and may not be modified
++        to update a counter, no new attribute may be added to Store, and
++        self._items must remain a plain dict (which cannot hold a cache
++        slot). Caching the sum outside the instance (e.g. a module-global
++        keyed by id(self._items)) would go stale after add() and return
++        wrong results, so the sum is recomputed on each call.
++        """
+         return sum(self._items.values())
+ 
+     def skus(self):
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..119c35f 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,39 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_empty():
++    assert Store().total() == 0
++
++
++def test_total_tracks_adds_and_removes():
++    s = Store()
++    s.add("apple", 5)
++    s.add("pear", 3)
++    assert s.total() == 8
++    s.remove("apple", 2)
++    assert s.total() == 6
++
++
++def test_total_reflects_negative_quantity():
++    s = Store()
++    s.add("apple", 2)
++    s.remove("apple", 5)
++    assert s.quantity("apple") == -3
++    assert s.total() == -3
++
++
++def test_total_equals_sum_of_quantities():
++    s = Store()
++    s.add("a", 5)
++    s.add("b", 7)
++    s.add("a", 2)
++    assert s.total() == sum(s.quantity(sku) for sku in s.skus())
++
++
++def test_items_is_plain_dict():
++    # Constraint from the brief: _items must stay a plain dict (no subclass).
++    s = Store()
++    s.add("apple", 1)
++    assert type(s._items) is dict

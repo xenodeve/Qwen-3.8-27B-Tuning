@@ -47,7 +47,7 @@ FORK_DIR = os.environ.get("EXL3_FORK_DIR", r"C:\AI\exllamav3-mia")   # xeno: the
 sys.path.insert(0, FORK_DIR)   # xeno
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # xeno: our sibling modules
 from aiohttp import web
-import live_timing, effort, anthropic_routes, watchdog, loop_guard, cjk_guard   # xeno
+import live_timing, effort, anthropic_routes, watchdog, loop_guard, cjk_guard, thai_sampler, cancel   # xeno
 
 MODEL_DIR = "test_models/Qwen3.8-27B-exl3-3.5bpw-wm"
 MODEL_NAME = os.path.basename(MODEL_DIR)   # xeno: set from -m in main(); /v1/models and defaults use it
@@ -63,6 +63,7 @@ stats = {
     "context_length": None,
     "loops_stopped": 0,   # xeno: generations cut by loop_guard (#76)
     "cjk_chars_total": 0,   # xeno: Han characters that reached a completion anyway (#77)
+    "cancelled": 0,   # xeno: jobs stopped after their client went away (#83)
 }
 
 def _bump_stats(prompt=0, completion=0):
@@ -294,7 +295,10 @@ def tool_choice_directive(tool_choice, tools):
 
 def generate_full(generator, tokenizer, messages, max_tokens, temperature,
                   top_p, top_k, seed, tools, tool_choice = None, stop = None,
-                  on_text = None, reasoning_effort = None, on_tokens = None):   # xeno
+                  rep_p = 1.0, freq_p = 0.0, min_p = 0.0,   # xeno: #86, opt-in sampler keys; defaults are ComboSampler no-ops
+                  on_text = None, reasoning_effort = None, on_tokens = None,   # xeno
+                  thai_on = False, thai_off = False,   # xeno
+                  cancel_event = None):   # xeno: #83, set by the handler when its client goes away
     """Blocking generation; returns (text, tool_calls, finish, p_toks, o_toks,
     reasoning, content)."""
     schemas = build_tool_schemas(tools)
@@ -314,6 +318,7 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
         reasoning_effort = effort_v, tools = tools)   # xeno
     prompt_toks = int(input_ids.shape[-1])
     ban = cjk_guard.bias_for(tokenizer, messages)   # xeno: #77, no Han in the prompt -> none in the answer
+    temperature, top_p, top_k = thai_sampler.params_for(messages, temperature, top_p, top_k, on = thai_on, off = thai_off)   # xeno: Thai-heavy prompt never serves above 0.6; 1 = tighten, 0 = passthrough
     from exllamav3.generator.sampler.presets import ComboSampler
     from exllamav3 import Job
     forced_choice = tool_choice not in (None, "auto", "none")
@@ -328,7 +333,7 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
         reason = "max_new_tokens"
         final_res = {}   # xeno
         t0 = time.time()   # xeno
-        sampler = ComboSampler(temperature = temperature, top_k = top_k, top_p = top_p, logit_bias = ban)   # xeno: #77
+        sampler = ComboSampler(temperature = temperature, top_k = top_k, top_p = top_p, rep_p = rep_p, freq_p = freq_p, min_p = min_p, logit_bias = ban)   # xeno: #77, #86
         stop_conditions = ["<|im_end|>", tokenizer.eos_token_id] + (stop or [])
         job = Job(input_ids = input_ids, max_new_tokens = max_tokens,
                   stop_conditions = stop_conditions,
@@ -340,6 +345,14 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
             generator.enqueue(job)
             while generator.num_remaining_jobs():
                 for r in generator.iterate():
+                    if cancel_event is not None and cancel_event.is_set():   # xeno: #83, ESC in the client
+                        print(f" ## cancelled by client after {live.n_gen} tokens", flush = True)   # xeno
+                        with stats_lock:   # xeno
+                            stats["cancelled"] += 1   # xeno
+                        generator.cancel(job)   # xeno
+                        reason = "cancelled"   # xeno
+                        final_res = r   # xeno
+                        break   # xeno
                     if r.get("stage") == "prefill":
                         curr = int(r.get("curr_progress") or 0)
                         if curr > prefill_seen:
@@ -373,6 +386,9 @@ def generate_full(generator, tokenizer, messages, max_tokens, temperature,
         return job
 
     job = run_once()
+    if reason == "cancelled":   # xeno: #83, the handler broke off; nothing downstream wants this
+        timings = live_timing.report(final_res, prompt_toks, 0, wall, effort_v)   # xeno
+        return text, [], "cancelled", prompt_toks, 0, "", "", timings   # xeno
     # Forced tool_choice is a prompt nudge; at temperature > 0 the model can
     # occasionally skip the call. One greedy retry makes it deterministic.
     if forced_choice and not parse_tool_calls(text, schemas)[1]:
@@ -423,18 +439,49 @@ async def health(request):
             "model": MODEL_NAME,   # xeno
             "loops_stopped": stats["loops_stopped"],   # xeno
             "cjk_chars_total": stats["cjk_chars_total"],   # xeno
+            "cancelled": stats["cancelled"],   # xeno
         })
+
+
+IMAGE_UNSUPPORTED = "image input is not supported"   # xeno: #85, like llama-server with no vision tower
+
+
+def _has_image_part(messages):   # xeno: #85
+    for m in messages or []:   # xeno
+        c = (m or {}).get("content")   # xeno
+        if isinstance(c, list):   # xeno
+            for part in c:   # xeno
+                if isinstance(part, dict) and part.get("type") == "image_url":   # xeno
+                    return True   # xeno
+    return False   # xeno
+
+
+def _sampler_float(v, default, lo, hi):   # xeno: #86, opt-in sampler key; absent/malformed/out-of-range = default
+    try:   # xeno: #86
+        f = float(v)   # xeno: #86
+    except (TypeError, ValueError):   # xeno: #86
+        return default   # xeno: #86
+    if lo is not None and f < lo:   # xeno: #86
+        return default   # xeno: #86
+    if hi is not None and not f < hi:   # xeno: #86
+        return default   # xeno: #86
+    return f   # xeno: #86
 
 
 def parse_request(body):
     messages = body.get("messages")
     if not messages or not isinstance(messages, list):
         return None, "`messages` (list) is required"
+    if _has_image_part(messages):   # xeno: #85, reject before any GPU work
+        return None, IMAGE_UNSUPPORTED   # xeno
     max_tokens = int(body.get("max_tokens") or
                      body.get("max_completion_tokens") or 1024)
     temperature = float(body.get("temperature", 0.6))
     top_p = float(body.get("top_p", 0.95))
     top_k = int(body.get("top_k", 20))
+    rep_p = _sampler_float(body.get("rep_p"), 1.0, 1.0, None)   # xeno: #86, absent = ComboSampler no-op
+    freq_p = _sampler_float(body.get("freq_p"), 0.0, 0.0, None)   # xeno: #86, absent = ComboSampler no-op
+    min_p = _sampler_float(body.get("min_p"), 0.0, 0.0, 1.0)   # xeno: #86, absent = ComboSampler no-op
     seed = body.get("seed")
     tools = body.get("tools") or None
     stop = body.get("stop")
@@ -446,6 +493,7 @@ def parse_request(body):
         messages = normalize_messages(messages),
         max_tokens = max_tokens, temperature = temperature,
         top_p = top_p, top_k = top_k,
+        rep_p = rep_p, freq_p = freq_p, min_p = min_p,   # xeno: #86, opt-in only; defaults are ComboSampler no-ops
         seed = int(seed) if seed is not None else None,
         tools = tools,
         tool_choice = body.get("tool_choice"),
@@ -453,6 +501,8 @@ def parse_request(body):
         stream = bool(body.get("stream", False)),
         model_id = body.get("model", MODEL_NAME),   # xeno
         reasoning_effort = body.get("reasoning_effort"),   # xeno
+        thai_on = bool(body.get("thai_sampler") in (1, "1", True)),   # xeno: tighten triple
+        thai_off = bool(body.get("thai_sampler") in (0, "0", False)),   # xeno: pure passthrough
     ), None
 
 
@@ -474,16 +524,30 @@ async def chat_completions(request):
         return web.json_response({"error": {"message": "invalid JSON"}}, status = 400)
     req, err = parse_request(body)
     if err:
-        return web.json_response({"error": {"message": err}}, status = 400)
+        status = 500 if err == IMAGE_UNSUPPORTED else 400   # xeno: #85, like llama-server with no vision tower
+        return web.json_response({"error": {"message": err}}, status = status)   # xeno: #85
 
     import asyncio
     if not req["stream"]:
-        try:
-            text, calls, finish, ptoks, otoks, reasoning, content, timings = await asyncio.to_thread(   # xeno
-                generate_full, generator, tokenizer, req["messages"],
-                req["max_tokens"], req["temperature"], req["top_p"], req["top_k"],
+        cancel_event = threading.Event()   # xeno: #83, set when this client goes away
+        def _run():   # xeno
+            return generate_full(generator, tokenizer, req["messages"],   # xeno
+                req["max_tokens"], req["temperature"], req["top_p"], req["top_k"],   # xeno
                 req["seed"], req["tools"], req["tool_choice"], req["stop"],   # xeno
-                reasoning_effort = req.get("reasoning_effort"))   # xeno
+                rep_p = req["rep_p"], freq_p = req["freq_p"], min_p = req["min_p"],   # xeno: #86
+                reasoning_effort = req.get("reasoning_effort"),   # xeno
+                thai_on = req["thai_on"], thai_off = req["thai_off"],   # xeno
+                cancel_event = cancel_event)   # xeno
+        task = asyncio.get_event_loop().run_in_executor(None, _run)   # xeno
+        while not task.done():   # xeno: #83, watch the client while the GPU works
+            done, _ = await asyncio.wait({task}, timeout = cancel.POLL_S)   # xeno
+            if task in done:   # xeno
+                break   # xeno
+            if cancel.client_gone(request):   # xeno
+                cancel_event.set()   # xeno
+                break   # xeno
+        try:
+            text, calls, finish, ptoks, otoks, reasoning, content, timings = await task   # xeno
         except AssertionError as e:
             return web.json_response(
                 {"error": {"message": f"context/cache: {e}", "type": "invalid_request_error"}},
@@ -529,15 +593,20 @@ async def chat_completions(request):
 
         forced_choice = req["tool_choice"] not in (None, "auto", "none")
 
+        cancel_event = threading.Event()   # xeno: #83, set when this SSE client goes away
+
         def worker():
             try:
                 text, calls, finish, ptoks, otoks, reasoning, content, timings = generate_full(   # xeno
                     generator, tokenizer, req["messages"], req["max_tokens"],
                     req["temperature"], req["top_p"], req["top_k"],
                     req["seed"], req["tools"], req["tool_choice"], req["stop"],
+                    rep_p = req["rep_p"], freq_p = req["freq_p"], min_p = req["min_p"],   # xeno: #86
                     on_text = None if forced_choice else on_text,   # xeno
                     reasoning_effort = req.get("reasoning_effort"),   # xeno
-                    on_tokens = on_tokens)   # xeno
+                    on_tokens = on_tokens,   # xeno
+                    thai_on = req["thai_on"], thai_off = req["thai_off"],   # xeno
+                    cancel_event = cancel_event)   # xeno: #83
                 loop.call_soon_threadsafe(queue.put_nowait,
                                           ("done", (calls, finish, reasoning, content,   # xeno
                                                     ptoks, otoks, timings)))   # xeno
@@ -555,7 +624,11 @@ async def chat_completions(request):
                 obj.update(extra)   # xeno
             else:   # xeno: running usage on every chunk (llama-server has none; clients ignore it)
                 obj["usage"] = {"completion_tokens": progress["n"]}   # xeno
-            await resp.write(f"data: {json.dumps(obj)}\n\n".encode())
+            try:   # xeno: #83, a dead write means a dead client
+                await resp.write(f"data: {json.dumps(obj)}\n\n".encode())   # xeno
+            except (ConnectionResetError, asyncio.CancelledError):   # xeno
+                cancel_event.set()   # xeno
+                raise   # xeno
 
         pending, finish, calls_emitted = "", None, False
         call_idx = [0]
@@ -614,10 +687,23 @@ async def chat_completions(request):
                 return
 
         while True:
-            kind, payload = await queue.get()
+            try:   # xeno: #83, bound the wait so a dead client is noticed
+                kind, payload = await asyncio.wait_for(queue.get(), timeout = cancel.POLL_S)   # xeno
+            except asyncio.TimeoutError:   # xeno
+                if cancel.client_gone(request):   # xeno: ESC closed the SSE stream
+                    cancel_event.set()   # xeno
+                    break   # xeno
+                continue   # xeno
+            except asyncio.CancelledError:   # xeno: shutdown; stop the GPU job, then propagate
+                cancel_event.set()   # xeno
+                raise   # xeno
             if kind == "error":
-                await resp.write(
-                    f'data: {json.dumps({"error": {"message": payload}})}\n\n'.encode())
+                try:   # xeno: #83, a dead write means a dead client
+                    await resp.write(   # xeno
+                        f'data: {json.dumps({"error": {"message": payload}})}\n\n'.encode())   # xeno
+                except (ConnectionResetError, asyncio.CancelledError):   # xeno
+                    cancel_event.set()   # xeno
+                    raise   # xeno
                 break
             if kind == "delta":
                 pending += payload

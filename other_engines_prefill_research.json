@@ -1,0 +1,112 @@
+{
+  "findings": [
+    {
+      "technique": "vLLM Automatic Prefix Caching (APC) — block-hash prefix reuse; reuses shared-prefix KV across sequential/sub-agent requests",
+      "source_url": "https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/",
+      "confidence": "high",
+      "exact_method": "PagedAttention partitions each sequence's KV into fixed-size blocks; each physical block gets a hash = hash(parent_hash, block_tokens). A global hash table maps that token+prefix hash to one physical block, so any two requests (e.g. the same system/tools/conversation prefix replayed by sub-agents) that hash to identical prefix blocks SHARE the same physical KV memory and skip recompute. Allocation/free per block; evict on refcount 0 then LRU. Enable with enable_prefix_caching=True (default on since ~v0.4). New requests only compute the unmatched tail after the longest shared prefix.",
+      "claimed_gain": "Avoids recomputing the shared prefix entirely for agentic workloads where input:output ratio exceeds 100:1; prompt-cache tokens cost 10x less than uncached (llm-d/Manus); llm-d measured 2x throughput / 57x TTFT with cache-aware routing. In a single in-process server it turns a 9.8 GiB shared-prefix re-prefill into a short-diff prefill.",
+      "hardware_measured": "NVIDIA GPUs (docs); llm-d benchmarks on H100-class fleets",
+      "applicable_to_llamacpp": "yes_high — core idea (block-granular reuse keyed by hash of tokens+prefix, not checkpoint-roll) is directly portable: llama.cpp could key reused spans by a token/prefix hash instead of only full aligned context-checkpoint rollbacks, so a long shared sub-agent prefix stays resident under a small --cache-ram."
+    },
+    {
+      "technique": "vLLM block-level KV sharing w/ copy-on-write + reference counting (data plane)",
+      "source_url": "https://docs.vllm.ai/en/v0.6.0/automatic_prefix_caching/details.html",
+      "confidence": "high",
+      "exact_method": "Blocks stay independent (no tree): each logical block maps to its hashed physical block via a global block hash table; reading threads of shared prefix blocks increment the physical block refcount. Blocks with refcount>1 are shared read-only until a writer forces copy-on-write to a fresh block. Physical blocks are freed individually the moment refcount=0; eviction = refcount-0-then-LRU.",
+      "claimed_gain": "Eliminates memory fragmentation and makes KV cache-manageable like an OS page cache; multiple concurrent sub-agent requests on the SAME server can share one copy of 9.8GiB of prefix KV instead of each holding a private copy (or none, as llama.cpp does today).",
+      "hardware_measured": "vLLM, NVIDIA GPUs (implementation docs)",
+      "applicable_to_llamacpp": "yes_medium — block/blk-granular shared pages + CoW is the cleanest unit for llama.cpp to expose shared prefix reuse across slots WITHOUT tree bookkeeping; feasible in-process."
+    },
+    {
+      "technique": "SGLang RadixAttention — token-level radix tree prefix cache w/ LRU leaf eviction + cache-aware scheduling",
+      "source_url": "https://lmsys.org/blog/2024-01-17-sglang/",
+      "confidence": "high",
+      "exact_method": "Retains KV for BOTH prompts and generated responses in a radix tree keyed by token sequences (page = 1 token). On each request it finds the longest reusable prefix in the tree, reuses that KV, appends only the new suffix. LRU recursively evicts leaf nodes; a cache-aware scheduler prioritizes requests that extend cached prefixes to raise hit rate. Always enabled — ablation shows no overhead even with zero hits. Token-level granularity means rollback/truncation can land on ANY boundary, not just a checkpoint.",
+      "claimed_gain": "Up to 5x higher throughput vs baselines; big first-token latency win on prefix hits; strong for chat/agent workloads where every turn shares a long stable prefix (Spheron: 'TTFT reductions on workloads with 60%+ prefix overlap').",
+      "hardware_measured": "A100s (LMSYS benchmark)",
+      "applicable_to_llamacpp": "yes_high — token-level (page=1) reuse is strictly finer than llama.cpp's ~read-only checkpoint rollback, so sub-agent shared-prefix hits can be reused with far less re-prefill; the cache-aware scheduling idea (route/prioritize prefix-extending requests) applies to a single slot's batching."
+    },
+    {
+      "technique": "SGLang MambaRadixCache / Unified Radix Cache — hybrid-model prefix caching (FULL + SWA + recurrent/Mamba states) — DIRECTLY matches Qwen hybrid",
+      "source_url": "https://www.lmsys.org/blog/2026-08-11-unified-radix-cache/",
+      "confidence": "high",
+      "exact_method": "One token radix topology gives canonical prefix identity; per-layer run selective: full-attention, sliding-window, and Mamba recurrent states attach as separate cache components with independent reuse rules. Recurrent (Mamba) state is valid only at an exact prefix checkpoint: on match, the state is COPIED from the tree into a private request slot before mutation (fixes the in-place-update/rollback problem that breaks llama.cpp Qwen checkpoints). SWA reuses only the trailing window. Also: session-aware eviction keeps entries from active sessions resident, and HiCache offload keeps the shared prefix across GPU L1 / Host L2 / external L3 disk tiers. Flags: --mamba-full-memory-ratio / split Mamba pool vs KV pool.",
+      "claimed_gain": "Multi-turn hybrid: L3 tier kept cache hit rate near 98% (DeepSeek-V4-Flash, 145.5K eff input tok/s vs 9.4K for L1-only) and 96.8% (Inkling-Small); session-aware eviction cut TTFT 2.9-16.6% vs plain LRU; Mamba checkpoint-copy lets recurrent models reuse prefixes instead of full reprocess.",
+      "hardware_measured": "H200, TP4 (DeepSeek-V4-Flash) and TP8 (Inkling-Small); multi-turn 60 rounds / 4.1k in 16 out tokens",
+      "applicable_to_llamacpp": "yes_high — this is the mechanism llama.cpp Qwen lacks (n_swa=0 → full re-prefill): the 'copy recurrent state into private slot before mutation, keep checkpoints at exact positions' idea is the fix for the RECURRENT-not-checkpointable forced re-prefill; the session-aware-eviction idea = keep the one active sub-agent conversation's checkpoints resident instead of LRU-evicting them."
+    },
+    {
+      "technique": "vLLM Disaggregated Prefill — run prefill and decode on SEPARATE vLLM instances (e)",
+      "source_url": "https://docs.vllm.ai/en/latest/features/disagg_prefill/",
+      "confidence": "high",
+      "exact_method": "Split prefill and decode phases into different engine instances with independently-tuned parallelism (tp/pp); KV is transferred from the prefill instance to the decode instance over pluggable connectors (9 connector types: Ray, LMCache, MORI-IO, KV connector, etc.). Launch via run_prefill.sh / run_decode.sh + a connector. Explicitly documented as: 'Disaggregated prefill DOES NOT improve throughput' — its value is controlling tail ITL and tuning TTFT vs ITL separately.",
+      "claimed_gain": "No raw throughput gain (official doc caveat); when paired with an on-node connector it improves goodput/SLO: AMD MORI-IO/KV-connector benchmark on a single 8-GPU MI300X node reached 2.5x higher SLO-compliant goodput vs collocated serving (Qwen3-235B-A22B-FP8, 8 req/s, 2k in / 1k out).",
+      "hardware_measured": "8x AMD MI300X (single node), Qwen3-235B-A22B-FP8",
+      "applicable_to_llamacpp": "no_low — fundamentally requires multi-instance/multi-GPU; in an in-process single-slot server there is no separate prefill engine to hand off to. Only the *principle* (don't let prefill starve decode, tune batch per phase) ports."
+    },
+    {
+      "technique": "SGLang PD disaggregation with a dedicated state-transfer channel for hybrid (Mamba/SWA) states",
+      "source_url": "https://github.com/sgl-project/sglang/issues/21703",
+      "confidence": "medium",
+      "exact_method": "SGLang's prefill-decode disaggregation roadmap (2026 Q2) extends its KV transfer protocol beyond paged KV to also transmit model-specific state — Mamba conv/temporal states, and SWA sliding windows — so hybrid models can be disaggregated without losing prefix-cacheable state. Pytorch doc details the transfer path.",
+      "claimed_gain": "Enables PD disaggregation (and thus separate TTFT/ITL tuning) for hybrid models that otherwise lose their recurrent state on phase handoff.",
+      "hardware_measured": "SGLang multi-GPU cluster",
+      "applicable_to_llamacpp": "no_low — multi-node/multi-instance only; relevant as evidence that state-transfer of recurrent state is a solved pattern elsewhere, informing llama.cpp checkpoint state serialization."
+    },
+    {
+      "technique": "Intra-GPU / single-engine dynamic split of prefill vs decode resources (Nexus) — dynamic chunked scheduling to raise prefill throughput",
+      "source_url": "https://arxiv.org/html/2507.06608v5",
+      "confidence": "medium",
+      "exact_method": "Instead of whole-engine PD disaggregation, Nexus shows GPU resources exhibit diminishing returns and proposes splitting ONE engine's scheduling to dynamically allocate compute between prefill and decode on the same GPUs, easing phase interference that Chunked Prefill introduces. Conceptually: keep prefill batches large enough to saturate compute without permanently starving decode.",
+      "claimed_gain": "Reduces phase interference vs naive collocation/chunked prefill; improves utilization/latency without adding GPUs.",
+      "hardware_measured": "Simulated + GPU experiments (paper)",
+      "applicable_to_llamacpp": "medium — within one slot, batch-as-many-prefill-tokens-as-fill-the-GPU during the prefill phase and don't interleave decode until done; equivalent to llama.cpp --ubatch sizing."
+    },
+    {
+      "technique": "vLLM Chunked Prefill + max_num_batched_tokens dynamic batching — raise prefill throughput by enlarging batch token budget",
+      "source_url": "https://docs.vllm.ai/en/v0.8.1/performance/optimization.html",
+      "confidence": "high",
+      "exact_method": "--enable-chunked-prefill chunks large prefills and co-batches compute-bound prefill with memory-bound decode. Token budget = max_num_batched_tokens (default 2048). Docs: 'Higher max_num_batched_tokens achieves better TTFT because you can put more prefill in the batch' and 'we recommend setting max_num_batched_tokens > 2048 for throughput' (default 2048 is tuned for ITL, not throughput). So the engine dynamically grows/shrinks prefill chunk+batch to trade TTFT off latency.",
+      "claimed_gain": "Larger prefill token batches = higher prefill throughput / lower TTFT (docs explicitly recommend >2048 for throughput); same knob family as llama.cpp --ubatch-size but tuned per workload.",
+      "hardware_measured": "vLLM, NVIDIA GPUs (docs); corroborated by llama.cpp --ubatch 512→2048 giving ~2x prefill t/s on RTX 5080 (dzx.fr)",
+      "applicable_to_llamacpp": "yes_high — llama.cpp already has --ubatch-size; the transferable rule is to raise prefill batch token budget (and chunk size) specifically for long-prompt prefill, and to auto-tune it rather than fix at the ITL-optimal default."
+    },
+    {
+      "technique": "ExLlamaV3 system-RAM caches (sysmem_recurrent_cache / sysmem_kv_cache) — offload recurrent + KV state to host RAM so large conversations avoid recompute",
+      "source_url": "https://github.com/turboderp-org/exllamav3/issues/277",
+      "confidence": "medium",
+      "exact_method": "ExLlamaV3 keeps two capacity-bounded host-RAM caches: sysmem_recurrent_cache (recurrent/Mamba checkpoint states in RAM) and sysmem_kv_cache (KV in RAM), configurable as token counts (e.g. 'sysmem_recurrent_cache: 2048, sysmem_kv_cache: 0'). Recurrent caches limit live checkpoint data so a long conversation's out-of-GPU state lives in system RAM and is restored without full re-prefill. (Issue #277 shows the allocator retains freed memory — cache bound enforcement is imperfect, but the RAM-offload pattern is real.)",
+      "claimed_gain": "Keeps recurrent/checkpointed state and KV for long multi-turn sessions in system RAM, avoiding full recompute when the working set exceeds VRAM.",
+      "hardware_measured": "ExLlamaV3 on 32 GiB system RAM host, Q8 65,536-token cache",
+      "applicable_to_llamacpp": "yes_medium — same idea as llama.cpp --cache-ram: separate the recurrent/checkpointed state budget (like ExL's sysmem_recurrent_cache) from flat KV budget so the hybrid Qwen state layer stays cached in RAM independently of the 8 GiB KV cap."
+    },
+    {
+      "technique": "llm-d Precise Prefix-Cache Routing + KV-events — treat cache hit rate as the primary agent-serving metric and steer requests to a warm node",
+      "source_url": "https://llm-d.ai/blog/kvcache-wins-you-can-see",
+      "confidence": "medium",
+      "exact_method": "Model servers (vLLM, SGLang, TRT-LLM) publish KV-events on every cache change; llm-d subscribes, builds a block-hash→(pod, memory-tier) index, and scores incoming requests by prefix-affinity so long shared-prefix agent requests land on the node that already holds that prefix. KV cache can span GPU HBM/CPU DRAM/NVMe/shared storage tiers.",
+      "claimed_gain": "Cache hit rate seen as 'the single most important metric for a production AI agent'; precise routing measured 57x faster TTFT and ~2x system throughput on identical hardware; 10x price gap cached vs uncached tokens.",
+      "hardware_measured": "Distributed vLLM fleet (paper/blog benchmarks)",
+      "applicable_to_llamacpp": "medium — routing isn't relevant to a single in-process slot, but the *discipline* (expose/modulo cache hit rate, keep active-session prefix tiered from GPU→RAM→disk) transfers to llama.cpp cache management."
+    },
+    {
+      "technique": "Modular Prompt Cache (arxiv 2311.04934) — reuse attention states by cached MODULAR chunks, not whole-prefix match",
+      "source_url": "https://arxiv.org/html/2311.04934v2",
+      "confidence": "medium",
+      "exact_method": "Rather than requiring a shared full prefix, the Prompt Cache (Stanford/SambaNova) segments prompts into cached attention states for a *prompt schema* and reuses introspection-graph chunks at multiple granular levels; any request whose modular state set overlaps a cache hit skips recompute for those chunks, enabling reuse even across DIFFERENT prompts that share modules (similar to llama.cpp's concept of reusable section-spans).",
+      "claimed_gain": "Low-latency inference with reuse across non-identical prompts; large token budget savings on server (disk-backed) and explainability of hit span.",
+      "hardware_measured": "Server (SambaNova/GPU) inference, benchmark prompts",
+      "applicable_to_llamacpp": "medium — 'reuse cacheable modular spans' is the strongest conceptual cross-pollination for a single slot: cache computed (system+tools+turn-log) spans and reuse whichever prefix modules match, rather than requiring a hard aligned full-prefix checkpoint."
+    }
+  ],
+  "top_candidates": [
+    "SGLang token-level RadixAttention reuse (fine rollback, always-on) — ports cleanly to llama.cpp prefill reuse granularity",
+    "vLLM block-hash Automatic Prefix Caching w/ copy-on-write — block-granular shared-prefix reuse in one in-process server",
+    "SGLang MambaRadixCache / Unified Radix Cache — checkpoint-copy for recurrent/SWA state, the exact Qwen-hybrid fix llama.cpp lacks",
+    "vLLM max_num_batched_tokens / dynamic prefill batch sizing — raise prefill throughput by enlarging the token budget (llama.cpp --ubatch analog)",
+    "ExLlamaV3 sysmem_recurrent_cache — RAM offload of recurrent state independent of the flat --cache-ram KV cap",
+    "Session-aware eviction (SGLang) — keep the one active sub-agent conversation's checkpoints resident instead of LRU-evicting them"
+  ],
+  "sources_total": 15
+}

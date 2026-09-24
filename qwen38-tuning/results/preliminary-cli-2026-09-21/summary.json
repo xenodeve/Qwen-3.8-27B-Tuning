@@ -1,0 +1,237 @@
+{
+  "protocol": "preliminary-cli-code1-v1",
+  "repetitions": 1,
+  "unique_tasks": 1,
+  "context_allocation": 65536,
+  "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-preliminary-cli-tisjjqrm",
+  "independent_checks_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-preliminary-independent-32o8o3td",
+  "rows": [
+    {
+      "artifact": "swift",
+      "quant": "Q6_K",
+      "model_sha256": "7f4de8abd5446c08b0f975a1b38e43d02639f4ae9ecdd2ddfd5c5b0f612bda59",
+      "task_wall_s": 58.780999999988126,
+      "setup_hash_guard_load_s": 33.65700000000652,
+      "task_status": "verified",
+      "hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.2649999999994179
+      },
+      "visible": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.29699999999138527
+      },
+      "scope_violations": [],
+      "generated_tests_detect_initial_bug": true,
+      "generated_tests_failed_on_initial_source": 5,
+      "context_high_water_tokens": 3779,
+      "analysis": {
+        "assistant_messages": 5,
+        "tool_calls": {
+          "Edit": 3,
+          "Read": 2
+        },
+        "tool_errors": 0,
+        "thinking_chars": 1540,
+        "answer_chars": 1406,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 5
+        },
+        "model_names": [
+          "Qwen3.8-27B-swift-mtp-ngram"
+        ]
+      },
+      "generated_tokens": 2106,
+      "evidence_relative": "swift/session",
+      "independent_reverification": true
+    },
+    {
+      "artifact": "turbo",
+      "quant": "MTP-Q6_K",
+      "model_sha256": "ac011aabe685edbdf542e49351eb6c76c0e5531408f2507f2235ab10931e23a5",
+      "task_wall_s": 56.5,
+      "setup_hash_guard_load_s": 33.34399999999732,
+      "task_status": "verified",
+      "hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.3289999999979045
+      },
+      "visible": {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.26600000000325963
+      },
+      "scope_violations": [],
+      "generated_tests_detect_initial_bug": true,
+      "generated_tests_failed_on_initial_source": 5,
+      "context_high_water_tokens": 3380,
+      "analysis": {
+        "assistant_messages": 6,
+        "tool_calls": {
+          "Edit": 3,
+          "Read": 2
+        },
+        "tool_errors": 0,
+        "thinking_chars": 854,
+        "answer_chars": 1009,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 6
+        },
+        "model_names": [
+          "Qwen3.8-27B-turbo-mtp-ngram"
+        ]
+      },
+      "generated_tokens": 1591,
+      "evidence_relative": "turbo/session",
+      "independent_reverification": true
+    },
+    {
+      "artifact": "dirk",
+      "quant": "UD-Q6_K",
+      "model_sha256": "06601c59c3dd1924c209603b3fc8369531127aa54974e1265a381c850bc37e0d",
+      "task_wall_s": 136.86000000000058,
+      "setup_hash_guard_load_s": 32.67200000000594,
+      "task_status": "verified",
+      "hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.3279999999940628
+      },
+      "visible": {
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.2970000000059372
+      },
+      "scope_violations": [],
+      "generated_tests_detect_initial_bug": true,
+      "generated_tests_failed_on_initial_source": 6,
+      "context_high_water_tokens": 9001,
+      "analysis": {
+        "assistant_messages": 7,
+        "tool_calls": {
+          "Edit": 4,
+          "Read": 5
+        },
+        "tool_errors": 0,
+        "thinking_chars": 11545,
+        "answer_chars": 1549,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 7
+        },
+        "model_names": [
+          "Qwen3.8-27B-dirk-mtp-ngram"
+        ]
+      },
+      "generated_tokens": 5332,
+      "evidence_relative": "dirk/session",
+      "independent_reverification": true
+    },
+    {
+      "artifact": "gsq",
+      "quant": "IQ3_S-MTP",
+      "model_sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f",
+      "task_wall_s": 74.53100000000268,
+      "setup_hash_guard_load_s": 23.952999999994063,
+      "task_status": "verified",
+      "hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.32800000000861473
+      },
+      "visible": {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.26600000000325963
+      },
+      "scope_violations": [],
+      "generated_tests_detect_initial_bug": true,
+      "generated_tests_failed_on_initial_source": 8,
+      "context_high_water_tokens": 4886,
+      "analysis": {
+        "assistant_messages": 5,
+        "tool_calls": {
+          "Edit": 3,
+          "Read": 3
+        },
+        "tool_errors": 0,
+        "thinking_chars": 5042,
+        "answer_chars": 1322,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 5
+        },
+        "model_names": [
+          "Qwen3.8-27B-gsq-mtp-ngram"
+        ]
+      },
+      "generated_tokens": 3253,
+      "evidence_relative": "gsq/session",
+      "independent_reverification": true
+    }
+  ],
+  "manual_review": {
+    "finals": {
+      "reviewed": 4,
+      "total": 4
+    },
+    "visible_thinking": {
+      "reviewed_sessions": 4,
+      "total_sessions": 4
+    },
+    "workspace_diffs": {
+      "reviewed": 4,
+      "total": 4
+    }
+  },
+  "invalid_attempts": [
+    {
+      "root": "C:/Users/xenod/AppData/Local/Temp/qwen-preliminary-cli-z41ul_pg",
+      "artifact": "swift",
+      "elapsed_s": 183.562,
+      "cause": "adapter fragmented-tool truncation",
+      "others": "not_run",
+      "counts_as_model_failure": false
+    }
+  ],
+  "verdict": "All four pass the frozen coding checks; no statistically established winner or long-horizon conclusion.",
+  "quality_notes": {
+    "swift": "Unrequested integer-only threshold validation; hidden suite does not test fractional threshold.",
+    "turbo": "Generated tests omit exact-threshold exclusion; external hidden test covers it. Final says Latin alphabet although Python string ordering is used.",
+    "dirk": "Final Thai contains Vietnamese phrase hop le (original accented phrase retained privately). Long explicit planning/rechecking, not a demonstrated runaway loop.",
+    "gsq": "Broad generated tests; repeated brief opening thought but task completed without tool errors."
+  }
+}

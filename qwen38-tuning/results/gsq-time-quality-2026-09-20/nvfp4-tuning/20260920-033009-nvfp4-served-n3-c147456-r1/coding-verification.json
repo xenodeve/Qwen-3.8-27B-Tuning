@@ -1,0 +1,28 @@
+[
+  {
+    "case": "session-merge_intervals",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\nvfp4-tuning\\20260920-033009-nvfp4-served-n3-c147456-r1\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "verification_s": 0.06552620000002207,
+    "time_spent_s": 15.758380999999645,
+    "single_call_verified_task_s": 15.758380999999645
+  },
+  {
+    "case": "session-toposort",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\nvfp4-tuning\\20260920-033009-nvfp4-served-n3-c147456-r1\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "verification_s": 0.06419199999800185,
+    "time_spent_s": 13.825134499995329,
+    "single_call_verified_task_s": 13.825134499995329
+  }
+]

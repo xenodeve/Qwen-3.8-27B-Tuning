@@ -68,3 +68,41 @@ def test_the_profile_names_the_flag(name, flag):
     assert flag in live, (
         "%s never names %s outside its comments, so it serves llama.cpp's "
         "default. See issue #70 for what that cost." % (name, flag))
+
+
+LAUNCHERS = os.path.join(ROOT, "launchers")
+
+
+def _hub_llama_profiles():
+    """Every `serve-*.ps1` a hub launcher calls directly, bypassing serve.ps1.
+
+    Flash-Next (2026-09-24) was launched this way and inherited both defaults:
+    `logs/flash-next-128k-20260924-052307.log` holds one 105,795-token entry at
+    5,918 MiB (31 checkpoints), so the auto-mode classifier's 30K conversation
+    evicted it and the next main-loop turn re-prefilled 66,890 tokens (274 s).
+    Only scripts that start `llama-server` count -- EXL3 has no such flags.
+    """
+    names = set()
+    for bat in os.listdir(LAUNCHERS):
+        if bat.endswith(".bat"):
+            src = open(os.path.join(LAUNCHERS, bat), encoding="utf-8",
+                       errors="replace").read()
+            names.update(re.findall(r"(serve-[\w.-]+\.ps1)", src))
+    out = []
+    for name in sorted(names):
+        path = os.path.join(SCRIPTS, name)
+        if os.path.exists(path) and "llama-server" in open(
+                path, encoding="utf-8", errors="replace").read():
+            out.append(name)
+    return out
+
+
+def test_the_hub_launches_llama_profiles_this_file_guards():
+    """Sanity check on the parse: gsq and flash-next are both hub entries."""
+    assert {"serve-gsq.ps1", "serve-flash-next.ps1"} <= set(_hub_llama_profiles())
+
+
+@pytest.mark.parametrize("name", _hub_llama_profiles())
+@pytest.mark.parametrize("flag", ["--cache-ram", "--ctx-checkpoints"])
+def test_the_hub_profile_names_the_flag(name, flag):
+    test_the_profile_names_the_flag(name, flag)

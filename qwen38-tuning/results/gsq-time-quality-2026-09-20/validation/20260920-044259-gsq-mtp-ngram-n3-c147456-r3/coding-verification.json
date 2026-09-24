@@ -1,0 +1,32 @@
+[
+  {
+    "case": "session-lfu_cache",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-044259-gsq-mtp-ngram-n3-c147456-r3\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "status": "accepted",
+    "verification_s": 0.0664444000030926,
+    "time_spent_s": 81.26721900000484,
+    "single_call_verified_task_s": 81.26721900000484
+  },
+  {
+    "case": "session-tree_codec",
+    "passed": false,
+    "exit_code": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 8, in <module>\nNameError: name 'Node' is not defined. Did you mean: 'None'?\n",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-044259-gsq-mtp-ngram-n3-c147456-r3\\responses.jsonl",
+    "contract_ok": false,
+    "contract_violations": [
+      "no fenced python block"
+    ],
+    "accepted": false,
+    "status": "budget-limited",
+    "verification_s": 0.06865189999734866,
+    "time_spent_s": 132.32635069999742,
+    "single_call_verified_task_s": null
+  }
+]

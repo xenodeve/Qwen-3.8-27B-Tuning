@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'C:\\AI\\.codex\\hooks\\run-hook.cmd' t4-gate"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'C:\\AI\\.codex\\hooks\\run-hook.cmd' t4-session-start"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'C:\\AI\\.codex\\hooks\\run-hook.cmd' t4-prompt-reminder"
+          }
+        ]
+      }
+    ]
+  }
+}

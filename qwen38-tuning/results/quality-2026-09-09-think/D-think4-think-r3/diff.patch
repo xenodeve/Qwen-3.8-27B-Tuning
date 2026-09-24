@@ -1,0 +1,62 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..606aad1 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -27,6 +27,11 @@ class Store:
+         return self._items.get(sku, 0)
+ 
+     def total(self):
++        # O(1) when there is at most one SKU: the total is that single value.
++        # add()/remove()/load() are frozen and no extra state is allowed, so a
++        # running total can't be kept; with several SKUs the total is summed (O(n)).
++        if len(self._items) <= 1:
++            return next(iter(self._items.values()), 0)
+         return sum(self._items.values())
+ 
+     def skus(self):
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..f11b43f 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,41 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_single_sku():
++    s = Store()
++    s.add("apple", 7)
++    assert s.total() == 7
++    s.remove("apple", 2)
++    assert s.total() == 5
++
++
++def test_total_multi_sku_still_correct():
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    s.add("apple", 1)
++    assert s.total() == 6
++    s.remove("pear", 2)
++    assert s.total() == 4
++
++
++def test_total_empty():
++    assert Store().total() == 0
++
++
++def test_items_stays_plain_dict():
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    assert type(s._items) is dict
++
++
++def test_no_new_instance_attributes():
++    s = Store()
++    s.add("apple", 3)
++    s.total()
++    s.remove("apple", 1)
++    s.total()
++    assert set(vars(s)) == {"_items"}

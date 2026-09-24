@@ -1,0 +1,638 @@
+### FILE search-sglang.md | https://github.com/sgl-project/sglang/issues/21703
+[Skip to content](https://github.com/sgl-project/sglang/issues/21703#start-of-content)
+
+You signed in with another tab or window. [Reload](https://github.com/sgl-project/sglang/issues/21703) to refresh your session.You signed out in another tab or window. [Reload](https://github.com/sgl-project/sglang/issues/21703) to refresh your session.You switched accounts on another tab or window. [Reload](https://github.com/sgl-project/sglang/issues/21703) to refresh your session.Dismiss alert
+
+{{ message }}
+
+### Uh oh!
+
+There was an error while loading. [Please reload this page](https://github.com/sgl-project/sglang/issues/21703).
+
+[sgl-project](https://github.com/sgl-project)/ **[sglang](https://github.com/sgl-project/sglang)** Public
+
+- [Notifications](https://github.com/login?return_to=%2Fsgl-project%2Fsglang) You must be signed in to change notification settings
+- [Fork\\
+8.5k](https://github.com/login?return_to=%2Fsgl-project%2Fsglang)
+- [Star\\
+33.1k](https://github.com/login?return_to=%2Fsgl-project%2Fsglang)
+
+
+# \[Roadmap\] Prefill-Decode Disaggregation Roadmap (2026 Q2)\#21703
+
+[New issue](https://github.com/login?return_to=https://github.com/sgl-project/sglang/issues/21703)
+
+Copy link
+
+[New issue](https://github.com/login?return_to=https://github.com/sgl-project/sglang/issues/21703)
+
+Copy link
+
+Open
+
+Open
+
+[\[Roadmap\] Prefill-Decode Disaggregation Roadmap (2026 Q2)](https://github.com/sgl-project/sglang/issues/21703#top)#21703
+
+Copy link
+
+Assignees
+
+[![ShangmingCai](https://avatars.githubusercontent.com/u/171321666?s=64&u=dd1c49982bf583b735bfb806c3d0114d3e81635b&v=4)](https://github.com/ShangmingCai)
+
+Labels
+
+[PD Disaggregation](https://github.com/sgl-project/sglang/issues?q=state%3Aopen%20label%3A%22PD%20Disaggregation%22) [inactive](https://github.com/sgl-project/sglang/issues?q=state%3Aopen%20label%3A%22inactive%22)
+
+## Description
+
+[![@ShangmingCai](https://avatars.githubusercontent.com/u/171321666?u=dd1c49982bf583b735bfb806c3d0114d3e81635b&v=4&size=48)](https://github.com/ShangmingCai)
+
+[ShangmingCai](https://github.com/ShangmingCai)
+
+opened [on Mar 30on Mar 30, 2026](https://github.com/sgl-project/sglang/issues/21703#issue-4172600511)
+
+Issue body actions
+
+... [TRUNC]
+
+### FILE search-sglang.md | https://binzhango.net/posts/2026/07-05-vllm-sglang-attention/
+The more I look at LLM serving, the more it feels like the main object is not the request, the model, or even the GPU.
+
+The main object is the KV cache.
+
+The old mental model is simple:
+
+![Animated old LLM serving mental model: request to GPU to response](https://binzhango.net/assets/images/2026/old-request-gpu-response.gif)
+
+The newer serving stack looks more like this:
+
+![Animated KV-centric serving stack with router, KV cache state, and scheduling decisions](https://binzhango.net/assets/images/2026/kv-centric-serving-stack.gif)
+
+That is the thread connecting vLLM, SGLang, LMCache, Mooncake, Dynamo, DistServe, and many newer systems. They are not only optimizing attention math. They are managing attention state: where it lives, how it is reused, and how quickly it moves through the serving stack.
+
+## The Core Problem: Prefill and Decode Are Different
+
+An autoregressive LLM request has two major phases:
+
+| Phase | What happens | What it stresses |
+| --- | --- | --- |
+| Prefill | The model processes the prompt and creates the initial KV cache. | Heavy parallel compute, prompt length, input batching. |
+| Decode | The model generates one token at a time, reading old KV and appending new KV. | Memory bandwidth, active KV size, per-token latency. |
+
+These phases have very different shapes.
+
+Prefill is compute-heavy because the whole input prompt can be processed in parallel. Long prompts, RAG documents, tool schemas, and few-shot examples all make this phase expensive.
+
+Decode is sequential. Each new token depends on the previous token. The GPU repeatedly reads the existing KV cache, computes one more step, appends the new `K/V`, and repeats. This often underuses raw GPU compute while stressing memory bandwidth and latency.
+
+When both phases run on the same GPU worker, they interfere with each other:
+
+- Long prefills can block decode steps and create spikes in TTFT, or time to first token.
+- Decode's low compute utilization can waste expensive GPU cycles.
+- Prefill and decode compete for the same HBM memory that stores model weights and KV cache.
+- One scheduling policy has to satisfy two very different workloads.
+
+![Animated prefill and decode phase KV cache transf
+... [TRUNC]
+
+### FILE search-sglang.md | https://arxiv.org/html/2606.19746v1
+Title:
+
+Content selection saved. Describe the issue below:
+
+Description:
+
+![](https://arxiv.org/static/base/1.0.1/images/icons/smileybones-small.svg)arXiv is now an independent nonprofit! [Learn more](https://info.arxiv.org/about) ×
+
+[License: CC BY 4.0](https://info.arxiv.org/help/license/index.html#licenses-available)
+
+arXiv:2606.19746v1 \[cs.DC\] 18 Jun 2026
+
+# SAC: Disaggregated KV Cache System for    Sparse Attention LLMs with CXL
+
+Ruiyang Ma, Teng Ma, Junru Li, Hantian Zha, Xuchun Shang, Qingda Hu
+Affiliation: Peking University  Alibaba Cloud  Renmin University of China
+Zheng Liu, Xinjun Yang, Tao Ma, Guojie LuoAffiliation:
+
+###### Abstract
+
+The scaling of LLMs toward long-context inference has shifted the primary serving system bottleneck from computation to memory capacity.
+Traditional solutions for dense attention models rely on RDMA-based disaggregated memory pools, which perform coarse-grained fetching of the entire prefix KV cache from remote storage to local memory before decoding.
+However, this approach is fundamentally inefficient for emerging sparse attention models. While only a small fraction of KV entries are active during decoding, these systems still fetch the full KV cache locally, leading to severe transmission bottlenecks and local memory wastage.
+To address this, we propose SAC, the first efficient disaggregated KV cache system optimized for sparse attention models.
+By leveraging the low-latency, cache-line granularity load/store semantics of Compute Express Link (CXL), SAC fetches only the required top-kk KV entries on demand during inference.
+Evaluations on DeepSeek-V3.2 using SGLang show that SAC achieves 2.1×2.1\\times higher throughput, 9.7×9.7\\times lower TTFT, and 1.8×1.8\\times lower TBT compared to RDMA-based baselines, establishing CXL-based disaggregation as the superior infrastructure for emerging sparse attention models.
+
+\*\*footnotetext: This work was done while the author was an intern at Alibaba Cloud.
+
+## 1 Introduction
+
+The rapid scaling of LLM parameters and the growing demand for long-context inference shift the bottleneck from computation to memory, where prefix KV cache management has become a critical challenge i
+... [TRUNC]
+
+### FILE search-sglang.md | https://www.spheron.network/blog/sglang-production-deployment-guide/
+![SGLang Production Deployment Guide: RadixAttention and Multi-Turn Inference on GPU Cloud (2026)](https://www.spheron.network/blog/sglang-production-deployment-guide.webp)
+
+Most inference servers recompute KV cache on every request, even when 80% of the tokens are an identical system prompt or conversation history shared across every turn. SGLang's RadixAttention solves this by caching KV activations in a radix tree and reusing them across requests with shared prefixes, delivering significant TTFT reductions on workloads with 60%+ prefix overlap. If you want a raw engine comparison before committing to SGLang, the [vLLM vs TensorRT-LLM vs SGLang benchmarks](https://www.spheron.network/blog/vllm-vs-tensorrt-llm-vs-sglang-benchmarks/) covers throughput, latency, and VRAM numbers across all three on the same H100. If your workload mixes LLMs with embedding or vision models on the same fleet, [NVIDIA Triton Inference Server](https://www.spheron.network/blog/triton-inference-server-deployment-guide/) handles multi-framework routing natively. If you work with Hugging Face Hub gated models and need native GPTQ/AWQ checkpoint support, the [Hugging Face TGI production deployment guide](https://www.spheron.network/blog/hugging-face-tgi-production-deployment-guide/) covers that engine in the same depth. If you're currently running TGI and need to migrate, the [TGI to SGLang migration guide](https://www.spheron.network/blog/migrate-tgi-to-vllm-sglang-2026/) translates every TGI flag directly to SGLang equivalents with working Docker commands. For a direct throughput and latency comparison against vLLM on the same H100 hardware, see the [vLLM vs SGLang head-to-head benchmark](https://www.spheron.network/blog/vllm-vs-sglang-2026/).
+
+## Why SGLang Wins for Agentic Workloads
+
+Every agent turn arrives carrying a long, mostly-static context: tool definitions, memory state, and prior conversation turns. A standard inference server treats each request as independent and recomputes attention from scratch, including the tokens that haven't changed since the last turn.
+
+RadixAttention changes this. It stores cached attention activations in a radix tree keyed by token sequence. When a
+... [TRUNC]
+
+### FILE search-exl3.md | https://github.com/ml-explore/mlx-lm/issues/980
+[Skip to content](https://github.com/ml-explore/mlx-lm/issues/980#start-of-content)
+
+You signed in with another tab or window. [Reload](https://github.com/ml-explore/mlx-lm/issues/980) to refresh your session.You signed out in another tab or window. [Reload](https://github.com/ml-explore/mlx-lm/issues/980) to refresh your session.You switched accounts on another tab or window. [Reload](https://github.com/ml-explore/mlx-lm/issues/980) to refresh your session.Dismiss alert
+
+{{ message }}
+
+### Uh oh!
+
+There was an error while loading. [Please reload this page](https://github.com/ml-explore/mlx-lm/issues/980).
+
+[ml-explore](https://github.com/ml-explore)/ **[mlx-lm](https://github.com/ml-explore/mlx-lm)** Public
+
+- [Notifications](https://github.com/login?return_to=%2Fml-explore%2Fmlx-lm) You must be signed in to change notification settings
+- [Fork\\
+1k](https://github.com/login?return_to=%2Fml-explore%2Fmlx-lm)
+- [Star\\
+6.8k](https://github.com/login?return_to=%2Fml-explore%2Fmlx-lm)
+
+
+# Prefix cache reuse is broken for all hybrid-architecture models (sliding window, SSM/Mamba)\#980
+
+New issue
+
+Copy link
+
+New issue
+
+Copy link
+
+Closed
+
+Closed
+
+[Prefix cache reuse is broken for all hybrid-architecture models (sliding window, SSM/Mamba)](https://github.com/ml-explore/mlx-lm/issues/980#top)#980
+
+Copy link
+
+## Description
+
+[![@skcadri](https://avatars.githubusercontent.com/u/167440111?u=30449ddde4fca58b961e810b2e70be50bc0bdd63&v=4&size=48)](https://github.com/skcadri)
+
+[skcadri](https://github.com/skcadri)
+
+opened [on Mar 10on Mar 11, 2026](https://github.com/ml-explore/mlx-lm/issues/980#issue-4055121587)
+
+Issue body actions
+
+# Prefix cache reuse is broken for all hybrid-architecture models (sliding window, SSM/Mamba)
+
+## Summary
+
+Prompt prefix caching — the mechanism that reuses computed KV states across requests sharing a common prefix — only works for **pure full-attention models**. Any model using sliding window attention, Mamba/SSM layers, or mixed attention types silently falls back to full prompt recomputation on every request. This makes multi-turn conversations unusably slow for the majority of modern open-weight models.
+
+This is not a single bug but a **syst
+... [TRUNC]
+
+### FILE search-exl3.md | https://docs.vllm.ai/en/v0.24.0/design/v1/prefix_caching.html
+[Skip to content](https://docs.vllm.ai/en/v0.24.0/design/prefix_caching/#automatic-prefix-caching)
+
+[Provide feedback](https://github.com/vllm-project/vllm/issues/new?template=100-documentation.yml&title=%5BDocs%5D%20Feedback%20for%20%60%2Fen%2Fv0.24.0%2Fdesign%2Fprefix_caching%2F%60&body=%F0%9F%93%84%20**Reference%3A**%0Ahttps%3A%2F%2Fdocs.vllm.ai%2Fen%2Fv0.24.0%2Fdesign%2Fprefix_caching%2F%0A%0A%F0%9F%93%9D%20**Feedback%3A**%0A_Your%20response_ "Provide feedback") [Edit this page](https://github.com/vllm-project/vllm/edit/main/docs/design/prefix_caching.md "Edit this page")
+
+# Automatic Prefix Caching [¶](https://docs.vllm.ai/en/v0.24.0/design/prefix_caching/\#automatic-prefix-caching "Permanent link")
+
+Prefix caching kv-cache blocks is a popular optimization in LLM inference to avoid redundant prompt computations. The core idea is simple – we cache the kv-cache blocks of processed requests, and reuse these blocks when a new request comes in with the same prefix as previous requests. Since prefix caching is almost a free lunch and won’t change model outputs, it has been widely used by many public endpoints (e.g., OpenAI, Anthropic, etc.) and most open source LLM inference frameworks (e.g., SGLang).
+
+While there are many ways to implement prefix caching, vLLM chooses a hash-based approach. Specifically, we hash each kv-cache block by the tokens in the block and the tokens in the prefix before the block:
+
+```
+                    Block 1                  Block 2                  Block 3
+         [A gentle breeze stirred] [the leaves as children] [laughed in the distance]
+Block 1: |<--- block tokens ---->|
+Block 2: |<------- prefix ------>| |<--- block tokens --->|
+Block 3: |<------------------ prefix -------------------->| |<--- block tokens ---->|
+```
+
+In the example above, the KV cache in the first block can be uniquely identified with the token “A gentle breeze stirred”. The third block can be uniquely identified with the tokens in the block “laughed in the distance”, along with the prefix tokens “A gentle breeze stirred the leaves as children”. Therefore, we can build the block hash of `hash(tuple[components])`, where components are:
+
+- Parent hash value: The
+... [TRUNC]
+
+### FILE search-exl3.md | https://llm-d.ai/docs/well-lit-paths/foundations/precise-prefix-cache-routing
+[Skip to main content](https://llm-d.ai/docs/well-lit-paths/foundations/precise-prefix-cache-routing#__docusaurus_skipToContent_fallback)
+
+🎉 **llm-d 0.8 is here!** Multimodal, batch & flow-control graduate to production, with broader accelerator support and initial RL. [**See what's new →**](https://llm-d.ai/docs/getting-started/quickstart)
+
+Version: v0.9 (latest)
+
+On this page
+
+The model server is the most accurate source of truth for what's cached on its own GPUs and memory tiers. vLLM, SGLang and NVIDIA TensorRT-LLM publish every cache change as an event; llm-d subscribes to that stream, builds a near-real-time view of resident blocks across the fleet, and scores requests against it. The prefix-affinity score is combined with the standard load-aware scorers, similarly to the [Optimized Baseline](https://llm-d.ai/docs/well-lit-paths/foundations/optimized-baseline) path.
+
+KV-events have become the ecosystem-standard substrate for exposing accurate cache state — where reusable inference state lives and how it changes over time.
+As KV-cache orchestration grows more sophisticated and agentic workloads stretch prefixes longer, cache state becomes something the control plane needs to observe and act on. The same view scales naturally to:
+
+- tier-aware cache tracking across GPU HBM, CPU DRAM, local NVMe, and shared storage;
+- policies that account for explicit prompt-cache placement and dynamic KV-offloading;
+- cache movement and prefetching workflows for fleet-wide KV reuse;
+- advanced KV retention and eviction policies for agentic patterns;
+- hybrid-attention models where layer groups (full, sliding-window, linear) evict independently.
+
+## Deploy [​](https://llm-d.ai/docs/well-lit-paths/foundations/precise-prefix-cache-routing\#deploy "Direct link to Deploy")
+
+See the [precise prefix cache routing guide](https://github.com/llm-d/llm-d/tree/main/guides/precise-prefix-cache-routing) for manifests and step-by-step deployment.
+
+## Architecture [​](https://llm-d.ai/docs/well-lit-paths/foundations/precise-prefix-cache-routing\#architecture "Direct link to Architecture")
+
+The split is straightforward: **model servers** produce KV-events on every cache change; the **llm-d 
+... [TRUNC]
+
+### FILE search-exl3.md | https://docs.nvidia.com/nim/large-language-models/1.7.0/kv-cache-reuse.html
+[Skip to main content](https://docs.nvidia.com/nim/large-language-models/1.7.0/kv-cache-reuse.html#main-content)
+
+Back to top
+
+`⌘` + `K`
+
+[![NVIDIA NIM for Large Language Models (LLMs) - Home](https://docs.nvidia.com/nim/large-language-models/1.7.0/_static/nvidia-logo-horiz-rgb-blk-for-screen.svg)![NVIDIA NIM for Large Language Models (LLMs) - Home](https://docs.nvidia.com/nim/large-language-models/1.7.0/_static/nvidia-logo-horiz-rgb-wht-for-screen.svg)\\
+NVIDIA NIM for Large Language Models (LLMs)](https://docs.nvidia.com/nim/large-language-models/1.7.0/index.html)
+
+- [Documentation Home](https://docs.nvidia.com/nim/)
+
+1.7.0
+
+[3.0.0](https://docs.nvidia.com/nim/large-language-models/3.0.0/kv-cache-reuse.html) [2.0.11](https://docs.nvidia.com/nim/large-language-models/2.0.11/kv-cache-reuse.html) [2.0.10](https://docs.nvidia.com/nim/large-language-models/2.0.10/kv-cache-reuse.html) [2.0.9](https://docs.nvidia.com/nim/large-language-models/2.0.9/kv-cache-reuse.html) [2.0.8](https://docs.nvidia.com/nim/large-language-models/2.0.8/kv-cache-reuse.html) [2.0.7](https://docs.nvidia.com/nim/large-language-models/2.0.7/kv-cache-reuse.html) [2.0.6](https://docs.nvidia.com/nim/large-language-models/2.0.6/kv-cache-reuse.html) [2.0.5](https://docs.nvidia.com/nim/large-language-models/2.0.5/kv-cache-reuse.html) [2.0.4-pb6](https://docs.nvidia.com/nim/large-language-models/2.0.4-pb6/kv-cache-reuse.html) [2.0.4](https://docs.nvidia.com/nim/large-language-models/2.0.4/kv-cache-reuse.html) [2.0.3](https://docs.nvidia.com/nim/large-language-models/2.0.3/kv-cache-reuse.html) [2.0.2](https://docs.nvidia.com/nim/large-language-models/2.0.2/kv-cache-reuse.html) [2.0.1](https://docs.nvidia.com/nim/large-language-models/2.0.1/kv-cache-reuse.html) [1.15.0](https://docs.nvidia.com/nim/large-language-models/1.15.0/kv-cache-reuse.html) [1.14.0](https://docs.nvidia.com/nim/large-language-models/1.14.0/kv-cache-reuse.html) [1.13.0](https://docs.nvidia.com/nim/large-language-models/1.13.0/kv-cache-reuse.html) [1.12.0](https://docs.nvidia.com/nim/large-language-models/1.12.0/kv-cache-reuse.html) [1.11.0](https://docs.nvidia.com/nim/large-language-models/1.11.0/kv-cache-reuse.html) [1.10.0](http
+... [TRUNC]
+
+### FILE search-pd.md | https://docs.vllm.ai/en/latest/features/disagg_prefill/
+[Skip to content](https://docs.vllm.ai/en/latest/features/disagg_prefill/#disaggregated-prefilling-experimental)
+
+[Provide feedback](https://github.com/vllm-project/vllm/issues/new?template=100-documentation.yml&title=%5BDocs%5D%20Feedback%20for%20%60%2Fen%2Flatest%2Ffeatures%2Fdisagg_prefill%2F%60&body=%F0%9F%93%84%20**Reference%3A**%0Ahttps%3A%2F%2Fdocs.vllm.ai%2Fen%2Flatest%2Ffeatures%2Fdisagg_prefill%2F%0A%0A%F0%9F%93%9D%20**Feedback%3A**%0A_Your%20response_ "Provide feedback") [Edit this page](https://github.com/vllm-project/vllm/edit/main/docs/features/disagg_prefill.md "Edit this page")
+
+# Disaggregated Prefilling (experimental) [¶](https://docs.vllm.ai/en/latest/features/disagg_prefill/\#disaggregated-prefilling-experimental "Permanent link")
+
+This page introduces you to the disaggregated prefilling feature in vLLM.
+
+Note
+
+This feature is experimental and subject to change.
+
+## Why disaggregated prefilling? [¶](https://docs.vllm.ai/en/latest/features/disagg_prefill/\#why-disaggregated-prefilling "Permanent link")
+
+Two main reasons:
+
+- **Tuning time-to-first-token (TTFT) and inter-token-latency (ITL) separately**. Disaggregated prefilling put prefill and decode phase of LLM inference inside different vLLM instances. This gives you the flexibility to assign different parallel strategies (e.g. `tp` and `pp`) to tune TTFT without affecting ITL, or to tune ITL without affecting TTFT.
+- **Controlling tail ITL**. Without disaggregated prefilling, vLLM may insert some prefill jobs during the decoding of one request. This results in higher tail latency. Disaggregated prefilling helps you solve this issue and control tail ITL. Chunked prefill with a proper chunk size also can achieve the same goal, but in practice it's hard to figure out the correct chunk size value. So disaggregated prefilling is a much more reliable way to control tail ITL.
+
+Note
+
+Disaggregated prefill DOES NOT improve throughput.
+
+## Usage example [¶](https://docs.vllm.ai/en/latest/features/disagg_prefill/\#usage-example "Permanent link")
+
+Now supports 9 types of connectors:
+
+- **ExampleConnector**: refer to [examples/disaggregated/example\_connector/run.sh](https://github.com/vllm-project/vllm
+... [TRUNC]
+
+### FILE search-pd.md | https://vllm.ai/blog/2026-04-07-moriio-kv-connector
+Menu
+
+Theme
+
+Table of Contents
+
+**TL;DR:** Prefill and decode fight over the same GPUs, causing ITL spikes under load. We show how to disaggregate them on a single 8-GPU MI300X node using AMD's MORI-IO connector — achieving **2.5x higher goodput** compared to standard collocated serving on the same 8 GPUs, with stable token generation. Benchmark uses Qwen3-235B-A22B-FP8 at 8 req/s with 2000-token prompts and 1000-token outputs — see Table 3 and [Experimental Details](https://vllm.ai/blog/2026-04-07-moriio-kv-connector#experimental-details) for full configuration.
+
+* * *
+
+## Introduction
+
+In our previous exploration of MoE optimization [\[1\]](https://vllm.ai/blog/2026-04-07-moriio-kv-connector#ref-1), we walked through distributing a massive model across an 8-GPU AMD Instinct MI300X node using Tensor, Pipeline, Data, and Expert Parallelism. In this blog, we show how Prefill-Decode disaggregation — enabled by AMD's MORI-IO — addresses this bottleneck, delivering higher goodput and more predictable performance without requiring a multi-node cluster.
+
+Your HBM is fully utilized, your compute is well balanced, and your vLLM deployment is running smoothly — until you increase concurrency. Then things start to break down: Inter-Token Latency (ITL) spikes unpredictably. The root cause is simple — prefill and decode are fundamentally different workloads competing for the same GPU resources.
+
+**Prefill is compute-bound**: it processes the entire prompt in parallel using large GEMMs, with cost scaling directly with input length.
+
+**Decode is memory-bandwidth-bound**: it generates tokens one at a time, repeatedly loading model weights from HBM with relatively low compute per byte.
+
+When both phases share the same instance, they interfere with each other. Prefill requests can block dozens of ongoing decode streams, leading to visible stuttering, while decode workloads delay the scheduling of new prefills. The result is a system where neither phase runs efficiently nor predictably.
+
+* * *
+
+## Key Highlights
+
+- **2.5× Higher Goodput on the Same Hardware**. Achieves significantly higher SLO-compliant throughput on a single 8-GPU MI300X node by separating prefill and decode.
+
+-
+... [TRUNC]
+
+### FILE search-pd.md | https://www.spheron.network/blog/prefill-decode-disaggregation-gpu-cloud/
+![Prefill-Decode Disaggregation on GPU Cloud: Split LLM Inference for 2x Throughput (2026 Guide)](https://www.spheron.network/blog/prefill-decode-disaggregation-gpu-cloud.webp)
+
+Most LLM serving guides treat inference as one thing. It is not. There are two phases with opposite hardware requirements, and running them on the same GPU means both are running slower than they have to.
+
+Disaggregating prefill and decode onto separate GPUs fixes that. This is an advanced inference engineering technique. If you are new to the discipline, start with our [inference engineering guide](https://www.spheron.network/blog/inference-engineering-guide-2026/) first. Here is how disaggregation works, when it is worth doing, and how to set it up with vLLM or SGLang on Spheron's GPU cloud.
+
+## Why Prefill and Decode Pull in Opposite Directions
+
+When you send a prompt to an LLM, two things happen in sequence:
+
+**Prefill**: the model processes your entire input prompt in one forward pass. Every token in the prompt attends to every other token. This is a dense matrix multiply operation. It is compute-bound: the limiting factor is raw FLOPS (floating-point operations per second), not memory bandwidth.
+
+**Decode**: the model generates output tokens one at a time. Each new token needs to read the key-value vectors for every previously generated token from memory. This is memory-bound: the GPU spends most of its time loading KV cache tensors, not computing.
+
+| Phase | Bottleneck | Ideal GPU | What wastes capacity |
+| --- | --- | --- | --- |
+| Prefill | FP8 TFLOPS | H100, B200, B300 | Sitting idle waiting for decode |
+| Decode | HBM bandwidth (TB/s) | H200 (4.8 TB/s) | Stalled by prefill monopolizing GPU |
+
+When both phases share the same GPU, prefill jobs block decode batches from continuing. A long 32K-token prompt arriving mid-generation stalls every other user in the queue. This head-of-line blocking is the core problem disaggregation solves.
+
+For a deeper look at how KV cache memory math constrains decode, see our [KV Cache Optimization guide](https://www.spheron.network/blog/kv-cache-optimization-guide/).
+
+For a practical guide on running prefill and decode on different GPU models to r
+... [TRUNC]
+
+### FILE search-pd.md | https://arxiv.org/html/2507.06608v5
+Title:
+
+Content selection saved. Describe the issue below:
+
+Description:
+
+![](https://arxiv.org/static/base/1.0.1/images/icons/smileybones-small.svg)arXiv is now an independent nonprofit! [Learn more](https://info.arxiv.org/about) ×
+
+[License: arXiv.org perpetual non-exclusive license](https://info.arxiv.org/help/license/index.html#licenses-available)
+
+arXiv:2507.06608v5 \[cs.DC\] 07 Aug 2025
+
+# Nexus: Proactive Intra-GPU Disaggregation of Prefill and Decode in LLM Serving
+
+Xiaoxiang Shi
+Note: Both authors contributed equally to this work.
+email: [lambda7xx@gmail.com](mailto:lambda7xx@gmail.com)Affiliation: Independent Researcher, Colin Cai
+email: [cai9@berkeley.edu](mailto:cai9@berkeley.edu)Affiliation: Independent Researcher, Junjia Du
+email: [junjia001@e.ntu.edu.sg](mailto:junjia001@e.ntu.edu.sg)Affiliation: Nanyang Technological University and Zhihao Jia
+email: [zhihao@cmu.edu](mailto:zhihao@cmu.edu)Affiliation: Carnegie Mellon University
+
+###### Abstract.
+
+Current prefill–decode (PD) disaggregation is typically deployed at the level of entire serving engines111
+
+
+
+We use the term serving engine to denote a unit of GPUs that manages exactly one complete copy of the model weights., assigning separate GPUs to handle prefill and decode phases. While effective at reducing latency, this approach demands more hardware. To improve GPU utilization, Chunked Prefill mixes prefill and decode requests within the same batch, but introduces phase interference between prefill and decode.
+
+While existing PD disaggregation solutions separate the phases across GPUs, we ask: can the same decoupling be achieved within a single serving engine? The key challenge lies in managing the conflicting resource requirements of prefill and decode when they share the same hardware. In this paper, we first show that chunked-prefill requests cause interference with decode requests due to their distinct requirements for GPU resource. Second, we find that GPU resource exhibits diminishing returns—beyond a saturation point, increasing GPU allocation yields negligible latency improvements. This insight enables us to split a single GPU’s resources and dynamically allocate them to prefill and deco
+... [TRUNC]
+
+### FILE search-kvshare.md | https://github.com/vllm-project/vllm/issues/45702
+[Skip to content](https://github.com/vllm-project/vllm/issues/45702#start-of-content)
+
+You signed in with another tab or window. [Reload](https://github.com/vllm-project/vllm/issues/45702) to refresh your session.You signed out in another tab or window. [Reload](https://github.com/vllm-project/vllm/issues/45702) to refresh your session.You switched accounts on another tab or window. [Reload](https://github.com/vllm-project/vllm/issues/45702) to refresh your session.Dismiss alert
+
+{{ message }}
+
+### Uh oh!
+
+There was an error while loading. [Please reload this page](https://github.com/vllm-project/vllm/issues/45702).
+
+[vllm-project](https://github.com/vllm-project)/ **[vllm](https://github.com/vllm-project/vllm)** Public
+
+- Sponsor
+
+
+
+
+
+
+
+# Sponsor vllm-project/vllm
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### GitHub Sponsors
+
+[Learn more about Sponsors](https://github.com/sponsors)
+
+
+
+
+
+
+
+[![@vllm-project](https://avatars.githubusercontent.com/u/136984999?s=80&v=4)](https://github.com/vllm-project)
+
+
+
+[vllm-project](https://github.com/vllm-project)
+
+
+
+[vllm-project](https://github.com/vllm-project)
+
+
+
+[Sponsor](https://github.com/sponsors/vllm-project)
+
+
+
+
+
+
+
+
+
+##### External links
+
+
+
+
+
+![open_collective](https://github.githubassets.com/assets/open_collective-0a706523753d.svg)
+
+
+
+[opencollective.com/ **vllm**](https://opencollective.com/vllm)
+
+
+
+
+
+
+
+
+
+[Learn more about funding links in repositories](https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository).
+
+
+
+
+[Report abuse](https://github.com/contact/report-abuse?report=vllm-project%2Fvllm+%28Repository+Funding+Links%29)
+
+- [Notifications](https://github.com/login?return_to=%2Fvllm-project%2Fvllm) You must be signed in to change notification settings
+- [Fork\\
+21.4k](https://github.com/login?return_to=%2Fvllm-project%2Fvllm)
+- [Star\\
+90.4k](https://github.com/login?return_to=%2Fvllm-project%2Fvllm)
+
+
+# \[RFC\]: Partial Cache Hits for Hybrid Models\#45702
+
+[New issue](https://github.com/login?return_to=https://github.com/vllm-project/vllm/issues/45702)
+
+Copy link
+
+[New issue](https://github.com/login?return_to=https://github
+... [TRUNC]
+
+### FILE search-kvshare.md | https://docs.vllm.ai/en/v0.6.0/automatic_prefix_caching/details.html
+[Skip to main content](https://docs.vllm.ai/en/v0.6.0/automatic_prefix_caching/details.html#main-content)
+
+ Back to top
+
+
+`Ctrl` + `K`
+
+[![vLLM - Home](https://docs.vllm.ai/en/v0.6.0/_static/vllm-logo-text-light.png)![vLLM - Home](https://docs.vllm.ai/en/v0.6.0/_static/vllm-logo-text-light.png)](https://docs.vllm.ai/en/v0.6.0/index.html)
+
+- [Repository](https://github.com/vllm-project/vllm)
+- [Suggest edit](https://github.com/vllm-project/vllm/edit/main/docs/source/automatic_prefix_caching/details.md)
+
+- [.md](https://docs.vllm.ai/en/v0.6.0/_sources/automatic_prefix_caching/details.md)
+- .pdf
+
+# Implementation
+
+## Contents
+
+# Implementation [\#](https://docs.vllm.ai/en/v0.6.0/automatic_prefix_caching/details.html\#implementation "Permalink to this heading")
+
+The core idea of PagedAttention is to partition the KV cache of each request into KV Blocks. Each block contains the attention keys and values for a fixed number of tokens. The PagedAttention algorithm allows these blocks to be stored in non-contiguous physical memory so that we can eliminate memory fragmentation by allocating the memory on demand.
+
+To automatically cache the KV cache, we utilize the following key observation: Each KV block can be uniquely identified by the tokens within the block and the tokens in the prefix before the block.
+
+```
+                    Block 1                  Block 2                  Block 3
+         [A gentle breeze stirred] [the leaves as children] [laughed in the distance]
+Block 1: |<--- block tokens ---->|
+Block 2: |<------- prefix ------>| |<--- block tokens --->|
+Block 3: |<------------------ prefix -------------------->| |<--- block tokens ---->|
+```
+
+Copy to clipboard
+
+In the example above, the KV cache in the first block can be uniquely identified with the tokens “A gentle breeze stirred”. The third block can be uniquely identified with the tokens in the block “laughed in the distance”, along with the prefix tokens “A gentle breeze stirred the leaves as children”. Therefore, we can build the following one-to-one mapping:
+
+```
+hash(prefix tokens + block tokens) <--> KV Block
+```
+
+Copy to clipboard
+
+With this mapping, we can add another indirection in vLLM’s KV cache 
+... [TRUNC]
+
+### FILE search-kvshare.md | https://arxiv.org/html/2604.17249v2
+Title:
+
+Content selection saved. Describe the issue below:
+
+Description:
+
+![](https://arxiv.org/static/base/1.0.1/images/icons/smileybones-small.svg)arXiv is now an independent nonprofit! [Learn more](https://info.arxiv.org/about) ×
+
+[License: arXiv.org perpetual non-exclusive license](https://info.arxiv.org/help/license/index.html#licenses-available)
+
+arXiv:2604.17249v2 \[cs.CR\] 07 Jun 2026
+
+# Bit-Flip Vulnerability of Shared KV-Cache Blocks   in LLM Serving Systems
+
+Yuji Yamamoto1 and Satoshi Matsuura1
+
+1Institute of Science Tokyo, Tokyo, Japan
+
+yamamoto.y.dd03@m.isct.ac.jp, matsuura@cii.isct.ac.jp
+
+###### Abstract
+
+Rowhammer on GPU DRAM has enabled adversarial bit flips in model
+weights; shared KV-cache blocks in LLM serving systems present an
+analogous but previously unexamined target. In vLLM’s Prefix Caching, these
+blocks exist as a single physical copy without integrity protection.
+Using software fault injection under ideal bit targeting, we
+characterize worst-case severity and identify three properties:
+(1) Silent divergence—13 of 16 BF16 bit positions produce coherent
+but altered outputs, indistinguishable from legitimate responses
+without a clean baseline.
+(2) Selective propagation—only requests sharing the targeted prefix
+are affected.
+(3) Persistent accumulation—no temporal decay occurs, so cumulative
+damage grows linearly with subsequent requests.
+Together, these constitute a threat profile distinct from weight
+corruption: silent divergence and selective propagation enable
+detection evasion; persistent accumulation then proceeds unchecked,
+yielding damage amplification bounded only by how long the block
+remains cached.
+A checksum-based countermeasure detects any single-bit corruption at
+scheduling time, bounding cumulative damage to one batch
+independent of the block’s cache lifetime, with negligible overhead.
+These results argue for integrity protection of prefix blocks
+before end-to-end exploitation is demonstrated.
+
+## 1 INTRODUCTION
+
+As large language models (LLMs) are increasingly deployed as
+production inference services, caching key–value (KV) tensors in GPU
+memory—so that requests sharing a common prompt prefix need not
+recompute them—has b
+... [TRUNC]
+
+### FILE search-kvshare.md | https://llm-d.ai/blog/kvcache-wins-you-can-see
+[Skip to main content](https://llm-d.ai/blog/kvcache-wins-you-can-see#__docusaurus_skipToContent_fallback)
+
+🎉 **llm-d 0.8 is here!** Multimodal, batch & flow-control graduate to production, with broader accelerator support and initial RL. [**See what's new →**](https://llm-d.ai/docs/getting-started/quickstart)
+
+The llm-d project provides a series of “well-lit paths” - tested, benchmarked solutions for deploying large language models in production. Our first path, [**Intelligent Inference Scheduling**](https://llm-d.ai/blog/intelligent-inference-scheduling-with-llm-d), established a baseline for AI-aware routing by balancing both cluster load and prefix-cache affinities. The default configuration for that path uses an _approximate_ method for the latter, predicting cache locality based on request traffic.
+
+This blog illuminates a more advanced and powerful path: [**precise prefix-cache aware scheduling**](https://llm-d.ai/docs/dev/well-lit-paths/foundations/precise-prefix-cache-routing).
+
+We take a deep dive into the next generation of this feature, which moves beyond prediction and gives the scheduler direct introspection into distributed vLLM caches. This precision is key to maximizing cache hit rates and achieving a new level of performance and maximizing cost-efficiency in your distributed deployments.
+
+Blog key takeaways
+
+- **KV-cache hit rates directly impact your bottom line**: With **10x cost differences** between cached and uncached tokens, cache efficiency isn't just a performance optimization — it's a fundamental cost and performance driver
+- **This isn't theoretical**: Real production workloads like conversational AI and agentic workflows naturally create the prefix-heavy patterns where this approach excels
+- **vLLM's prefix caching breaks in distributed deployments**: Standard load balancers scatter related requests across pods, destroying cache locality and forcing expensive re-computation
+- **Precise prefix-cache aware scheduling delivers order-of-magnitude gains**: Our benchmarks show **57x faster response** times and **double the throughput** on identical hardware
+
+## **The Most Important Metric in Production AI** [​](https://llm-d.ai/blog/kvcach
+... [TRUNC]
+

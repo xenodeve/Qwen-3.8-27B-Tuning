@@ -1,0 +1,20 @@
+﻿{
+    "cuda_visible":  "GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4,GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e",
+    "tb":  20,
+    "fit":  "off",
+    "exe_version":  "0.4.1-dev (build 5, commit 1c6af3af)",
+    "exe":  "C:\\AI\\llama.cpp-flash-vnni-cache\\bin\\llama-server.exe",
+    "ctx":  131072,
+    "model":  "C:\\AI\\models\\ISTA-DASLab-Qwen3.8-Flash-Next-GSQ-RCO\\Q2_0\\Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf",
+    "ts":  "31,17",
+    "t":  14,
+    "run_id":  "D-C-128k-n26",
+    "lazy":  "on",
+    "lm":  "mmap",
+    "b":  2048,
+    "sm":  "layer",
+    "kv":  "q4_0",
+    "ncmoe":  26,
+    "ub":  1024,
+    "exe_sha256":  "a04d3ed5cd1838fd072554cc0c9b58f2c478f94a0ac5474c6fb3d06b001b1aee"
+}

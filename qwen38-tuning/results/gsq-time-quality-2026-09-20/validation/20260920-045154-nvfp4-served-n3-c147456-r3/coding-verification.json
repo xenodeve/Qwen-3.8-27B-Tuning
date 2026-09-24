@@ -1,0 +1,30 @@
+[
+  {
+    "case": "session-lfu_cache",
+    "passed": false,
+    "exit_code": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 60, in <module>\n  File \"<string>\", line 56, in put\n  File \"<string>\", line 22, in _insert\nTypeError: 'int' object does not support item assignment\n",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-045154-nvfp4-served-n3-c147456-r3\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": false,
+    "status": "functional-failure",
+    "verification_s": 0.06262419999984559,
+    "time_spent_s": 29.765393200003018,
+    "single_call_verified_task_s": null
+  },
+  {
+    "case": "session-tree_codec",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-045154-nvfp4-served-n3-c147456-r3\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "status": "accepted",
+    "verification_s": 0.06399940000119386,
+    "time_spent_s": 53.17205520000425,
+    "single_call_verified_task_s": 53.17205520000425
+  }
+]

@@ -1,0 +1,15 @@
+[
+  {
+    "case": "known-wrong",
+    "passed": false,
+    "exit_code": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 4, in <module>\nAssertionError\n",
+    "source": ".codex\\gsq-scorer-check\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": false,
+    "verification_s": 0.06095290000303066,
+    "time_spent_s": 2.0609529000030307,
+    "single_call_verified_task_s": null
+  }
+]

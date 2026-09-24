@@ -11,12 +11,23 @@ holds real lines from the day's pages as negatives).
 
 server.py feeds every text chunk through `feed()`; on True it cancels the job and
 finishes the stream with finish_reason "length" and stop_reason "loop".
+
+Issue #86: the 512-character trip is too slow for a Thai-script micro-loop (a
+ว้-style run needs stopping in tens of characters, not hundreds). A trailing
+run of Thai-block characters with at most MAX_DISTINCT distinct characters
+trips at THAI_MICRO_WINDOW. ASCII dividers (spaces, `|`, punctuation) neither
+trip it nor shield it: they are skipped, and only a real run of non-Thai text
+(NON_THAI_RESET consecutive characters) resets the Thai tail.
 """
 import re
 
 WINDOW = 512
 MAX_DISTINCT = 2
 MAX_PERIOD = 8
+THAI = re.compile(r"[ก-๛]")   # Thai block: consonants, vowels, tone marks, digits, symbols
+THAI_MICRO_WINDOW = 64        # issue #86: a Thai-script micro-loop trips here, not at 512
+THAI_MICRO_DISTINCT = 2       # same bar as the main rule; normal Thai prose is far above it
+NON_THAI_RESET = 16           # ASCII dividers never run this long; a language switch does
 THINK_WINDOW = 4096       # the sentence-loop rule, thinking only (19:03: a 3-sentence cycle, 127,996 tokens)
 THINK_UNIT = 64
 THINK_REPEATS = 8
@@ -27,15 +38,20 @@ PROSE_UNIT = re.compile(r"^[^<>{}|`]+$")
 
 class LoopGuard:
     def __init__(self, window = WINDOW, max_distinct = MAX_DISTINCT, max_period = MAX_PERIOD,
-                 think_window = THINK_WINDOW, think_unit = THINK_UNIT, think_repeats = THINK_REPEATS):
+                 think_window = THINK_WINDOW, think_unit = THINK_UNIT, think_repeats = THINK_REPEATS,
+                 thai_micro_window = THAI_MICRO_WINDOW, thai_micro_distinct = THAI_MICRO_DISTINCT):
         self.window = window
         self.max_distinct = max_distinct
         self.max_period = max_period
         self.think_window = think_window
         self.think_unit = think_unit
         self.think_repeats = think_repeats
+        self.thai_micro_window = thai_micro_window
+        self.thai_micro_distinct = thai_micro_distinct
         self.tail = ""
         self.think_tail = ""
+        self.thai_tail = ""       # issue #86: trailing Thai-block characters only
+        self.non_thai_run = 0     # issue #86: consecutive non-Thai, non-space characters
         self.n_chars = 0
         self.reason = None
 
@@ -49,6 +65,21 @@ class LoopGuard:
             return False
         self.n_chars += len(chunk)
         self.tail = (self.tail + chunk)[-self.window:]
+        for ch in chunk:   # issue #86: Thai micro-loop fast path
+            if THAI.match(ch):
+                self.thai_tail = (self.thai_tail + ch)[-self.thai_micro_window:]
+                self.non_thai_run = 0
+            elif ch.isspace():
+                pass   # dividers and spacing neither trip the Thai rule nor reset it
+            else:
+                self.non_thai_run += 1
+                if self.non_thai_run >= NON_THAI_RESET:
+                    self.thai_tail = ""
+        if (len(self.thai_tail) >= self.thai_micro_window
+                and len(set(self.thai_tail)) <= self.thai_micro_distinct):
+            self.reason = (f"{len(set(self.thai_tail))} distinct Thai-script characters "
+                           f"in the last {self.thai_micro_window}")
+            return True
         if in_think:
             self.think_tail = (self.think_tail + chunk)[-self.think_window:]
             if len(self.think_tail) >= self.think_window:

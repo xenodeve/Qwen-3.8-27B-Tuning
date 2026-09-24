@@ -58,6 +58,7 @@ import re
 import socket
 import threading
 import time
+import uuid
 
 # Header lines whose VALUE must never reach a capture file. Matched at the start
 # of a line, case-insensitively, in the request direction only.
@@ -86,8 +87,15 @@ class _Redactor:
 
     def __init__(self):
         self._tail = b""
+        self._discard_secret = False
 
     def feed(self, data):
+        if self._discard_secret:
+            end = data.find(b"\n")
+            if end < 0:
+                return b""
+            data = data[end + 1:]
+            self._discard_secret = False
         buf = self._tail + data
         out = []
         while True:
@@ -102,14 +110,20 @@ class _Redactor:
         # A partial line is held back: the secret may straddle the boundary.
         # Cap it so an SSE body with no newline cannot grow without limit.
         if len(buf) > 1 << 20:
-            out.append(buf)
+            match = _SECRET_LINE.match(buf)
+            if match:
+                out.append(match.group(0) + b"[REDACTED]\r\n")
+                self._discard_secret = True
+            else:
+                out.append(buf)
             buf = b""
         self._tail = buf
         return b"".join(out)
 
     def flush(self):
         tail, self._tail = self._tail, b""
-        return tail
+        match = _SECRET_LINE.match(tail)
+        return match.group(0) + b"[REDACTED]" if match else tail
 
 
 class Tap:
@@ -122,18 +136,24 @@ class Tap:
         self.upstream_host = upstream_host
         self.listen_host = listen_host
         self.out_dir = out_dir
+        self.session_id = uuid.uuid4().hex
         self._n = 0
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._sock = None
         self._thread = None
+        self._workers = []
+        self._connections = set()
+        self.capture_errors = []
 
     def start(self):
         os.makedirs(self.out_dir, exist_ok=True)
         self._sock = socket.socket()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.bind((self.listen_host, self.listen_port))
+        self.listen_port = self._sock.getsockname()[1]
         self._sock.listen(64)
+        self._sock.settimeout(0.2)
         self._thread = threading.Thread(target=self._accept, daemon=True)
         self._thread.start()
         return self
@@ -144,21 +164,41 @@ class Tap:
             self._sock.close()
         except (OSError, AttributeError):
             pass
+        if self._thread:
+            self._thread.join(timeout=2)
+        with self._lock:
+            sockets = list(self._connections)
+            workers = list(self._workers)
+        for sock in sockets:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            sock.close()
+        deadline = time.monotonic() + 5
+        for worker in workers:
+            worker.join(timeout=max(0, deadline - time.monotonic()))
+        if any(worker.is_alive() for worker in workers):
+            raise RuntimeError("capture workers did not stop; evidence incomplete")
 
     def _accept(self):
         while not self._stop.is_set():
             try:
                 client, _ = self._sock.accept()
+            except socket.timeout:
+                continue
             except OSError:
                 return
             with self._lock:
                 self._n += 1
                 n = self._n
-            threading.Thread(target=self._session, args=(client, n),
-                             daemon=True).start()
+                self._connections.add(client)
+                worker = threading.Thread(target=self._session, args=(client, n), daemon=True)
+                self._workers.append(worker)
+                worker.start()
 
     def _session(self, client, n):
-        base = os.path.join(self.out_dir, "%04d" % n)
+        base = os.path.join(self.out_dir, "%s-%04d" % (self.session_id, n))
         try:
             up = socket.create_connection(
                 (self.upstream_host, self.upstream_port), timeout=30)
@@ -168,24 +208,49 @@ class Tap:
             # client that retried on it would be measuring us.
             client.close()
             return
+        with self._lock:
+            self._connections.add(up)
         up.settimeout(None)
         client.settimeout(None)
         done = threading.Event()
+        errors = []
         a = threading.Thread(target=self._pump, daemon=True, args=(
-            client, up, base + ".req.bin", _Redactor(), None, done))
+            client, up, base + ".req.bin", _Redactor(), None, threading.Event(), errors))
         b = threading.Thread(target=self._pump, daemon=True, args=(
-            up, client, base + ".rsp.bin", None, base + ".rsp.idx", done))
+            up, client, base + ".rsp.bin", _Redactor(), base + ".rsp.idx", done, errors))
         a.start()
         b.start()
         done.wait()
         for s in (client, up):
             try:
-                s.close()
+                s.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
+            s.close()
+        a.join(timeout=5)
+        b.join(timeout=5)
+        if a.is_alive() or b.is_alive():
+            errors.append("pump_join_timeout")
+        with self._lock:
+            self._connections.discard(client)
+            self._connections.discard(up)
+        metadata = {"session_id": self.session_id, "connection": n,
+                    "state": "failed" if errors else "closed",
+                    "capture_errors": errors,
+                    "transport_closed": True,
+                    "protocol_completeness": "requires_reader_validation"}
+        try:
+            with open(base + ".meta.json.tmp", "x", encoding="utf-8") as out:
+                json.dump(metadata, out)
+                out.flush()
+                os.fsync(out.fileno())
+            os.replace(base + ".meta.json.tmp", base + ".meta.json")
+        except OSError as error:
+            errors.append("metadata:" + type(error).__name__)
+        self.capture_errors.extend(errors)
 
     @staticmethod
-    def _pump(src, dst, record, redactor, index, done):
+    def _pump(src, dst, record, redactor, index, done, errors):
         t0 = time.monotonic()
         try:
             with open(record, "wb") as fh:
@@ -211,11 +276,12 @@ class Tap:
                         # ever raises, the traffic has already gone; the
                         # instrument fails without taking the thing it measures
                         # with it.
+                        received_at = time.monotonic() - t0
                         dst.sendall(data)
                         fh.write(redactor.feed(data) if redactor else data)
                         if idx:
                             idx.write(json.dumps(
-                                {"t": round(time.monotonic() - t0, 6),
+                                {"t": round(received_at, 6),
                                  "n": len(data)}) + "\n")
                             idx.flush()
                         fh.flush()
@@ -224,8 +290,8 @@ class Tap:
                         fh.write(redactor.flush())
                     if idx:
                         idx.close()
-        except OSError:
-            pass
+        except OSError as error:
+            errors.append(os.path.basename(record) + ":" + type(error).__name__)
         finally:
             try:
                 dst.shutdown(socket.SHUT_WR)

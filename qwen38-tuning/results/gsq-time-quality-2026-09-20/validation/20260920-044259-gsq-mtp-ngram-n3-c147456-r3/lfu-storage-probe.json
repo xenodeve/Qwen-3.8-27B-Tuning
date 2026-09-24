@@ -1,0 +1,7 @@
+{
+  "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-044259-gsq-mtp-ngram-n3-c147456-r3\\responses.jsonl",
+  "kind": "additional storage-retention observation; not a retroactive functional-score change",
+  "exit_code": 0,
+  "stdout": "{\"before_slots\": 9, \"after_slots\": 9, \"growth_slots\": 0}\n",
+  "stderr": ""
+}

@@ -1,0 +1,5 @@
+arm,work,temp,rep,wall_s,prompt_n,predicted_n,predicted_per_second,draft_n,draft_n_accepted,accept_rate,eff_tps
+mtp-probe3,rep,1.0,1,66.61,1055,1016,24.18,680,676,0.994,24.2
+mtp-probe3,rep,0.0,1,46.57,1055,1016,23.88,680,676,0.994,23.91
+mtp-probe3,new,1.0,1,30.03,51,512,17.65,420,300,0.714,17.69
+mtp-probe3,new,0.0,1,26.44,51,512,20.01,374,324,0.866,20.05

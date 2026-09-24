@@ -45,9 +45,9 @@
     "hidden_last": "7 passed in 0.01s",
     "hidden_passed": 7,
     "hidden_failed": 0,
-    "test_runs_seen": 4,
-    "red_then_green": true,
-    "score": "5/5"
+    "test_runs_seen": 2,
+    "red_then_green": false,
+    "score": "4/5"
   },
   "server_evidence": {
     "requests": 11,

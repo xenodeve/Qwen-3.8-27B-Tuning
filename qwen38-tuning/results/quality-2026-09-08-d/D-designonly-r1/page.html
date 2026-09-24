@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — Organize the world's information</title>
+<meta name="description" content="Google's mission is to organize the world's information and make it universally accessible and useful. Explore Search, Workspace, Android, and Gemini." />
+
+<!-- Open Graph / social sharing (design-audit: 0s–5s) -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Google — Organize the world's information" />
+<meta property="og:description" content="Search, Workspace, Android, and Gemini. One mission: make the world's information universally accessible and useful." />
+<meta property="og:image" content="/og-preview.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<!--
+  DESIGN SYSTEM
+  Aesthetic: Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid
+  Type:   Fraunces (display serif) + Archivo (structure/body) + Space Mono (technical annotation only)
+  Scale:  Major Third 1.25x, base 16px
+  Color:  60% warm paper · 30% ink/surfaces · 10% Google blue accent
+  Grid:   12-col, visible as faint column lines, 8pt spacing rhythm
+  Space Mono is used strictly as a Swiss "coordinate / index" annotation layer,
+  not a competing text face.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  /* 60% — dominant neutrals */
+  --paper:#F4F3EF;
+  --paper-2:#ECEAE3;
+  --white:#FFFFFF;
+
+  /* 30% — ink + secondary surfaces */
+  --ink:#141416;
+  --ink-soft:#54545B;
+  --ink-faint:#8B8B93;
+  --line:rgba(20,20,22,.12);
+  --line-faint:rgba(20,20,22,.055);
+
+  /* 10% — accent + Google brand micro-accents */
+  --blue:#1A73E8;
+  --blue-deep:#1557B0;
+  --g-blue:#4285F4;
+  --g-red:#EA4335;
+  --g-yellow:#FBBC05;
+  --g-green:#34A853;
+
+  /* liquid glass */
+  --glass:rgba(255,255,255,.55);
+  --glass-strong:rgba(255,255,255,.72);
+  --glass-border:rgba(255,255,255,.75);
+
+  /* type scale — Major Third 1.25x from 16px */
+  --s-1:1rem;        /* 16 */
+  --s-2:1.25rem;     /* 20 */
+  --s-3:1.5625rem;   /* 25 */
+  --s-4:1.953rem;    /* 31.25 */
+  --s-5:2.441rem;    /* 39 */
+  --s-6:3.052rem;    /* 48.8 */
+  --s-7:3.815rem;    /* 61 */
+
+  --font-display:"Fraunces", Georgia, serif;
+  --font-sans:"Archivo", system-ui, sans-serif;
+  --font-mono:"Space Mono", ui-monospace, monospace;
+
+  --ease:cubic-bezier(.22,.7,.24,1);
+  --pad:clamp(20px,4vw,48px);
+  --maxw:1280px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:var(--s-1);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+img,svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--blue);color:#fff}
+
+/* ============================================================
+   VISIBLE GRID  (Swiss motif — 12 columns, faint, full-height)
+   ============================================================ */
+.container{
+  position:relative;
+  max-width:var(--maxw);
+  margin:0 auto;
+  padding:0 var(--pad);
+}
+.gridlines{
+  position:absolute;
+  inset:0 var(--pad);
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  pointer-events:none;
+  z-index:0;
+}
+.gridlines i{border-left:1px solid var(--line-faint)}
+.gridlines i:last-child{border-right:1px solid var(--line-faint)}
+
+/* 12-col content utility — same width as gridlines so they align */
+.cols{display:grid;grid-template-columns:repeat(12,1fr);position:relative;z-index:1}
+
+/* ============================================================
+   TYPE
+   ============================================================ */
+.display{
+  font-family:var(--font-display);
+  font-weight:500;
+  letter-spacing:-0.025em;      /* headline pro hack: -2.5% tracking */
+  line-height:1.04;             /* 104–112% leading */
+  font-optical-sizing:auto;
+}
+.mono{
+  font-family:var(--font-mono);
+  font-size:.72rem;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+}
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:.72rem;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  display:inline-flex;align-items:center;gap:12px;
+}
+.eyebrow::before{content:"";width:28px;height:1px;background:var(--ink-soft);opacity:.5}
+
+/* four-color signature rule */
+.quad{display:inline-flex;height:3px;width:56px;border-radius:2px;overflow:hidden;flex:none}
+.quad i{flex:1}
+.quad i:nth-child(1){background:var(--g-blue)}
+.quad i:nth-child(2){background:var(--g-red)}
+.quad i:nth-child(3){background:var(--g-yellow)}
+.quad i:nth-child(4){background:var(--g-green)}
+
+/* ============================================================
+   BUTTONS — 4 states (default / hover / active / disabled)
+   ============================================================ */
+.btn{
+  --h:48px;
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  min-height:var(--h);
+  padding:0 28px;
+  font-family:var(--font-sans);
+  font-weight:600;font-size:.95rem;letter-spacing:-0.01em;
+  border-radius:999px;border:1px solid transparent;cursor:pointer;
+  transition:transform .25s var(--ease),background .25s var(--ease),
+             border-color .25s var(--ease),box-shadow .25s var(--ease),color .25s var(--ease);
+  white-space:nowrap;
+}
+.btn svg{width:18px;height:18px}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 24px rgba(26,115,232,.22)}
+.btn-primary:hover{background:var(--blue-deep);transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 16px 34px rgba(26,115,232,.30)}
+.btn-primary:active{transform:translateY(0) scale(.98)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--ink);background:rgba(20,20,22,.035);transform:translateY(-2px)}
+.btn-ghost:active{transform:translateY(0) scale(.98)}
+.btn-ghost:disabled{opacity:.5;cursor:not-allowed}
+
+/* ============================================================
+   NAV — liquid glass, sticky (mental model: logo left, nav right, CTA)
+   ============================================================ */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  transition:background .4s var(--ease),backdrop-filter .4s var(--ease),box-shadow .4s var(--ease),border-color .4s var(--ease);
+  border-bottom:1px solid transparent;
+}
+.nav-inner{
+  max-width:var(--maxw);margin:0 auto;padding:0 var(--pad);
+  height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.nav.scrolled{
+  background:var(--glass-strong);
+  -webkit-backdrop-filter:blur(20px) saturate(1.5);
+  backdrop-filter:blur(20px) saturate(1.5);
+  border-bottom-color:var(--line);
+  box-shadow:0 8px 30px rgba(20,20,22,.05);
+}
+.logo{font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-0.03em;display:inline-flex;align-items:center}
+.logo b{font-weight:700}
+.logo .c1{color:var(--g-blue)}.logo .c2{color:var(--g-red)}.logo .c3{color:var(--g-yellow)}.logo .c4{color:var(--g-green)}
+.nav-links{display:flex;align-items:center;gap:36px}
+.nav-links a{font-size:.92rem;font-weight:500;color:var(--ink-soft);position:relative;padding:6px 0;transition:color .2s}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:0;width:100%;height:1px;background:var(--ink);transform:scaleX(0);transform-origin:left;transition:transform .3s var(--ease)}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a:hover::after{transform:scaleX(1)}
+.nav-cta{display:flex;align-items:center;gap:16px}
+.nav-cta .btn{min-height:40px;padding:0 20px;font-size:.88rem}
+.menu-btn{display:none;background:none;border:1px solid var(--line);border-radius:10px;width:44px;height:44px;cursor:pointer;align-items:center;justify-content:center}
+.menu-btn span,.menu-btn span::before,.menu-btn span::after{content:"";display:block;width:18px;height:2px;background:var(--ink);position:relative;transition:transform .3s var(--ease),opacity .3s}
+.menu-btn span::before{position:absolute;top:-6px}
+.menu-btn span::after{position:absolute;top:6px}
+.menu-btn[aria-expanded="true"] span{background:transparent}
+.menu-btn[aria-expanded="true"] span::before{transform:translateY(6px) rotate(45deg)}
+.menu-btn[aria-expanded="true"] span::after{transform:translateY(-6px) rotate(-45deg)}
+.mobile-menu{
+  display:none;position:fixed;top:72px;left:0;right:0;z-index:49;
+  background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(1.5);backdrop-filter:blur(20px) saturate(1.5);
+  border-bottom:1px solid var(--line);padding:16px var(--pad) 28px;
+  transform:translateY(-12px);opacity:0;pointer-events:none;transition:transform .3s var(--ease),opacity .3s var(--ease);
+}
+.mobile-menu.open{transform:translateY(0);opacity:1;pointer-events:auto}
+.mobile-menu a{display:block;padding:14px 0;font-size:1.05rem;font-weight:500;border-bottom:1px solid var(--line-faint)}
+.mobile-menu .btn{width:100%;margin-top:16px}
+
+/* ============================================================
+   HERO — LIFT leverage point
+   ============================================================ */
+.hero{position:relative;padding:168px 0 96px;overflow:hidden}
+.hero-ambient{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(55% 45% at 82% 6%, rgba(66,133,244,.12), transparent 62%),
+    radial-gradient(48% 42% at 8% 96%, rgba(52,168,83,.09), transparent 60%),
+    radial-gradient(42% 40% at 100% 88%, rgba(234,67,53,.06), transparent 60%);
+}
+.hero-grain{
+  position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.035;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.hero .cols{gap:0}
+.hero-eyebrow{grid-column:1/-1;display:flex;align-items:center;gap:16px;margin-bottom:40px}
+.hero-eyebrow .mono{color:var(--ink-soft)}
+.hero h1{
+  grid-column:1/-1;
+  font-family:var(--font-display);
+  font-weight:500;
+  font-size:clamp(3rem,8.4vw,6.4rem);
+  line-height:.98;
+  letter-spacing:-0.03em;
+  max-width:16ch;
+}
+.hero h1 em{font-style:italic;font-weight:400;color:var(--blue)}
+.hero-sub{
+  grid-column:1/8;
+  margin-top:40px;
+  font-size:clamp(1.05rem,1.6vw,1.3rem);
+  line-height:1.55;color:var(--ink-soft);max-width:46ch;
+}
+.hero-side{
+  grid-column:9/13;align-self:end;
+  text-align:right;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-faint);line-height:2;
+}
+.hero-side b{color:var(--ink);font-weight:700}
+
+/* search bar — signature liquid-glass focal element */
+.search-wrap{grid-column:1/10;margin-top:56px}
+.search{
+  display:flex;align-items:center;gap:16px;
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(18px) saturate(1.5);
+  backdrop-filter:blur(18px) saturate(1.5);
+  border:1px solid var(--glass-border);
+  border-radius:999px;
+  padding:8px 8px 8px 24px;
+  box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 18px 50px rgba(20,20,22,.10);
+  transition:box-shadow .3s var(--ease),border-color .3s var(--ease);
+}
+.search:focus-within{border-color:rgba(66,133,244,.5);box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 0 0 4px rgba(66,133,244,.12),0 18px 50px rgba(20,20,22,.12)}
+.search .g-mark{font-family:var(--font-sans);font-weight:700;font-size:1.35rem;letter-spacing:-0.03em;flex:none}
+.search .g-mark .c1{color:var(--g-blue)}.search .g-mark .c2{color:var(--g-red)}.search .g-mark .c3{color:var(--g-yellow)}.search .g-mark .c4{color:var(--g-green)}
+.search input{
+  flex:1;min-width:0;border:none;background:transparent;outline:none;
+  font-family:var(--font-sans);font-size:1.05rem;color:var(--ink);
+}
+.search input::placeholder{color:var(--ink-faint)}
+.search .mic{flex:none;width:44px;height:44px;border-radius:50%;border:none;background:transparent;cursor:pointer;display:grid;place-items:center;color:var(--g-green);transition:background .2s,transform .2s}
+.search .mic:hover{background:rgba(52,168,83,.12);transform:scale(1.06)}
+.search .mic:active{transform:scale(.94)}
+.search .go{
+  flex:none;height:44px;padding:0 22px;border-radius:999px;border:none;cursor:pointer;
+  background:var(--blue);color:#fff;font-family:var(--font-sans);font-weight:600;font-size:.9rem;
+  display:inline-flex;align-items:center;gap:8px;transition:background .2s,transform .2s;
+}
+.search .go:hover{background:var(--blue-deep);transform:translateY(-1px)}
+.search .go:active{transform:scale(.97)}
+
+.chips{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:32px}
+.chips .lbl{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px}
+.chip{
+  font-size:.85rem;font-weight:500;color:var(--ink-soft);
+  padding:8px 16px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.4);
+  transition:all .22s var(--ease);
+}
+.chip:hover{color:var(--ink);border-color:var(--ink);background:#fff;transform:translateY(-2px)}
+
+/* ============================================================
+   SECTION SHELL + reveal
+   ============================================================ */
+section{position:relative;z-index:1}
+.sec{padding:112px 0}
+.sec-head{display:grid;grid-template-columns:repeat(12,1fr);gap:0;margin-bottom:64px}
+.sec-head .k{grid-column:1/4}
+.sec-head .t{grid-column:4/13}
+.sec-head h2{font-family:var(--font-display);font-weight:500;font-size:clamp(2.1rem,4.4vw,3.4rem);line-height:1.05;letter-spacing:-0.028em;max-width:20ch}
+.sec-head p{margin-top:20px;color:var(--ink-soft);max-width:44ch;font-size:1.05rem}
+
+/* reveal (only hidden when JS present) */
+html.js .reveal{opacity:0;transform:translateY(26px);transition:opacity .9s var(--ease),transform .9s var(--ease);transition-delay:var(--d,0s)}
+html.js .reveal.in{opacity:1;transform:none}
+
+/* ============================================================
+   PRODUCTS — editorial ledger (chunked to 4, not a card grid)
+   ============================================================ */
+.ledger{border-top:1px solid var(--line)}
+.prod{
+  display:grid;grid-template-columns:96px 1fr 1.15fr 56px;align-items:center;gap:32px;
+  padding:36px 0;border-bottom:1px solid var(--line);position:relative;
+  transition:background .3s var(--ease);
+}
+.prod::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(26,115,232,.05),transparent 70%);opacity:0;transition:opacity .3s var(--ease);pointer-events:none}
+.prod:hover::before{opacity:1}
+.prod-idx{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:.8rem;letter-spacing:.1em;color:var(--ink-faint)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.dot-blue{background:var(--g-blue)}.dot-red{background:var(--g-red)}.dot-yellow{background:var(--g-yellow)}.dot-green{background:var(--g-green)}
+.prod-name{font-family:var(--font-display);font-weight:500;font-size:clamp(1.7rem,3.4vw,2.6rem);letter-spacing:-0.02em;line-height:1;transition:color .3s var(--ease),transform .3s var(--ease)}
+.prod-desc{color:var(--ink-soft);font-size:.98rem;line-height:1.55;max-width:40ch}
+.prod-arrow{justify-self:end;font-size:1.5rem;color:var(--ink-faint);transition:transform .3s var(--ease),color .3s var(--ease);line-height:1}
+.prod:hover .prod-name{color:var(--blue);transform:translateX(6px)}
+.prod:hover .prod-arrow{transform:translateX(8px);color:var(--blue)}
+
+/* ============================================================
+   STATS — big-type rational band
+   ============================================================ */
+.stats-band{background:var(--ink);color:var(--paper);position:relative;overflow:hidden}
+.stats-band .gridlines i{border-color:rgba(255,255,255,.06)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.stat{padding:8px 32px 8px 0;border-right:1px solid rgba(255,255,255,.12)}
+.stat:last-child{border-right:none}
+.stat-num{font-family:var(--font-display);font-weight:500;font-size:clamp(2.6rem,5.5vw,4.4rem);line-height:1;letter-spacing:-0.03em;display:block}
+.stat-num .u{color:var(--g-yellow)}
+.stat-label{margin-top:16px;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(244,243,239,.6);line-height:1.7;display:block;max-width:20ch}
+
+/* ============================================================
+   GEMINI — liquid glass feature (MAYA pattern break)
+   ============================================================ */
+.gemini{display:grid;grid-template-columns:repeat(12,1fr);gap:0;align-items:center}
+.gemini-copy{grid-column:1/7}
+.gemini-copy .tag{display:inline-flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:24px}
+.gemini-copy h2{font-family:var(--font-display);font-weight:500;font-size:clamp(2.2rem,4.6vw,3.6rem);line-height:1.02;letter-spacing:-0.028em;max-width:14ch}
+.gemini-copy h2 em{font-style:italic;font-weight:400}
+.gemini-copy p{margin-top:24px;color:var(--ink-soft);font-size:1.08rem;line-height:1.6;max-width:44ch}
+.gemini-copy .actions{display:flex;flex-wrap:wrap;gap:16px;margin-top:40px}
+
+.glass-card{
+  grid-column:8/13;position:relative;
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(22px) saturate(1.5);backdrop-filter:blur(22px) saturate(1.5);
+  border:1px solid var(--glass-border);border-radius:28px;
+  padding:40px;min-height:360px;
+  box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 30px 70px rgba(20,20,22,.12);
+  overflow:hidden;
+}
+.glass-card::before{
+  content:"";position:absolute;inset:-40%;
+  background:conic-gradient(from 0deg,rgba(66,133,244,.16),rgba(234,67,53,.12),rgba(251,188,5,.14),rgba(52,168,83,.14),rgba(66,133,244,.16));
+  filter:blur(40px);animation:spin 22s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.glass-inner{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+.glass-inner .top{display:flex;align-items:center;justify-content:space-between}
+.glass-inner .top .lbl{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+.glass-orb{width:20px;height:20px;border-radius:50%;background:conic-gradient(var(--g-blue),var(--g-red),var(--g-yellow),var(--g-green),var(--g-blue));box-shadow:0 0 0 6px rgba(255,255,255,.5)}
+.glass-msg{font-family:var(--font-display);font-size:1.5rem;line-height:1.2;letter-spacing:-0.02em;font-weight:500}
+.glass-msg .hl{color:var(--blue)}
+.glass-row{display:flex;gap:8px;margin-top:24px}
+.glass-row span{height:10px;border-radius:6px;background:rgba(20,20,22,.10)}
+.glass-row span:nth-child(1){width:60%}
+.glass-row span:nth-child(2){width:40%}
+.glass-row span:nth-child(3){width:52%}
+
+/* ============================================================
+   MANIFESTO — editorial pull quote (space is wealth)
+   ============================================================ */
+.manifesto{padding:150px 0}
+.manifesto .cols{align-items:start}
+.manifesto .mark{grid-column:1/4;font-family:var(--font-display);font-size:5rem;line-height:.6;color:var(--line);user-select:none}
+.manifesto blockquote{grid-column:3/13;font-family:var(--font-display);font-weight:400;font-size:clamp(1.9rem,4.6vw,3.4rem);line-height:1.14;letter-spacing:-0.025em;max-width:22ch}
+.manifesto blockquote em{font-style:italic;color:var(--blue)}
+.manifesto cite{grid-column:3/13;margin-top:40px;font-style:normal;font-family:var(--font-mono);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+
+/* ============================================================
+   FINAL CTA — release / pulse
+   ============================================================ */
+.final{padding:120px 0 140px;text-align:center}
+.final .cols{justify-items:center}
+.final .quad{margin:0 auto 32px}
+.final h2{font-family:var(--font-display);font-weight:500;font-size:clamp(2.4rem,6vw,4.6rem);line-height:1;letter-spacing:-0.03em;max-width:16ch}
+.final p{margin-top:24px;color:var(--ink-soft);font-size:1.1rem;max-width:40ch}
+.final .actions{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:44px}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+footer{border-top:1px solid var(--line);background:var(--paper-2);position:relative;z-index:1}
+.foot-inner{max-width:var(--maxw);margin:0 auto;padding:72px var(--pad) 40px}
+.foot-top{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;padding-bottom:56px;border-bottom:1px solid var(--line)}
+.foot-brand .logo{font-size:1.8rem}
+.foot-brand p{margin-top:20px;color:var(--ink-soft);max-width:34ch;font-size:.95rem}
+.foot-col h4{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:20px}
+.foot-col a{display:block;padding:8px 0;font-size:.95rem;color:var(--ink-soft);transition:color .2s}
+.foot-col a:hover{color:var(--blue)}
+.foot-bottom{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding-top:32px}
+.foot-bottom .mono{color:var(--ink-faint)}
+.foot-bottom .lang{display:inline-flex;align-items:center;gap:8px;font-size:.85rem;color:var(--ink-soft);border:1px solid var(--line);padding:8px 14px;border-radius:999px}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:1023px){
+  .nav-links{display:none}
+  .menu-btn{display:inline-flex}
+  .mobile-menu{display:block}
+  .hero{padding:140px 0 72px}
+  .hero-sub{grid-column:1/-1}
+  .hero-side{display:none}
+  .search-wrap{grid-column:1/-1}
+  .sec-head .k{grid-column:1/-1;margin-bottom:24px}
+  .sec-head .t{grid-column:1/-1}
+  .prod{grid-template-columns:64px 1fr 40px;gap:20px}
+  .prod-desc{grid-column:2/3;grid-row:2;max-width:none}
+  .prod-name{grid-row:1}
+  .prod-idx{grid-row:1}
+  .prod-arrow{grid-row:1/3;align-self:center}
+  .stats{grid-template-columns:repeat(2,1fr);gap:40px 0}
+  .stat{border-right:none;border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:32px}
+  .stat:nth-child(odd){border-right:1px solid rgba(255,255,255,.12);padding-right:32px}
+  .stat:nth-child(even){padding-left:32px}
+  .stat:nth-last-child(-n+2){border-bottom:none;padding-bottom:0}
+  .gemini{grid-template-columns:1fr;gap:48px}
+  .gemini-copy,.glass-card{grid-column:1/-1}
+  .manifesto .mark{display:none}
+  .manifesto blockquote,.manifesto cite{grid-column:1/-1}
+  .foot-top{grid-template-columns:1fr 1fr;gap:40px 32px}
+  .foot-brand{grid-column:1/-1}
+}
+@media (max-width:639px){
+  .sec{padding:80px 0}
+  .manifesto{padding:96px 0}
+  .prod{grid-template-columns:1fr;gap:12px;padding:28px 0}
+  .prod-idx,.prod-name,.prod-desc,.prod-arrow{grid-column:1/-1;grid-row:auto}
+  .prod-arrow{display:none}
+  .stats{grid-template-columns:1fr}
+  .stat{border-right:none!important;padding-left:0!important;padding-right:0!important;border-bottom:1px solid rgba(255,255,255,.12)!important;padding-bottom:32px}
+  .stat:last-child{border-bottom:none!important;padding-bottom:0!important}
+  .search{flex-wrap:wrap;border-radius:24px;padding:12px}
+  .search .go{width:100%;justify-content:center}
+  .foot-top{grid-template-columns:1fr}
+  .foot-bottom{flex-direction:column;align-items:flex-start}
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  html.js .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<!-- skip link (a11y) -->
+<a href="#main" style="position:absolute;left:-999px;top:0;background:var(--blue);color:#fff;padding:12px 20px;border-radius:0 0 8px 0;z-index:100" onfocus="this.style.left='0'" onblur="this.style.left='-999px'">Skip to content</a>
+
+<!-- ============================ NAV ============================ -->
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="logo" href="https://www.google.com" aria-label="Google home">
+      <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c1">g</span><span class="c4">l</span><span class="c2">e</span>
+    </a>
+    <div class="nav-links">
+      <a href="#products">Products</a>
+      <a href="#workspace">Workspace</a>
+      <a href="#gemini">Gemini</a>
+      <a href="#mission">About</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-primary" href="https://www.google.com">Get started</a>
+      <button class="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="mobileMenu"><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#products">Products</a>
+  <a href="#workspace">Workspace</a>
+  <a href="#gemini">Gemini</a>
+  <a href="#mission">About</a>
+  <a class="btn btn-primary" href="https://www.google.com">Get started</a>
+</div>
+
+<div class="container">
+  <!-- visible 12-column grid, full height -->
+  <div class="gridlines" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <main id="main">
+
+    <!-- ============================ HERO ============================ -->
+    <section class="hero" aria-label="Introduction">
+      <div class="hero-ambient" aria-hidden="true"></div>
+      <div class="hero-grain" aria-hidden="true"></div>
+      <div class="cols">
+        <div class="hero-eyebrow reveal" style="--d:0s">
+          <span class="quad" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="mono">Google · Est. 1998 · Mountain View, CA</span>
+        </div>
+
+        <h1 class="reveal" style="--d:.08s">Organize the world's <em>information.</em></h1>
+
+        <p class="hero-sub reveal" style="--d:.18s">
+          Google's mission, in one sentence — to make the world's information
+          universally accessible and useful. Here is what that looks like today.
+        </p>
+
+        <div class="hero-side reveal" style="--d:.26s">
+          <div><b>5,000,000,000</b></div>
+          <div>searches / day</div>
+          <div>200+ languages</div>
+          <div>100+ countries</div>
+        </div>
+
+        <!-- signature: functional liquid-glass search -->
+        <form class="search-wrap reveal" style="--d:.3s" action="https://www.google.com/search" method="get" role="search">
+          <div class="search">
+            <span class="g-mark" aria-hidden="true"><span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c1">g</span><span class="c4">l</span><span class="c2">e</span></span>
+            <input type="search" name="q" placeholder="Search Google or type a URL" aria-label="Search Google" autocomplete="off" />
+            <button type="button" class="mic" aria-label="Search by voice">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
+            <button type="submit" class="go">Search
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+        </form>
+
+        <div class="chips reveal" style="--d:.4s">
+          <span class="lbl">Explore</span>
+          <a class="chip" href="https://gemini.google.com">Gemini</a>
+          <a class="chip" href="https://www.youtube.com">YouTube</a>
+          <a class="chip" href="https://maps.google.com">Maps</a>
+          <a class="chip" href="https://mail.google.com">Gmail</a>
+          <a class="chip" href="https://photos.google.com">Photos</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ PRODUCTS (ledger) ============================ -->
+    <section class="sec" id="products" aria-label="Products">
+      <div class="sec-head">
+        <div class="k reveal"><span class="mono">01 — The ecosystem</span></div>
+        <div class="t reveal" style="--d:.08s">
+          <h2>One mission, four front doors.</h2>
+          <p>Every product starts from the same place: information, organized and made useful. Four of the world's most-used tools, built on it.</p>
+        </div>
+      </div>
+
+      <div class="ledger">
+        <a class="prod reveal" style="--d:0s" href="https://www.google.com">
+          <span class="prod-idx"><i class="dot dot-blue"></i>01</span>
+          <span class="prod-name">Search</span>
+          <span class="prod-desc">The engine that started it all. Five billion queries a day, answered in a fifth of a second.</span>
+          <span class="prod-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="prod reveal" style="--d:.06s" id="workspace" href="https://workspace.google.com">
+          <span class="prod-idx"><i class="dot dot-red"></i>02</span>
+          <span class="prod-name">Workspace</span>
+          <span class="prod-desc">Docs, Drive, Meet, Gmail and Sheets — the tools where the world's teams actually work.</span>
+          <span class="prod-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="prod reveal" style="--d:.12s" href="https://www.android.com">
+          <span class="prod-idx"><i class="dot dot-yellow"></i>03</span>
+          <span class="prod-name">Android &amp; Devices</span>
+          <span class="prod-desc">The operating system on three in four of the world's smartphones, plus the hardware to match.</span>
+          <span class="prod-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="prod reveal" style="--d:.18s" href="https://cloud.google.com">
+          <span class="prod-idx"><i class="dot dot-green"></i>04</span>
+          <span class="prod-name">Cloud &amp; AI</span>
+          <span class="prod-desc">The infrastructure behind the internet's biggest apps — and the frontier AI that runs on it.</span>
+          <span class="prod-arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ============================ STATS (rational band) ============================ -->
+    <section class="stats-band sec" aria-label="By the numbers">
+      <div class="stats">
+        <div class="stat reveal" style="--d:0s">
+          <span class="stat-num">5<span class="u">B</span></span>
+          <span class="stat-label">Searches, every single day</span>
+        </div>
+        <div class="stat reveal" style="--d:.08s">
+          <span class="stat-num">3<span class="u">/4</span></span>
+          <span class="stat-label">Of the world's smartphones run Android</span>
+        </div>
+        <div class="stat reveal" style="--d:.16s">
+          <span class="stat-num">200<span class="u">+</span></span>
+          <span class="stat-label">Languages &amp; dialects supported</span>
+        </div>
+        <div class="stat reveal" style="--d:.24s">
+          <span class="stat-num">1998</span>
+          <span class="stat-label">The year it all began, in a garage</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ GEMINI (liquid glass) ============================ -->
+    <section class="sec" id="gemini" aria-label="Gemini">
+      <div class="gemini">
+        <div class="gemini-copy reveal" style="--d:0s">
+          <span class="tag"><i class="dot dot-blue"></i> Gemini · Frontier AI</span>
+          <h2>Intelligence, <em>everywhere.</em></h2>
+          <p>Gemini is our frontier AI — built to help you think, write, and build. It is quietly woven through Search, Workspace, and Android, so the help shows up exactly where you already are.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://gemini.google.com">Try Gemini
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="https://ai.google.dev">Read the docs</a>
+          </div>
+        </div>
+
+        <div class="glass-card reveal" style="--d:.12s" aria-hidden="true">
+          <div class="glass-inner">
+            <div class="top">
+              <span class="lbl">Gemini</span>
+              <span class="glass-orb"></span>
+            </div>
+            <div>
+              <div class="glass-msg">Draft a launch plan for a new product, <span class="hl">in three markets.</span></div>
+              <div class="glass-row"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ MANIFESTO ============================ -->
+    <section class="manifesto" id="mission" aria-label="Our mission">
+      <div class="cols">
+        <div class="mark reveal" aria-hidden="true">&ldquo;</div>
+        <blockquote class="reveal" style="--d:.08s">
+          Our mission is to organize the world's information and make it <em>universally accessible and useful.</em>
+        </blockquote>
+        <cite class="reveal" style="--d:.16s">— The Google Team · Since 1998</cite>
+      </div>
+    </section>
+
+    <!-- ============================ FINAL CTA ============================ -->
+    <section class="final" aria-label="Get started">
+      <div class="cols">
+        <span class="quad reveal" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <h2 class="reveal" style="--d:.08s">Start with a question.</h2>
+        <p class="reveal" style="--d:.16s">The world's knowledge is one search away. Go find it.</p>
+        <div class="actions reveal" style="--d:.24s">
+          <a class="btn btn-primary" href="https://www.google.com">Open Google
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="https://about.google">About Google</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================ FOOTER ============================ -->
+  <footer>
+    <div class="foot-inner">
+      <div class="foot-top">
+        <div class="foot-brand">
+          <a class="logo" href="https://www.google.com" aria-label="Google home">
+            <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c1">g</span><span class="c4">l</span><span class="c2">e</span>
+          </a>
+          <p>Organizing the world's information since 1998 — making it universally accessible and useful.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Products</h4>
+          <a href="https://www.google.com">Search</a>
+          <a href="https://workspace.google.com">Workspace</a>
+          <a href="https://www.android.com">Android</a>
+          <a href="https://cloud.google.com">Cloud</a>
+        </div>
+        <div class="foot-col">
+          <h4>Company</h4>
+          <a href="https://about.google">About</a>
+          <a href="https://blog.google">Blog</a>
+          <a href="https://careers.google.com">Careers</a>
+          <a href="https://www.google.com/intl/en/about/company/impact.html">Impact</a>
+        </div>
+        <div class="foot-col">
+          <h4>Resources</h4>
+          <a href="https://ai.google.dev">Gemini API</a>
+          <a href="https://support.google.com">Help</a>
+          <a href="https://policies.google.com/privacy">Privacy</a>
+          <a href="https://policies.google.com/terms">Terms</a>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span class="mono">© 2026 · A design concept · Not affiliated with Google LLC</span>
+        <span class="lang">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>
+          English (US)
+        </span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  document.documentElement.classList.add('js');
+
+  /* scroll reveal — staggered, weighted */
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reveals = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)) {
+    reveals.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold:0.12, rootMargin:'0px 0px -8% 0px' });
+    reveals.forEach(function(el){ io.observe(el); });
+  }
+
+  /* nav glass on scroll */
+  var nav = document.querySelector('.nav');
+  function onScroll(){ nav.classList.toggle('scrolled', window.scrollY > 24); }
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive:true });
+
+  /* mobile menu */
+  var btn = document.querySelector('.menu-btn');
+  var menu = document.getElementById('mobileMenu');
+  btn.addEventListener('click', function(){
+    var open = menu.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  menu.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){
+      menu.classList.remove('open');
+      btn.setAttribute('aria-expanded','false');
+    });
+  });
+
+  /* subtle hero ambient parallax (skipped for reduced motion) */
+  var ambient = document.querySelector('.hero-ambient');
+  if (ambient && !reduce){
+    var ticking = false;
+    window.addEventListener('scroll', function(){
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function(){
+        var y = Math.min(window.scrollY, 900);
+        ambient.style.transform = 'translateY(' + (y * 0.12) + 'px)';
+        ticking = false;
+      });
+    }, { passive:true });
+  }
+})();
+</script>
+</body>
+</html>

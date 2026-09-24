@@ -1,0 +1,28 @@
+[
+  {
+    "case": "session-lfu_cache",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-034937-gsq-mtp-ngram-n3-c147456-r1\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "verification_s": 0.0771725000013248,
+    "time_spent_s": 35.79661080000005,
+    "single_call_verified_task_s": 35.79661080000005
+  },
+  {
+    "case": "session-tree_codec",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-034937-gsq-mtp-ngram-n3-c147456-r1\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "verification_s": 0.06360610000047018,
+    "time_spent_s": 37.68454870000278,
+    "single_call_verified_task_s": 37.68454870000278
+  }
+]

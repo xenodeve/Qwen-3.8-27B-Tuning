@@ -1,0 +1,15 @@
+[
+  {
+    "case": "layer-merge-thinking-candidate",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\repair-demo\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "verification_s": 0.08328890000120737,
+    "time_spent_s": 20.42186710000169,
+    "single_call_verified_task_s": 20.42186710000169
+  }
+]

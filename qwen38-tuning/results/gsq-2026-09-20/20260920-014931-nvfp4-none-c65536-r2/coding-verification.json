@@ -1,0 +1,16 @@
+[
+  {
+    "case": "merge_intervals",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-2026-09-20\\20260920-014931-nvfp4-none-c65536-r2\\responses.jsonl"
+  },
+  {
+    "case": "toposort",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-2026-09-20\\20260920-014931-nvfp4-none-c65536-r2\\responses.jsonl"
+  }
+]

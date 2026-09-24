@@ -1,0 +1,17 @@
+Qwen3.8-Flash-Next serving binary -- pinned 2026-09-23. Do not rebuild in place.
+
+source   C:\AI\llama.cpp-upstream-fn, branch vnni-cache, HEAD 1c6af3af
+         e6ab7c1a  upstream ggml-org/llama.cpp master (2026-09-22)
+         32cdc316  ggml-cpu: add x86 VNNI Q2_0 dot product              (PR #26348)
+         654e1828  ggml-cpu: vector-lane accumulation for x86 VNNI q2_0 (PR #26348)
+         8b211fae  MoE expert cache: GPU-resident LRU cache            (PR #27861, bccbacdb89;
+                   src/CMakeLists.txt conflict resolved: llama-moecache.cpp added to LLAMA_CORE_SOURCES)
+         1c6af3af  ggml-cpu: Windows port of the MoE routing log lock (_lock_file) -- local
+build    build-c.cmd: Ninja Release, GGML_CUDA=ON, CUDA arch 89;120a, BUILD_SHARED_LIBS=ON,
+         GGML_BACKEND_DL=ON, GGML_CPU_ALL_VARIANTS=ON. nvcc 13.3.73, MSVC 19.44.
+runtime  cudart64_13 / cublas64_13 / cublasLt64_13 copied from CUDA v13.3 bin\x64 --
+         without them ggml-cuda.dll does not load and the server silently runs CPU-only.
+version  version: 0.4.1-dev (build 5, commit 1c6af3af)
+sha256   llama-server.exe a04d3ed5cd1838fd072554cc0c9b58f2c478f94a0ac5474c6fb3d06b001b1aee
+evidence qwen38-tuning/results/flash-next-optimization/results-v2.csv, runs K-* (expert cache),
+         V-* (VNNI A/B), L-* / T-ctrl-* (layer vs tensor), 2026-09-23.

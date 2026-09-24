@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google — ค้นหาสิ่งที่เป็นไปได้</title>
+<meta name="description" content="Google คือเครื่องมือค้นหาที่พาผู้คนกว่า 5,000 ล้านคนต่อวันไปพบคำตอบ ข้อมูล และไอเดียที่ใช่ — ทุกที่ ทุกเวลา">
+<meta property="og:title" content="Google — ค้นหาสิ่งที่เป็นไปได้">
+<meta property="og:description" content="เครื่องมือค้นหาที่พาผู้คนกว่า 5,000 ล้านคนต่อวันไปพบคำตอบ ข้อมูล และไอเดียที่ใช่">
+<meta property="og:image" content="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f5f4f1;
+    --ink:#16150f;
+    --muted:#6a685e;
+    --line:rgba(22,21,15,.14);
+    --line-strong:rgba(22,21,15,.30);
+    --blue:#1a73e8;
+    --red:#ea4335;
+    --yellow:#f4b400;
+    --green:#34a853;
+    --glass:rgba(245,244,241,.55);
+    --glass-brd:rgba(22,21,15,.12);
+    --shadow:0 18px 50px -20px rgba(22,21,15,.35);
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'IBM Plex Sans Thai',sans-serif;
+    --gut:clamp(20px,5vw,64px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#101013;
+      --ink:#f3f2ee;
+      --muted:#a2a099;
+      --line:rgba(243,242,238,.16);
+      --line-strong:rgba(243,242,238,.34);
+      --glass:rgba(24,24,30,.5);
+      --glass-brd:rgba(243,242,238,.16);
+      --shadow:0 22px 60px -22px rgba(0,0,0,.7);
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:var(--font-body);
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.6;
+    font-size:16px;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:clip;
+  }
+  .wrap{max-width:1240px;margin:0 auto;padding:0 var(--gut)}
+  .grid-overlay{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:repeating-linear-gradient(to right,var(--line) 0,var(--line) 1px,transparent 1px,transparent calc(100%/12));
+    opacity:.5;
+  }
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3,.display{font-family:var(--font-display)}
+
+  /* ---------- top bar ---------- */
+  header.top{
+    position:sticky;top:0;z-index:20;
+    backdrop-filter:blur(16px) saturate(140%);
+    -webkit-backdrop-filter:blur(16px) saturate(140%);
+    background:var(--glass);
+    border-bottom:1px solid var(--glass-brd);
+  }
+  .bar{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .wordmark{font-family:var(--font-display);font-weight:700;font-size:22px;letter-spacing:-.02em}
+  .wordmark b{font-weight:700}
+  .wordmark .g1{color:var(--blue)}.wordmark .g2{color:var(--red)}.wordmark .g3{color:var(--yellow)}.wordmark .g4{color:var(--green)}
+  nav.links{display:flex;gap:28px}
+  nav.links a{font-size:14px;color:var(--muted);transition:color .2s}
+  nav.links a:hover{color:var(--ink)}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--font-display);font-weight:600;font-size:14px;
+    padding:11px 20px;border-radius:999px;
+    background:var(--ink);color:var(--paper);
+    border:1px solid var(--ink);cursor:pointer;transition:transform .2s,box-shadow .2s;
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;z-index:1;padding:clamp(48px,9vw,120px) 0 clamp(40px,7vw,90px)}
+  .kicker{
+    font-family:var(--font-display);font-size:13px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.14em;color:var(--muted);
+    display:flex;align-items:center;gap:10px;margin-bottom:26px;
+  }
+  .kicker::before{content:"";width:34px;height:1px;background:var(--line-strong)}
+  .hero h1{
+    font-size:clamp(42px,8.5vw,104px);
+    line-height:.98;font-weight:600;letter-spacing:-.03em;
+    max-width:15ch;
+  }
+  .hero h1 .dot{color:var(--blue)}
+  .lede{
+    margin-top:30px;max-width:46ch;font-size:clamp(16px,1.6vw,19px);
+    color:var(--muted);
+  }
+  .hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:38px}
+  .hero-actions .btn.big{font-size:15px;padding:14px 26px}
+
+  /* ---------- glass search ---------- */
+  .glass{
+    position:relative;z-index:1;
+    margin-top:clamp(36px,6vw,64px);
+    background:var(--glass);
+    backdrop-filter:blur(22px) saturate(160%);
+    -webkit-backdrop-filter:blur(22px) saturate(160%);
+    border:1px solid var(--glass-brd);
+    border-radius:24px;
+    box-shadow:var(--shadow);
+    padding:clamp(22px,3vw,34px);
+  }
+  .searchbar{
+    display:flex;align-items:center;gap:14px;
+    border:1px solid var(--line-strong);border-radius:999px;
+    padding:6px 6px 6px 22px;background:var(--paper);
+  }
+  .searchbar .ic{width:20px;height:20px;flex:none;color:var(--muted)}
+  .searchbar input{
+    flex:1;min-width:0;border:0;background:transparent;outline:none;
+    font-family:var(--font-body);font-size:16px;color:var(--ink);
+  }
+  .searchbar .go{
+    flex:none;font-family:var(--font-display);font-weight:600;font-size:14px;
+    padding:11px 22px;border-radius:999px;background:var(--blue);color:#fff;cursor:pointer;
+  }
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+  .chip{
+    font-size:13px;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:7px 14px;
+    transition:all .2s;cursor:pointer;
+  }
+  .chip:hover{color:var(--ink);border-color:var(--line-strong);background:var(--glass)}
+
+  /* ---------- section scaffolding ---------- */
+  section{position:relative;z-index:1}
+  .sec{padding:clamp(56px,9vw,120px) 0}
+  .sec-head{
+    display:grid;grid-template-columns:1fr 2fr;gap:24px;
+    align-items:end;margin-bottom:clamp(30px,5vw,56px);
+    border-top:1px solid var(--line-strong);padding-top:26px;
+  }
+  .sec-head .idx{
+    font-family:var(--font-display);font-size:13px;font-weight:600;
+    color:var(--muted);letter-spacing:.1em;
+  }
+  .sec-head h2{font-size:clamp(28px,4.4vw,52px);line-height:1.05;font-weight:600;letter-spacing:-.02em}
+  .sec-head p{color:var(--muted);max-width:40ch}
+
+  /* ---------- products ---------- */
+  .products{display:grid;grid-template-columns:repeat(12,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+  .prod{
+    background:var(--paper);padding:clamp(22px,2.4vw,32px);
+    display:flex;flex-direction:column;gap:14px;min-height:230px;
+    transition:background .25s;
+  }
+  .prod:hover{background:var(--glass)}
+  .prod .tag{font-family:var(--font-display);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .prod h3{font-size:clamp(20px,2vw,26px);font-weight:600;letter-spacing:-.01em}
+  .prod p{color:var(--muted);font-size:15px;margin-top:auto}
+  .prod .swatch{width:40px;height:40px;border-radius:12px;flex:none}
+  .c-search{grid-column:span 7}
+  .c-gmail{grid-column:span 5}
+  .c-drive{grid-column:span 4}
+  .c-maps{grid-column:span 4}
+  .c-yt{grid-column:span 4}
+  .c-cloud{grid-column:span 6}
+  .c-gemini{grid-column:span 6}
+
+  /* ---------- stats ---------- */
+  .stats{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--line);border:1px solid var(--line);
+  }
+  .stat{background:var(--paper);padding:clamp(24px,3vw,40px) clamp(18px,2vw,28px)}
+  .stat .num{
+    font-family:var(--font-display);font-weight:600;
+    font-size:clamp(34px,4.6vw,58px);line-height:1;letter-spacing:-.03em;
+    white-space:nowrap;
+  }
+  .stat .num .u{color:var(--blue)}
+  .stat .lbl{margin-top:14px;color:var(--muted);font-size:14px}
+
+  /* ---------- timeline ---------- */
+  .timeline{border-top:1px solid var(--line-strong)}
+  .tl-row{
+    display:grid;grid-template-columns:120px 1fr 1.4fr;gap:24px;
+    padding:26px 0;border-bottom:1px solid var(--line);align-items:baseline;
+  }
+  .tl-row .yr{font-family:var(--font-display);font-weight:600;font-size:22px;letter-spacing:-.02em}
+  .tl-row .t{font-family:var(--font-display);font-weight:600;font-size:clamp(18px,2vw,24px)}
+  .tl-row .d{color:var(--muted);font-size:15px}
+
+  /* ---------- quote ---------- */
+  .quote{padding:clamp(60px,10vw,140px) 0;text-align:left}
+  .quote blockquote{
+    font-family:var(--font-display);font-weight:500;
+    font-size:clamp(26px,4.6vw,54px);line-height:1.15;letter-spacing:-.02em;
+    max-width:20ch;
+  }
+  .quote blockquote .hl{color:var(--blue)}
+  .quote .by{margin-top:28px;color:var(--muted);font-size:14px;letter-spacing:.04em}
+
+  /* ---------- cta ---------- */
+  .cta{
+    position:relative;z-index:1;
+    margin:0 var(--gut) clamp(60px,9vw,120px);
+    background:var(--glass);
+    backdrop-filter:blur(22px) saturate(160%);
+    -webkit-backdrop-filter:blur(22px) saturate(160%);
+    border:1px solid var(--glass-brd);border-radius:28px;
+    box-shadow:var(--shadow);
+    padding:clamp(40px,7vw,88px);
+    display:grid;grid-template-columns:1.4fr 1fr;gap:40px;align-items:center;
+  }
+  .cta h2{font-size:clamp(30px,5vw,60px);line-height:1.02;font-weight:600;letter-spacing:-.03em}
+  .cta p{color:var(--muted);margin-top:18px;max-width:38ch}
+  .cta .side{display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+  .cta .btn.big{font-size:16px;padding:16px 30px;width:100%;justify-content:center}
+
+  /* ---------- footer ---------- */
+  footer{position:relative;z-index:1;border-top:1px solid var(--line-strong);padding:44px 0 60px}
+  .foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;align-items:center}
+  .foot .fm{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-.02em}
+  .foot nav{display:flex;flex-wrap:wrap;gap:22px}
+  .foot nav a{font-size:14px;color:var(--muted)}
+  .foot nav a:hover{color:var(--ink)}
+  .foot .copy{width:100%;margin-top:20px;font-size:13px;color:var(--muted)}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:900px){
+    .sec-head{grid-template-columns:1fr;gap:12px}
+    .products{grid-template-columns:repeat(6,1fr)}
+    .c-search,.c-gmail,.c-drive,.c-maps,.c-yt,.c-cloud,.c-gemini{grid-column:span 6}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .tl-row{grid-template-columns:80px 1fr;gap:14px}
+    .tl-row .d{grid-column:2}
+    .cta{grid-template-columns:1fr;gap:28px}
+  }
+  @media (max-width:560px){
+    nav.links{display:none}
+    .stats{grid-template-columns:1fr}
+    .searchbar{flex-wrap:wrap;border-radius:22px;padding:14px}
+    .searchbar .go{width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="grid-overlay" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="wrap bar">
+    <div class="wordmark"><span class="g1">G</span><span class="g2">o</span><span class="g3">o</span><span class="g4">g</span><span class="g1">l</span><span class="g2">e</span></div>
+    <nav class="links">
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#numbers">ตัวเลข</a>
+      <a href="#story">เรื่องราว</a>
+      <a href="#cta">เริ่มต้น</a>
+    </nav>
+    <a class="btn" href="#cta">เข้าสู่ระบบ</a>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="kicker">เครื่องมือค้นหา · ตั้งแตปี 1998</div>
+      <h1>ค้นหาสิ่งที่เป็นไปได<span class="dot">.</span></h1>
+      <p class="lede">Google คือประตูสู่ความรู้ของโลก — ทุกคำถาม ข้อมูล และไอเดียที่คุณตามหาคอยอยู่ที่นี่ เรียบง่าย รวดเร็ว และพร้อมใช้ทุกที่ที่คุณไป</p>
+      <div class="hero-actions">
+        <a class="btn big" href="#cta">เริ่มค้นหาเลย</a>
+        <a class="btn ghost" href="#products">สำรวจผลิตภัณฑ์</a>
+      </div>
+
+      <!-- LIQUID GLASS search -->
+      <div class="glass">
+        <div class="searchbar">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+          <input type="text" placeholder="ค้นหาสิ่งที่คุณอยากรู้…" aria-label="ค้นหา">
+          <button class="go" type="button">ค้นหา</button>
+        </div>
+        <div class="chips">
+          <span class="chip">ข่าววันนี้</span>
+          <span class="chip">แผนที่</span>
+          <span class="chip">แปลภาษา</span>
+          <span class="chip">วิดีโอ</span>
+          <span class="chip">รูปภาพ</span>
+          <span class="chip">AI Gemini</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section class="sec" id="products">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="idx">01 — ผลิตภัณฑ์</div>
+        <div>
+          <h2>ทุกอย่างที่คุณต้องใช้ ในที่เดียว</h2>
+          <p>จากอีเมลไปจนถึง AI — ระบบนิเวศของ Google เชื่อมทุกงานของคุณเข้าด้วยกันอย่างราบรื่น</p>
+        </div>
+      </div>
+      <div class="products">
+        <div class="prod c-search">
+          <div class="swatch" style="background:var(--blue)"></div>
+          <div class="tag">ค้นหา</div>
+          <h3>Google Search</h3>
+          <p>ค้นหาคำตอบจากทั่วทั้งโลกในเสี้ยววินาที — เรียบง่ายที่สุด และแม่นยำที่สุด</p>
+        </div>
+        <div class="prod c-gmail">
+          <div class="swatch" style="background:var(--red)"></div>
+          <div class="tag">อีเมล</div>
+          <h3>Gmail</h3>
+          <p>อีเมลที่เร็ว ปลอดภัย และจัดระเบียบให้อัตโนมัติ</p>
+        </div>
+        <div class="prod c-drive">
+          <div class="swatch" style="background:var(--yellow)"></div>
+          <div class="tag">จัดเก็บ</div>
+          <h3>Google Drive</h3>
+          <p>ไฟล์ของคุณทุกที่ พร้อมแชร์และทำงานร่วมกันได้ทันที</p>
+        </div>
+        <div class="prod c-maps">
+          <div class="swatch" style="background:var(--green)"></div>
+          <div class="tag">นำทาง</div>
+          <h3>Google Maps</h3>
+          <p>แผนที่นำทางแบบเรียลไทม์ ครอบคลุมทุกมุมโลก</p>
+        </div>
+        <div class="prod c-yt">
+          <div class="swatch" style="background:var(--red)"></div>
+          <div class="tag">วิดีโอ</div>
+          <h3>YouTube</h3>
+          <p>ดูและแบ่งปันวิดีโอที่คนทั้งโลกกำลังพูดถึง</p>
+        </div>
+        <div class="prod c-cloud">
+          <div class="swatch" style="background:var(--blue)"></div>
+          <div class="tag">คลาวด์</div>
+          <h3>Google Cloud</h3>
+          <p>โครงสร้างพื้นฐานที่ขับเคลื่อนธุรกิจระดับโลก</p>
+        </div>
+        <div class="prod c-gemini">
+          <div class="swatch" style="background:var(--green)"></div>
+          <div class="tag">AI</div>
+          <h3>Gemini</h3>
+          <p>ผู้ช่วย AI ที่คิดวิเคราะห์และสร้างสรรค์ไปกับคุณ</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="sec" id="numbers">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="idx">02 — ตัวเลข</div>
+        <div>
+          <h2>ขนาดของ Google ในวันนี้</h2>
+          <p>ตัวเลขที่บอกเล่าว่าผู้คนทั่วโลกไว้วางใจ Google มากเพียงใด</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="num">5,000<span class="u">M+</span></div>
+          <div class="lbl">การค้นหาต่อวัน</div>
+        </div>
+        <div class="stat">
+          <div class="num">150<span class="u">+</span></div>
+          <div class="lbl">ประเทศและภูมิภาค</div>
+        </div>
+        <div class="stat">
+          <div class="num">100<span class="u">+</span></div>
+          <div class="lbl">ภาษาที่รองรับ</div>
+        </div>
+        <div class="stat">
+          <div class="num">2004</div>
+          <div class="lbl">ปีที่เริ่มให้บริการ</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section class="sec" id="story">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="idx">03 — เรื่องราว</div>
+        <div>
+          <h2>จากห้องสมุด สู่ทุกหน้าจอ</h2>
+          <p>เส้นทางกว่าสองทศวรรษของ Google</p>
+        </div>
+      </div>
+      <div class="timeline">
+        <div class="tl-row">
+          <div class="yr">1998</div>
+          <div class="t">จุดเริ่มต้น</div>
+          <div class="d">เกิดเป็นโปรเจกต์วิจัยในมหาวิทยาลัย ก่อนกลายเป็นบริษัทที่เปลี่ยนวิธีที่คนทั้งโลกค้นหาข้อมูล</div>
+        </div>
+        <div class="tl-row">
+          <div class="yr">2004</div>
+          <div class="t">Gmail</div>
+          <div class="d">ปฏิวัติอีเมลด้วยพื้นที่จัดเก็บที่มากกว่าใครในยุคนั้น</div>
+        </div>
+        <div class="tl-row">
+          <div class="yr">2008</div>
+          <div class="t">Android</div>
+          <div class="d">พา Google ไปอยู่บนโทรศัพท์มือถือของคนหลายพันล้านเครื่อง</div>
+        </div>
+        <div class="tl-row">
+          <div class="yr">2015</div>
+          <div class="t">Google Cloud</div>
+          <div class="d">ขยายสู่โครงสร้างพื้นฐานที่ขับเคลื่อนองค์กรทั่วโลก</div>
+        </div>
+        <div class="tl-row">
+          <div class="yr">2023</div>
+          <div class="t">Gemini</div>
+          <div class="d">ก้าวสู่ยุค AI สร้างผู้ช่วยอัจฉริยะที่คิดและสร้างสรรค์ไปกับคุณ</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE -->
+  <section class="quote">
+    <div class="wrap">
+      <blockquote>“ทำให้ข้อมูลทั้งโลก<span class="hl"> เข้าถึงได้</span> และมีประโยชน์กับทุกคน”</blockquote>
+      <div class="by">— ภารกิจของ Google</div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" id="cta">
+    <div>
+      <h2>พร้อมค้นหาสิ่งใหม่?</h2>
+      <p>เข้าสู่ระบบ Google ของคุณ เพื่อใช้งาน Gmail, Drive, Maps และ Gemini ในที่เดียว</p>
+    </div>
+    <div class="side">
+      <a class="btn big" href="#">เข้าสู่ระบบ</a>
+      <a class="btn ghost big" href="#">สร้างบัญชีใหม่</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="fm">Google</div>
+    <nav>
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#numbers">ตัวเลข</a>
+      <a href="#story">เรื่องราว</a>
+      <a href="#">ความเป็นส่วนตัว</a>
+      <a href="#">ข้อกำหนด</a>
+    </nav>
+    <div class="copy">© 2026 Google — หน้าแนะนำ (Landing Page) สำหรับสาธิตการออกแบบ</div>
+  </div>
+</footer>
+
+</body>
+</html>

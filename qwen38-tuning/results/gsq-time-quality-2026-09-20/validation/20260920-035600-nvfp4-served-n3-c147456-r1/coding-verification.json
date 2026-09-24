@@ -1,0 +1,28 @@
+[
+  {
+    "case": "session-lfu_cache",
+    "passed": false,
+    "exit_code": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 56, in <module>\n  File \"<string>\", line 26, in get\n  File \"<string>\", line 14, in _increase_freq\nKeyError: 2\n",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-035600-nvfp4-served-n3-c147456-r1\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": false,
+    "verification_s": 0.06131920000188984,
+    "time_spent_s": 49.516874600001756,
+    "single_call_verified_task_s": null
+  },
+  {
+    "case": "session-tree_codec",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-035600-nvfp4-served-n3-c147456-r1\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "verification_s": 0.06062239999664598,
+    "time_spent_s": 72.3860538999943,
+    "single_call_verified_task_s": 72.3860538999943
+  }
+]
