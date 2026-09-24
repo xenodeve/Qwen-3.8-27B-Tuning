@@ -1,5 +1,11 @@
 # tested — the register of what has actually been run
 
+[34 — ThinkingCap Q4_K_M vs GSQ](34-thinkingcap-vs-gsq-quality-time-2026-09-24.md):
+same protocol as 33. Same prefill/decode as GSQ, ~30 % fewer output tokens, 2–3× less
+thinking on code1. code1: ThinkingCap 1/2 (one wrong self-written test), GSQ 2/2. PAL:
+ThinkingCap 1/2 accepted, GSQ 0/2 (GSQ 1/4 across results 33+34). At least as good as GSQ
+at the same speed on this n; depth > 65K untested.
+
 [33 — Flash-Next vs GSQ quality/time](33-flash-next-vs-gsq-quality-time-2026-09-24.md):
 code1 and PAL at 65,536, ABBA in one sitting, client 2.1.281. code1 all pass; Flash-Next
 1.6× slower. PAL: GSQ 1/2 accepted (gsq-b fails the overlap audit — result 25's "GSQ

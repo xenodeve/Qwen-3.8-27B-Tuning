@@ -100,3 +100,6 @@ llama.cpp-flash-mtp/
 llama.cpp-flash-vnni-cache/
 llama.cpp-upstream-fn/
 llama.cpp-upstream-fn-a/
+# runtime leases: never commit (a tracked copy survives release)
+qwen38-tuning/.agent-campaign.lock
+qwen38-tuning/.port8080.lock

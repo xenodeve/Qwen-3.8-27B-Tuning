@@ -8,3 +8,5 @@ qwen38-tuning/bench/corpora/real-code.txt text eol=lf
 *.gguf binary
 *.jpg  binary
 *.png  binary
+# vendored files are pinned by sha256; keep their bytes exact on checkout
+qwen38-tuning/third_party/** -text
