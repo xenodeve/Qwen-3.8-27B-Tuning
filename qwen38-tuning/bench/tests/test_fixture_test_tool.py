@@ -83,3 +83,24 @@ def test_mcp_config_pins_server_workspace_image_and_evidence(tmp_path):
     assert '--sandbox-image' in server['args'] and IMAGE in server['args']
     assert str(work.resolve()) in server['args'] and str(evidence.resolve()) in server['args']
     assert server['env']=={'PYTHONIOENCODING':'utf-8'}
+
+
+def _captured_command(tmp_path, monkeypatch, **kwargs):
+    work=workspace(tmp_path);calls=[]
+    def fake_run(command, **_kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command,0,'','')
+    monkeypatch.setattr('fixture_test_tool.subprocess.run',fake_run)
+    run_sandboxed_pytest(work,IMAGE,['test_sample.py'],tmp_path/'out',tmp_path/'err',1,**kwargs)
+    return calls[0]
+
+
+def test_init_is_opt_in_and_off_by_default(tmp_path, monkeypatch):
+    """openclink #144's oracle kills a process group; with pytest as PID 1 the
+    orphaned grandchild stays a zombie and killpg(pgid, 0) still sees it, so a
+    correct fix read as 'group survived' (2026-09-24). --init reaps orphans.
+    Opt-in only: the frozen PAL verifier behind results 24-34 must not change."""
+    assert '--init' not in _captured_command(tmp_path, monkeypatch)
+    (tmp_path/'b').mkdir()
+    command=_captured_command(tmp_path/'b', monkeypatch, init=True)
+    assert command.index('--init') < command.index(IMAGE)

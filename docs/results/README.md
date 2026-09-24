@@ -1,5 +1,11 @@
 # tested — the register of what has actually been run
 
+[35 — Real hard issue at 262K: GSQ vs ThinkingCap IQ4_XS](35-real-task-oc144-gsq-vs-thinkingcap-2026-09-24.md):
+openclink #144 via the developer's Claude Code (auto mode, 90-min cap, served profiles at
+262,144, ABBA). Each model: one 7/7 tree that hit the cap, one on-time tree failing the same
+2 exit-path cleanup tests. Prefill ~600–640, decode ~33–35 tok/s at 165–209K for both;
+thinking volume equal. Indistinguishable; ThinkingCap Q4_K_M cannot boot at 262K with MTP.
+
 [34 — ThinkingCap Q4_K_M vs GSQ](34-thinkingcap-vs-gsq-quality-time-2026-09-24.md):
 same protocol as 33. Same prefill/decode as GSQ, ~30 % fewer output tokens, 2–3× less
 thinking on code1. code1: ThinkingCap 1/2 (one wrong self-written test), GSQ 2/2. PAL:

@@ -1,0 +1,97 @@
+{
+  "date": "2026-09-24",
+  "task": "xenodeve/openclink #144 at 200fcb92",
+  "context": 262144,
+  "cap_s": 5400,
+  "client": "Claude Code 2.1.281, --permission-mode auto, stream-json, ~/.claude-gsq.json hooks",
+  "profiles": {
+    "gsq": "scripts/serve-gsq.ps1 (ub 1024)",
+    "thinkingcap": "scripts/serve-thinkingcap.ps1 IQ4_XS (ub 512)"
+  },
+  "thinkingcap_iq4xs_sha256": "c69ef3bbd56fe528bc9683186d14047243b00f41d3707016718775841d877cb2",
+  "oracle": "bench/fixtures/oc144_process_tree_hidden_test.py, sandbox --init; original 0/7, reference 7/7",
+  "repo_test_check": "unusable: sandbox lacks openai/mcp, original also 50 errors",
+  "private_evidence": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-real-oc144-rgxblrlr",
+  "cells": {
+    "gsq-a": {
+      "status": "timeout",
+      "wall_s": 5400.2,
+      "speed": {
+        "requests": 311,
+        "prefill_median_ge2k": 598.7,
+        "decode_token_weighted": 32.51,
+        "output_tokens": 125653,
+        "prefill_tokens": 397047,
+        "draft_acceptance_median": 0.48197,
+        "max_prompt_tokens": 171245,
+        "full_reprefill_events": 1
+      },
+      "verify": {
+        "hidden": "7 passed in 9.27s",
+        "hidden_rc": 0,
+        "repo_clink_tests": "33 warnings, 50 errors in 8.24s",
+        "repo_rc": 1
+      }
+    },
+    "thinkingcap-a": {
+      "status": "completed",
+      "wall_s": 4483.7,
+      "speed": {
+        "requests": 268,
+        "prefill_median_ge2k": 637.11,
+        "decode_token_weighted": 34.95,
+        "output_tokens": 115781,
+        "prefill_tokens": 293281,
+        "draft_acceptance_median": 0.5,
+        "max_prompt_tokens": 164943,
+        "full_reprefill_events": 1
+      },
+      "verify": {
+        "hidden": "2 failed, 5 passed in 8.30s",
+        "hidden_rc": 1,
+        "repo_clink_tests": "26 warnings, 50 errors in 6.88s",
+        "repo_rc": 1
+      }
+    },
+    "thinkingcap-b": {
+      "status": "timeout",
+      "wall_s": 5400.2,
+      "speed": {
+        "requests": 259,
+        "prefill_median_ge2k": 633.98,
+        "decode_token_weighted": 33.23,
+        "output_tokens": 139840,
+        "prefill_tokens": 310766,
+        "draft_acceptance_median": 0.52449,
+        "max_prompt_tokens": 209178,
+        "full_reprefill_events": 1
+      },
+      "verify": {
+        "hidden": "7 passed in 9.03s",
+        "hidden_rc": 0,
+        "repo_clink_tests": "1 skipped, 25 warnings, 50 errors in 6.60s",
+        "repo_rc": 1
+      }
+    },
+    "gsq-b": {
+      "status": "completed",
+      "wall_s": 4781.0,
+      "speed": {
+        "requests": 238,
+        "prefill_median_ge2k": 602.91,
+        "decode_token_weighted": 34.2,
+        "output_tokens": 124838,
+        "prefill_tokens": 316926,
+        "draft_acceptance_median": 0.54576,
+        "max_prompt_tokens": 186158,
+        "full_reprefill_events": 1
+      },
+      "verify": {
+        "hidden": "2 failed, 5 passed in 8.37s",
+        "hidden_rc": 1,
+        "repo_clink_tests": "25 warnings, 50 errors in 7.65s",
+        "repo_rc": 1
+      }
+    }
+  }
+}
