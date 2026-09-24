@@ -43,12 +43,15 @@ PAL_PROMPT, PAL_SHA, PAL_HIDDEN, CLIENT, MCP_TOOL = (
 CLIENT = Path.home() / '.local/bin/claude.exe'
 CLIENT_SHA = gsq.digest(CLIENT)
 IMAGE_ID = 'sha256:3a368bcdf5c27140d15e03f9143ed3530763d0d9d937fc34c2a68e7dfd094dd1'
-CANDIDATES = ('gsq-a', 'flash_next-a', 'flash_next-b', 'gsq-b')
+CHALLENGER = os.environ.get('PAL_CHALLENGER', 'flash_next')
+if CHALLENGER not in ('flash_next', 'thinkingcap_q4km'):
+    raise SystemExit('PAL_CHALLENGER must be flash_next or thinkingcap_q4km')
+CANDIDATES = ('gsq-a', CHALLENGER + '-a', CHALLENGER + '-b', 'gsq-b')
 CONTEXT, OUTPUT, TURNS, TIMEOUT = 65536, 8192, 64, 1800
 
 
 def candidate_argv(key):
-    if key not in ('gsq', 'flash_next'):
+    if key not in ('gsq', 'flash_next', 'thinkingcap_q4km'):
         raise ValueError('unknown candidate')
     if key == 'flash_next':
         return gsq.apply_template(gsq.flash_next_argv(CONTEXT, 18080), 'stock')
@@ -57,7 +60,7 @@ def candidate_argv(key):
     if key == 'nvfp4':
         argv = gsq.production_nvfp4_argv(CONTEXT)
     else:
-        argv = gsq.apply_template(gsq.llama_argv(key, CONTEXT, 'mtp-ngram', '8500,15468', 24), 'stock')
+        argv = gsq.apply_template(gsq.llama_argv(key, CONTEXT, 'mtp-ngram', '9500,14500' if key == 'thinkingcap_q4km' else '8500,15468', 24), 'stock')
     return gsq.replace_flag(gsq.replace_flag(argv, '--port', 18080), '-lv', 4)
 
 
@@ -440,7 +443,7 @@ def main(argv=None):
     parser.add_argument('--candidate', choices=CANDIDATES)
     args = parser.parse_args(argv)
     candidates = [args.candidate] if args.candidate else list(CANDIDATES)
-    protocol = {'id': 'pal-flash-next-vs-gsq-v1', 'client_version': subprocess.run([str(CLIENT), '--version'], capture_output=True, text=True).stdout.strip(),
+    protocol = {'id': 'pal-' + CHALLENGER + '-vs-gsq-v1', 'challenger': CHALLENGER, 'client_version': subprocess.run([str(CLIENT), '--version'], capture_output=True, text=True).stdout.strip(),
         'flash_next_digests': dict(gsq.FLASH_NEXT_OTHER_DIGESTS), 'flash_next_env': dict(gsq.FLASH_NEXT_ENV), 'candidates': candidates, 'context': CONTEXT,
         'output': OUTPUT, 'timeout_s': TIMEOUT, 'max_turns': TURNS, 'effort': 'medium',
         'seed_requested': 29, 'retries': 0, 'pal_sha': PAL_SHA, 'prompt': PAL_PROMPT,

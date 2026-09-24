@@ -33,6 +33,8 @@ TURBO = ROOT / ('models/DavidAU-Qwen3.8-27B-TURBO-Q6_K/'
 SWIFT_Q4KM = ROOT / 'models/Swift-Qwen3.8-27B-Q4_K_M/Swift-Qwen3.8-27B-Q4_K_M.gguf'
 TURBO_MTP_Q4KM = ROOT / ('models/DavidAU-Qwen3.8-27B-TURBO-MTP-Q4_K_M/'
     'Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf')
+THINKINGCAP_Q4KM = ROOT / ('models/bottlecapai-ThinkingCap-Qwen3.8-27B-Q4_K_M/'
+                           'ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf')
 SHARP_TEMPLATE = ROOT / 'qwen38-tuning/third_party/sharp-template/chat_template.jinja'
 SHARP_TEMPLATE_SHA256 = 'cdff39fb26b60dc90faa292e726655c6b21f62db497846e02e4c4bbab942a84a'
 SHARP_TEMPLATE_REVISION = '85461fc118aaf25e7319c7ecf2481f944aac3a32'
@@ -47,6 +49,7 @@ EXPECTED_DIGESTS = {
     'swift_q4km': 'ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab',
     'turbo': 'ac011aabe685edbdf542e49351eb6c76c0e5531408f2507f2235ab10931e23a5',
     'turbo_mtp_q4km': 'bc7a6cf2bcc78d1190aaf04d1ab1c5cb845b6ff23aa0e7d24fe0d2ea6d3a7c7c',
+    'thinkingcap_q4km': 'fafa890ce2ce8531b4ade225c7dbd5f5d72a92303ca9ef72890c6cf78f19f299',
     'flash_next': '69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720',
 }
 # Flash-Next is two shards plus an external MTP head; shard 1 is the -m file
@@ -75,6 +78,8 @@ ARTIFACT_METADATA = {
     'turbo_mtp_q4km': {'artifact_family':'DavidAU Qwen3.8-27B TURBO 735-882',
                        'quant':'MTP-Q4_K_M',
                        'upstream_revision':'c02caef111a8acf987947f35e1e288aa5450e184'},
+    'thinkingcap_q4km': {'artifact_family':'bottlecapai ThinkingCap-Qwen3.8-27B', 'quant':'Q4_K_M',
+                         'upstream_revision':'hub-lfs-oid-matches-local-sha256-2026-09-24'},
     'flash_next': {'artifact_family':'ISTA-DASLab Qwen3.8-Flash-Next GSQ-RCO', 'quant':'Q2_0',
                    'upstream_revision':'local-shards-hashed-2026-09-24',
                    'mtp_head':'unsloth Qwen3.8-Flash-Next-MTP shared-Q4_K_M'},
@@ -300,7 +305,7 @@ def apply_template(argv, template):
 
 def llama_argv(artifact, ctx, spec, split, ngram_match=12):
     if artifact not in ('gsq', 'nvfp4', 'swift', 'turbo', 'dirk',
-                         'swift_q4km', 'turbo_mtp_q4km'):
+                         'swift_q4km', 'turbo_mtp_q4km', 'thinkingcap_q4km'):
         raise ValueError('Unknown llama.cpp artifact: ' + artifact)
     if spec not in ('none', 'mtp', 'ngram', 'mtp-ngram', 'served'):
         raise ValueError('Unknown speculation mode: ' + spec)
@@ -315,7 +320,8 @@ def llama_argv(artifact, ctx, spec, split, ngram_match=12):
         argv = arena.server_argv(ctx, [])
     models = {'gsq': GSQ, 'nvfp4': arena.NVFP4_VERY_LOW,
               'swift': SWIFT, 'turbo': TURBO, 'dirk': DIRK,
-              'swift_q4km': SWIFT_Q4KM, 'turbo_mtp_q4km': TURBO_MTP_Q4KM}
+              'swift_q4km': SWIFT_Q4KM, 'turbo_mtp_q4km': TURBO_MTP_Q4KM,
+              'thinkingcap_q4km': THINKINGCAP_Q4KM}
     values = {'-m': models[artifact],
               '--alias': 'Qwen3.8-27B-' + artifact + '-' + spec,
               '-sm': 'tensor', '-ts': split, '-ub': 1024}

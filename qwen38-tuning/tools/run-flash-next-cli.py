@@ -35,8 +35,10 @@ from session_telemetry import sample_resources
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', action='store_true', help='Launch the authorized GPU screen')
+    parser.add_argument('--challenger', default='flash_next', choices=['flash_next','thinkingcap_q4km'])
     args = parser.parse_args()
-    order = [('gsq-a','gsq'), ('flash_next-a','flash_next'), ('flash_next-b','flash_next'), ('gsq-b','gsq')]
+    ch = args.challenger
+    order = [('gsq-a','gsq'), (ch+'-a',ch), (ch+'-b',ch), ('gsq-b','gsq')]
     fixture = ROOT / 'qwen38-tuning/fixtures/code-task-1'
     executable = Path.home() / '.local/bin/claude.exe'
     uuids = gsq.arena.BOTH_CARDS.split(',')
@@ -44,7 +46,7 @@ def main():
         'แล้วรัน `python -m pytest -q` ให้ผ่าน',
         'ไม่ต้องรัน test เอง เพราะรอบนี้มีเฉพาะ Read/Edit; ตัวตรวจภายนอกจะรัน test หลังจบงาน')
     prompt += '\nแก้ไฟล์จริงด้วย tools ไม่ใช่ส่งโค้ดแทนการแก้ไฟล์ แล้วสรุปสิ่งที่แก้เป็นภาษาไทย ห้ามอ้างว่ารัน test แล้ว\n'
-    planned = {'protocol':'flash-next-vs-gsq-code1-v1', 'order':[c for c,_ in order], 'context':65536,
+    planned = {'protocol':args.challenger+'-vs-gsq-code1-v1', 'order':[c for c,_ in order], 'context':65536,
         'timeout_s':1200, 'max_turns':32, 'seed_requested':29, 'retries':0,
         'fixture':inventory(fixture), 'prompt':prompt,
         'client_path':str(executable), 'client_sha256':gsq.digest(executable),
@@ -91,7 +93,7 @@ def main():
                     # late system message here; Flash-Next's stock == qwen38-stock.jinja.
                     argv = gsq.apply_template(gsq.flash_next_argv(65536, 18080), 'stock')
                 else:
-                    argv = gsq.apply_template(gsq.llama_argv(key,65536,'mtp-ngram','8500,15468',24),'stock')
+                    argv = gsq.apply_template(gsq.llama_argv(key,65536,'mtp-ngram',('9500,14500' if key=='thinkingcap_q4km' else '8500,15468'),24),'stock')
                     argv = gsq.replace_flag(argv, '--port', 18080)
                     argv = gsq.replace_flag(argv, '-lv', 4)
                 path = Path(argv[argv.index('-m')+1]); actual_hash = gsq.digest(path)

@@ -1,0 +1,69 @@
+{
+  "date": "2026-09-24",
+  "context": 65536,
+  "effort": "medium",
+  "client": "Claude Code 2.1.281",
+  "order": "ABBA",
+  "thinkingcap": {
+    "file": "models/bottlecapai-ThinkingCap-Qwen3.8-27B-Q4_K_M/ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf",
+    "sha256": "fafa890ce2ce8531b4ade225c7dbd5f5d72a92303ca9ef72890c6cf78f19f299",
+    "argv": "llama_argv('thinkingcap_q4km',65536,'mtp-ngram','9500,14500',24)"
+  },
+  "private_evidence": {
+    "code1": "C:/Users/xenod/AppData/Local/Temp/qwen-preliminary-cli-k8eicqx9",
+    "pal": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-remaining-ekljr_vg"
+  },
+  "code1": {
+    "gsq-a": {
+      "status": "verified",
+      "task_wall_s": 156.016
+    },
+    "thinkingcap_q4km-a": {
+      "status": "verified",
+      "task_wall_s": 151.313
+    },
+    "thinkingcap_q4km-b": {
+      "status": "failed",
+      "task_wall_s": 105.359,
+      "note": "hidden 7/7 pass; its own added test asserts quantity 1 after a successful second removal (actual 0)"
+    },
+    "gsq-b": {
+      "status": "verified",
+      "task_wall_s": 159.813
+    }
+  },
+  "pal": {
+    "gsq-a": {
+      "status": "original_verified_audit_pending",
+      "task_wall_s": 429.297,
+      "hidden": "8/8",
+      "overlap_audit": "0/4",
+      "red_then_green": true,
+      "accepted": false
+    },
+    "thinkingcap_q4km-a": {
+      "status": "original_verified_audit_pending",
+      "task_wall_s": 466.453,
+      "hidden": "8/8",
+      "overlap_audit": "4/4",
+      "red_then_green": true,
+      "accepted": true
+    },
+    "thinkingcap_q4km-b": {
+      "status": "original_verified_audit_pending",
+      "task_wall_s": 287.515,
+      "hidden": "8/8",
+      "overlap_audit": "0/4",
+      "red_then_green": true,
+      "accepted": false
+    },
+    "gsq-b": {
+      "status": "model_failure",
+      "task_wall_s": 396.5,
+      "hidden": "8/8",
+      "overlap_audit": "4/4",
+      "red_then_green": false,
+      "accepted": false
+    }
+  }
+}
