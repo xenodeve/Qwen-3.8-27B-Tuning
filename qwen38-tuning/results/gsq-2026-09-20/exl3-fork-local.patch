@@ -1,0 +1,28 @@
+diff --git a/exllamav3/modules/attention_fn/bc_dsa.py b/exllamav3/modules/attention_fn/bc_dsa.py
+index c2081d8..3b50953 100644
+--- a/exllamav3/modules/attention_fn/bc_dsa.py
++++ b/exllamav3/modules/attention_fn/bc_dsa.py
+@@ -6,7 +6,14 @@ from ...ext import exllamav3_ext as ext
+ from ...constants import PAGE_SIZE
+ from ...util.tensor import g_tensor_cache
+ from .bc_attn import _compile_kernel
+-from .dsa_triton import _dsa_attn_split_kernel, _dsa_attn_combine_kernel, _dsa_indexer_fewq_kernel
++# Windows: triton is not shipped, and the DSA kernels are DeepSeek-V4-only (unused by Qwen).
++# Guard the import so `import exllamav3` succeeds; BC-DSA declines below when unavailable.
++try:
++    from .dsa_triton import _dsa_attn_split_kernel, _dsa_attn_combine_kernel, _dsa_indexer_fewq_kernel
++    _DSA_AVAILABLE = True
++except ImportError:
++    _dsa_attn_split_kernel = _dsa_attn_combine_kernel = _dsa_indexer_fewq_kernel = None
++    _DSA_AVAILABLE = False
+ 
+ """
+ Whole-attention-step graphs for DeepSeek-V4 DSA decode (BC_DSV4Attention): projections,
+@@ -23,6 +30,7 @@ decline per-layer; build failures raise with EXL3_BC_DSA_DEBUG=1, else decline.
+ """
+ 
+ bc_dsa_enable = os.environ.get("EXL3_BC_DSA", "1") != "0"
++bc_dsa_enable = bc_dsa_enable and _DSA_AVAILABLE
+ _bc_debug = os.environ.get("EXL3_BC_DSA_DEBUG", "0") != "0"
+ 
+ MAX_QLEN = 16

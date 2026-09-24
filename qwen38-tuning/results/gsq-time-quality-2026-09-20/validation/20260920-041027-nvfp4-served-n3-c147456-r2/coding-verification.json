@@ -1,0 +1,32 @@
+[
+  {
+    "case": "session-lfu_cache",
+    "passed": false,
+    "exit_code": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 3, in <module>\nNameError: name 'LFUCache' is not defined\n",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-041027-nvfp4-served-n3-c147456-r2\\responses.jsonl",
+    "contract_ok": false,
+    "contract_violations": [
+      "no fenced python block"
+    ],
+    "accepted": false,
+    "status": "budget-limited",
+    "verification_s": 0.07126530000095954,
+    "time_spent_s": 164.40686290000303,
+    "single_call_verified_task_s": null
+  },
+  {
+    "case": "session-tree_codec",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-041027-nvfp4-served-n3-c147456-r2\\responses.jsonl",
+    "contract_ok": true,
+    "contract_violations": [],
+    "accepted": true,
+    "status": "accepted",
+    "verification_s": 0.06646030000047176,
+    "time_spent_s": 93.81565779999801,
+    "single_call_verified_task_s": 93.81565779999801
+  }
+]

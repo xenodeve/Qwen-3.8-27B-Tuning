@@ -1,5 +1,150 @@
 # Open work ledger
 
+**2026-09-22 · #149 focused GSQ/EXL3 slice:**
+[Result30](results/30-pal-journal-focus-2026-09-22.md). GSQ IQ3 passes hidden9/9,
+visible40/40, scope and RED→GREEN;742.688s, accepted for this one task. EXL3
+passes hidden9/9 and visible21/21 but fails strict RED→GREEN evidence;1024.859s,
+FAILED_CONTRACT. This is one PAL task only; the five-task Q4-Class campaign is
+not complete. Original PAL/defaults unchanged.
+
+**2026-09-22 · #149 second real-project task partial:**
+
+[Result29](results/29-pal-journal-2026-09-22.md) · selected from PAL's tracked open
+issue and run in a detached clone. Swift Q4 reached the real Claude Code workflow
+but timed out at1800.656s before producing candidate files; owned adapter cleanup
+also timed out, then ports were confirmed closed. Seven other arms were not run;
+no quality score/ranking exists. PAL HEAD/status and defaults unchanged. Do not
+retry as a quality run without a new decision.
+
+**2026-09-22 · #92 FP8 OpenAI-path repetition complete:**
+
+[Result28](results/28-fp8-openai-pal-repeat-2026-09-22.md) ·
+[plan](plans/2026-09-21-fp8-pal-control.md). Same PAL task through
+`/v1/chat/completions` with shared observer. Original8/8, visible12/12,
+overlap2/4, RED→GREEN confirmed;288.750s attempt.33 complete requests,
+44,353 output tokens,24,688 reported reasoning tokens,188.86 effective request
+ tok/s. No accepted complete task; original PAL/defaults unchanged.
+
+**2026-09-22 · #92 comparable gateway/local metrics apparatus complete:**
+[Result27](results/27-comparable-gateway-local-metrics-2026-09-22.md) ·
+[plan](plans/2026-09-21-fp8-pal-control.md). DSH is verified to use OpenAI
+`/v1/chat/completions`, while the first FP8 PAL run used Anthropic `/v1/messages`.
+A harmless three-arm probe got119 reasoning chars on OpenAI and0 on Anthropic;
+DSH144tok/s is output tokens divided by post-first-token decode time, not native
+GPU decode. Shared9arm/local stream observer, timing sidecars and coverage-aware
+reporter added; full gate2046 passed,3 skipped,9 warnings in318.11s. No original
+or default changes. No subagent calls outside the explicitly selected native
+`gpt-5.6-luna` test.
+**2026-09-22 · #92 claude-9arm FP8 PAL control complete:**
+[Result26](results/26-fp8-pal-control-2026-09-22.md) ·
+[plan](plans/2026-09-21-fp8-pal-control.md). Selected FP8 provider reports
+`vllm/Qwen/Qwen3.8-27B-FP8`; same task/baseline/effective tools. Original8/8,
+overlap2/4 (explicit directories still wrong), visible10/10;169.297s attempt.
+Strict identical-test-hash workflow gate fails despite an actual RED→GREEN cycle
+with a legitimate assertion correction; no successful complete-task timing.
+Supplemental review confirms fragile exception-message classification. No nonempty
+thinking emitted, so do not score reasoning quality from absent text.2,083 evidence
+files independently rehashed without mismatch; credential scan0, original PAL
+unchanged. No default/patch promotion. Remote weights/hardware/runtime unknown.
+
+
+**2026-09-21 · #92 remaining four PAL configurations evaluated:**
+[Result25](results/25-remaining-pal-workflow-2026-09-21.md) ·
+[plan](plans/2026-09-21-remaining-pal-workflow.md). Identical task/baseline/tools;
+GSQ IQ3 passes original8/8 + overlap4/4 + TDD (271.125s through original verifier,
+separate audit1.484s). Dirk Q6 (455.187s), NVFP4 VERY-LOW (312.672s), and admitted
+EXL3 H5 replacement (197.000s) pass original8/8 but fail overlap0/4. First EXL3
+submission passed both suites but was excluded by immediate cleanup-port failure;
+retained273.937s cost and favorable code evidence, not erased. Bounded listener
+wait fixed red-first; replacement cleanup passed. Five saved submissions independently
+verified and reviewed; original PAL unchanged, no patches/default promotion.
+One accepted primary configuration among eight on this task only; broader Long
+Horizon remains unfinished.
+
+
+**2026-09-21 · #92 clean Q4/PAL evaluation complete, no full PAL pass:**
+[Result24](results/24-q4-real-project-workflow-2026-09-21.md) and
+[execution record](plans/2026-09-21-q4-pal-workflow.md). Both Q4 files downloaded
+and hash-pinned; Minecraft-hour model evidence explicitly invalidated and rerun
+from clean clearance. Code1: TURBO Q4 67.969s, Swift Q4 58.781s, both7/7. Real PAL
+clone: TURBO Q4 206.297s, Swift Q4 683.891s; test-first verified, but both original
+8/8 hidden scores miss an explicit-path/user-directory overlap regression. A
+separate audit fails both0/4. Conditional controls: TURBO Q6 original7/8 and
+0/4 audit; Swift Q6 original8/8 and2/4 audit. These are failed-attempt times,
+not time per fully verified PAL task. No production patch/default change;
+original PAL HEAD/status unchanged, tests in Docker, benchmark processes cleaned.
+Full idle gate1939 passed/2 skipped/9 warnings. Full daily T4 workflow and broader
+Long Horizon validation remain open; bare file/test-tool evaluation is narrower.
+
+**2026-09-21 · #92 incumbent extension completed:** The same frozen Claude CLI
+code1 screen now includes the exact default llama.cpp
+`Qwen3.8-27B-NVFP4-MTP-VERY-LOW.gguf` and EXL3 SC4.0bpw H5. Both pass7/7 hidden;
+task time NVFP4141.735s, EXL390.218s. EXL3 is faster in this one observation but
+its final Thai is severely malformed despite correct code; NVFP4 is clear but
+uses11,030 thinking characters/5,278 generated tokens. Actual source-default
+profiles, hashes, full thoughts/diffs and engine-native counters are in
+[Result23](results/23-preliminary-cli-quality-time-2026-09-21.md). Six-arm order
+is descriptive only; no default change or stable winner.
+
+**2026-09-21 · #92 preliminary real-Claude-CLI screen completed:**
+[Result23](results/23-preliminary-cli-quality-time-2026-09-21.md),
+[frozen reduced protocol](plans/2026-09-21-preliminary-cli-screen.md).
+Existing four selected profiles at65536, real restricted Read/Edit tools,
+parent verification: all4 pass7/7 hidden checks. Task times Swift58.781s,
+TURBO56.500s, Dirk136.860s, GSQ74.531s; one task/sample, no stable winner.
+Primary review covered all4 thinking/final exports and diffs; independently
+reverified artifacts and negative controls. First Swift attempt invalid due to
+our tool-fragment translator, preserved separately. User confirmed game closure
+and authorized archiving the stale legacy lease. No default change. The full
+Long Horizon suite and model-self-test tool loop remain open; do not confuse
+this reduced screen with their completion. Final pre-run gate1923 passed/2 skipped.
+
+**2026-09-21 · #92 canary UUID fault corrected offline:** The default
+`SessionHistory` ID used 32-character hex, while installed Claude Code2.1.258
+requires a hyphenated UUID for `--session-id`. A regression test failed before
+changing the generator to `str(uuid.uuid4())`; the client/history/recorded-session
+subset then passed56 tests; the final full gate passed1912, skipped2, warnings9.
+After explicit developer authorization, the persistent real-client/fake-upstream
+protocol canary passed (exit0, `CANARY_OK`, terminal stream and journal integrity).
+Evidence is linked from the PRD investigation below. Effective client tools were
+only `Edit,Read` and its reported window was200000; the edit/test/repair and
+per-model client-profile gates remain open. No GPU run.
+Parser/binary provenance and the next gate are recorded in the
+[PRD investigation](plans/2026-09-21-long-horizon-agentic-prd.md#canary-startup-investigation-2026-09-21-continuation).
+
+**2026-09-21 · #92 canonical execution handoff:** Read the
+[Long-horizon PRD / Luna runbook](plans/2026-09-21-long-horizon-agentic-prd.md)
+first when continuing this campaign. It freezes Q6 Swift/TURBO/Dirk versus GSQ
+IQ3, independently certified contexts, W0–W9 implementation gates and the exact
+live-work blockers. Next concrete deliverable is the executable campaign entry
+point; recorder libraries and offline tests are not a completed agent campaign.
+Tracker body/sub-issues have not been updated (`gh` unavailable).
+
+**2026-09-21 · #92 integrated evidence collection:** Added `recorded_session.py`
+(client + wire capture + context/usage + workspace snapshots/diff + verifier),
+`session_analysis.py`, UUID-pinned durable `session_telemetry.py`, and the frozen
+`campaign_register.py` expected-attempt ledger. Real preflight checks model hash,
+runtime context and competing workload; unavailable data stays unknown and
+per-session task verification is separate from decision readiness. Final offline
+gate:1884 passed/3 skipped/9 warnings. Real Claude canary, model lifecycle and
+Long Horizon campaign remain open; no GPU run or Minecraft clearance yet.
+
+**2026-09-21 · #92 recording hardening:** Offline recorder/client/HTTP-reader
+protections added for disk failure, raw-output retention, unique session files,
+half-close, bounded relay shutdown, credential-header redaction, framing/SSE
+completion and journal integrity. Full offline gate:1830 passed/3 skipped;
+two additional complete-vs-truncated pipeline tests also passed. See
+[evidence contract](plans/2026-09-21-long-horizon-evidence-contract.md).
+The real-client canary, campaign runner integration and Long Horizon GPU results
+are still outstanding; Minecraft closure has not been confirmed.
+
+**2026-09-20 · #92 four-artifact update:** Actual Swift Q6_K, TURBO MTP-Q6_K,
+Dirk UD-Q6_K and GSQ IQ3_S-MTP now have speculation screening, three rotated
+short-task validation rounds at common65536, and a ~45K real-source prompt test.
+See [result22](results/22-four-model-comparison-2026-09-20.md). No promotion:
+long-horizon tool reliability, guard A/B, broader quality and best-config search
+remain open. Sharp-on-NVFP4 is a separate template experiment, not a Dirk result.
+
 **The discovery index over everything still open.** GitHub issues are the source
 of truth for tracked work; this table also catches the **MD-only** items that
 `gh issue list` cannot see — and those are the ones that vanish.
@@ -28,6 +173,18 @@ inside a report is a result nobody can find.
 ---
 
 ## Measurement — the machine
+
+GSQ-RCO bounded time-per-verified-task comparison completed:
+[issue #92](https://github.com/xenodeve/Qwen-3.8-27B-Tuning/issues/92),
+[result 20](results/20-gsq-time-quality-2026-09-20.md),
+[revised plan](plans/2026-09-20-gsq-comparison.md). Nine rotated runs at common
+147456 allocation support EXL3 as the next optimization foundation; full agent
+validation, broader quality, repair overhead/false positives and budget tuning
+remain open. The language-only stop is superseded (CORRECTIONS 52); no default promotion.
+The same issue now tracks the requested Sharp/Swift/TURBO extension under
+[its isolated-intervention plan](plans/2026-09-20-three-candidate-extension.md):
+Q6 artifacts are downloading, the Sharp template passed its upstream verifier,
+and no new inference measurement or default change has occurred yet.
 
 | status | item | why it is open | where |
 |---|---|---|---|

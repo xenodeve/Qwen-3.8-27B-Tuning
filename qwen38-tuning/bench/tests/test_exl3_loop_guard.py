@@ -72,6 +72,47 @@ def test_the_guard_reports_how_far_it_got():
     assert g.n_chars == at
 
 
+# --- issue #86: a Thai-script micro-loop must trip in tens of chars, not 512 ---
+
+def test_a_thai_two_char_loop_trips_within_the_micro_window():
+    """The depth regime: ว้ repeated hundreds of times under the 0.6 cap."""
+    text = "เริ่มรายงานผล " + "ว้" * 500
+    g, at = feed(text)
+    assert at is not None and at <= len("เริ่มรายงานผล ") + loop_guard.THAI_MICRO_WINDOW + 8
+    assert "Thai-script" in g.reason
+
+
+def test_a_thai_tone_mark_loop_trips_within_the_micro_window():
+    text = "สรุป " + "่" * 500
+    g, at = feed(text)
+    assert at is not None and at <= len("สรุป ") + loop_guard.THAI_MICRO_WINDOW + 8
+
+
+def test_ascii_dividers_do_not_shield_a_thai_loop():
+    """`ว้ | ว้ | ...` still trips: dividers are skipped, not a reset."""
+    text = "ผล " + "ว้ | " * 300
+    g, at = feed(text)
+    assert at is not None
+    assert "Thai-script" in g.reason
+
+
+def test_a_real_language_switch_resets_the_thai_tail():
+    """English prose between Thai bursts is a boundary, not a loop."""
+    text = ("รายงานประจำวัน " + "ว้" * 20 + " The quarterly report covers revenue, "
+            "operating margin, headcount growth, and the regional breakdown for Q3. "
+            "Section two details infrastructure spend and hiring plans. ") + "ว้" * 500
+    g, at = feed(text)
+    assert at is not None and "Thai-script" in g.reason
+
+
+def test_thai_prose_with_digits_and_punctuation_does_not_trip():
+    """Years, percentages and commas are short non-Thai runs, never a reset nor a trip."""
+    prose = ("ในปี 1998 บริษัทเริ่มต้นด้วยเงิน 2,500,000 บาท และเติบโต 35% ต่อปี "
+             "จนถึงปี 2026 มีพนักงาน 12,000 คน ใน 8 ประเทศ ทั่วโลก! ") * 6
+    g, at = feed(prose)
+    assert at is None
+
+
 def test_the_server_feeds_every_chunk_and_cancels_the_job_on_a_loop():
     server = open(os.path.join(TUNING, "serving", "exl3", "server.py"), encoding = "utf-8").read()
     assert "import live_timing, effort, anthropic_routes, watchdog, loop_guard" in server

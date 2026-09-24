@@ -1,0 +1,101 @@
+{
+  "argv": [
+    "C:\\AI\\exllama3-venv\\Scripts\\python.exe",
+    "C:\\AI\\qwen38-tuning\\serving\\exl3\\server.py",
+    "-m",
+    "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5",
+    "-dm",
+    "mtp",
+    "-cs",
+    "147456",
+    "-cq",
+    "4",
+    "--port",
+    "8000",
+    "--host",
+    "127.0.0.1",
+    "--extra",
+    "-tp -tpb native -gs 9,15.5 -ndt 3"
+  ],
+  "cwd": "C:\\AI\\exllamav3-mia",
+  "artifact": "exl3",
+  "ctx": 147456,
+  "spec": "served",
+  "round": 1,
+  "gpu_before": [
+    "0, GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4, NVIDIA GeForce RTX 4070 SUPER, 12282, 2230, 9768, 616.64",
+    "1, GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e, NVIDIA GeForce RTX 5060 Ti, 16311, 0, 16050, 616.64"
+  ],
+  "comparison": "original-session replay; depth is response prompt_tokens, never allocated ctx",
+  "candidate_parameters": {
+    "draft_n": 3,
+    "temperature": 0.6,
+    "han_guard": false,
+    "split_mode": null,
+    "seed": 17,
+    "stream": true,
+    "ngram_match": null
+  },
+  "files": [
+    {
+      "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\model-00001-of-00002.safetensors",
+      "bytes": 8548255745,
+      "sha256": "2633b0cbcc4b250a2837f78fac315d2f4d6c9ce3decc51a625bbf30a2a5b214f"
+    },
+    {
+      "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\model-00002-of-00002.safetensors",
+      "bytes": 8152973892,
+      "sha256": "23879b3c29049377af1c14ba78a1a998d0bc7053bd9237f4a352821730a83c12"
+    }
+  ],
+  "head": "d769a678120c2738ac914ace620672ce9e02ed84",
+  "server_source_sha256": "9bb7a7edfae157e69af60f81402aa5ee018f572f03d1aefbdcd3c9690a26b40a",
+  "runner_sha256": "8b779f50fdca9574ff4e88f6b07732d3af76057044d7c6242c98a362d6e616b2",
+  "fixtures_sha256": "b034a5f0ef32a8b22c005bb4fdc2ba33578d497ca142477ddc5144865d505517",
+  "measurement_notes": [
+    "Single exploratory round, not a paired performance verdict",
+    "Server timings retained without cross-engine formula conversion",
+    "Requested seed may not be implemented by every engine",
+    "llama.cpp uses explicit info/debug verbosity for boot evidence; see argv"
+  ],
+  "guard_sources": {
+    "thai_sampler.py": "b249659d71b88044a6ac7d0acac97cd41bc5e83571d7882173242b21c7814f04",
+    "cjk_guard.py": "4b3c0d8cb1d24f57b9456edfcc6a81020ffcd2904dda1957e4ada56e05c0194b",
+    "loop_guard.py": "63c69a69215dc2d49db30395e00ea7afe90885ac2bdcfb5e8594b356866b30b0",
+    "anthropic_compat.py": "dc79a19ee4dee4744565ae9fed03f7f6e31b0d1d208d8fec049c7d66a63866dd"
+  },
+  "pid": 43476,
+  "health": {
+    "ok": true,
+    "busy": false,
+    "backend": "exl3",
+    "prompt_tokens_total": 0,
+    "completion_tokens_total": 0,
+    "context_length": 147456,
+    "model": "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5",
+    "loops_stopped": 0,
+    "cjk_chars_total": 0,
+    "cancelled": 0
+  },
+  "listener": {
+    "root_pid": 43476,
+    "listener_pid": 43548,
+    "owned": true
+  },
+  "gpu_loaded": [
+    "0, GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4, NVIDIA GeForce RTX 4070 SUPER, 12282, 8877, 3121, 616.64",
+    "1, GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e, NVIDIA GeForce RTX 5060 Ti, 16311, 10604, 5447, 616.64"
+  ],
+  "runtime_ctx": 147456,
+  "replay_source": "C:\\AI\\qwen38-tuning\\results\\gsq-2026-09-20\\session-capture\\1789842177382847700-request.json",
+  "replay_sha256": "1721824613d680f3c0c052b0ca72ac64bbcca3f12bab96c7994887f3123d73f9",
+  "count_tokens": {
+    "input_tokens": 140726
+  },
+  "exit_before_cleanup": null,
+  "exit_after_cleanup": 1,
+  "gpu_end": [
+    "0, GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4, NVIDIA GeForce RTX 4070 SUPER, 12282, 2274, 9724, 616.64",
+    "1, GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e, NVIDIA GeForce RTX 5060 Ti, 16311, 0, 16050, 616.64"
+  ]
+}

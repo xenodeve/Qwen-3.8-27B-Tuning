@@ -1,0 +1,1213 @@
+{
+  "protocol": "q4-code1-pal-v1",
+  "evaluation": "preliminary; one attempt per arm; postrun oracle audit separately versioned",
+  "rows": [
+    {
+      "arm": "turbo_q4",
+      "task": "code1",
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-pal-ckv2820y\\turbo_mtp_q4km\\code1",
+      "quant": "MTP-Q4_K_M",
+      "spec_mode": "ngram",
+      "model_sha256": "bc7a6cf2bcc78d1190aaf04d1ab1c5cb845b6ff23aa0e7d24fe0d2ea6d3a7c7c",
+      "elapsed_attempt_s": 67.96900000001187,
+      "original_instrument_outcome": "verified",
+      "final_task_outcome": "verified_code1",
+      "time_per_verified_task_s": 67.96900000001187,
+      "original_hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.3120000000053551
+      },
+      "visible": {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.29699999999138527
+      },
+      "workflow": null,
+      "postrun_overlap_audit": null,
+      "context_high_water_tokens": 3231,
+      "analysis": {
+        "assistant_messages": 3,
+        "tool_calls": {
+          "Edit": 2,
+          "Read": 2
+        },
+        "tool_errors": 0,
+        "thinking_chars": 1340,
+        "answer_chars": 929,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 3
+        },
+        "model_names": [
+          "Qwen3.8-27B-turbo_mtp_q4km-ngram"
+        ]
+      },
+      "backend_requests": 3,
+      "backend_generated_tokens": 1722,
+      "prefill_s": 4.179988,
+      "decode_s": 54.085913,
+      "prefill_weighted_tps": 738.2796314247793,
+      "decode_time_weighted_tps": 31.782767538748953,
+      "compactions": [],
+      "raw_usage": [
+        {
+          "completion_tokens": 150,
+          "prompt_tokens": 1014,
+          "total_tokens": 1164,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        {
+          "completion_tokens": 1082,
+          "prompt_tokens": 1968,
+          "total_tokens": 3050,
+          "prompt_tokens_details": {
+            "cached_tokens": 1163
+          }
+        },
+        {
+          "completion_tokens": 490,
+          "prompt_tokens": 3231,
+          "total_tokens": 3721,
+          "prompt_tokens_details": {
+            "cached_tokens": 1964
+          }
+        }
+      ]
+    },
+    {
+      "arm": "turbo_q4",
+      "task": "pal",
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-pal-ckv2820y\\turbo_mtp_q4km\\pal",
+      "quant": "MTP-Q4_K_M",
+      "spec_mode": "ngram",
+      "model_sha256": "bc7a6cf2bcc78d1190aaf04d1ab1c5cb845b6ff23aa0e7d24fe0d2ea6d3a7c7c",
+      "elapsed_attempt_s": 206.29699999999139,
+      "original_instrument_outcome": "verified",
+      "final_task_outcome": "failed_contract_audit",
+      "time_per_verified_task_s": null,
+      "original_hidden": {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 3.1089999999967404,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": true
+        },
+        "stdout_ref": "hidden.stdout",
+        "stderr_ref": "hidden.stderr"
+      },
+      "visible": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 3.625,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": false
+        },
+        "stdout_ref": "visible.stdout",
+        "stderr_ref": "visible.stderr"
+      },
+      "workflow": {
+        "tests_file_changed": true,
+        "red_then_green": true,
+        "test_runs": 3,
+        "evidence": {
+          "user-config-focused-0001.stdout": {
+            "bytes": 540,
+            "sha256": "3464c4d8aade4919ab969b96365f5db537a402f27555dd8cb6b7915af63c4ef8"
+          },
+          "user-config-focused-0001.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0002.stdout": {
+            "bytes": 8179,
+            "sha256": "e3ba1346da058f7dcee3ce501ae7a22f453108de934a03d7d9ef754b826e704f"
+          },
+          "user-config-focused-0002.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0003.stdout": {
+            "bytes": 540,
+            "sha256": "6aae78dd5be829d40d9edd3d71f519798ff43a73f4d627e874c6616eee63e081"
+          },
+          "user-config-focused-0003.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "visible-tests.jsonl": {
+            "bytes": 12011,
+            "sha256": "5690ce8607e80b8be3187a7e4d9ea842013a7697612506b35abf8dd4f5de2c4c"
+          }
+        }
+      },
+      "postrun_overlap_audit": {
+        "passed": 0,
+        "total": 4,
+        "added_after_run": true
+      },
+      "context_high_water_tokens": 18893,
+      "analysis": {
+        "assistant_messages": 11,
+        "tool_calls": {
+          "Edit": 3,
+          "Read": 4,
+          "mcp__visible-tests__run_visible_tests": 3
+        },
+        "tool_errors": 0,
+        "thinking_chars": 7812,
+        "answer_chars": 1047,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 11
+        },
+        "model_names": [
+          "Qwen3.8-27B-turbo_mtp_q4km-ngram"
+        ]
+      },
+      "backend_requests": 11,
+      "backend_generated_tokens": 4391,
+      "prefill_s": 23.551468999999997,
+      "decode_s": 133.436576,
+      "prefill_weighted_tps": 770.1855030783855,
+      "decode_time_weighted_tps": 32.82458326868339,
+      "compactions": [],
+      "raw_usage": [
+        {
+          "completion_tokens": 298,
+          "prompt_tokens": 1406,
+          "total_tokens": 1704,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        {
+          "completion_tokens": 84,
+          "prompt_tokens": 4934,
+          "total_tokens": 5018,
+          "prompt_tokens_details": {
+            "cached_tokens": 1703
+          }
+        },
+        {
+          "completion_tokens": 52,
+          "prompt_tokens": 6683,
+          "total_tokens": 6735,
+          "prompt_tokens_details": {
+            "cached_tokens": 5017
+          }
+        },
+        {
+          "completion_tokens": 348,
+          "prompt_tokens": 7235,
+          "total_tokens": 7583,
+          "prompt_tokens_details": {
+            "cached_tokens": 6734
+          }
+        },
+        {
+          "completion_tokens": 938,
+          "prompt_tokens": 8960,
+          "total_tokens": 9898,
+          "prompt_tokens_details": {
+            "cached_tokens": 7582
+          }
+        },
+        {
+          "completion_tokens": 56,
+          "prompt_tokens": 9996,
+          "total_tokens": 10052,
+          "prompt_tokens_details": {
+            "cached_tokens": 8956
+          }
+        },
+        {
+          "completion_tokens": 1197,
+          "prompt_tokens": 12659,
+          "total_tokens": 13856,
+          "prompt_tokens_details": {
+            "cached_tokens": 9992
+          }
+        },
+        {
+          "completion_tokens": 83,
+          "prompt_tokens": 13950,
+          "total_tokens": 14033,
+          "prompt_tokens_details": {
+            "cached_tokens": 12655
+          }
+        },
+        {
+          "completion_tokens": 748,
+          "prompt_tokens": 17500,
+          "total_tokens": 18248,
+          "prompt_tokens_details": {
+            "cached_tokens": 13946
+          }
+        },
+        {
+          "completion_tokens": 51,
+          "prompt_tokens": 18342,
+          "total_tokens": 18393,
+          "prompt_tokens_details": {
+            "cached_tokens": 17496
+          }
+        },
+        {
+          "completion_tokens": 536,
+          "prompt_tokens": 18893,
+          "total_tokens": 19429,
+          "prompt_tokens_details": {
+            "cached_tokens": 18338
+          }
+        }
+      ]
+    },
+    {
+      "arm": "swift_q4",
+      "task": "code1",
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-pal-ki6kzney\\swift_q4km\\code1",
+      "quant": "Q4_K_M",
+      "spec_mode": "mtp-ngram",
+      "model_sha256": "ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab",
+      "elapsed_attempt_s": 58.780999999988126,
+      "original_instrument_outcome": "verified",
+      "final_task_outcome": "verified_code1",
+      "time_per_verified_task_s": 58.780999999988126,
+      "original_hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.34299999999348074
+      },
+      "visible": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.3129999999946449
+      },
+      "workflow": null,
+      "postrun_overlap_audit": null,
+      "context_high_water_tokens": 3785,
+      "analysis": {
+        "assistant_messages": 4,
+        "tool_calls": {
+          "Edit": 2,
+          "Read": 2
+        },
+        "tool_errors": 0,
+        "thinking_chars": 2426,
+        "answer_chars": 1638,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 4
+        },
+        "model_names": [
+          "Qwen3.8-27B-swift_q4km-mtp-ngram"
+        ]
+      },
+      "backend_requests": 4,
+      "backend_generated_tokens": 2302,
+      "prefill_s": 5.832738999999999,
+      "decode_s": 40.433603000000005,
+      "prefill_weighted_tps": 625.4351514785765,
+      "decode_time_weighted_tps": 56.833916087072424,
+      "compactions": [],
+      "raw_usage": [
+        {
+          "completion_tokens": 144,
+          "prompt_tokens": 1009,
+          "total_tokens": 1153,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        {
+          "completion_tokens": 802,
+          "prompt_tokens": 1957,
+          "total_tokens": 2759,
+          "prompt_tokens_details": {
+            "cached_tokens": 1154
+          }
+        },
+        {
+          "completion_tokens": 845,
+          "prompt_tokens": 2849,
+          "total_tokens": 3694,
+          "prompt_tokens_details": {
+            "cached_tokens": 1953
+          }
+        },
+        {
+          "completion_tokens": 511,
+          "prompt_tokens": 3785,
+          "total_tokens": 4296,
+          "prompt_tokens_details": {
+            "cached_tokens": 2845
+          }
+        }
+      ]
+    },
+    {
+      "arm": "swift_q4",
+      "task": "pal",
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-pal-ki6kzney\\swift_q4km\\pal",
+      "quant": "Q4_K_M",
+      "spec_mode": "mtp-ngram",
+      "model_sha256": "ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab",
+      "elapsed_attempt_s": 683.8910000000033,
+      "original_instrument_outcome": "verified",
+      "final_task_outcome": "failed_contract_audit",
+      "time_per_verified_task_s": null,
+      "original_hidden": {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 2.687000000005355,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": true
+        },
+        "stdout_ref": "hidden.stdout",
+        "stderr_ref": "hidden.stderr"
+      },
+      "visible": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 4.062000000005355,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": false
+        },
+        "stdout_ref": "visible.stdout",
+        "stderr_ref": "visible.stderr"
+      },
+      "workflow": {
+        "tests_file_changed": true,
+        "red_then_green": true,
+        "test_runs": 11,
+        "evidence": {
+          "user-config-focused-0001.stdout": {
+            "bytes": 540,
+            "sha256": "caadee815c558d37e4418fd96efb04f31c92ba01c2b3e42529e6661411074b9f"
+          },
+          "user-config-focused-0001.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0002.stdout": {
+            "bytes": 540,
+            "sha256": "0ea0bc45a356191deb287f5082b9ae38fc31532af841b96f6dc2edc2d33b5369"
+          },
+          "user-config-focused-0002.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0003.stdout": {
+            "bytes": 540,
+            "sha256": "d0b458e3d1a8c09dd0fdbc98ba77404aaa251c7e3448457307d6f5431c9d630b"
+          },
+          "user-config-focused-0003.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0004.stdout": {
+            "bytes": 540,
+            "sha256": "bce1c524f4575b1d7cb75d305392b43d3fb93409962ca60eacdb01cb3366070e"
+          },
+          "user-config-focused-0004.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0005.stdout": {
+            "bytes": 540,
+            "sha256": "3464c4d8aade4919ab969b96365f5db537a402f27555dd8cb6b7915af63c4ef8"
+          },
+          "user-config-focused-0005.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0006.stdout": {
+            "bytes": 540,
+            "sha256": "8b022a089efe8103f014bb2f1e14ed755edef0071a67eefe7c668d5ee8bc9ab2"
+          },
+          "user-config-focused-0006.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0007.stdout": {
+            "bytes": 540,
+            "sha256": "a5caf5197ed5a9e624e3944013b983b9aac2f8eeaa83b32a8ed190a6849941ac"
+          },
+          "user-config-focused-0007.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0008.stdout": {
+            "bytes": 540,
+            "sha256": "e5ad913f037e505a3431d892b49ac5cedab1c3420d3b8095aeee33308e10d62d"
+          },
+          "user-config-focused-0008.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0009.stdout": {
+            "bytes": 540,
+            "sha256": "d143d1d9daa5787c61ba380fa8cbb14c5bde6f135bf2e1fc384b476b2c3d28be"
+          },
+          "user-config-focused-0009.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0010.stdout": {
+            "bytes": 6724,
+            "sha256": "87d554736ce9857c15f9f6ff20f46b01f9b7cfe18bc804ffae828973492adf99"
+          },
+          "user-config-focused-0010.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0011.stdout": {
+            "bytes": 541,
+            "sha256": "90eb3ab91d0aa3cd580e8921967f8c933c0333f341f576039e6b92ad01e13536"
+          },
+          "user-config-focused-0011.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "visible-tests.jsonl": {
+            "bytes": 21583,
+            "sha256": "fcd25a4ab351f2df67d36c1a2eaa8e1dd19d86d3ddbcf7bf6b0eb0f81d7d9f04"
+          }
+        }
+      },
+      "postrun_overlap_audit": {
+        "passed": 0,
+        "total": 4,
+        "added_after_run": true
+      },
+      "context_high_water_tokens": 43511,
+      "analysis": {
+        "assistant_messages": 20,
+        "tool_calls": {
+          "Edit": 5,
+          "Read": 11,
+          "mcp__visible-tests__run_visible_tests": 11
+        },
+        "tool_errors": 2,
+        "thinking_chars": 43646,
+        "answer_chars": 4555,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 20
+        },
+        "model_names": [
+          "Qwen3.8-27B-swift_q4km-mtp-ngram"
+        ]
+      },
+      "backend_requests": 21,
+      "backend_generated_tokens": 21171,
+      "prefill_s": 83.45187700000001,
+      "decode_s": 472.55349899999993,
+      "prefill_weighted_tps": 696.8686875670872,
+      "decode_time_weighted_tps": 44.75683715125766,
+      "compactions": [
+        {
+          "trigger": "auto",
+          "pre_tokens": 44203,
+          "post_tokens": 13828,
+          "cumulative_dropped_tokens": 30375,
+          "duration_ms": 149818,
+          "preserved_segment": {
+            "head_uuid": "73499c5a-e728-4ec9-8669-5b4cc7d1019e",
+            "anchor_uuid": "eea8bf88-1b73-4560-8cd6-246fd8d8a2c1",
+            "tail_uuid": "9cb021ac-7807-4044-bd0e-67fc45f08313"
+          },
+          "preserved_messages": {
+            "anchor_uuid": "eea8bf88-1b73-4560-8cd6-246fd8d8a2c1",
+            "uuids": [
+              "73499c5a-e728-4ec9-8669-5b4cc7d1019e",
+              "703bc07a-b96a-4fbf-83a8-d1677729bd8f",
+              "422794e6-11be-44c4-a2ab-e50c6b8248e3",
+              "9cb021ac-7807-4044-bd0e-67fc45f08313"
+            ],
+            "all_uuids": [
+              "73499c5a-e728-4ec9-8669-5b4cc7d1019e",
+              "703bc07a-b96a-4fbf-83a8-d1677729bd8f",
+              "422794e6-11be-44c4-a2ab-e50c6b8248e3",
+              "9cb021ac-7807-4044-bd0e-67fc45f08313"
+            ]
+          }
+        }
+      ],
+      "raw_usage": [
+        {
+          "completion_tokens": 152,
+          "prompt_tokens": 1401,
+          "total_tokens": 1553,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        {
+          "completion_tokens": 100,
+          "prompt_tokens": 6438,
+          "total_tokens": 6538,
+          "prompt_tokens_details": {
+            "cached_tokens": 1554
+          }
+        },
+        {
+          "completion_tokens": 1132,
+          "prompt_tokens": 7915,
+          "total_tokens": 9047,
+          "prompt_tokens_details": {
+            "cached_tokens": 6538
+          }
+        },
+        {
+          "completion_tokens": 210,
+          "prompt_tokens": 10025,
+          "total_tokens": 10235,
+          "prompt_tokens_details": {
+            "cached_tokens": 9047
+          }
+        },
+        {
+          "completion_tokens": 155,
+          "prompt_tokens": 11214,
+          "total_tokens": 11369,
+          "prompt_tokens_details": {
+            "cached_tokens": 10235
+          }
+        },
+        {
+          "completion_tokens": 184,
+          "prompt_tokens": 11851,
+          "total_tokens": 12035,
+          "prompt_tokens_details": {
+            "cached_tokens": 11210
+          }
+        },
+        {
+          "completion_tokens": 309,
+          "prompt_tokens": 13014,
+          "total_tokens": 13323,
+          "prompt_tokens_details": {
+            "cached_tokens": 12035
+          }
+        },
+        {
+          "completion_tokens": 101,
+          "prompt_tokens": 26174,
+          "total_tokens": 26275,
+          "prompt_tokens_details": {
+            "cached_tokens": 13323
+          }
+        },
+        {
+          "completion_tokens": 109,
+          "prompt_tokens": 26770,
+          "total_tokens": 26879,
+          "prompt_tokens_details": {
+            "cached_tokens": 26170
+          }
+        },
+        {
+          "completion_tokens": 95,
+          "prompt_tokens": 27374,
+          "total_tokens": 27469,
+          "prompt_tokens_details": {
+            "cached_tokens": 26766
+          }
+        },
+        {
+          "completion_tokens": 180,
+          "prompt_tokens": 27537,
+          "total_tokens": 27717,
+          "prompt_tokens_details": {
+            "cached_tokens": 27470
+          }
+        },
+        {
+          "completion_tokens": 3454,
+          "prompt_tokens": 27912,
+          "total_tokens": 31366,
+          "prompt_tokens_details": {
+            "cached_tokens": 27716
+          }
+        },
+        {
+          "completion_tokens": 5059,
+          "prompt_tokens": 35139,
+          "total_tokens": 40198,
+          "prompt_tokens_details": {
+            "cached_tokens": 31366
+          }
+        },
+        {
+          "completion_tokens": 167,
+          "prompt_tokens": 40291,
+          "total_tokens": 40458,
+          "prompt_tokens_details": {
+            "cached_tokens": 35135
+          }
+        },
+        {
+          "completion_tokens": 1503,
+          "prompt_tokens": 40549,
+          "total_tokens": 42052,
+          "prompt_tokens_details": {
+            "cached_tokens": 40287
+          }
+        },
+        {
+          "completion_tokens": 98,
+          "prompt_tokens": 42144,
+          "total_tokens": 42242,
+          "prompt_tokens_details": {
+            "cached_tokens": 40545
+          }
+        },
+        {
+          "completion_tokens": 6259,
+          "prompt_tokens": 43511,
+          "total_tokens": 49770,
+          "prompt_tokens_details": {
+            "cached_tokens": 42140
+          }
+        },
+        {
+          "completion_tokens": 294,
+          "prompt_tokens": 16049,
+          "total_tokens": 16343,
+          "prompt_tokens_details": {
+            "cached_tokens": 373
+          }
+        },
+        {
+          "completion_tokens": 795,
+          "prompt_tokens": 19573,
+          "total_tokens": 20368,
+          "prompt_tokens_details": {
+            "cached_tokens": 16343
+          }
+        },
+        {
+          "completion_tokens": 68,
+          "prompt_tokens": 20537,
+          "total_tokens": 20605,
+          "prompt_tokens_details": {
+            "cached_tokens": 19569
+          }
+        },
+        {
+          "completion_tokens": 747,
+          "prompt_tokens": 21092,
+          "total_tokens": 21839,
+          "prompt_tokens_details": {
+            "cached_tokens": 20533
+          }
+        }
+      ]
+    },
+    {
+      "arm": "turbo_q6",
+      "task": "pal",
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-pal-6ydj6b2m\\turbo\\pal",
+      "quant": "MTP-Q6_K",
+      "spec_mode": "ngram",
+      "model_sha256": "ac011aabe685edbdf542e49351eb6c76c0e5531408f2507f2235ab10931e23a5",
+      "elapsed_attempt_s": 177.21799999999348,
+      "original_instrument_outcome": "failed",
+      "final_task_outcome": "failed_contract_audit",
+      "time_per_verified_task_s": null,
+      "original_hidden": {
+        "tests": 8,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 1,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 2.7660000000032596,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": true
+        },
+        "stdout_ref": "hidden.stdout",
+        "stderr_ref": "hidden.stderr"
+      },
+      "visible": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 2.5,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": false
+        },
+        "stdout_ref": "visible.stdout",
+        "stderr_ref": "visible.stderr"
+      },
+      "workflow": {
+        "tests_file_changed": true,
+        "red_then_green": true,
+        "test_runs": 3,
+        "evidence": {
+          "user-config-focused-0001.stdout": {
+            "bytes": 540,
+            "sha256": "bce1c524f4575b1d7cb75d305392b43d3fb93409962ca60eacdb01cb3366070e"
+          },
+          "user-config-focused-0001.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0002.stdout": {
+            "bytes": 4249,
+            "sha256": "75eadb4d2fca5b1548e4ac9f11e512482e5bdd2bd95038f3ba3273b31403095f"
+          },
+          "user-config-focused-0002.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0003.stdout": {
+            "bytes": 540,
+            "sha256": "2d43adf03671d9060078ebef6140003e07b158117ee92cee636535c5ac8d183d"
+          },
+          "user-config-focused-0003.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "visible-tests.jsonl": {
+            "bytes": 7945,
+            "sha256": "f3218abcca4603799f078800725048e9bf42f6fc8e5fb0270e84967a76484f0d"
+          }
+        }
+      },
+      "postrun_overlap_audit": {
+        "passed": 0,
+        "total": 4,
+        "added_after_run": true
+      },
+      "context_high_water_tokens": 11952,
+      "analysis": {
+        "assistant_messages": 8,
+        "tool_calls": {
+          "Edit": 2,
+          "Read": 2,
+          "mcp__visible-tests__run_visible_tests": 3
+        },
+        "tool_errors": 0,
+        "thinking_chars": 6074,
+        "answer_chars": 1132,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 8
+        },
+        "model_names": [
+          "Qwen3.8-27B-turbo-ngram"
+        ]
+      },
+      "backend_requests": 8,
+      "backend_generated_tokens": 3444,
+      "prefill_s": 16.194627999999998,
+      "decode_s": 125.54836300000001,
+      "prefill_weighted_tps": 686.0299600583602,
+      "decode_time_weighted_tps": 27.367939476837304,
+      "compactions": [],
+      "raw_usage": [
+        {
+          "completion_tokens": 295,
+          "prompt_tokens": 1401,
+          "total_tokens": 1696,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        {
+          "completion_tokens": 182,
+          "prompt_tokens": 4926,
+          "total_tokens": 5108,
+          "prompt_tokens_details": {
+            "cached_tokens": 1695
+          }
+        },
+        {
+          "completion_tokens": 384,
+          "prompt_tokens": 6773,
+          "total_tokens": 7157,
+          "prompt_tokens_details": {
+            "cached_tokens": 5107
+          }
+        },
+        {
+          "completion_tokens": 1007,
+          "prompt_tokens": 7652,
+          "total_tokens": 8659,
+          "prompt_tokens_details": {
+            "cached_tokens": 7156
+          }
+        },
+        {
+          "completion_tokens": 52,
+          "prompt_tokens": 8752,
+          "total_tokens": 8804,
+          "prompt_tokens_details": {
+            "cached_tokens": 7648
+          }
+        },
+        {
+          "completion_tokens": 1043,
+          "prompt_tokens": 10266,
+          "total_tokens": 11309,
+          "prompt_tokens_details": {
+            "cached_tokens": 8748
+          }
+        },
+        {
+          "completion_tokens": 57,
+          "prompt_tokens": 11399,
+          "total_tokens": 11456,
+          "prompt_tokens_details": {
+            "cached_tokens": 10262
+          }
+        },
+        {
+          "completion_tokens": 424,
+          "prompt_tokens": 11952,
+          "total_tokens": 12376,
+          "prompt_tokens_details": {
+            "cached_tokens": 11395
+          }
+        }
+      ]
+    },
+    {
+      "arm": "swift_q6",
+      "task": "pal",
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-pal-son3ntwx\\swift\\pal",
+      "quant": "Q6_K",
+      "spec_mode": "mtp-ngram",
+      "model_sha256": "7f4de8abd5446c08b0f975a1b38e43d02639f4ae9ecdd2ddfd5c5b0f612bda59",
+      "elapsed_attempt_s": 333.56299999999464,
+      "original_instrument_outcome": "verified",
+      "final_task_outcome": "failed_contract_audit",
+      "time_per_verified_task_s": null,
+      "original_hidden": {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 2.3280000000086147,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": true
+        },
+        "stdout_ref": "hidden.stdout",
+        "stderr_ref": "hidden.stderr"
+      },
+      "visible": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "timed_out": false,
+        "container_cleanup_returncode": null,
+        "elapsed_s": 2.8280000000086147,
+        "sandbox_command": {
+          "image": "qwen-pal-test:20260921",
+          "network": "none",
+          "workspace_mount": "read-only",
+          "trusted_test_mounted": false
+        },
+        "stdout_ref": "visible.stdout",
+        "stderr_ref": "visible.stderr"
+      },
+      "workflow": {
+        "tests_file_changed": true,
+        "red_then_green": true,
+        "test_runs": 4,
+        "evidence": {
+          "user-config-focused-0001.stdout": {
+            "bytes": 540,
+            "sha256": "ac955aca7d8d1c869a4d14a071d779535e5cd734c3aa8946eb5514b6ab3ed7c1"
+          },
+          "user-config-focused-0001.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0002.stdout": {
+            "bytes": 540,
+            "sha256": "b2c7ec3005438fd4ef588549d90be9910460232b507f22153ea70ecd4b24ab86"
+          },
+          "user-config-focused-0002.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0003.stdout": {
+            "bytes": 6402,
+            "sha256": "33a1b8d5d8b59396933ba3ca201daf7382b787ec463e13c879c723658ccce121"
+          },
+          "user-config-focused-0003.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0004.stdout": {
+            "bytes": 540,
+            "sha256": "e3fb521975abc7dee247c1d00e4a53f79e9eb47928beef8f48b48751dc1fa087"
+          },
+          "user-config-focused-0004.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "visible-tests.jsonl": {
+            "bytes": 11522,
+            "sha256": "fabbc1cefb4855da189f59f79f3814b67fb82ae2d36de0664d7ff83bf10fac70"
+          }
+        }
+      },
+      "postrun_overlap_audit": {
+        "passed": 2,
+        "total": 4,
+        "added_after_run": true
+      },
+      "context_high_water_tokens": 35610,
+      "analysis": {
+        "assistant_messages": 16,
+        "tool_calls": {
+          "Edit": 6,
+          "Read": 10,
+          "mcp__visible-tests__run_visible_tests": 4
+        },
+        "tool_errors": 2,
+        "thinking_chars": 25559,
+        "answer_chars": 3017,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 16
+        },
+        "model_names": [
+          "Qwen3.8-27B-swift-mtp-ngram"
+        ]
+      },
+      "backend_requests": 16,
+      "backend_generated_tokens": 10580,
+      "prefill_s": 49.641394000000005,
+      "decode_s": 224.30448800000002,
+      "prefill_weighted_tps": 644.9254829548098,
+      "decode_time_weighted_tps": 47.09669473934021,
+      "compactions": [],
+      "raw_usage": [
+        {
+          "completion_tokens": 144,
+          "prompt_tokens": 1397,
+          "total_tokens": 1541,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        {
+          "completion_tokens": 175,
+          "prompt_tokens": 6426,
+          "total_tokens": 6601,
+          "prompt_tokens_details": {
+            "cached_tokens": 1542
+          }
+        },
+        {
+          "completion_tokens": 158,
+          "prompt_tokens": 18108,
+          "total_tokens": 18266,
+          "prompt_tokens_details": {
+            "cached_tokens": 6602
+          }
+        },
+        {
+          "completion_tokens": 1792,
+          "prompt_tokens": 20987,
+          "total_tokens": 22779,
+          "prompt_tokens_details": {
+            "cached_tokens": 18266
+          }
+        },
+        {
+          "completion_tokens": 101,
+          "prompt_tokens": 23268,
+          "total_tokens": 23369,
+          "prompt_tokens_details": {
+            "cached_tokens": 22778
+          }
+        },
+        {
+          "completion_tokens": 82,
+          "prompt_tokens": 23859,
+          "total_tokens": 23941,
+          "prompt_tokens_details": {
+            "cached_tokens": 23264
+          }
+        },
+        {
+          "completion_tokens": 342,
+          "prompt_tokens": 24005,
+          "total_tokens": 24347,
+          "prompt_tokens_details": {
+            "cached_tokens": 23942
+          }
+        },
+        {
+          "completion_tokens": 932,
+          "prompt_tokens": 24542,
+          "total_tokens": 25474,
+          "prompt_tokens_details": {
+            "cached_tokens": 24348
+          }
+        },
+        {
+          "completion_tokens": 4352,
+          "prompt_tokens": 26337,
+          "total_tokens": 30689,
+          "prompt_tokens_details": {
+            "cached_tokens": 25473
+          }
+        },
+        {
+          "completion_tokens": 196,
+          "prompt_tokens": 30778,
+          "total_tokens": 30974,
+          "prompt_tokens_details": {
+            "cached_tokens": 26333
+          }
+        },
+        {
+          "completion_tokens": 53,
+          "prompt_tokens": 31062,
+          "total_tokens": 31115,
+          "prompt_tokens_details": {
+            "cached_tokens": 30774
+          }
+        },
+        {
+          "completion_tokens": 805,
+          "prompt_tokens": 33216,
+          "total_tokens": 34021,
+          "prompt_tokens_details": {
+            "cached_tokens": 31058
+          }
+        },
+        {
+          "completion_tokens": 229,
+          "prompt_tokens": 34106,
+          "total_tokens": 34335,
+          "prompt_tokens_details": {
+            "cached_tokens": 33212
+          }
+        },
+        {
+          "completion_tokens": 398,
+          "prompt_tokens": 34419,
+          "total_tokens": 34817,
+          "prompt_tokens_details": {
+            "cached_tokens": 34102
+          }
+        },
+        {
+          "completion_tokens": 183,
+          "prompt_tokens": 34953,
+          "total_tokens": 35136,
+          "prompt_tokens_details": {
+            "cached_tokens": 34415
+          }
+        },
+        {
+          "completion_tokens": 638,
+          "prompt_tokens": 35610,
+          "total_tokens": 36248,
+          "prompt_tokens_details": {
+            "cached_tokens": 34949
+          }
+        }
+      ]
+    }
+  ],
+  "pal_prompt_sha256": "eaa6548aa70cf6a2a1cd7d952a2abdccb9eb4a3b94009d5804916ec9dcd87456",
+  "original_pal_unchanged": true,
+  "review_coverage": {
+    "client_visible_thinking_and_finals": {
+      "reviewed": 6,
+      "total": 6
+    },
+    "workspace_diffs": {
+      "reviewed": 6,
+      "total": 6
+    },
+    "swift_q4_internal_compaction_summary_semantic_review": "not performed; raw backend retained and cost counted"
+  },
+  "independent_verification_root": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-all-independent-wn8z7jzr",
+  "code1_independent_root": "C:/Users/xenod/AppData/Local/Temp/qwen-code1-q4-independent-59sbzc12",
+  "q4_audit_root": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-overlap-audit-kr1jsfe1",
+  "q6_audit_root": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-q6-overlap-audit-s1e09h3l",
+  "provenance_gold_root": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-provenance-gold-qeynoeff",
+  "verdict": "Both Q4 models pass small code1 and complete actual test-first workflow, but neither Q4 nor its Q6 control satisfies the complete PAL source-provenance contract. No accepted PAL completion after audit; no finite PAL time-per-verified-task."
+}

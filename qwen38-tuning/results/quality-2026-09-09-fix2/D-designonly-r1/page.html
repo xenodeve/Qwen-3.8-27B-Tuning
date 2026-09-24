@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — โลกทั้งใบ อยู่ในคำค้นหาเดียว</title>
+<meta name="description" content="แนะนำ Google — เครื่องมือค้นหา แผนที่ อีเมล คลาวด์ วิดีโอ และ AI ที่อยู่ในทุกคำตอบที่คุณกำลังตามหา" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Google — โลกทั้งใบ อยู่ในคำค้นหาเดียว" />
+<meta property="og:description" content="แนะนำ Google — ตั้งแต่การค้นหารูปภาพ การนำทาง ไปจนถึง AI ที่ช่วยคิดแทน" />
+<meta property="og:image" content="https://example.com/og-google.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   GOOGLE — Editorial Minimalism × Modern Swiss × Liquid Glass
+   × Visible Grid  ·  single-file landing page
+   ============================================================ */
+
+:root{
+  /* ---- Type scale (Major Third 1.25x, base 16px) ---- */
+  --s-1: 1rem;        /* 16   body   */
+  --s-2: 1.25rem;     /* 20   sub    */
+  --s-3: 1.5625rem;   /* 25   card   */
+  --s-4: 1.953rem;    /* 31   h4     */
+  --s-5: 2.441rem;    /* 39   h3     */
+  --s-6: 3.052rem;    /* 48   h2     */
+  --s-7: 3.815rem;    /* 61   h1     */
+
+  /* ---- Fonts ---- */
+  --font-sans: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ---- 60 / 30 / 10 palette (LIGHT = base) ---- */
+  --bg:      #F5F4EF;   /* 60% paper white      */
+  --bg-2:    #ECEAE2;   /* 30% secondary surface */
+  --ink:     #16150F;   /* 60% dominant ink      */
+  --ink-2:   #5C5A50;   /* muted text            */
+  --ink-3:   #8A887C;   /* faint labels          */
+  --line:    rgba(22,21,15,0.14);
+  --grid:    rgba(22,21,15,0.065);
+  --accent:  #E63329;   /* 10% Swiss red         */
+  --accent-ink: #FFFFFF;
+
+  /* Liquid glass */
+  --glass:   rgba(255,255,255,0.55);
+  --glass-2: rgba(255,255,255,0.38);
+  --glass-brd: rgba(22,21,15,0.10);
+
+  /* Google 4-color motif */
+  --g-blue:   #4285F4;
+  --g-red:    #EA4335;
+  --g-yellow: #FBBC05;
+  --g-green:  #34A853;
+
+  /* ---- 8pt spacing ---- */
+  --sp-1: 8px;  --sp-2: 16px; --sp-3: 24px; --sp-4: 32px;
+  --sp-5: 48px; --sp-6: 64px; --sp-7: 96px; --sp-8: 128px;
+
+  --radius: 18px;
+  --maxw: 1200px;
+  --pad: 40px;
+}
+
+/* ---- DARK MODE (prefers-color-scheme) ---- */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:      #0E0D0B;
+    --bg-2:    #171511;
+    --ink:     #F4F2EA;
+    --ink-2:   #A9A69A;
+    --ink-3:   #6E6C62;
+    --line:    rgba(244,242,234,0.14);
+    --grid:    rgba(244,242,234,0.06);
+    --accent:  #FF5044;
+    --accent-ink:#160b09;
+    --glass:   rgba(255,255,255,0.055);
+    --glass-2: rgba(255,255,255,0.03);
+    --glass-brd: rgba(255,255,255,0.12);
+  }
+}
+/* manual toggle override */
+:root[data-theme="dark"]{
+  --bg:      #0E0D0B;
+  --bg-2:    #171511;
+  --ink:     #F4F2EA;
+  --ink-2:   #A9A69A;
+  --ink-3:   #6E6C62;
+  --line:    rgba(244,242,234,0.14);
+  --grid:    rgba(244,242,234,0.06);
+  --accent:  #FF5044;
+  --accent-ink:#160b09;
+  --glass:   rgba(255,255,255,0.055);
+  --glass-2: rgba(255,255,255,0.03);
+  --glass-brd: rgba(255,255,255,0.12);
+}
+
+/* ============================ RESET ============================ */
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+body{
+  font-family:var(--font-sans);
+  font-size:var(--s-1);
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+  transition: background .5s ease, color .5s ease;
+}
+img,svg{ display:block; }
+a{ color:inherit; text-decoration:none; }
+button{ font-family:inherit; cursor:pointer; }
+::selection{ background:var(--accent); color:var(--accent-ink); }
+
+/* ==================== VISIBLE GRID (fixed) ==================== */
+.grid-bg{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+.grid-bg .frame{
+  position:absolute; top:0; bottom:0; left:50%; transform:translateX(-50%);
+  width:min(var(--maxw), calc(100% - var(--pad)*2));
+  display:grid; grid-template-columns:repeat(12,1fr);
+}
+.grid-bg .frame i{ display:block; border-right:1px solid var(--grid); }
+.grid-bg .frame i:first-child{ border-left:1px solid var(--grid); }
+.grid-bg .rule{
+  position:absolute; top:0; bottom:0; left:50%; transform:translateX(-50%);
+  width:min(var(--maxw), calc(100% - var(--pad)*2));
+}
+.grid-bg .rule::before{
+  content:''; position:absolute; left:0; top:0; bottom:0; width:1px;
+  background:var(--accent); opacity:.45;
+}
+
+/* ============================ LAYOUT ============================ */
+.wrap{ position:relative; z-index:1; width:min(var(--maxw), calc(100% - var(--pad)*2)); margin-inline:auto; }
+section{ position:relative; z-index:1; }
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:.72rem; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--ink-3); display:inline-flex; align-items:center; gap:10px;
+}
+.eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+.sec-label{
+  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--ink-3);
+  display:flex; align-items:center; gap:14px; margin-bottom:var(--sp-4);
+}
+.sec-label .num{ color:var(--accent); }
+.sec-label .bar{ flex:1; height:1px; background:var(--line); }
+
+/* ============================ BUTTONS (4 states) ============================ */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  height:52px; padding:0 28px; border-radius:100px;
+  font-size:.95rem; font-weight:600; letter-spacing:-0.01em;
+  border:1px solid transparent; white-space:nowrap;
+  transition: transform .25s cubic-bezier(.2,.7,.2,1), background .25s ease,
+              border-color .25s ease, color .25s ease, box-shadow .25s ease;
+}
+.btn svg{ width:18px; height:18px; }
+.btn-primary{ background:var(--accent); color:var(--accent-ink); }
+.btn-primary:hover{ transform:translateY(-2px); box-shadow:0 12px 30px -12px var(--accent); }
+.btn-primary:active{ transform:translateY(0) scale(.98); }
+.btn-primary:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ghost{ background:transparent; color:var(--ink); border-color:var(--line); }
+.btn-ghost:hover{ border-color:var(--ink); background:var(--bg-2); transform:translateY(-2px); }
+.btn-ghost:active{ transform:translateY(0) scale(.98); }
+.btn-ghost:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* ============================ NAV (liquid glass) ============================ */
+.nav{
+  position:fixed; top:0; left:0; right:0; z-index:50;
+  transition: background .4s ease, border-color .4s ease, backdrop-filter .4s ease;
+  border-bottom:1px solid transparent;
+}
+.nav.scrolled{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  backdrop-filter:blur(20px) saturate(160%);
+  border-bottom-color:var(--glass-brd);
+}
+.nav .wrap{ display:flex; align-items:center; justify-content:space-between; height:72px; }
+.brand{ display:flex; align-items:center; gap:12px; }
+.brand .word{
+  font-weight:800; font-size:1.35rem; letter-spacing:-0.04em;
+}
+.brand .word b{ color:var(--g-blue); }
+.brand .word i{ color:var(--g-red); font-style:normal; }
+.brand .word u{ color:var(--g-yellow); text-decoration:none; }
+.brand .word em{ color:var(--g-green); font-style:normal; }
+.brand .word s{ color:var(--g-blue); text-decoration:none; }
+.nav-links{ display:flex; align-items:center; gap:var(--sp-4); }
+.nav-links a{
+  font-size:.9rem; font-weight:500; color:var(--ink-2);
+  position:relative; transition:color .2s ease;
+}
+.nav-links a::after{
+  content:''; position:absolute; left:0; bottom:-6px; width:0; height:1.5px;
+  background:var(--accent); transition:width .3s cubic-bezier(.2,.7,.2,1);
+}
+.nav-links a:hover{ color:var(--ink); }
+.nav-links a:hover::after{ width:100%; }
+.nav-right{ display:flex; align-items:center; gap:12px; }
+.theme-btn{
+  width:40px; height:40px; border-radius:50%; border:1px solid var(--line);
+  background:transparent; color:var(--ink); display:grid; place-items:center;
+  transition: background .25s ease, border-color .25s ease, transform .25s ease;
+}
+.theme-btn:hover{ background:var(--bg-2); border-color:var(--ink); transform:rotate(20deg); }
+.theme-btn svg{ width:18px; height:18px; }
+.theme-btn .moon{ display:none; }
+:root[data-theme="dark"] .theme-btn .sun{ display:none; }
+:root[data-theme="dark"] .theme-btn .moon{ display:block; }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .theme-btn .sun{ display:none; }
+  :root:not([data-theme="light"]) .theme-btn .moon{ display:block; }
+}
+.nav .btn{ height:44px; padding:0 20px; font-size:.85rem; }
+
+/* ============================ HERO ============================ */
+.hero{ padding-top:150px; padding-bottom:var(--sp-7); }
+.ruler{
+  display:grid; grid-template-columns:repeat(12,1fr);
+  margin-bottom:var(--sp-5); border-bottom:1px solid var(--line);
+}
+.ruler span{
+  font-family:var(--font-mono); font-size:.62rem; color:var(--ink-3);
+  padding:0 0 8px 6px; border-left:1px solid var(--grid);
+}
+.ruler span:first-child{ border-left:none; }
+.ruler .tag{
+  border-left:none; text-align:right; color:var(--ink-3);
+  display:flex; align-items:flex-end; justify-content:flex-end;
+}
+.hero-grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:var(--sp-3); align-items:end; }
+.hero-copy{ grid-column:1 / span 8; }
+.hero h1{
+  font-size:clamp(3rem, 9.2vw, 7.6rem);
+  line-height:.96; letter-spacing:-0.035em; font-weight:800;
+  margin-top:var(--sp-3);
+}
+.hero h1 .serif{
+  font-family:var(--font-serif); font-style:italic; font-weight:400;
+  letter-spacing:-0.01em; color:var(--accent); display:block;
+}
+.hero-sub{
+  margin-top:var(--sp-4); max-width:44ch;
+  font-size:clamp(1.05rem, 1.6vw, 1.3rem); line-height:1.5; color:var(--ink-2);
+}
+.hero-cta{ margin-top:var(--sp-5); display:flex; flex-wrap:wrap; gap:14px; }
+.hero-meta{
+  grid-column:9 / span 4; display:flex; flex-direction:column; gap:var(--sp-2);
+  padding-bottom:8px;
+}
+.hero-meta .m{
+  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.06em;
+  color:var(--ink-3); display:flex; gap:10px; align-items:center;
+}
+.hero-meta .m b{ color:var(--ink); font-weight:600; }
+
+/* ---- Signature: liquid glass search bar ---- */
+.searchbar{
+  margin-top:var(--sp-6);
+  display:flex; align-items:center; gap:14px;
+  padding:8px 8px 8px 22px; max-width:640px;
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(24px) saturate(170%);
+  backdrop-filter:blur(24px) saturate(170%);
+  border:1px solid var(--glass-brd);
+  border-radius:100px;
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.5);
+  transition: box-shadow .3s ease, border-color .3s ease;
+}
+.searchbar:focus-within{
+  border-color:var(--accent);
+  box-shadow:0 24px 60px -26px var(--accent), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.searchbar .mag{ width:22px; height:22px; color:var(--ink-2); flex:none; }
+.searchbar input{
+  flex:1; border:none; background:transparent; outline:none;
+  font-family:inherit; font-size:1.05rem; color:var(--ink); height:44px;
+}
+.searchbar input::placeholder{ color:var(--ink-3); }
+.searchbar .go{
+  height:44px; padding:0 22px; border-radius:100px; border:none;
+  background:var(--accent); color:var(--accent-ink); font-weight:600; font-size:.9rem;
+  transition: transform .2s ease, filter .2s ease;
+}
+.searchbar .go:hover{ filter:brightness(1.06); transform:scale(1.03); }
+.searchbar .go:active{ transform:scale(.97); }
+.search-hint{
+  margin-top:16px; display:flex; align-items:center; gap:14px;
+  font-family:var(--font-mono); font-size:.72rem; color:var(--ink-3); letter-spacing:.04em;
+}
+.dots{ display:inline-flex; gap:5px; }
+.dots i{ width:8px; height:8px; border-radius:50%; }
+.dots i:nth-child(1){ background:var(--g-blue); }
+.dots i:nth-child(2){ background:var(--g-red); }
+.dots i:nth-child(3){ background:var(--g-yellow); }
+.dots i:nth-child(4){ background:var(--g-green); }
+
+/* ============================ MARQUEE ============================ */
+.marquee{
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  padding:var(--sp-3) 0; overflow:hidden; position:relative; z-index:1;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+}
+.marquee-track{ display:flex; align-items:center; gap:var(--sp-6); width:max-content; animation:scroll 34s linear infinite; }
+.marquee:hover .marquee-track{ animation-play-state:paused; }
+.marquee-track .item{
+  font-size:clamp(1.4rem,2.6vw,2rem); font-weight:700; letter-spacing:-0.03em;
+  color:var(--ink); display:flex; align-items:center; gap:var(--sp-6); white-space:nowrap;
+}
+.marquee-track .item .sep{ color:var(--accent); font-weight:400; }
+@keyframes scroll{ to{ transform:translateX(-50%); } }
+
+/* ============================ STATS ============================ */
+.stats{ padding-block:var(--sp-7); }
+.stats-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--sp-4); }
+.stat{ border-top:1px solid var(--line); padding-top:var(--sp-3); }
+.stat .n{
+  font-size:clamp(2.6rem,5vw,4rem); font-weight:800; letter-spacing:-0.04em; line-height:1;
+}
+.stat .n small{ font-size:.4em; color:var(--accent); font-weight:700; vertical-align:super; }
+.stat .l{ margin-top:12px; font-family:var(--font-mono); font-size:.74rem; letter-spacing:.06em; color:var(--ink-2); }
+
+/* ============================ BENTO (products) ============================ */
+.bento-sec{ padding-block:var(--sp-7); }
+.sec-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:var(--sp-4); margin-bottom:var(--sp-5); flex-wrap:wrap; }
+.sec-head h2{
+  font-size:clamp(2rem,4.4vw,3.4rem); font-weight:800; letter-spacing:-0.035em; line-height:1.02;
+}
+.sec-head h2 .serif{ font-family:var(--font-serif); font-style:italic; font-weight:400; }
+.sec-head p{ max-width:36ch; color:var(--ink-2); font-size:1.05rem; }
+.bento{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
+.b-card{
+  position:relative; overflow:hidden; border-radius:var(--radius);
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(18px) saturate(150%);
+  backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid var(--glass-brd);
+  padding:var(--sp-4); min-height:180px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  transition: transform .4s cubic-bezier(.2,.7,.2,1), border-color .4s ease, background .4s ease;
+}
+.b-card:hover{ transform:translateY(-4px); border-color:var(--ink); background:var(--glass-2); }
+.b-card .top{ display:flex; align-items:flex-start; justify-content:space-between; }
+.b-card .ico{
+  width:48px; height:48px; border-radius:14px; display:grid; place-items:center;
+  background:var(--bg-2); border:1px solid var(--line); color:var(--ink);
+  transition: transform .4s cubic-bezier(.2,.7,.2,1), background .4s ease, color .4s ease;
+}
+.b-card:hover .ico{ transform:scale(1.08) rotate(-4deg); background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+.b-card .ico svg{ width:24px; height:24px; }
+.b-card .idx{ font-family:var(--font-mono); font-size:.7rem; color:var(--ink-3); }
+.b-card h3{ font-size:var(--s-3); font-weight:700; letter-spacing:-0.02em; }
+.b-card .en{ font-family:var(--font-mono); font-size:.68rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); margin-top:4px; }
+.b-card p{ margin-top:14px; color:var(--ink-2); font-size:.95rem; line-height:1.5; max-width:34ch; }
+.b-card .arrow{
+  position:absolute; right:var(--sp-3); bottom:var(--sp-3); width:34px; height:34px;
+  border-radius:50%; border:1px solid var(--line); display:grid; place-items:center;
+  color:var(--ink); opacity:0; transform:translate(-8px,8px);
+  transition: opacity .4s ease, transform .4s ease, background .3s ease, color .3s ease;
+}
+.b-card:hover .arrow{ opacity:1; transform:none; background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+.b-card .arrow svg{ width:16px; height:16px; }
+
+/* size variants */
+.b-gemini{ grid-column:span 7; grid-row:span 2; min-height:0; }
+.b-gemini .ico{ width:56px; height:56px; }
+.b-gemini h3{ font-size:var(--s-5); }
+.b-gemini .badge{
+  font-family:var(--font-mono); font-size:.66rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--accent); border:1px solid var(--accent); border-radius:100px; padding:5px 12px;
+}
+.b-gemini .feats{ display:flex; flex-wrap:wrap; gap:8px; margin-top:var(--sp-3); }
+.b-gemini .feats span{
+  font-size:.8rem; color:var(--ink-2); border:1px solid var(--line);
+  border-radius:100px; padding:6px 12px; background:var(--bg-2);
+}
+.b-search{ grid-column:span 5; }
+.b-maps{ grid-column:span 5; }
+.b-gmail{ grid-column:span 4; }
+.b-drive{ grid-column:span 4; }
+.b-yt{ grid-column:span 4; }
+.b-photos{ grid-column:span 4; }
+.b-translate{ grid-column:span 4; }
+.b-more{ grid-column:span 4; align-items:center; justify-content:center; text-align:center; }
+.b-more h3{ font-size:var(--s-4); }
+.b-more .plus{ font-size:2.4rem; font-weight:300; color:var(--accent); line-height:1; margin-bottom:8px; }
+
+/* ============================ AI SECTION ============================ */
+.ai-sec{ padding-block:var(--sp-8); }
+.ai-grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:var(--sp-5); align-items:center; }
+.ai-copy{ grid-column:1 / span 6; }
+.ai-copy h2{ font-size:clamp(2.4rem,5.5vw,4.2rem); font-weight:800; letter-spacing:-0.035em; line-height:1; margin-top:var(--sp-3); }
+.ai-copy h2 .serif{ font-family:var(--font-serif); font-style:italic; font-weight:400; color:var(--accent); }
+.ai-copy p{ margin-top:var(--sp-4); font-size:1.15rem; line-height:1.55; color:var(--ink-2); max-width:40ch; }
+.ai-copy .btn{ margin-top:var(--sp-5); }
+.ai-card{
+  grid-column:7 / span 6;
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid var(--glass-brd);
+  border-radius:24px; padding:var(--sp-5);
+  box-shadow:0 40px 80px -50px rgba(0,0,0,.5);
+}
+.ai-card .chat-head{ display:flex; align-items:center; gap:12px; padding-bottom:var(--sp-3); border-bottom:1px solid var(--line); }
+.ai-card .chat-head .g{ width:36px; height:36px; border-radius:50%; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font-weight:800; }
+.ai-card .chat-head .t{ font-weight:700; }
+.ai-card .chat-head .s{ font-family:var(--font-mono); font-size:.68rem; color:var(--ink-3); }
+.ai-msg{ margin-top:var(--sp-3); }
+.ai-msg .you{
+  margin-left:auto; max-width:80%; background:var(--bg-2); border:1px solid var(--line);
+  padding:12px 16px; border-radius:16px 16px 4px 16px; font-size:.92rem; color:var(--ink-2);
+}
+.ai-msg .bot{
+  max-width:88%; background:var(--glass-2); border:1px solid var(--glass-brd);
+  padding:14px 16px; border-radius:16px 16px 16px 4px; font-size:.92rem; line-height:1.5;
+}
+.ai-msg .bot b{ color:var(--accent); }
+.ai-card .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:var(--sp-4); }
+.ai-card .chips span{ font-size:.8rem; color:var(--ink-2); border:1px solid var(--line); border-radius:100px; padding:7px 14px; background:var(--bg-2); transition:all .25s ease; }
+.ai-card .chips span:hover{ border-color:var(--accent); color:var(--ink); transform:translateY(-2px); }
+
+/* ============================ QUOTE ============================ */
+.quote-sec{ padding-block:var(--sp-8); }
+.quote{
+  font-family:var(--font-serif); font-style:italic; font-weight:400;
+  font-size:clamp(2.2rem,6vw,4.6rem); line-height:1.12; letter-spacing:-0.02em;
+  max-width:20ch;
+}
+.quote .hl{ color:var(--accent); }
+.quote-by{ margin-top:var(--sp-4); display:flex; align-items:center; gap:14px; font-family:var(--font-mono); font-size:.78rem; letter-spacing:.1em; color:var(--ink-2); }
+.quote-by .line{ width:48px; height:1px; background:var(--accent); }
+
+/* ============================ CTA ============================ */
+.cta-sec{ padding-block:var(--sp-7); }
+.cta{
+  position:relative; overflow:hidden; border-radius:28px;
+  background:var(--ink); color:var(--bg);
+  padding:clamp(48px,7vw,96px); text-align:center;
+  border:1px solid var(--line);
+}
+.cta .eyebrow{ color:rgba(255,255,255,.6); }
+.cta h2{ font-size:clamp(2.2rem,5.5vw,4rem); font-weight:800; letter-spacing:-0.035em; line-height:1.05; margin-top:var(--sp-3); }
+.cta h2 .serif{ font-family:var(--font-serif); font-style:italic; font-weight:400; color:var(--g-yellow); }
+.cta p{ margin:var(--sp-3) auto 0; max-width:40ch; color:rgba(255,255,255,.7); font-size:1.1rem; }
+.cta .btn-primary{ margin-top:var(--sp-5); }
+.cta .dots{ justify-content:center; margin-top:var(--sp-4); }
+.cta .glow{
+  position:absolute; top:-40%; left:50%; transform:translateX(-50%);
+  width:600px; height:600px; border-radius:50%;
+  background:radial-gradient(circle, rgba(230,51,41,.35), transparent 65%);
+  pointer-events:none;
+}
+
+/* ============================ FOOTER ============================ */
+.footer{ border-top:1px solid var(--line); padding-block:var(--sp-7); position:relative; z-index:1; }
+.foot-grid{ display:grid; grid-template-columns:2fr repeat(4,1fr); gap:var(--sp-5); }
+.foot-brand .word{ font-weight:800; font-size:1.6rem; letter-spacing:-0.04em; }
+.foot-brand .word b{ color:var(--g-blue); }
+.foot-brand .word i{ color:var(--g-red); font-style:normal; }
+.foot-brand .word u{ color:var(--g-yellow); text-decoration:none; }
+.foot-brand .word em{ color:var(--g-green); font-style:normal; }
+.foot-brand .word s{ color:var(--g-blue); text-decoration:none; }
+.foot-brand p{ margin-top:var(--sp-2); color:var(--ink-2); font-size:.92rem; max-width:30ch; }
+.foot-col h4{ font-family:var(--font-mono); font-size:.7rem; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-3); margin-bottom:var(--sp-3); }
+.foot-col a{ display:block; font-size:.92rem; color:var(--ink-2); padding:6px 0; transition:color .2s ease, transform .2s ease; }
+.foot-col a:hover{ color:var(--accent); transform:translateX(4px); }
+.foot-bottom{
+  margin-top:var(--sp-6); padding-top:var(--sp-4); border-top:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); flex-wrap:wrap;
+  font-family:var(--font-mono); font-size:.72rem; color:var(--ink-3); letter-spacing:.04em;
+}
+.foot-bottom .dots{ }
+
+/* ============================ REVEAL ANIM ============================ */
+.reveal{ opacity:0; transform:translateY(28px); transition:opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+.reveal.in{ opacity:1; transform:none; }
+.hero .anim{ opacity:0; transform:translateY(24px); transition:opacity .9s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1); }
+body.loaded .hero .anim{ opacity:1; transform:none; }
+body.loaded .hero .anim.d1{ transition-delay:.05s; }
+body.loaded .hero .anim.d2{ transition-delay:.15s; }
+body.loaded .hero .anim.d3{ transition-delay:.28s; }
+body.loaded .hero .anim.d4{ transition-delay:.42s; }
+body.loaded .hero .anim.d5{ transition-delay:.56s; }
+
+/* ============================ RESPONSIVE ============================ */
+@media (max-width:1024px){
+  :root{ --pad:28px; }
+  .nav-links{ display:none; }
+  .hero-copy{ grid-column:1 / -1; }
+  .hero-meta{ grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; gap:var(--sp-3); margin-top:var(--sp-4); padding-bottom:0; }
+  .stats-grid{ grid-template-columns:repeat(2,1fr); gap:var(--sp-4) var(--sp-3); }
+  .bento{ grid-template-columns:repeat(6,1fr); }
+  .b-gemini{ grid-column:span 6; grid-row:auto; }
+  .b-search,.b-maps{ grid-column:span 3; }
+  .b-gmail,.b-drive,.b-yt,.b-photos,.b-translate,.b-more{ grid-column:span 3; }
+  .ai-grid{ grid-template-columns:1fr; }
+  .ai-copy,.ai-card{ grid-column:1 / -1; }
+  .foot-grid{ grid-template-columns:1fr 1fr; gap:var(--sp-5); }
+  .foot-brand{ grid-column:1 / -1; }
+}
+@media (max-width:640px){
+  :root{ --pad:20px; }
+  .nav .btn{ display:none; }
+  .hero{ padding-top:120px; }
+  .ruler{ display:none; }
+  .searchbar{ flex-wrap:wrap; border-radius:24px; padding:14px; }
+  .searchbar input{ flex:1 1 60%; }
+  .searchbar .go{ flex:1 1 auto; }
+  .stats-grid{ grid-template-columns:1fr 1fr; }
+  .bento{ grid-template-columns:1fr; }
+  .b-card{ grid-column:auto !important; min-height:160px; }
+  .b-gemini{ min-height:0; }
+  .foot-grid{ grid-template-columns:1fr 1fr; }
+  .sec-head{ flex-direction:column; align-items:flex-start; }
+}
+
+/* ============================ REDUCED MOTION ============================ */
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+  .reveal,.hero .anim{ opacity:1 !important; transform:none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ VISIBLE GRID ============ -->
+<div class="grid-bg" aria-hidden="true">
+  <div class="rule"></div>
+  <div class="frame">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+</div>
+
+<!-- ============ NAV ============ -->
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="Google">
+      <span class="word"><b>G</b><i>o</i><u>o</u><em>g</em><s>l</s>e</span>
+    </a>
+    <nav class="nav-links" aria-label="หลัก">
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#ai">AI</a>
+      <a href="#stats">เรื่องเล่า</a>
+      <a href="#cta">ติดต่อ</a>
+    </nav>
+    <div class="nav-right">
+      <button class="theme-btn" id="themeBtn" aria-label="สลับโหมดสว่าง/มืด">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <a class="btn btn-primary" href="#cta">เริ่มต้นใช้งาน</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap">
+    <div class="ruler anim d1" aria-hidden="true">
+      <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+      <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span>
+      <span class="tag">12-COL · 8PT · SWISS</span>
+    </div>
+
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow anim d1"><span class="dot"></span> GOOGLE — ก่อตั้ง 1998 · ซานตาคลารา</span>
+        <h1 class="anim d2">
+          โลกทั้งใบ<br>
+          อยู่ใน<br>
+          <span class="serif">คำค้นหาเดียว</span>
+        </h1>
+        <p class="hero-sub anim d3">
+          ตั้งแต่ภาพที่หาไม่เจอ ร้านอาหารใกล้ตัว ไปจนถึง AI ที่ช่วยคิดแทน —
+          Google อยู่ตรงนั้นในทุกคำตอบที่คุณกำลังตามหา
+        </p>
+        <div class="hero-cta anim d4">
+          <a class="btn btn-primary" href="#cta">
+            เริ่มต้นค้นหา
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#products">สำรวจผลิตภัณฑ์</a>
+        </div>
+      </div>
+
+      <div class="hero-meta anim d4">
+        <div class="m"><b>200+</b> ภาษาที่รองรับ</div>
+        <div class="m"><b>40,000+</b> คำค้นต่อวินาที</div>
+        <div class="m"><b>25+</b> ปีแห่งการค้นพบ</div>
+      </div>
+    </div>
+
+    <!-- Signature liquid glass search -->
+    <div class="anim d5">
+      <div class="searchbar" role="search">
+        <svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" placeholder="ค้นหาสิ่งที่คุณอยากรู้…" aria-label="ค้นหา" />
+        <button class="go">ค้นหา</button>
+      </div>
+      <div class="search-hint">
+        <span class="dots"><i></i><i></i><i></i><i></i></span>
+        ค้นหาด้วยภาพ · เสียง · ภาษา · AI
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MARQUEE ============ -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <div class="item">Search <span class="sep">/</span> Maps <span class="sep">/</span> Gmail <span class="sep">/</span> Drive <span class="sep">/</span> YouTube <span class="sep">/</span> Photos <span class="sep">/</span> Gemini <span class="sep">/</span> Translate <span class="sep">/</span> Calendar <span class="sep">/</span> Meet <span class="sep">/</span></div>
+    <div class="item">Search <span class="sep">/</span> Maps <span class="sep">/</span> Gmail <span class="sep">/</span> Drive <span class="sep">/</span> YouTube <span class="sep">/</span> Photos <span class="sep">/</span> Gemini <span class="sep">/</span> Translate <span class="sep">/</span> Calendar <span class="sep">/</span> Meet <span class="sep">/</span></div>
+  </div>
+</div>
+
+<!-- ============ STATS ============ -->
+<section class="stats" id="stats">
+  <div class="wrap">
+    <div class="sec-label reveal"><span class="num">01</span> ในตัวเลข <span class="bar"></span></div>
+    <div class="stats-grid">
+      <div class="stat reveal"><div class="n">1998</div><div class="l">ปีที่ก่อตั้ง</div></div>
+      <div class="stat reveal"><div class="n">40,000<small>+</small></div><div class="l">คำค้นต่อวินาที</div></div>
+      <div class="stat reveal"><div class="n">200<small>+</small></div><div class="l">ภาษาที่รองรับ</div></div>
+      <div class="stat reveal"><div class="n">25<small>+</small></div><div class="l">ปีแห่งการค้นพบ</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BENTO / PRODUCTS ============ -->
+<section class="bento-sec" id="products">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="sec-label"><span class="num">02</span> ผลิตภัณฑ์ <span class="bar"></span></div>
+        <h2>ทุกสิ่งที่จำเป็น<br><span class="serif">อยู่ในที่เดียว</span></h2>
+      </div>
+      <p>ระบบนิเวศที่เชื่อมต่อกัน — ค้นหา ทำงาน สร้างสรรค์ และสื่อสาร โดยไม่ต้องเปลี่ยนที่</p>
+    </div>
+
+    <div class="bento">
+      <!-- Gemini (hero product) -->
+      <article class="b-card b-gemini reveal">
+        <div class="top">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg></div>
+          <span class="badge">AI · ใหม่</span>
+        </div>
+        <div>
+          <h3>Gemini</h3>
+          <div class="en">Artificial Intelligence</div>
+          <p>AI ที่เข้าใจเจตนาของคุณ — ช่วยคิด ช่วยสรุป และช่วยสร้างสรรค์ ในทุกผลิตภัณฑ์ที่คุณใช้ทุกวัน</p>
+          <div class="feats">
+            <span>สรุปเนื้อหา</span><span>ช่วยเขียน</span><span>วิเคราะห์ข้อมูล</span><span>สร้างสรรค์ไอเดีย</span>
+          </div>
+        </div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- Search -->
+      <article class="b-card b-search reveal">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><span class="idx">02</span></div>
+        <div><h3>ค้นหา</h3><div class="en">Search</div><p>เครื่องมือค้นหาที่ทรงพลังที่สุดในโลก — ตอบทุกคำถามในเสี้ยววินาที</p></div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- Maps -->
+      <article class="b-card b-maps reveal">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div><span class="idx">03</span></div>
+        <div><h3>แผนที่</h3><div class="en">Maps</div><p>นำทางและค้นพบทุกที่ในโลกแบบเรียลไทม์</p></div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- Gmail -->
+      <article class="b-card b-gmail reveal">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div><span class="idx">04</span></div>
+        <div><h3>อีเมล</h3><div class="en">Gmail</div><p>อีเมลที่ปลอดภัย ฉลาด และรวดเร็ว</p></div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- Drive -->
+      <article class="b-card b-drive reveal">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l8 15H4z"/><path d="M8.5 18l3.5-6 3.5 6"/></svg></div><span class="idx">05</span></div>
+        <div><h3>คลาวด์</h3><div class="en">Drive</div><p>เก็บและเข้าถึงไฟล์ได้ทุกที่ ทุกอุปกรณ์</p></div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- YouTube -->
+      <article class="b-card b-yt reveal">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="4"/><path d="M11 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/></svg></div><span class="idx">06</span></div>
+        <div><h3>วิดีโอ</h3><div class="en">YouTube</div><p>ดูและแบ่งปันวิดีโอที่คุณรัก</p></div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- Photos -->
+      <article class="b-card b-photos reveal">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></svg></div><span class="idx">07</span></div>
+        <div><h3>รูปภาพ</h3><div class="en">Photos</div><p>จัดเก็บและค้นหาทุกความทรงจำ</p></div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- Translate -->
+      <article class="b-card b-translate reveal">
+        <div class="top"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h8M8 3v2c0 4-2 7-5 8M6 9c1 2 3 4 6 5"/><path d="M13 20l4-9 4 9M14.5 17h5"/></svg></div><span class="idx">08</span></div>
+        <div><h3>แปลภาษา</h3><div class="en">Translate</div><p>สื่อสารข้ามภาษาอย่างเป็นธรรมชาติ</p></div>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></span>
+      </article>
+
+      <!-- More -->
+      <article class="b-card b-more reveal">
+        <div><div class="plus">+</div><h3>อีกมากมาย</h3><p>Calendar · Meet · Docs · Store</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AI SECTION ============ -->
+<section class="ai-sec" id="ai">
+  <div class="wrap">
+    <div class="ai-grid">
+      <div class="ai-copy reveal">
+        <div class="sec-label"><span class="num">03</span> Artificial Intelligence <span class="bar"></span></div>
+        <h2>พบ <span class="serif">Gemini</span></h2>
+        <p>AI ที่เข้าใจเจตนาของคุณจริง ๆ — ช่วยเขียน ช่วยสรุป ช่วยวิเคราะห์ และช่วยสร้างสรรค์ ในทุกผลิตภัณฑ์ที่คุณใช้ทุกวัน</p>
+        <a class="btn btn-primary" href="#cta">
+          ลองใช้ Gemini
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+
+      <div class="ai-card reveal">
+        <div class="chat-head">
+          <div class="g">G</div>
+          <div><div class="t">Gemini</div><div class="s">พร้อมช่วยคุณแล้ว</div></div>
+        </div>
+        <div class="ai-msg">
+          <div class="you">ช่วยสรุปบทความนี้ให้ผมสั้น ๆ ได้ไหม?</div>
+        </div>
+        <div class="ai-msg">
+          <div class="bot">ได้เลยครับ — บทความนี้พูดถึง <b>3 แนวทางหลัก</b> ของการออกแบบที่เน้นความเรียบง่าย อ่านง่าย และเข้าถึงได้…</div>
+        </div>
+        <div class="chips">
+          <span>สรุปให้สั้น</span><span>เขียนอีเมล</span><span>แปลเป็นอังกฤษ</span><span>หาไอเดีย</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ QUOTE ============ -->
+<section class="quote-sec">
+  <div class="wrap">
+    <div class="quote reveal">
+      “เราเชื่อว่าโลกทั้งใบ<br>คือ<span class="hl">ห้องสมุด</span>ของคุณ”
+    </div>
+    <div class="quote-by reveal"><span class="line"></span> GOOGLE · PHILOSOPHY</div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="cta-sec" id="cta">
+  <div class="wrap">
+    <div class="cta reveal">
+      <div class="glow"></div>
+      <span class="eyebrow"><span class="dot"></span> พร้อมเริ่มต้น</span>
+      <h2>พร้อมค้นพบอะไรใหม่ ๆ<br><span class="serif">แล้วหรือยัง?</span></h2>
+      <p>เริ่มต้นใช้งานผลิตภัณฑ์ของ Google ได้ฟรี — ทุกที่ ทุกเวลา ทุกอุปกรณ์</p>
+      <a class="btn btn-primary" href="#">
+        เริ่มต้นใช้งาน — ฟรี
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <div class="dots"><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <div class="word"><b>G</b><i>o</i><u>o</u><em>g</em><s>l</s>e</div>
+        <p>องค์ความรู้ทั้งโลก อยู่ในคำค้นหาเดียว — ตั้งแต่ 1998</p>
+      </div>
+      <div class="foot-col">
+        <h4>ผลิตภัณฑ์</h4>
+        <a href="#">Search</a><a href="#">Maps</a><a href="#">Gmail</a><a href="#">Drive</a><a href="#">Gemini</a>
+      </div>
+      <div class="foot-col">
+        <h4>บริษัท</h4>
+        <a href="#">เกี่ยวกับเรา</a><a href="#">การจ้างงาน</a><a href="#">ข่าว</a><a href="#">นักลงทุน</a>
+      </div>
+      <div class="foot-col">
+        <h4>ทรัพยากร</h4>
+        <a href="#">บล็อก</a><a href="#">งานวิจัย</a><a href="#">ผู้พัฒนา</a><a href="#">สถานะระบบ</a>
+      </div>
+      <div class="foot-col">
+        <h4>กฎหมาย</h4>
+        <a href="#">ความเป็นส่วนตัว</a><a href="#">เงื่อนไข</a><a href="#">คุกกี้</a><a href="#">นโยบาย</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 GOOGLE · หน้าสาธิตเพื่อการออกแบบ</span>
+      <span class="dots"><i></i><i></i><i></i><i></i></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---- Hero load stagger ---- */
+window.addEventListener('DOMContentLoaded', () => {
+  requestAnimationFrame(() => document.body.classList.add('loaded'));
+});
+
+/* ---- Scroll reveal (IntersectionObserver) ---- */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      e.target.style.transitionDelay = (Math.min(i,6) * 60) + 'ms';
+      e.target.classList.add('in');
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+/* ---- Nav glass on scroll ---- */
+const nav = document.getElementById('nav');
+const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 24);
+onScroll();
+window.addEventListener('scroll', onScroll, { passive:true });
+
+/* ---- Theme toggle (default = system via prefers-color-scheme) ---- */
+const themeBtn = document.getElementById('themeBtn');
+const root = document.documentElement;
+themeBtn.addEventListener('click', () => {
+  const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const current = root.getAttribute('data-theme');
+  let next;
+  if (current === '') { next = sysDark ? 'light' : 'dark'; }
+  else if (current === 'light') { next = 'dark'; }
+  else { next = 'light'; }
+  root.setAttribute('data-theme', next);
+});
+</script>
+</body>
+</html>

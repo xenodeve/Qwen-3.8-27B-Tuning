@@ -1,0 +1,52 @@
+{
+  "ngram": {
+    "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-clean-qualification\\ngram\\20260921-123109-turbo_mtp_q4km-stock-medium-ngram-n3-c65536-r1",
+    "wall_s": 105.80110169999534,
+    "generated_tokens": 2709,
+    "drafted": 128,
+    "accepted": 82,
+    "aggregate_draft_acceptance": 0.640625,
+    "finish_reasons": {
+      "merge_intervals": "stop",
+      "toposort": "stop",
+      "thai-prose": "stop",
+      "thai-incident-repair": "stop",
+      "math-combinations": "stop",
+      "math-modular": "stop"
+    },
+    "output_hashes": {
+      "merge_intervals": "b42cc6a65f29825843aeeaa48e2d3f7c4f6d33f69189dc1604ec2fa92523fcfc",
+      "toposort": "5f334ef809698075fbcedc2c117c218ef6e4eec14d944915651083ecfd9b04f9",
+      "thai-prose": "e165e953cab801032ab9a4c7610e650b565c0ccc0d3fce7a0e6e2d9a1f208d86",
+      "thai-incident-repair": "4e5d116c630ff445f0014d5bcec8a9c1161ebda4db44dcebf11da849bba40b90",
+      "math-combinations": "4314ebdacef001ddc4749ff5fdb42ef56f19d8a73c137314122f5291d51d0cad",
+      "math-modular": "1ed80e73170ff6ade4cd475e185f1a7a6f60bd6ae24e654d508c42480fc06869"
+    }
+  },
+  "mtp-ngram": {
+    "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-q4-clean-qualification\\mtp-ngram\\20260921-123334-turbo_mtp_q4km-stock-medium-mtp-ngram-n3-c65536-r1",
+    "wall_s": 76.66627770004561,
+    "generated_tokens": 3083,
+    "drafted": 3001,
+    "accepted": 2150,
+    "aggregate_draft_acceptance": 0.716427857380873,
+    "finish_reasons": {
+      "merge_intervals": "stop",
+      "toposort": "stop",
+      "thai-prose": "stop",
+      "thai-incident-repair": "length",
+      "math-combinations": "stop",
+      "math-modular": "stop"
+    },
+    "output_hashes": {
+      "merge_intervals": "b42cc6a65f29825843aeeaa48e2d3f7c4f6d33f69189dc1604ec2fa92523fcfc",
+      "toposort": "4c8d15b66fc226b77ae6cbebb588fb638659e29b26569486f5b5fef8c8917f87",
+      "thai-prose": "45ece93793b976d3eb27161af8b94184d330d4e33a1843f0d200e85622bdb7de",
+      "thai-incident-repair": "ed74f915906154643944e2add90c02af3e77414a8987aedf74b92adc07d6ee40",
+      "math-combinations": "4314ebdacef001ddc4749ff5fdb42ef56f19d8a73c137314122f5291d51d0cad",
+      "math-modular": "82c904305a49dd5a79fb560468298173582716208c2ebd85a7fb950a6a50e669"
+    }
+  },
+  "greedy_equivalence": false,
+  "decision": "ngram only on MTP-bearing Q4 file; conservative predeclared gate failed on output equivalence/truncation; unequal work is not a speedup verdict"
+}

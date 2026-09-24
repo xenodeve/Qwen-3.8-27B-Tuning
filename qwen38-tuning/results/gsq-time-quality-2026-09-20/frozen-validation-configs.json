@@ -1,0 +1,31 @@
+{
+  "scope": "Best candidate found in the declared local screening set, not a global optimum",
+  "common_allocated_context": 147456,
+  "effort": "medium",
+  "max_tokens": 4096,
+  "held_out_code_tasks": ["lfu_cache", "tree_codec"],
+  "round_seeds_requested": [17, 53, 91],
+  "order": [["gsq", "nvfp4", "exl3"], ["nvfp4", "exl3", "gsq"], ["exl3", "gsq", "nvfp4"]],
+  "gsq": {
+    "spec": "mtp-ngram", "draft_n": 3, "ngram_match": 24,
+    "ngram_min": 16, "ngram_max": 64, "split_mode": "tensor",
+    "temperature": 0.6, "conditional_han_bias": true,
+    "selection": "Lowest combined warm code-task time among screened configurations passing both code tasks; single-seed selection requires held-out validation"
+  },
+  "nvfp4": {
+    "recipe": "current worker-q4-dual.ps1 -Nvfp4, window overridden to common value",
+    "temperature": 1.0, "conditional_han_bias": true,
+    "selection": "Incumbent measured decoder recipe; sampler 1.0 beat 0.6 in the screening episode with both code fixtures passing, and fewer visible Thai defects"
+  },
+  "exl3": {
+    "recipe": "Profile G native TP, cq4, gs9,15.5, MTP ndt3; common window overrides cs262144",
+    "temperature": 0.6, "guards": "existing production guards",
+    "selection": "Best-known locally measured served recipe; no claim that every possible EXL3 setting was retuned"
+  },
+  "limitations": [
+    "EXL3 may not honor the requested seed; pairing is by workload and rotated round, not assumed common random numbers",
+    "Summary replay is repeated, while the two code tasks are held out from configuration selection",
+    "These are single-answer tasks with external execution checks, not full autonomous repository-editing jobs",
+    "Language repair and future optimizations remain separate from raw functional pass rate"
+  ]
+}

@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — Organize the world's information</title>
+<meta name="description" content="A single-view recommendation of Google: the search engine, the map, the mail, the video, the cloud — one company organizing the world's information since 1998." />
+
+<!-- Open Graph / social sharing -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Google — Organize the world's information" />
+<meta property="og:description" content="Search, Maps, Gmail, YouTube, Drive, Gemini — one company, one account, one view of the world's information." />
+<meta property="og:image" content="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Google — Organize the world's information" />
+<meta name="twitter:description" content="One search. Every answer. A single-view recommendation of Google." />
+
+<!-- Fonts: Space Grotesk (display) + Space Mono (editorial index) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   GOOGLE — EDITORIAL MINIMALISM × MODERN SWISS × LIQUID GLASS
+   Single-file landing page.
+   Type: Space Grotesk (display) + Space Mono (index/labels)
+   Scale: Major Third 1.25x · Spacing: 8pt rhythm · 60-30-10 color
+   ============================================================ */
+
+:root{
+  /* 60% — dominant editorial paper */
+  --paper:        #F4F2EC;
+  --paper-deep:   #ECE9E0;
+  /* 30% — ink + secondary surfaces */
+  --ink:          #14140F;
+  --ink-soft:     #55534B;
+  --ink-faint:    #8A8779;
+  /* 10% — Google four-color accent system */
+  --g-blue:   #4285F4;
+  --g-red:    #EA4335;
+  --g-yellow: #FBBC05;
+  --g-green:  #34A853;
+
+  /* lines */
+  --line:          rgba(20,20,15,0.10);
+  --line-strong:   rgba(20,20,15,0.18);
+
+  /* liquid glass */
+  --glass:         rgba(255,255,255,0.55);
+  --glass-2:       rgba(255,255,255,0.38);
+  --glass-border:  rgba(255,255,255,0.75);
+  --glass-shadow:  0 18px 50px -20px rgba(20,20,15,0.35),
+                   inset 0 1px 0 rgba(255,255,255,0.9);
+
+  /* type scale (Major Third 1.25x, base 16px) */
+  --s-1: 1rem;        /* 16   body */
+  --s-2: 1.25rem;     /* 20   */
+  --s-3: 1.5625rem;   /* 25   card title */
+  --s-4: 1.953rem;    /* 31   section header */
+  --s-5: 2.441rem;    /* 39   major section */
+  --s-6: 3.052rem;    /* 49   page title */
+  --s-7: 3.815rem;    /* 61   hero */
+  --s-8: 4.768rem;    /* 76   display */
+
+  --maxw: 1200px;
+  --gutter: clamp(20px, 5vw, 56px);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+
+body{
+  font-family:"Space Grotesk", system-ui, sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  font-size:var(--s-1);
+  line-height:1.5;              /* 150% body legibility */
+  letter-spacing:0;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+::selection{ background:var(--g-yellow); color:var(--ink); }
+
+a{ color:inherit; text-decoration:none; }
+img{ max-width:100%; display:block; }
+
+/* ---------- Pro headline hack: -2.5% tracking, 110% leading ---------- */
+.display{
+  font-weight:700;
+  letter-spacing:-0.025em;
+  line-height:1.08;
+}
+
+/* ---------- Mono index / labels ---------- */
+.mono{
+  font-family:"Space Mono", ui-monospace, monospace;
+  font-size:0.72rem;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+}
+
+/* ---------- Layout container (12-col aligned) ---------- */
+.wrap{
+  width:100%;
+  max-width:var(--maxw);
+  margin:0 auto;
+  padding-inline:var(--gutter);
+}
+
+section{ position:relative; }
+
+/* ============================================================
+   VISIBLE GRID OVERLAY  (the signature)
+   ============================================================ */
+.grid-overlay{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  transition:opacity .5s var(--ease);
+}
+body.grid-off .grid-overlay{ opacity:0; }
+
+.grid-inner{
+  position:relative;
+  height:100%;
+  max-width:var(--maxw);
+  margin:0 auto;
+  padding-inline:var(--gutter);
+}
+/* 12 columns */
+.grid-inner::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(to right,
+      var(--line) 0 1px, transparent 1px);
+  background-size: calc(100% / 12) 100%;
+  opacity:.9;
+}
+/* column numbers */
+.grid-cols{
+  position:absolute;
+  top:0; left:0; right:0;
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  padding:0;
+}
+.grid-cols span{
+  font-family:"Space Mono",monospace;
+  font-size:9px;
+  color:var(--ink-faint);
+  padding:8px 0 0 4px;
+  opacity:.8;
+}
+/* corner crop / registration marks */
+.crop{
+  position:absolute;
+  width:16px; height:16px;
+  border:1px solid var(--line-strong);
+}
+.crop.tl{ top:16px; left:16px; border-right:0; border-bottom:0; }
+.crop.tr{ top:16px; right:16px; border-left:0; border-bottom:0; }
+.crop.bl{ bottom:16px; left:16px; border-right:0; border-top:0; }
+.crop.br{ bottom:16px; right:16px; border-left:0; border-top:0; }
+
+/* ============================================================
+   SCROLL PROGRESS
+   ============================================================ */
+.progress{
+  position:fixed;
+  top:0; left:0;
+  height:2px; width:0%;
+  z-index:60;
+  background:linear-gradient(90deg,var(--g-blue),var(--g-red),var(--g-yellow),var(--g-green));
+}
+
+/* ============================================================
+   GRID TOGGLE (signature control)
+   ============================================================ */
+.grid-toggle{
+  position:fixed;
+  right:20px; bottom:20px;
+  z-index:70;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 14px;
+  font-family:"Space Mono",monospace;
+  font-size:0.68rem;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--ink);
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:999px;
+  backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  box-shadow:var(--glass-shadow);
+  cursor:pointer;
+  transition:transform .25s var(--ease), background .25s var(--ease);
+}
+.grid-toggle:hover{ transform:translateY(-2px); background:rgba(255,255,255,0.7); }
+.grid-toggle:active{ transform:translateY(0) scale(.98); }
+.grid-toggle .sq{
+  display:inline-block; width:10px; height:10px;
+  border:1px solid var(--ink);
+  background:
+    linear-gradient(var(--ink) 1px,transparent 1px) 0 0/100% 3px,
+    linear-gradient(90deg,var(--ink) 1px,transparent 1px) 0 0/3px 100%;
+  transition:opacity .25s var(--ease);
+}
+body.grid-off .grid-toggle .sq{ opacity:.3; }
+
+/* ============================================================
+   LIQUID GLASS utility
+   ============================================================ */
+.glass{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  box-shadow:var(--glass-shadow);
+}
+
+/* ============================================================
+   NAV
+   ============================================================ */
+.nav{
+  position:fixed;
+  top:0; left:0; right:0;
+  z-index:50;
+  transition:padding .35s var(--ease), background .35s var(--ease);
+}
+.nav-inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  padding:16px var(--gutter);
+  max-width:var(--maxw);
+  margin:0 auto;
+}
+.nav.scrolled .nav-inner{
+  padding-block:10px;
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:14px;
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  box-shadow:var(--glass-shadow);
+  margin:10px auto;
+}
+
+/* Google wordmark (authentic four-color) */
+.wordmark{
+  font-weight:700;
+  font-size:1.5rem;
+  letter-spacing:-0.03em;
+  line-height:1;
+}
+.wordmark .b{ color:var(--g-blue); }
+.wordmark .r{ color:var(--g-red); }
+.wordmark .y{ color:var(--g-yellow); }
+.wordmark .gr{ color:var(--g-green); }
+
+.nav-links{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.nav-links a{
+  font-size:0.9rem;
+  padding:8px 14px;
+  border-radius:999px;
+  color:var(--ink-soft);
+  transition:color .2s var(--ease), background .2s var(--ease);
+}
+.nav-links a:hover{ color:var(--ink); background:rgba(20,20,15,0.05); }
+
+/* ============================================================
+   BUTTONS — 4 states (default / hover / active / disabled)
+   ============================================================ */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-family:inherit;
+  font-size:0.95rem;
+  font-weight:500;
+  padding:14px 28px;
+  border-radius:999px;
+  border:1px solid transparent;
+  cursor:pointer;
+  transition:transform .25s var(--ease), background .25s var(--ease),
+             border-color .25s var(--ease), box-shadow .25s var(--ease);
+}
+.btn .arw{ transition:transform .25s var(--ease); }
+.btn:hover .arw{ transform:translateX(4px); }
+
+.btn-primary{
+  background:var(--ink);
+  color:var(--paper);
+}
+.btn-primary:hover{ background:#000; transform:translateY(-2px); box-shadow:0 12px 30px -12px rgba(0,0,0,.5); }
+.btn-primary:active{ transform:translateY(0) scale(.98); }
+.btn-primary:disabled{ opacity:.4; cursor:not-allowed; transform:none; box-shadow:none; }
+
+.btn-ghost{
+  background:transparent;
+  color:var(--ink);
+  border-color:var(--line-strong);
+}
+.btn-ghost:hover{ background:rgba(20,20,15,0.05); border-color:var(--ink); transform:translateY(-2px); }
+.btn-ghost:active{ transform:translateY(0) scale(.98); }
+
+.btn-glass{
+  background:var(--glass);
+  color:var(--ink);
+  border-color:var(--glass-border);
+  backdrop-filter:blur(16px) saturate(160%);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  box-shadow:var(--glass-shadow);
+}
+.btn-glass:hover{ background:rgba(255,255,255,0.75); transform:translateY(-2px); }
+.btn-glass:active{ transform:translateY(0) scale(.98); }
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{
+  min-height:100svh;
+  display:flex;
+  align-items:center;
+  padding:140px 0 80px;
+  overflow:hidden;
+}
+/* soft four-color ambient field — gives the glass something to refract */
+.ambient{
+  position:absolute;
+  inset:-10%;
+  z-index:0;
+  pointer-events:none;
+  filter:blur(60px);
+  opacity:.5;
+  will-change:transform;
+  background:
+    radial-gradient(38% 40% at 22% 28%, rgba(66,133,244,0.28), transparent 70%),
+    radial-gradient(34% 36% at 82% 24%, rgba(234,67,53,0.22), transparent 70%),
+    radial-gradient(40% 40% at 78% 78%, rgba(52,168,83,0.22), transparent 70%),
+    radial-gradient(36% 38% at 26% 82%, rgba(251,188,5,0.22), transparent 70%);
+}
+.hero .wrap{ position:relative; z-index:2; }
+
+.hero-kicker{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:40px;
+}
+.hero-kicker .rule{ flex:0 0 48px; height:1px; background:var(--line-strong); }
+.hero-kicker .dots{ display:inline-flex; gap:5px; }
+.hero-kicker .dots i{
+  width:7px; height:7px; border-radius:50%; display:inline-block;
+}
+.dots i:nth-child(1){ background:var(--g-blue); }
+.dots i:nth-child(2){ background:var(--g-red); }
+.dots i:nth-child(3){ background:var(--g-yellow); }
+.dots i:nth-child(4){ background:var(--g-green); }
+
+.hero h1{
+  font-size:clamp(2.6rem, 7.2vw, var(--s-8));
+  max-width:16ch;
+  margin-bottom:32px;
+}
+.hero h1 .em{ color:var(--ink-soft); font-weight:500; }
+
+.hero-sub{
+  font-size:clamp(1.1rem, 2vw, var(--s-2));
+  color:var(--ink-soft);
+  max-width:46ch;
+  margin-bottom:48px;
+}
+
+/* liquid glass search box — the iconic artifact */
+.search{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  max-width:560px;
+  padding:8px 8px 8px 22px;
+  border-radius:999px;
+  margin-bottom:40px;
+}
+.search svg{ flex:0 0 auto; color:var(--ink-faint); }
+.search input{
+  flex:1;
+  border:0;
+  background:transparent;
+  font-family:inherit;
+  font-size:1rem;
+  color:var(--ink);
+  outline:none;
+  min-width:0;
+}
+.search input::placeholder{ color:var(--ink-faint); }
+.search .go{
+  flex:0 0 auto;
+  background:var(--ink);
+  color:var(--paper);
+  padding:12px 22px;
+  border-radius:999px;
+  font-size:0.9rem;
+  font-weight:500;
+  cursor:pointer;
+  transition:transform .2s var(--ease), background .2s var(--ease);
+}
+.search .go:hover{ background:#000; transform:scale(1.03); }
+.search .go:active{ transform:scale(.97); }
+
+.hero-cta{ display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+
+.hero-meta{
+  display:flex;
+  gap:40px;
+  margin-top:64px;
+  padding-top:32px;
+  border-top:1px solid var(--line);
+  flex-wrap:wrap;
+}
+.hero-meta .m .n{
+  font-size:var(--s-4);
+  font-weight:700;
+  letter-spacing:-0.02em;
+  line-height:1;
+}
+.hero-meta .m .l{ margin-top:8px; }
+
+/* ============================================================
+   MARQUEE TICKER
+   ============================================================ */
+.marquee{
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  padding:20px 0;
+  overflow:hidden;
+  white-space:nowrap;
+  background:var(--paper-deep);
+}
+.marquee-track{
+  display:inline-flex;
+  gap:56px;
+  animation:scroll 34s linear infinite;
+  will-change:transform;
+}
+.marquee:hover .marquee-track{ animation-play-state:paused; }
+.marquee-track span{
+  font-size:var(--s-3);
+  font-weight:500;
+  letter-spacing:-0.02em;
+  color:var(--ink);
+  display:inline-flex;
+  align-items:center;
+  gap:56px;
+}
+.marquee-track span::after{
+  content:"";
+  width:8px; height:8px; border-radius:50%;
+  background:var(--g-blue);
+}
+.marquee-track span:nth-child(4n+1)::after{ background:var(--g-blue); }
+.marquee-track span:nth-child(4n+2)::after{ background:var(--g-red); }
+.marquee-track span:nth-child(4n+3)::after{ background:var(--g-yellow); }
+.marquee-track span:nth-child(4n+4)::after{ background:var(--g-green); }
+@keyframes scroll{ to{ transform:translateX(-50%); } }
+
+/* ============================================================
+   SECTION HEADS
+   ============================================================ */
+.sec{ padding:120px 0; }
+.sec-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:24px;
+  margin-bottom:64px;
+  flex-wrap:wrap;
+}
+.sec-head .idx{ margin-bottom:16px; }
+.sec-head h2{
+  font-size:clamp(2rem, 4.4vw, var(--s-6));
+  max-width:18ch;
+}
+.sec-head .desc{
+  max-width:34ch;
+  color:var(--ink-soft);
+}
+
+/* ============================================================
+   PRODUCT INDEX (editorial list / "the portfolio")
+   ============================================================ */
+.index{ border-top:1px solid var(--line-strong); }
+.row{
+  display:grid;
+  grid-template-columns: 64px 1.4fr 1fr 1.6fr 48px;
+  align-items:center;
+  gap:24px;
+  padding:28px 8px;
+  border-bottom:1px solid var(--line);
+  position:relative;
+  transition:background .3s var(--ease), padding .3s var(--ease);
+  cursor:default;
+}
+.row:hover{ background:rgba(255,255,255,0.5); padding-inline:16px; }
+.row .no{
+  font-family:"Space Mono",monospace;
+  font-size:0.8rem;
+  color:var(--ink-faint);
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.row .no .dot{
+  width:9px; height:9px; border-radius:50%;
+  background:var(--g-blue);
+  transition:transform .3s var(--ease);
+}
+.row:hover .no .dot{ transform:scale(1.5); }
+.row .name{
+  font-size:var(--s-3);
+  font-weight:600;
+  letter-spacing:-0.02em;
+}
+.row .cat{
+  font-family:"Space Mono",monospace;
+  font-size:0.72rem;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--ink-soft);
+}
+.row .desc{
+  font-size:0.95rem;
+  color:var(--ink-soft);
+}
+.row .arw{
+  justify-self:end;
+  width:34px; height:34px;
+  border-radius:50%;
+  border:1px solid var(--line-strong);
+  display:grid;
+  place-items:center;
+  transition:background .3s var(--ease), transform .3s var(--ease), border-color .3s var(--ease);
+}
+.row:hover .arw{
+  background:var(--ink);
+  border-color:var(--ink);
+  transform:rotate(-45deg);
+}
+.row:hover .arw svg{ stroke:var(--paper); }
+
+/* ============================================================
+   VALUE PROPS (chunked to 3)
+   ============================================================ */
+.props{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+}
+.prop{
+  padding:40px 32px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:rgba(255,255,255,0.35);
+  transition:transform .35s var(--ease), box-shadow .35s var(--ease), border-color .35s var(--ease);
+}
+.prop:hover{
+  transform:translateY(-6px);
+  border-color:var(--line-strong);
+  box-shadow:0 24px 50px -30px rgba(20,20,15,0.4);
+}
+.prop .pno{
+  font-family:"Space Mono",monospace;
+  font-size:0.8rem;
+  color:var(--ink-faint);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:28px;
+}
+.prop .pno .bar{ width:24px; height:2px; background:var(--g-blue); }
+.prop:nth-child(2) .pno .bar{ background:var(--g-red); }
+.prop:nth-child(3) .pno .bar{ background:var(--g-green); }
+.prop h3{
+  font-size:var(--s-4);
+  letter-spacing:-0.02em;
+  margin-bottom:16px;
+  line-height:1.12;
+}
+.prop p{ color:var(--ink-soft); font-size:0.98rem; }
+
+/* ============================================================
+   MISSION PULL-QUOTE (Space is Wealth)
+   ============================================================ */
+.quote{
+  padding:160px 0;
+  text-align:left;
+}
+.quote .wrap{ max-width:1000px; }
+.quote .mark{
+  font-size:var(--s-7);
+  line-height:0.8;
+  color:var(--line-strong);
+  display:block;
+  margin-bottom:24px;
+}
+.quote blockquote{
+  font-size:clamp(1.8rem, 4.6vw, var(--s-6));
+  font-weight:600;
+  letter-spacing:-0.025em;
+  line-height:1.12;
+}
+.quote blockquote .hl{ color:var(--g-blue); }
+.quote .cite{
+  margin-top:40px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+.quote .cite .rule{ width:48px; height:1px; background:var(--line-strong); }
+
+/* ============================================================
+   STATS BAND
+   ============================================================ */
+.stats{
+  background:var(--ink);
+  color:var(--paper);
+  padding:96px 0;
+}
+.stats .wrap{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:48px;
+}
+.stat .n{
+  font-size:clamp(2.6rem, 6vw, var(--s-7));
+  font-weight:700;
+  letter-spacing:-0.03em;
+  line-height:1;
+  display:flex;
+  align-items:baseline;
+  gap:2px;
+}
+.stat .n .u{ font-size:0.4em; color:var(--ink-faint); }
+.stat .l{ margin-top:16px; font-family:"Space Mono",monospace; font-size:0.74rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-faint); }
+.stat .top{ width:32px; height:3px; margin-bottom:24px; }
+.stat:nth-child(1) .top{ background:var(--g-blue); }
+.stat:nth-child(2) .top{ background:var(--g-red); }
+.stat:nth-child(3) .top{ background:var(--g-green); }
+
+/* ============================================================
+   FINAL CTA (LIFT: release / pulse — vast white space)
+   ============================================================ */
+.final{
+  padding:160px 0;
+  text-align:center;
+}
+.final .wrap{ max-width:820px; }
+.final h2{
+  font-size:clamp(2.4rem, 6vw, var(--s-7));
+  margin-bottom:24px;
+}
+.final p{
+  color:var(--ink-soft);
+  font-size:var(--s-2);
+  margin-bottom:48px;
+}
+.final .cta-row{
+  display:flex;
+  gap:16px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer{
+  border-top:1px solid var(--line-strong);
+  padding:80px 0 48px;
+  background:var(--paper-deep);
+}
+.footer-top{
+  display:grid;
+  grid-template-columns:1.6fr repeat(3,1fr);
+  gap:48px;
+  margin-bottom:64px;
+}
+.footer .brand .wordmark{ font-size:2rem; margin-bottom:16px; }
+.footer .brand p{ color:var(--ink-soft); max-width:32ch; font-size:0.95rem; }
+.footer .col h4{
+  font-family:"Space Mono",monospace;
+  font-size:0.72rem;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--ink-faint);
+  margin-bottom:20px;
+}
+.footer .col a{
+  display:block;
+  padding:6px 0;
+  color:var(--ink-soft);
+  font-size:0.95rem;
+  transition:color .2s var(--ease), transform .2s var(--ease);
+}
+.footer .col a:hover{ color:var(--ink); transform:translateX(4px); }
+.footer-bottom{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  padding-top:32px;
+  border-top:1px solid var(--line);
+  flex-wrap:wrap;
+}
+.footer-bottom .legal{ display:flex; gap:24px; flex-wrap:wrap; }
+.footer-bottom .legal a{ color:var(--ink-soft); font-size:0.85rem; }
+.footer-bottom .legal a:hover{ color:var(--ink); }
+.footer-bottom .dots{ display:inline-flex; gap:6px; }
+.footer-bottom .dots i{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+.footer-bottom .dots i:nth-child(1){ background:var(--g-blue); }
+.footer-bottom .dots i:nth-child(2){ background:var(--g-red); }
+.footer-bottom .dots i:nth-child(3){ background:var(--g-yellow); }
+.footer-bottom .dots i:nth-child(4){ background:var(--g-green); }
+
+/* ============================================================
+   SCROLL REVEAL
+   ============================================================ */
+.reveal{
+  opacity:0;
+  transform:translateY(20px);
+  transition:opacity .8s var(--ease), transform .8s var(--ease);
+}
+.reveal.in{ opacity:1; transform:none; }
+.reveal[data-d="1"]{ transition-delay:.08s; }
+.reveal[data-d="2"]{ transition-delay:.16s; }
+.reveal[data-d="3"]{ transition-delay:.24s; }
+.reveal[data-d="4"]{ transition-delay:.32s; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:1023px){
+  .nav-links{ display:none; }
+  .props{ grid-template-columns:1fr; }
+  .footer-top{ grid-template-columns:1fr 1fr; }
+  .row{ grid-template-columns:48px 1.3fr 1.4fr 40px; }
+  .row .cat{ display:none; }
+}
+@media (max-width:639px){
+  .sec{ padding:80px 0; }
+  .quote{ padding:100px 0; }
+  .final{ padding:100px 0; }
+  .stats .wrap{ grid-template-columns:1fr; gap:40px; }
+  .footer-top{ grid-template-columns:1fr; gap:40px; }
+  .row{ grid-template-columns:40px 1fr 36px; }
+  .row .desc{ display:none; }
+  .hero-meta{ gap:28px; }
+  .search{ flex-wrap:wrap; border-radius:24px; padding:14px; }
+  .search input{ flex-basis:100%; padding:8px 6px; }
+  .search .go{ width:100%; justify-content:center; }
+  .grid-cols{ display:none; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  .reveal{ opacity:1 !important; transform:none !important; transition:none; }
+  .marquee-track{ animation:none; }
+  .ambient{ transform:none !important; }
+  *{ animation-duration:.001ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- VISIBLE GRID OVERLAY -->
+<div class="grid-overlay" aria-hidden="true">
+  <div class="grid-inner">
+    <div class="grid-cols">
+      <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+      <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+    </div>
+    <span class="crop tl"></span><span class="crop tr"></span>
+    <span class="crop bl"></span><span class="crop br"></span>
+  </div>
+</div>
+
+<!-- SCROLL PROGRESS -->
+<div class="progress" id="progress"></div>
+
+<!-- GRID TOGGLE -->
+<button class="grid-toggle" id="gridToggle" aria-pressed="true" title="Toggle visible grid">
+  <span class="sq"></span> Grid
+</button>
+
+<!-- NAV -->
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#top" class="wordmark" aria-label="Google home">
+      <span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="gr">l</span><span class="r">e</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#products">Products</a>
+      <a href="#why">Why Google</a>
+      <a href="#mission">Mission</a>
+      <a href="#numbers">Numbers</a>
+    </nav>
+    <a href="#start" class="btn btn-glass" style="padding:10px 20px;">Explore <span class="arw">→</span></a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="ambient" id="ambient"></div>
+    <div class="wrap">
+      <div class="hero-kicker reveal">
+        <span class="dots"><i></i><i></i><i></i><i></i></span>
+        <span class="mono">Est. 1998 — Mountain View, CA</span>
+        <span class="rule"></span>
+        <span class="mono">Recommended / 2026</span>
+      </div>
+
+      <h1 class="display reveal" data-d="1">
+        Organize the world's information<span class="em">.</span>
+      </h1>
+
+      <p class="hero-sub reveal" data-d="2">
+        The search engine, the map, the mail, the video, the cloud, the AI —
+        one company, one account, and one view of everything, since 1998.
+      </p>
+
+      <!-- liquid glass search box -->
+      <form class="search glass reveal" data-d="3" onsubmit="return false;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" placeholder="Search Google or type a URL" aria-label="Search Google" />
+        <button class="go" type="submit">Search</button>
+      </form>
+
+      <div class="hero-cta reveal" data-d="4">
+        <a href="#start" class="btn btn-primary">Start searching <span class="arw">→</span></a>
+        <a href="#products" class="btn btn-ghost">Explore products</a>
+      </div>
+
+      <div class="hero-meta reveal" data-d="4">
+        <div class="m">
+          <div class="n">9B+</div>
+          <div class="l mono">Searches / day</div>
+        </div>
+        <div class="m">
+          <div class="n">200+</div>
+          <div class="l mono">Countries &amp; territories</div>
+        </div>
+        <div class="m">
+          <div class="n">100+</div>
+          <div class="l mono">Languages</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Search</span><span>Maps</span><span>Gmail</span><span>YouTube</span>
+      <span>Drive</span><span>Photos</span><span>Translate</span><span>Gemini</span>
+      <span>Android</span><span>Chrome</span><span>Cloud</span><span>Workspace</span>
+      <!-- duplicate for seamless loop -->
+      <span>Search</span><span>Maps</span><span>Gmail</span><span>YouTube</span>
+      <span>Drive</span><span>Photos</span><span>Translate</span><span>Gemini</span>
+      <span>Android</span><span>Chrome</span><span>Cloud</span><span>Workspace</span>
+    </div>
+  </div>
+
+  <!-- PRODUCT INDEX -->
+  <section class="sec" id="products">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <div>
+          <div class="idx mono">01 / The portfolio</div>
+          <h2 class="display">One company.<br />A dozen ways in.</h2>
+        </div>
+        <p class="desc">Every product shares a single account and a single graph of the world — so each one gets smarter the more you use the rest.</p>
+      </div>
+
+      <div class="index reveal" data-d="1">
+        <div class="row">
+          <div class="no"><span class="dot"></span>01</div>
+          <div class="name">Search</div>
+          <div class="cat">Web</div>
+          <div class="desc">The engine that answers billions of questions a day.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot" style="background:var(--g-red)"></span>02</div>
+          <div class="name">Maps</div>
+          <div class="cat">Navigation</div>
+          <div class="desc">Live traffic, turn-by-turn, and hundreds of millions of places.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot" style="background:var(--g-yellow)"></span>03</div>
+          <div class="name">Gmail</div>
+          <div class="cat">Communication</div>
+          <div class="desc">Secure, smart email for billions of people.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot" style="background:var(--g-green)"></span>04</div>
+          <div class="name">YouTube</div>
+          <div class="cat">Video</div>
+          <div class="desc">The world's second-largest search engine.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot"></span>05</div>
+          <div class="name">Drive</div>
+          <div class="cat">Storage</div>
+          <div class="desc">Free cloud space that ties your files together.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot" style="background:var(--g-red)"></span>06</div>
+          <div class="name">Photos</div>
+          <div class="cat">Memory</div>
+          <div class="desc">Automatic backup and albums that find themselves.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot" style="background:var(--g-yellow)"></span>07</div>
+          <div class="name">Translate</div>
+          <div class="cat">Language</div>
+          <div class="desc">100+ languages, in real time.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot" style="background:var(--g-green)"></span>08</div>
+          <div class="name">Gemini</div>
+          <div class="cat">AI</div>
+          <div class="desc">The multimodal assistant running through all of Google.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot"></span>09</div>
+          <div class="name">Android</div>
+          <div class="cat">Mobile</div>
+          <div class="desc">The operating system behind billions of phones.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+        <div class="row">
+          <div class="no"><span class="dot" style="background:var(--g-red)"></span>10</div>
+          <div class="name">Chrome</div>
+          <div class="cat">Browser</div>
+          <div class="desc">The browser on billions of devices, everywhere.</div>
+          <div class="arw"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY GOOGLE (3 chunks) -->
+  <section class="sec" id="why" style="background:var(--paper-deep);">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <div>
+          <div class="idx mono">02 / Why Google</div>
+          <h2 class="display">Three reasons it holds up.</h2>
+        </div>
+        <p class="desc">Not a feature list — the three things that make the whole system worth recommending.</p>
+      </div>
+
+      <div class="props">
+        <div class="prop reveal" data-d="1">
+          <div class="pno"><span class="bar"></span>01</div>
+          <h3>Everything, connected.</h3>
+          <p>Search, Maps, Mail, and Docs share one account and one graph of your life — so context carries between them instead of resetting.</p>
+        </div>
+        <div class="prop reveal" data-d="2">
+          <div class="pno"><span class="bar"></span>02</div>
+          <h3>Built for everyone.</h3>
+          <p>100+ languages, 200+ countries, and free by default. The bar to start is a single search box — no setup, no paywall.</p>
+        </div>
+        <div class="prop reveal" data-d="3">
+          <div class="pno"><span class="bar"></span>03</div>
+          <h3>Always moving.</h3>
+          <p>From a dorm-room search box to the frontier of AI, the same company keeps compounding the same bet: make information useful.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MISSION QUOTE -->
+  <section class="quote" id="mission">
+    <div class="wrap reveal">
+      <span class="mark" aria-hidden="true">“</span>
+      <blockquote>
+        Organize the world's information and make it <span class="hl">universally accessible</span> and useful.
+      </blockquote>
+      <div class="cite">
+        <span class="rule"></span>
+        <span class="mono">Google's mission — unchanged since 1998</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats" id="numbers">
+    <div class="wrap">
+      <div class="stat reveal" data-d="1">
+        <div class="top"></div>
+        <div class="n">9<span class="u">B+</span></div>
+        <div class="l">Searches every day</div>
+      </div>
+      <div class="stat reveal" data-d="2">
+        <div class="top"></div>
+        <div class="n">200<span class="u">+</span></div>
+        <div class="l">Countries &amp; territories</div>
+      </div>
+      <div class="stat reveal" data-d="3">
+        <div class="top"></div>
+        <div class="n">100<span class="u">+</span></div>
+        <div class="l">Languages supported</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final" id="start">
+    <div class="wrap reveal">
+      <div class="idx mono" style="margin-bottom:24px;">03 / Start</div>
+      <h2 class="display">Start with a search.</h2>
+      <p>The rest — the map, the mail, the memory, the AI — is already waiting on the other side of that box.</p>
+      <div class="cta-row">
+        <a href="https://www.google.com" target="_blank" rel="noopener" class="btn btn-primary">Go to google.com <span class="arw">→</span></a>
+        <a href="#products" class="btn btn-ghost">See all products</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div class="brand">
+        <div class="wordmark">
+          <span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="gr">l</span><span class="r">e</span>
+        </div>
+        <p>Organizing the world's information — and making it universally accessible and useful.</p>
+      </div>
+      <div class="col">
+        <h4>Products</h4>
+        <a href="#products">Search</a>
+        <a href="#products">Maps</a>
+        <a href="#products">Gmail</a>
+        <a href="#products">Gemini</a>
+      </div>
+      <div class="col">
+        <h4>Company</h4>
+        <a href="#mission">Mission</a>
+        <a href="#numbers">Numbers</a>
+        <a href="#why">Why Google</a>
+        <a href="#top">Back to top</a>
+      </div>
+      <div class="col">
+        <h4>Resources</h4>
+        <a href="https://www.google.com" target="_blank" rel="noopener">Google.com</a>
+        <a href="https://about.google" target="_blank" rel="noopener">About Google</a>
+        <a href="https://store.google.com" target="_blank" rel="noopener">Google Store</a>
+        <a href="https://blog.google" target="_blank" rel="noopener">The Keyword</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="mono">© 2026 — Recommendation concept, not affiliated with Google LLC.</span>
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="legal">
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Accessibility</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- Grid toggle (signature) ---- */
+  var toggle = document.getElementById('gridToggle');
+  toggle.addEventListener('click', function(){
+    var off = document.body.classList.toggle('grid-off');
+    toggle.setAttribute('aria-pressed', String(!off));
+  });
+
+  /* ---- Nav: condense into glass pill on scroll ---- */
+  var nav = document.getElementById('nav');
+  var progress = document.getElementById('progress');
+  var ambient = document.getElementById('ambient');
+
+  function onScroll(){
+    var y = window.scrollY || window.pageYOffset;
+    nav.classList.toggle('scrolled', y > 40);
+
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.width = (h > 0 ? (y / h) * 100 : 0) + '%';
+
+    if(!reduce && ambient){
+      ambient.style.transform = 'translateY(' + (y * 0.12) + 'px)';
+    }
+  }
+  window.addEventListener('scroll', onScroll, { passive:true });
+  onScroll();
+
+  /* ---- Scroll reveal (staggered, weight) ---- */
+  var reveals = document.querySelectorAll('.reveal');
+  if(reduce || !('IntersectionObserver' in window)){
+    reveals.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold:0.12, rootMargin:'0px 0px -8% 0px' });
+    reveals.forEach(function(el){ io.observe(el); });
+  }
+})();
+</script>
+</body>
+</html>

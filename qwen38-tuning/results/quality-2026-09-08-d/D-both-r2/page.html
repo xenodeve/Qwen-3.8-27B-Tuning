@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — ค้นหา เข้าใจ สร้างสรรค์</title>
+<meta name="description" content="แนะนำ Google — เครื่องมือค้นหา, Gemini AI, Workspace และ Cloud ที่เรียบง่าย เร็ว และออกแบบมาเพื่อทุกคน" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Google — ค้นหา เข้าใจ สร้างสรรค์" />
+<meta property="og:description" content="แนะนำ Google: การค้นหาที่แม่นยำ, Gemini AI, Workspace และ Cloud — เรียบง่าย เร็ว และครอบคลุมทุกคน" />
+<meta property="og:image" content="og-cover.png" />
+<meta property="og:locale" content="th_TH" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<!-- Fonts: Space Grotesk (Swiss grotesque) + Newsreader (editorial serif) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   GOOGLE — Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid
+   Type scale: Major Third (1.25x) on 16px base
+   Spacing: 8pt grid (8/16/24/32/48/64/96/128)
+   Color: 60-30-10 (paper / surface / Swiss red) + Google brand dots
+   ============================================================ */
+
+:root{
+  --font-sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+
+  /* 8pt spacing scale */
+  --s1:8px; --s2:16px; --s3:24px; --s4:32px; --s5:48px; --s6:64px; --s7:96px; --s8:128px;
+
+  /* type scale (major third) */
+  --t-base:1rem;      /* 16 */
+  --t-md:1.25rem;     /* 20 */
+  --t-lg:1.5625rem;   /* 25 */
+  --t-xl:1.953rem;    /* 31 */
+  --t-2xl:2.441rem;   /* 39 */
+  --t-3xl:3.052rem;   /* 49 */
+
+  /* ---- Light (Swiss paper) ---- */
+  --paper:#f4f1ea;        /* 60% dominant */
+  --paper-2:#ebe5d8;      /* 30% surface */
+  --ink:#161310;          /* text */
+  --ink-soft:#6a6357;
+  --red:#e63312;          /* 10% accent — Swiss red */
+  --line:rgba(22,19,16,.16);
+  --line-soft:rgba(22,19,16,.09);
+  --glass:rgba(244,241,234,.55);
+  --glass-brd:rgba(22,19,16,.14);
+  --glass-hi:rgba(255,255,255,.5);
+
+  /* Google brand dots */
+  --g-blue:#1a73e8; --g-red:#ea4335; --g-yellow:#fbbc04; --g-green:#34a853;
+
+  --maxw:1200px;
+  --pad:clamp(20px,5vw,64px);
+}
+
+/* ---- Dark mode ---- */
+[data-theme="dark"]{
+  --paper:#100f0d;
+  --paper-2:#1a1714;
+  --ink:#f2efe8;
+  --ink-soft:#a49c8e;
+  --red:#ff5a3c;
+  --line:rgba(242,239,232,.16);
+  --line-soft:rgba(242,239,232,.08);
+  --glass:rgba(26,23,20,.5);
+  --glass-brd:rgba(242,239,232,.14);
+  --glass-hi:rgba(255,255,255,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#100f0d; --paper-2:#1a1714; --ink:#f2efe8; --ink-soft:#a49c8e;
+    --red:#ff5a3c; --line:rgba(242,239,232,.16); --line-soft:rgba(242,239,232,.08);
+    --glass:rgba(26,23,20,.5); --glass-brd:rgba(242,239,232,.14); --glass-hi:rgba(255,255,255,.06);
+  }
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-sans);
+  font-size:var(--t-base);
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--paper);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:clip;
+  transition:background .5s ease,color .5s ease;
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--red);color:var(--paper)}
+
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--pad);width:100%}
+
+/* ---------- VISIBLE GRID overlay (lines only, no text) ---------- */
+.grid-overlay{
+  position:fixed; top:0; bottom:0; left:50%; transform:translateX(-50%);
+  width:min(var(--maxw),100%);
+  padding-inline:var(--pad);
+  pointer-events:none; z-index:1;
+  background-image:linear-gradient(to right,var(--line-soft) 1px,transparent 1px);
+  background-size:calc(100%/12) 100%;
+  opacity:0; transition:opacity .5s ease;
+}
+body.show-grid .grid-overlay{opacity:1}
+
+/* ---------- Headline Pro hack (>=24px only) ---------- */
+h1,h2,h3{font-family:var(--font-sans);letter-spacing:-0.025em;line-height:1.06;font-weight:600}
+h1{font-size:clamp(2.75rem,8vw,5.75rem);font-weight:600}
+h2{font-size:clamp(2rem,4.5vw,3.25rem)}
+h3{font-size:var(--t-lg);letter-spacing:-0.02em;line-height:1.15}
+.serif{font-family:var(--font-serif);font-weight:400}
+
+/* ---------- Eyebrow / index label ---------- */
+.eyebrow{
+  font-size:.8125rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-soft);font-weight:500;
+  display:inline-flex;align-items:center;gap:var(--s1);
+}
+.idx{font-variant-numeric:tabular-nums;color:var(--red);font-weight:600}
+
+/* ---------- Google dots motif ---------- */
+.dots{display:inline-flex;gap:5px;align-items:center}
+.dots i{width:9px;height:9px;border-radius:50%;display:block}
+.dots i:nth-child(1){background:var(--g-blue)}
+.dots i:nth-child(2){background:var(--g-red)}
+.dots i:nth-child(3){background:var(--g-yellow)}
+.dots i:nth-child(4){background:var(--g-green)}
+
+/* ---------- Liquid Glass ---------- */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(16px) saturate(1.4);
+  backdrop-filter:blur(16px) saturate(1.4);
+  border:1px solid var(--glass-brd);
+  box-shadow:inset 0 1px 0 var(--glass-hi);
+}
+
+/* ---------- Buttons (4 states) ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--font-sans);font-size:1rem;font-weight:600;
+  height:52px;padding:0 28px;border-radius:999px;cursor:pointer;
+  border:1px solid transparent;transition:transform .18s ease,background .2s ease,color .2s ease,border-color .2s ease;
+}
+.btn svg{width:20px;height:20px}
+.btn-primary{background:var(--red);color:#fff}
+.btn-primary:hover{background:#c92a0d;transform:translateY(-2px)}
+[data-theme="dark"] .btn-primary:hover{background:#ff6f52}
+.btn-primary:active{transform:translateY(0) scale(.98)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn-ghost:hover{border-color:var(--ink);transform:translateY(-2px)}
+.btn-ghost:active{transform:scale(.98)}
+.btn-ghost:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---------- Header / Nav (sticky liquid glass) ---------- */
+header{
+  position:sticky;top:0;z-index:50;
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(18px) saturate(1.5);
+  backdrop-filter:blur(18px) saturate(1.5);
+  border-bottom:1px solid var(--glass-brd);
+}
+.nav{display:flex;align-items:center;justify-content:space-between;height:72px}
+.wordmark{font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-0.02em;display:inline-flex;align-items:center;gap:2px}
+.wordmark .c1{color:var(--g-blue)}
+.wordmark .c2{color:var(--g-red)}
+.wordmark .c3{color:var(--g-yellow)}
+.wordmark .c4{color:var(--g-blue)}
+.wordmark .c5{color:var(--g-green)}
+.wordmark .c6{color:var(--g-red)}
+.nav-links{display:flex;gap:var(--s4);align-items:center}
+.nav-links a{font-size:.9375rem;font-weight:500;color:var(--ink-soft);transition:color .2s}
+.nav-links a:hover{color:var(--ink)}
+.nav-actions{display:flex;align-items:center;gap:var(--s2)}
+.icon-btn{
+  display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;
+  border:1px solid var(--line);border-radius:999px;background:transparent;
+  color:var(--ink);font-family:var(--font-sans);font-size:.875rem;font-weight:500;cursor:pointer;
+  transition:background .2s,border-color .2s;
+}
+.icon-btn:hover{border-color:var(--ink)}
+.icon-btn:active{transform:scale(.97)}
+.icon-btn svg{width:16px;height:16px}
+.nav .btn{height:44px;padding:0 22px;font-size:.9375rem}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;padding-top:var(--s7);padding-bottom:var(--s6)}
+.ruler{
+  display:flex;justify-content:space-between;
+  font-size:.75rem;letter-spacing:.05em;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums;
+  border-bottom:1px solid var(--line);padding-bottom:var(--s1);margin-bottom:var(--s5);
+}
+.hero-eyebrow{margin-bottom:var(--s3)}
+.hero h1{max-width:15ch}
+.hero .lede{
+  font-family:var(--font-serif);font-size:clamp(1.375rem,2.6vw,1.953rem);
+  line-height:1.4;color:var(--ink);max-width:34ch;margin-top:var(--s4);
+}
+.hero .body{
+  margin-top:var(--s3);max-width:52ch;color:var(--ink-soft);font-size:var(--t-md);line-height:1.55;
+}
+.hero-cta{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s5)}
+
+/* hero stat bar (liquid glass) */
+.statbar{
+  margin-top:var(--s6);
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-radius:20px;overflow:hidden;
+}
+.stat{padding:var(--s4) var(--s3);border-right:1px solid var(--glass-brd)}
+.stat:last-child{border-right:none}
+.stat-num{
+  font-family:var(--font-sans);font-weight:600;letter-spacing:-0.02em;line-height:1;
+  font-size:clamp(1.75rem,3.2vw,2.441rem);white-space:nowrap;color:var(--ink);
+}
+.stat-lbl{margin-top:10px;font-size:.8125rem;color:var(--ink-soft);line-height:1.4}
+
+/* ---------- Section shell ---------- */
+section{position:relative;z-index:2}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s5)}
+.sec-head h2{max-width:20ch}
+.sec-head .note{max-width:34ch;color:var(--ink-soft);font-size:var(--t-md);line-height:1.5}
+
+/* ---------- Products: asymmetric Swiss grid ---------- */
+.products{padding-block:var(--s7)}
+.prod-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--s3)}
+.prod{
+  border-radius:20px;padding:var(--s4);
+  display:flex;flex-direction:column;gap:var(--s2);
+  transition:transform .35s cubic-bezier(.2,.7,.2,1),border-color .3s ease;
+  min-width:0;
+}
+.prod:hover{transform:translateY(-6px);border-color:var(--ink)}
+.prod .p-idx{font-family:var(--font-serif);font-style:italic;font-size:var(--t-md);color:var(--red)}
+.prod h3{font-size:var(--t-xl)}
+.prod p{color:var(--ink-soft);line-height:1.55;font-size:var(--t-base)}
+.prod .tag{
+  align-self:flex-start;margin-top:auto;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-soft);border-top:1px solid var(--line);padding-top:var(--s2);
+}
+.prod-1{grid-column:span 7}
+.prod-2{grid-column:span 5}
+.prod-3{grid-column:span 5}
+.prod-4{grid-column:span 7}
+.prod .mark{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:var(--s1)}
+.prod .mark svg{width:24px;height:24px}
+
+/* ---------- Pull quote (editorial) ---------- */
+.quote{padding-block:var(--s7)}
+.quote-inner{max-width:20ch}
+.quote .rule{width:64px;height:4px;background:var(--red);margin-bottom:var(--s4)}
+blockquote{
+  font-family:var(--font-serif);font-style:italic;font-weight:400;
+  font-size:clamp(1.75rem,4vw,3.052rem);line-height:1.2;letter-spacing:-0.01em;
+  max-width:22ch;
+}
+.quote cite{display:block;margin-top:var(--s4);font-style:normal;font-family:var(--font-sans);font-size:.9375rem;color:var(--ink-soft);letter-spacing:.02em}
+
+/* ---------- Principles (editorial numbered list) ---------- */
+.principles{padding-block:var(--s7)}
+.pr-list{border-top:1px solid var(--line)}
+.pr-item{
+  display:grid;grid-template-columns:120px 1fr 2fr;gap:var(--s3);align-items:baseline;
+  padding-block:var(--s4);border-bottom:1px solid var(--line);
+}
+.pr-item .n{font-family:var(--font-serif);font-style:italic;font-size:var(--t-xl);color:var(--red);font-variant-numeric:tabular-nums}
+.pr-item h3{font-size:var(--t-xl);letter-spacing:-0.02em}
+.pr-item p{color:var(--ink-soft);line-height:1.55}
+
+/* ---------- Big stats band ---------- */
+.band{padding-block:var(--s7);background:var(--paper-2)}
+.band-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s4)}
+.band .b-num{
+  font-family:var(--font-sans);font-weight:600;letter-spacing:-0.02em;line-height:.95;
+  font-size:clamp(2.5rem,6vw,4.5rem);white-space:nowrap;color:var(--ink);
+}
+.band .b-lbl{margin-top:var(--s2);color:var(--ink-soft);font-size:.9375rem;line-height:1.4}
+
+/* ---------- Final CTA ---------- */
+.cta{padding-block:var(--s7)}
+.cta-card{
+  border-radius:28px;padding:var(--s7) var(--s5);text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:var(--s3);
+}
+.cta-card h2{max-width:18ch}
+.cta-card p{color:var(--ink-soft);max-width:44ch;font-size:var(--t-md);line-height:1.5}
+
+/* ---------- Footer ---------- */
+footer{border-top:1px solid var(--line);padding-block:var(--s6);position:relative;z-index:2}
+.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:var(--s5)}
+.foot-brand .wordmark{font-size:1.75rem}
+.foot-brand p{margin-top:var(--s2);color:var(--ink-soft);max-width:30ch;line-height:1.5;font-size:.9375rem}
+.foot-col h4{font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:var(--s2);font-weight:600}
+.foot-col a{display:block;color:var(--ink);font-size:.9375rem;padding-block:6px;transition:color .2s}
+.foot-col a:hover{color:var(--red)}
+.foot-bottom{
+  margin-top:var(--s6);padding-top:var(--s3);border-top:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;
+  font-size:.8125rem;color:var(--ink-soft);
+}
+.foot-bottom .est{font-variant-numeric:tabular-nums;letter-spacing:.08em}
+
+/* ---------- Reveal (JS-gated so no-JS stays visible) ---------- */
+html.js .reveal{opacity:0;transform:translateY(20px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+html.js .reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){
+  html.js .reveal{opacity:1;transform:none;transition:none}
+  *{scroll-behavior:auto}
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width:900px){
+  .nav-links{display:none}
+  .prod-1,.prod-2,.prod-3,.prod-4{grid-column:span 12}
+  .pr-item{grid-template-columns:64px 1fr;gap:var(--s2)}
+  .pr-item p{grid-column:2}
+  .foot-grid{grid-template-columns:1fr 1fr;gap:var(--s4)}
+  .foot-brand{grid-column:1/-1}
+}
+@media (max-width:640px){
+  .statbar{grid-template-columns:repeat(2,1fr)}
+  .stat:nth-child(2){border-right:none}
+  .stat:nth-child(1),.stat:nth-child(2){border-bottom:1px solid var(--glass-brd)}
+  .band-grid{grid-template-columns:repeat(2,1fr);gap:var(--s4)}
+  .hero{padding-top:var(--s6)}
+  .cta-card{padding:var(--s5) var(--s3)}
+  .foot-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body class="show-grid">
+
+<!-- VISIBLE GRID (lines only) -->
+<div class="grid-overlay" aria-hidden="true"></div>
+
+<!-- ============ HEADER ============ -->
+<header>
+  <div class="wrap nav">
+    <a class="wordmark" href="#top" aria-label="Google">
+      <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c5">l</span><span class="c6">e</span>
+    </a>
+    <nav class="nav-links" aria-label="เมนูหลัก">
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#principles">หลักการ</a>
+      <a href="#numbers">ตัวเลข</a>
+      <a href="#cta">เริ่มต้น</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="icon-btn" id="gridToggle" type="button" aria-pressed="true" title="แสดง/ซ่อน กริด">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+        <span>กริด</span>
+      </button>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="สลับธีม">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+        <span id="themeLabel">มืด</span>
+      </button>
+      <a class="btn btn-primary" href="#cta">เริ่มใช้ฟรี</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap">
+    <div class="ruler" aria-hidden="true">
+      <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+      <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+    </div>
+    <div class="hero-eyebrow eyebrow reveal">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span>แนะนำ Google — ฉบับสารคดี 2026</span>
+    </div>
+    <h1 class="reveal">ค้นหา เข้าใจ<br />สร้างสรรค์</h1>
+    <p class="lede serif reveal">ตั้งแต่การค้นหาคำตอบแรก ไปจนถึงการสร้างสรรค์สิ่งใหม่ด้วย Gemini — Google เป็นเพื่อนร่วมทางในทุกคำถามของคุณ</p>
+    <p class="body reveal">เราออกแบบเครื่องมือที่เรียบง่ายแต่ทรงพลัง เพื่อให้คุณมุ่งเน้นสิ่งที่สำคัญที่สุด — นั่นคือความคิดของคุณเอง ไม่ใช่หน้าจอ</p>
+    <div class="hero-cta reveal">
+      <a class="btn btn-primary" href="#cta">
+        เริ่มใช้ฟรี
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="#products">ดูผลิตภัณฑ์</a>
+    </div>
+
+    <div class="statbar glass reveal">
+      <div class="stat"><div class="stat-num">140K+</div><div class="stat-lbl">การค้นหาต่อวินาที</div></div>
+      <div class="stat"><div class="stat-num">200+</div><div class="stat-lbl">ประเทศและภูมิภาค</div></div>
+      <div class="stat"><div class="stat-num">100+</div><div class="stat-lbl">ภาษาที่รองรับ</div></div>
+      <div class="stat"><div class="stat-num">25+</div><div class="stat-lbl">ปีแห่งการค้นพบ</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRODUCTS ============ -->
+<section class="products" id="products">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow"><span class="idx">01</span> ระบบนิเวศ</div>
+        <h2 class="serif" style="margin-top:var(--s2)">เครื่องมือที่ทำงานร่วมกัน<br />อย่างลงตัว</h2>
+      </div>
+      <p class="note">สี่ผลิตภัณฑ์หลักที่เชื่อมการค้นหา ความรู้ ความคิดสร้างสรรค์ และข้อมูลเข้าด้วยกัน</p>
+    </div>
+
+    <div class="prod-grid">
+      <article class="prod glass prod-1 reveal">
+        <div class="mark" style="background:color-mix(in srgb,var(--g-blue) 16%,transparent)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--g-blue)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        </div>
+        <div class="p-idx">01 — Search</div>
+        <h3>ค้นหาที่แม่นยำที่สุด</h3>
+        <p>ค้นพบผลลัพธ์ที่ใช้ได้ในเสี้ยววินาที ด้วยอัลกอริทึมที่เข้าใจเจตนาของคุณ ไม่ใช่แค่คำค้น</p>
+        <div class="tag">ค้นหา · แผนที่ · รูปภาพ</div>
+      </article>
+
+      <article class="prod glass prod-2 reveal">
+        <div class="mark" style="background:color-mix(in srgb,var(--g-red) 16%,transparent)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--g-red)" stroke-width="2"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg>
+        </div>
+        <div class="p-idx">02 — Gemini</div>
+        <h3>ผู้ช่วย AI ที่คิดไปด้วยกัน</h3>
+        <p>สร้างสรรค์ เขียน วิเคราะห์ และสรุปงานซับซ้อนให้เสร็จเร็วขึ้น ด้วยโมเดล AI รุ่นล่าสุด</p>
+        <div class="tag">AI · สร้างสรรค์ · สรุปงาน</div>
+      </article>
+
+      <article class="prod glass prod-3 reveal">
+        <div class="mark" style="background:color-mix(in srgb,var(--g-yellow) 22%,transparent)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--g-yellow)" stroke-width="2"><path d="M4 5h16v14H4zM4 9h16M9 5v14"/></svg>
+        </div>
+        <div class="p-idx">03 — Workspace</div>
+        <h3>พื้นที่ทำงานที่เชื่อมทุกคน</h3>
+        <p>Docs, Sheets, Gmail และ Meet ทำงานร่วมกันแบบเรียลไทม์ จากทุกอุปกรณ์</p>
+        <div class="tag">Docs · Sheets · Meet</div>
+      </article>
+
+      <article class="prod glass prod-4 reveal">
+        <div class="mark" style="background:color-mix(in srgb,var(--g-green) 18%,transparent)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--g-green)" stroke-width="2"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18H7z"/></svg>
+        </div>
+        <div class="p-idx">04 — Cloud</div>
+        <h3>โครงสร้างที่ขยายได้ไม่จำกัด</h3>
+        <p>ประมวลผล จัดเก็บ และวิเคราะห์ข้อมูลระดับองค์กร บนเครือข่ายระดับโลกที่เชื่อถือได้</p>
+        <div class="tag">Compute · Storage · AI</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PULL QUOTE ============ -->
+<section class="quote">
+  <div class="wrap">
+    <div class="quote-inner reveal">
+      <div class="rule"></div>
+      <blockquote>“เราเริ่มต้นจากคำถามง่าย ๆ — จะทำให้อินเทอร์เน็ตเป็นประโยชน์กับทุกคนได้อย่างไร”</blockquote>
+      <cite>— ทีมผู้ก่อตั้ง Google, 1998</cite>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRINCIPLES ============ -->
+<section class="principles" id="principles">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow"><span class="idx">02</span> หลักการ</div>
+        <h2 class="serif" style="margin-top:var(--s2)">สิ่งที่เราออกแบบจาก</h2>
+      </div>
+      <p class="note">สี่หลักที่เรียบง่าย แต่กำหนดทุกการตัดสินใจของเรา</p>
+    </div>
+
+    <div class="pr-list">
+      <div class="pr-item reveal">
+        <div class="n">01</div>
+        <h3>เรียบง่าย</h3>
+        <p>ทุกฟีเจอร์ต้องมีเหตุผลในการอยู่ของมัน — ถ้ามันไม่ได้ช่วยให้เร็วขึ้นหรือเข้าใจง่ายขึ้น มันจะไม่ได้ถูกเพิ่มเข้ามา</p>
+      </div>
+      <div class="pr-item reveal">
+        <div class="n">02</div>
+        <h3>เร็ว</h3>
+        <p>ความเร็วไม่ใช่ตัวเลือก แต่เป็นส่วนหนึ่งของการออกแบบ — ผลลัพธ์ควรมาถึงก่อนที่คุณจะตั้งคำถามถัดไป</p>
+      </div>
+      <div class="pr-item reveal">
+        <div class="n">03</div>
+        <h3>สำหรับทุกคน</h3>
+        <p>ออกแบบสำหรับทุกคน ในทุกภาษา ทุกอุปกรณ์ — เพราะความรู้ไม่ควรเป็นสิทธิเฉพาะของใคร</p>
+      </div>
+      <div class="pr-item reveal">
+        <div class="n">04</div>
+        <h3>ปลอดภัย</h3>
+        <p>ข้อมูลของคุณเป็นของคุณ เราออกแบบความเป็นส่วนตัวให้เป็นพื้นฐาน ไม่ใช่ตัวเลือกเพิ่มเติม</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NUMBERS BAND ============ -->
+<section class="band" id="numbers">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow"><span class="idx">03</span> ในตัวเลข</div>
+        <h2 class="serif" style="margin-top:var(--s2)">ขนาดของสิ่งที่เราสร้าง</h2>
+      </div>
+    </div>
+    <div class="band-grid">
+      <div class="reveal"><div class="b-num">90%</div><div class="b-lbl">ของคำค้นใหม่ที่เกิดขึ้นบน Google ทุกวัน</div></div>
+      <div class="reveal"><div class="b-num">5B+</div><div class="b-lbl">การค้นหาที่เกิดขึ้นในแต่ละวัน</div></div>
+      <div class="reveal"><div class="b-num">4B+</div><div class="b-lbl">ผู้ใช้ Gmail ทั่วโลก</div></div>
+      <div class="reveal"><div class="b-num">150+</div><div class="b-lbl">ศูนย์ข้อมูลกระจายทั่วโลก</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="cta" id="cta">
+  <div class="wrap">
+    <div class="cta-card glass reveal">
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <h2>พร้อมค้นหาสิ่งใหม่แล้วหรือยัง?</h2>
+      <p>เริ่มใช้ Google ได้ฟรีวันนี้ — ค้นหามาก่อนไม่จำกัด, Gemini และ Workspace พร้อมให้ใช้ทันที</p>
+      <a class="btn btn-primary" href="#top">
+        สร้างบัญชีฟรี
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="wordmark" href="#top"><span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c5">l</span><span class="c6">e</span></a>
+        <p>ค้นหาทุกสิ่ง เข้าใจทุกคำตอบ — และสร้างสรรค์สิ่งใหม่ไปด้วยกัน</p>
+      </div>
+      <div class="foot-col">
+        <h4>ผลิตภัณฑ์</h4>
+        <a href="#products">Search</a>
+        <a href="#products">Gemini</a>
+        <a href="#products">Workspace</a>
+        <a href="#products">Cloud</a>
+      </div>
+      <div class="foot-col">
+        <h4>บริษัท</h4>
+        <a href="#">เกี่ยวกับเรา</a>
+        <a href="#">การลงทุน</a>
+        <a href="#">การจ้างงาน</a>
+        <a href="#">บล็อก</a>
+      </div>
+      <div class="foot-col">
+        <h4>กฎระเบียบ</h4>
+        <a href="#">ความเป็นส่วนตัว</a>
+        <a href="#">เงื่อนไข</a>
+        <a href="#">คุกกี้</a>
+        <a href="#">ความปลอดภัย</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Google — หน้านี้แนะนำเพื่อการออกแบบ</span>
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="est">EST. 1998 · MOUNTAIN VIEW</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var root = document.documentElement;
+  root.classList.add('js');
+
+  /* Theme toggle (respects system, then manual override via data-theme) */
+  var themeBtn = document.getElementById('themeToggle');
+  var themeLabel = document.getElementById('themeLabel');
+  function currentTheme(){
+    if (root.getAttribute('data-theme') === 'dark') return 'dark';
+    if (root.getAttribute('data-theme') === 'light') return 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  function applyLabel(){
+    themeLabel.textContent = currentTheme() === 'dark' ? 'สว่าง' : 'มืด';
+  }
+  applyLabel();
+  themeBtn.addEventListener('click', function(){
+    var next = currentTheme() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    applyLabel();
+  });
+
+  /* Grid toggle */
+  var gridBtn = document.getElementById('gridToggle');
+  gridBtn.addEventListener('click', function(){
+    var on = document.body.classList.toggle('show-grid');
+    gridBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+
+  /* Reveal on scroll (respects reduced motion) */
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var items = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)) {
+    items.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    items.forEach(function(el){ io.observe(el); });
+  }
+})();
+</script>
+</body>
+</html>

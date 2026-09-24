@@ -1,0 +1,13 @@
+{
+  "session": "096ebcae-a6ae-4b80-b608-3b60f60a3fac",
+  "source_sha256": "cb20525e58b6e8d1de0f2c6e507f1635a96cbac996f41eeb87bbcb75c15d4537",
+  "method": "non-sidechain assistant records, deduplicated by message.id; retain largest reported total input for each id; require explicit cache_read_input_tokens and positive total",
+  "unique_request_ids": 103,
+  "usable_requests": 101,
+  "unknown_or_zero_input": 2,
+  "requests_with_cache": 93,
+  "requests_without_cache": 8,
+  "requests_with_at_least_90_percent_cache": 86,
+  "median_cached_fraction": 0.981453800586835,
+  "limitation": "Request mix, not task mix; supports reporting warm performance prominently but does not by itself predict end-to-end agent task time."
+}

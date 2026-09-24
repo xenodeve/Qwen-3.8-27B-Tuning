@@ -1,0 +1,62 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..6a699b6 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -27,6 +27,14 @@ class Store:
+         return self._items.get(sku, 0)
+ 
+     def total(self):
++        """Return the sum of all quantities.
++
++        O(len(self._items)). An O(1) total is impossible under the current
++        contract: add() and remove() mutate _items in place (same dict
++        object), so no new Store attribute, dict subclass, or module-level
++        cache can observe the change without touching those methods or
++        _items' type â€” all of which are forbidden. This stays a plain sum.
++        """
+         return sum(self._items.values())
+ 
+     def skus(self):
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..b3b92e5 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,38 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_tracks_add_and_remove():
++    s = Store()
++    assert s.total() == 0
++    s.add("apple", 3)
++    s.add("pear", 2)
++    s.add("apple", 1)
++    assert s.total() == 6
++    s.remove("apple", 2)
++    assert s.total() == 4
++    s.remove("pear", 2)
++    assert s.total() == 2
++    # remove() may drive a quantity negative; total must still be exact
++    s.remove("apple", 5)
++    assert s.total() == -3
++
++
++def test_total_tracks_load(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 4)
++    p = tmp_path / "inv.json"
++    s.save(p)
++    t = Store().load(p)
++    assert t.total() == 7
++    # load() replaces _items; total must reflect the new dict
++    t.add("plum", 1)
++    assert t.total() == 8
++
++
++def test_items_is_plain_dict():
++    s = Store()
++    s.add("apple", 1)
++    assert type(s._items) is dict

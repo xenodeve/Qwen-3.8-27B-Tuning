@@ -48,7 +48,7 @@ class GpuNotPresent(RuntimeError):
 
 def _smi(args):
     return subprocess.run(["nvidia-smi"] + args,
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, timeout=2)
 
 
 def installed():
@@ -82,8 +82,7 @@ def query(fields, uuid=SERVED_GPU_UUID):
     if r.returncode != 0 or not lines:
         raise GpuNotPresent(
             f"{uuid} is not installed (nvidia-smi exit {r.returncode}: "
-            f"{(r.stderr or r.stdout or '').strip()!r}). "
-            f"Installed: {installed()}")
+            f"{(r.stderr or r.stdout or '').strip()!r}).")
     if len(lines) > 1:
         # Cannot happen with `-i` today. If it ever does, the ambiguity this
         # module exists to remove has come back, and silence would hide it.

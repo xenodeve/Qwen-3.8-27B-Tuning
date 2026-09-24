@@ -180,6 +180,168 @@ REQ = (b"POST /v1/chat/completions HTTP/1.1\r\n"
        b"Content-Length: " + str(len(BODY)).encode() + b"\r\n\r\n" + BODY)
 
 
+def test_restart_preserves_previous_session_capture(tmp_path):
+    """A resumed campaign must never overwrite the previous session's history."""
+    relay = _load('relay')
+    up = Upstream()
+    try:
+        for _ in range(2):
+            tap = relay.Tap(free_port(), up.port, str(tmp_path)).start()
+            try:
+                assert send(tap.listen_port, REQ) == up.reply
+                time.sleep(0.3)
+            finally:
+                tap.stop()
+        captures = list(tmp_path.glob('*.req.bin'))
+        assert len(captures) == 2
+        assert all(BODY in p.read_bytes() for p in captures)
+    finally:
+        up.close()
+
+
+def test_client_half_close_does_not_discard_delayed_response(tmp_path):
+    """Finishing a request is not permission to truncate its response history."""
+    relay = _load('relay')
+    listener = socket.socket()
+    listener.bind(('127.0.0.1', 0))
+    listener.listen(1)
+    reply = b'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ndone'
+    def serve():
+        conn, _ = listener.accept()
+        with conn:
+            while conn.recv(65536):
+                pass
+            time.sleep(0.1)
+            conn.sendall(reply)
+    worker = threading.Thread(target=serve, daemon=True)
+    worker.start()
+    tap = relay.Tap(free_port(), listener.getsockname()[1], str(tmp_path)).start()
+    try:
+        with socket.create_connection(('127.0.0.1', tap.listen_port), timeout=2) as client:
+            client.sendall(REQ)
+            client.shutdown(socket.SHUT_WR)
+            got = b''
+            while True:
+                chunk = client.recv(65536)
+                if not chunk:
+                    break
+                got += chunk
+        assert got == reply
+    finally:
+        tap.stop()
+        listener.close()
+        worker.join(timeout=2)
+
+
+def test_partial_credential_header_is_redacted_on_disconnect():
+    redactor = _load('relay')._Redactor()
+    assert redactor.feed(b'Authorization: Bearer unfinished-secret') == b''
+    assert b'unfinished-secret' not in redactor.flush()
+
+
+def test_response_cookie_is_redacted_only_in_saved_copy(tmp_path):
+    relay = _load('relay')
+    reply = b'HTTP/1.1 200 OK\r\nSet-Cookie: session=private-secret\r\nContent-Length: 2\r\n\r\nok'
+    up = Upstream(reply=reply)
+    tap = relay.Tap(free_port(), up.port, str(tmp_path)).start()
+    try:
+        assert send(tap.listen_port, REQ) == reply
+        time.sleep(0.1)
+    finally:
+        tap.stop()
+        up.close()
+    assert b'private-secret' not in b''.join(p.read_bytes() for p in tmp_path.glob('*.rsp.bin'))
+
+
+def test_stop_joins_accept_thread_and_finishes_capture_metadata(tapped):
+    tap, up, directory = tapped
+    assert send(tap.listen_port, REQ) == up.reply
+    tap.stop()
+    assert not tap._thread.is_alive()
+    metadata = list(directory.glob('*.meta.json'))
+    assert len(metadata) == 1
+    record = json.loads(metadata[0].read_text())
+    assert record['state'] == 'closed'
+    assert record['capture_errors'] == []
+
+
+def test_oversized_secret_header_never_escapes_redactor_buffer_limit():
+    redactor = _load('relay')._Redactor()
+    stored = redactor.feed(b'Authorization: ' + b'secret-' * 160000)
+    stored += redactor.feed(b'secret-tail\r\nContent-Type: application/json\r\n\r\n{}')
+    stored += redactor.flush()
+    assert b'secret-' not in stored
+    assert b'Content-Type: application/json' in stored
+
+
+def test_chunk_timestamp_precedes_slow_downstream_write(tmp_path):
+    relay = _load('relay')
+    class Source:
+        def __init__(self): self.first = True
+        def recv(self, size):
+            if self.first:
+                self.first = False
+                return b'data'
+            return b''
+    class Destination:
+        def sendall(self, data): time.sleep(0.2)
+        def shutdown(self, how): pass
+    index = tmp_path / 'timing.idx'
+    relay.Tap._pump(Source(), Destination(), str(tmp_path / 'record.bin'),
+                    None, str(index), threading.Event(), [])
+    assert json.loads(index.read_text())['t'] < 0.15
+
+
+@pytest.mark.parametrize('terminal', [True, False])
+def test_recorded_client_wire_and_journal_agree_on_stream_completeness(tmp_path, terminal):
+    """A successful client exit cannot hide a truncated upstream stream."""
+    sys.path.insert(0, BENCH)
+    from agent_session_client import run_client
+    from session_history import SessionHistory, inspect_session
+    relay = _load('relay')
+    reader = _load('read_capture')
+    body = b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'
+    if terminal:
+        body += b'data: [DONE]\n\n'
+    reply = (b'HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: '
+             + str(len(body)).encode() + b'\r\n\r\n' + body)
+    up = Upstream(reply=reply)
+    history = SessionHistory(tmp_path / 'session')
+    tap = relay.Tap(free_port(), up.port, str(history.directory / 'wire')).start()
+    source = ("import json,sys,urllib.request; sys.stdin.read(); "
+              f"r=urllib.request.Request('http://127.0.0.1:{tap.listen_port}/v1/messages',"
+              "data=b'{\"messages\":[]}',headers={'Content-Type':'application/json'}); "
+              "urllib.request.urlopen(r,timeout=3).read(); "
+              "print(json.dumps({'type':'result','is_error':False}),flush=True)")
+    try:
+        client = run_client([sys.executable, '-u', '-c', source], os.environ.copy(),
+                            tmp_path, 'test prompt', history, timeout=5)
+    finally:
+        tap.stop()
+        up.close()
+    rows = reader.rows(str(history.directory / 'wire'))
+    assert client['status'] == 'completed'
+    assert len(rows) == 1
+    assert rows[0]['usable'] is terminal
+    history.finish('verified' if terminal else 'failed', {'wire_usable': rows[0]['usable']})
+    inspected = inspect_session(history.directory)
+    assert inspected['complete'] is True
+    assert inspected['outcome'] == ('verified' if terminal else 'failed')
+    assert (history.directory / 'stdout.jsonl').exists()
+
+
+def test_ephemeral_port_is_exposed_for_isolated_campaigns(tmp_path):
+    relay = _load('relay')
+    up = Upstream()
+    tap = relay.Tap(0, up.port, str(tmp_path)).start()
+    try:
+        assert tap.listen_port > 0
+        assert send(tap.listen_port, REQ) == up.reply
+    finally:
+        tap.stop()
+        up.close()
+
+
 @pytest.fixture
 def tapped(tmp_path):
     tap = _load('relay')

@@ -1,0 +1,133 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..ab49c2c 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -16,13 +16,27 @@ class Store:
+         return self._items[sku]
+ 
+     def remove(self, sku, qty):
+-        """Remove qty units of sku and return the remaining quantity."""
++        """Remove qty units of sku and return the remaining quantity.
++
++        Raises ValueError if qty exceeds the quantity in stock; the store is left unchanged.
++        """
+         if not isinstance(qty, int) or qty <= 0:
+             raise ValueError(f"qty must be a positive integer, got {qty!r}")
+         current = self._items.get(sku, 0)
++        if qty > current:
++            raise ValueError(
++                f"cannot remove {qty} of {sku!r}: only {current} in stock"
++            )
+         self._items[sku] = current - qty
+         return self._items[sku]
+ 
++    def low_stock(self, threshold):
++        """Return skus with quantity strictly below threshold, sorted by quantity then sku."""
++        if not isinstance(threshold, int):
++            raise ValueError(f"threshold must be an integer, got {threshold!r}")
++        low = [(qty, sku) for sku, qty in self._items.items() if qty < threshold]
++        return [sku for _, sku in sorted(low)]
++
+     def quantity(self, sku):
+         return self._items.get(sku, 0)
+ 
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..45aeb5c 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -20,6 +20,95 @@ def test_add_rejects_bad_qty():
+         assert False, f"add accepted {bad!r}"
+ 
+ 
++def test_remove_returns_remaining():
++    s = Store()
++    s.add("apple", 5)
++    assert s.remove("apple", 2) == 3
++    assert s.quantity("apple") == 3
++
++
++def test_remove_raises_when_more_than_available():
++    s = Store()
++    s.add("apple", 3)
++    try:
++        s.remove("apple", 5)
++    except ValueError as e:
++        msg = str(e)
++        assert "apple" in msg
++        assert "3" in msg
++    else:
++        assert False, "remove did not raise"
++    assert s.quantity("apple") == 3
++
++
++def test_remove_raises_for_missing_sku():
++    s = Store()
++    try:
++        s.remove("pear", 1)
++    except ValueError:
++        pass
++    else:
++        assert False, "remove did not raise for missing sku"
++    assert s.quantity("pear") == 0
++
++
++def test_remove_rejects_bad_qty():
++    s = Store()
++    s.add("apple", 3)
++    for bad in (0, -1, 1.5, "2"):
++        try:
++            s.remove("apple", bad)
++        except ValueError:
++            continue
++        assert False, f"remove accepted {bad!r}"
++    assert s.quantity("apple") == 3
++
++
++def test_low_stock_lists_skus_below_threshold_sorted():
++    s = Store()
++    s.add("pear", 2)
++    s.add("apple", 1)
++    s.add("plum", 5)
++    s.add("cherry", 4)
++    assert s.low_stock(3) == ["apple", "pear"]
++
++
++def test_low_stock_excludes_equal_and_higher():
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 4)
++    assert s.low_stock(3) == []
++
++
++def test_low_stock_ties_broken_by_sku():
++    s = Store()
++    s.add("banana", 1)
++    s.add("apple", 1)
++    assert s.low_stock(5) == ["apple", "banana"]
++
++
++def test_low_stock_empty_store():
++    s = Store()
++    assert s.low_stock(1) == []
++
++
++def test_low_stock_negative_threshold_empty():
++    s = Store()
++    s.add("apple", 1)
++    assert s.low_stock(-1) == []
++
++
++def test_low_stock_rejects_bad_threshold():
++    s = Store()
++    s.add("apple", 1)
++    for bad in (1.5, "2", None):
++        try:
++            s.low_stock(bad)
++        except ValueError:
++            continue
++        assert False, f"low_stock accepted {bad!r}"
++
++
+ def test_save_and_load_roundtrip(tmp_path):
+     s = Store()
+     s.add("apple", 3)

@@ -1,0 +1,931 @@
+{
+  "complete_run_count": 9,
+  "summary": {
+    "gsq": {
+      "planned": 6,
+      "accepted": 5,
+      "status_counts": {
+        "accepted": 5,
+        "budget-limited": 1
+      },
+      "all_tasks_completed": false,
+      "mean_verified_task_s": null,
+      "successful_only_median_s": 79.33124000000316,
+      "successful_only_range_s": [
+        35.79661080000005,
+        117.26434949999748
+      ],
+      "total_known_spent_s": 483.67031870000574,
+      "seconds_per_verified_success_including_failures": 96.73406374000115
+    },
+    "nvfp4": {
+      "planned": 6,
+      "accepted": 3,
+      "status_counts": {
+        "accepted": 3,
+        "budget-limited": 1,
+        "functional-failure": 2
+      },
+      "all_tasks_completed": false,
+      "mean_verified_task_s": null,
+      "successful_only_median_s": 72.3860538999943,
+      "successful_only_range_s": [
+        53.17205520000425,
+        93.81565779999801
+      ],
+      "total_known_spent_s": 463.06289760000436,
+      "seconds_per_verified_success_including_failures": 154.35429920000146
+    },
+    "exl3": {
+      "planned": 6,
+      "accepted": 6,
+      "status_counts": {
+        "accepted": 6
+      },
+      "all_tasks_completed": true,
+      "mean_verified_task_s": 41.570944249998014,
+      "successful_only_median_s": 43.71857434999765,
+      "successful_only_range_s": [
+        23.42378529999769,
+        58.101844099997834
+      ],
+      "total_known_spent_s": 249.4256654999881,
+      "seconds_per_verified_success_including_failures": 41.570944249998014
+    }
+  },
+  "episodes": [
+    {
+      "artifact": "gsq",
+      "round": 1,
+      "run": "20260920-034937-gsq-mtp-ngram-n3-c147456-r1",
+      "cold_response_s": 274.6180462000011,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-034937-gsq-mtp-ngram-n3-c147456-r1\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "verification_s": 0.0771725000013248,
+          "time_spent_s": 35.79661080000005,
+          "single_call_verified_task_s": 35.79661080000005,
+          "status": "accepted",
+          "round": 1,
+          "run": "20260920-034937-gsq-mtp-ngram-n3-c147456-r1",
+          "response_s": 35.71943829999873,
+          "phases": {
+            "first_text_s": 7.246450899998308,
+            "first_thinking_s": 7.246450899998308,
+            "last_thinking_s": 27.737708100001328,
+            "first_answer_s": 27.837903600000573,
+            "thinking_observed_s": 20.591452700002264,
+            "request_wall_s": 35.656765200001246,
+            "thinking_chars": 2483,
+            "answer_chars": 1232
+          },
+          "engine_timings": {
+            "cache_n": 137914,
+            "prompt_n": 1133,
+            "prompt_ms": 4130.558,
+            "prompt_per_token_ms": 3.6456822594880847,
+            "prompt_per_second": 274.29708044288446,
+            "predicted_n": 998,
+            "predicted_ms": 28406.403,
+            "predicted_per_token_ms": 28.49187863590772,
+            "predicted_per_second": 35.09772074979011,
+            "draft_n": 1173,
+            "draft_n_accepted": 724
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-034937-gsq-mtp-ngram-n3-c147456-r1\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "verification_s": 0.06360610000047018,
+          "time_spent_s": 37.68454870000278,
+          "single_call_verified_task_s": 37.68454870000278,
+          "status": "accepted",
+          "round": 1,
+          "run": "20260920-034937-gsq-mtp-ngram-n3-c147456-r1",
+          "response_s": 37.62094260000231,
+          "phases": {
+            "first_text_s": 7.516258999999991,
+            "first_thinking_s": 7.516258999999991,
+            "last_thinking_s": 31.479703599998174,
+            "first_answer_s": 31.571868099999847,
+            "thinking_observed_s": 24.055609099999856,
+            "request_wall_s": 37.55477880000035,
+            "thinking_chars": 2949,
+            "answer_chars": 859
+          },
+          "engine_timings": {
+            "cache_n": 138019,
+            "prompt_n": 1020,
+            "prompt_ms": 4546.331,
+            "prompt_per_token_ms": 4.457187254901961,
+            "prompt_per_second": 224.35673953348314,
+            "predicted_n": 935,
+            "predicted_ms": 30034.863,
+            "predicted_per_token_ms": 32.1572408993576,
+            "predicted_per_second": 31.097195282695314,
+            "draft_n": 1058,
+            "draft_n_accepted": 621
+          }
+        }
+      ],
+      "lfu-storage-probe.json": {
+        "before_slots": 9,
+        "after_slots": 1009,
+        "growth_slots": 1000
+      },
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": false,
+        "error": "RecursionError"
+      }
+    },
+    {
+      "artifact": "nvfp4",
+      "round": 1,
+      "run": "20260920-035600-nvfp4-served-n3-c147456-r1",
+      "cold_response_s": 231.43450059999668,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": false,
+          "exit_code": 1,
+          "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 56, in <module>\n  File \"<string>\", line 26, in get\n  File \"<string>\", line 14, in _increase_freq\nKeyError: 2\n",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-035600-nvfp4-served-n3-c147456-r1\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": false,
+          "verification_s": 0.06131920000188984,
+          "time_spent_s": 49.516874600001756,
+          "single_call_verified_task_s": null,
+          "status": "functional-failure",
+          "round": 1,
+          "run": "20260920-035600-nvfp4-served-n3-c147456-r1",
+          "response_s": 49.45555539999987,
+          "phases": {
+            "first_text_s": 7.63116920000175,
+            "first_thinking_s": 7.63116920000175,
+            "last_thinking_s": 40.28270279999924,
+            "first_answer_s": 40.38046680000116,
+            "thinking_observed_s": 32.74929759999941,
+            "request_wall_s": 49.381436899999244,
+            "thinking_chars": 3672,
+            "answer_chars": 1486
+          },
+          "engine_timings": {
+            "cache_n": 137914,
+            "prompt_n": 1133,
+            "prompt_ms": 4081.682,
+            "prompt_per_token_ms": 3.602543689320388,
+            "prompt_per_second": 277.5816440379236,
+            "predicted_n": 1337,
+            "predicted_ms": 41746.04,
+            "predicted_per_token_ms": 31.247035928143713,
+            "predicted_per_second": 32.003035497498686,
+            "draft_n": 1516,
+            "draft_n_accepted": 909
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-035600-nvfp4-served-n3-c147456-r1\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "verification_s": 0.06062239999664598,
+          "time_spent_s": 72.3860538999943,
+          "single_call_verified_task_s": 72.3860538999943,
+          "status": "accepted",
+          "round": 1,
+          "run": "20260920-035600-nvfp4-served-n3-c147456-r1",
+          "response_s": 72.32543149999765,
+          "phases": {
+            "first_text_s": 7.958712799998466,
+            "first_thinking_s": 7.958712799998466,
+            "last_thinking_s": 65.90876449999996,
+            "first_answer_s": 65.90971079999872,
+            "thinking_observed_s": 57.950998000000254,
+            "request_wall_s": 72.25852859999941,
+            "thinking_chars": 5652,
+            "answer_chars": 880
+          },
+          "engine_timings": {
+            "cache_n": 138019,
+            "prompt_n": 1020,
+            "prompt_ms": 4644.009,
+            "prompt_per_token_ms": 4.55295,
+            "prompt_per_second": 219.63781723937228,
+            "predicted_n": 1574,
+            "predicted_ms": 64295.354,
+            "predicted_per_token_ms": 40.874350921805465,
+            "predicted_per_second": 24.465220301921036,
+            "draft_n": 2146,
+            "draft_n_accepted": 910
+          }
+        }
+      ],
+      "lfu-storage-probe.json": {
+        "before_slots": 9,
+        "after_slots": 9,
+        "growth_slots": 0
+      },
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": false,
+        "error": "RecursionError"
+      }
+    },
+    {
+      "artifact": "exl3",
+      "round": 1,
+      "run": "20260920-040229-exl3-served-n3-c147456-r1",
+      "cold_response_s": 334.29346590000205,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-040229-exl3-served-n3-c147456-r1\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "verification_s": 0.06825589999789372,
+          "time_spent_s": 56.38187599999583,
+          "single_call_verified_task_s": 56.38187599999583,
+          "status": "accepted",
+          "round": 1,
+          "run": "20260920-040229-exl3-served-n3-c147456-r1",
+          "response_s": 56.313620099997934,
+          "phases": {
+            "first_text_s": 5.153998499998124,
+            "first_thinking_s": 5.153998499998124,
+            "last_thinking_s": 48.9364179999975,
+            "first_answer_s": 49.08545479999884,
+            "thinking_observed_s": 43.93145630000072,
+            "request_wall_s": 56.31025079999745,
+            "thinking_chars": 5782,
+            "answer_chars": 1438
+          },
+          "engine_timings": {
+            "prompt_n": 1498,
+            "prompt_ms": 4726.6,
+            "prompt_per_second": 316.9,
+            "predicted_n": 2147,
+            "predicted_ms": 51313.4,
+            "predicted_per_second": 41.8,
+            "cached_tokens": 139264,
+            "wall_ms": 56084.4,
+            "draft_accepted": 1479,
+            "draft_rejected": 523,
+            "cjk_chars": 0,
+            "cjk_ban": true
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-040229-exl3-served-n3-c147456-r1\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "verification_s": 0.06725439999718219,
+          "time_spent_s": 23.42378529999769,
+          "single_call_verified_task_s": 23.42378529999769,
+          "status": "accepted",
+          "round": 1,
+          "run": "20260920-040229-exl3-served-n3-c147456-r1",
+          "response_s": 23.356530900000507,
+          "phases": {
+            "first_text_s": 5.143426599999657,
+            "first_thinking_s": 5.143426599999657,
+            "last_thinking_s": 17.10458899999867,
+            "first_answer_s": 17.264018199999555,
+            "thinking_observed_s": 12.120591599999898,
+            "request_wall_s": 23.353283200001897,
+            "thinking_chars": 1920,
+            "answer_chars": 1181
+          },
+          "engine_timings": {
+            "prompt_n": 1490,
+            "prompt_ms": 4683.6,
+            "prompt_per_second": 318.1,
+            "predicted_n": 822,
+            "predicted_ms": 18372.4,
+            "predicted_per_second": 44.7,
+            "cached_tokens": 139264,
+            "wall_ms": 23098.7,
+            "draft_accepted": 591,
+            "draft_rejected": 99,
+            "cjk_chars": 0,
+            "cjk_ban": true
+          }
+        }
+      ],
+      "lfu-storage-probe.json": {
+        "before_slots": 9,
+        "after_slots": 9,
+        "growth_slots": 0
+      },
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": true
+      }
+    },
+    {
+      "artifact": "nvfp4",
+      "round": 2,
+      "run": "20260920-041027-nvfp4-served-n3-c147456-r2",
+      "cold_response_s": 256.2107436999977,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": false,
+          "exit_code": 1,
+          "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 3, in <module>\nNameError: name 'LFUCache' is not defined\n",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-041027-nvfp4-served-n3-c147456-r2\\responses.jsonl",
+          "contract_ok": false,
+          "contract_violations": [
+            "no fenced python block"
+          ],
+          "accepted": false,
+          "status": "budget-limited",
+          "verification_s": 0.07126530000095954,
+          "time_spent_s": 164.40686290000303,
+          "single_call_verified_task_s": null,
+          "round": 2,
+          "run": "20260920-041027-nvfp4-served-n3-c147456-r2",
+          "response_s": 164.33559760000207,
+          "phases": {
+            "first_text_s": 6.853240199998254,
+            "first_thinking_s": 6.853240199998254,
+            "last_thinking_s": 164.26825069999904,
+            "first_answer_s": null,
+            "thinking_observed_s": null,
+            "request_wall_s": 164.27264469999864,
+            "thinking_chars": 15699,
+            "answer_chars": 0
+          },
+          "engine_timings": {
+            "cache_n": 137914,
+            "prompt_n": 1133,
+            "prompt_ms": 3821.915,
+            "prompt_per_token_ms": 3.373270079435128,
+            "prompt_per_second": 296.4482464942313,
+            "predicted_n": 4096,
+            "predicted_ms": 157414.615,
+            "predicted_per_token_ms": 38.44068742368742,
+            "predicted_per_second": 26.014102947175523,
+            "draft_n": 5564,
+            "draft_n_accepted": 2374
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-041027-nvfp4-served-n3-c147456-r2\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.06646030000047176,
+          "time_spent_s": 93.81565779999801,
+          "single_call_verified_task_s": 93.81565779999801,
+          "round": 2,
+          "run": "20260920-041027-nvfp4-served-n3-c147456-r2",
+          "response_s": 93.74919749999754,
+          "phases": {
+            "first_text_s": 6.9878545999999915,
+            "first_thinking_s": 6.9878545999999915,
+            "last_thinking_s": 91.85219499999948,
+            "first_answer_s": 91.9461381000001,
+            "thinking_observed_s": 84.9582835000001,
+            "request_wall_s": 93.68656080000073,
+            "thinking_chars": 9414,
+            "answer_chars": 768
+          },
+          "engine_timings": {
+            "cache_n": 138019,
+            "prompt_n": 1020,
+            "prompt_ms": 4193.441,
+            "prompt_per_token_ms": 4.1112166666666665,
+            "prompt_per_second": 243.23699796897108,
+            "predicted_n": 2511,
+            "predicted_ms": 86680.641,
+            "predicted_per_token_ms": 34.53411992031872,
+            "predicted_per_second": 28.956869389094617,
+            "draft_n": 3199,
+            "draft_n_accepted": 1582
+          }
+        }
+      ],
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": false,
+        "error": "RecursionError"
+      }
+    },
+    {
+      "artifact": "exl3",
+      "round": 2,
+      "run": "20260920-041936-exl3-served-n3-c147456-r2",
+      "cold_response_s": 318.26435149999816,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-041936-exl3-served-n3-c147456-r2\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.07868489999964368,
+          "time_spent_s": 31.055272699999477,
+          "single_call_verified_task_s": 31.055272699999477,
+          "round": 2,
+          "run": "20260920-041936-exl3-served-n3-c147456-r2",
+          "response_s": 30.976587799999834,
+          "phases": {
+            "first_text_s": 5.188871099999233,
+            "first_thinking_s": 5.188871099999233,
+            "last_thinking_s": 23.384936299997207,
+            "first_answer_s": 23.464095899998938,
+            "thinking_observed_s": 18.275224799999705,
+            "request_wall_s": 30.973371599997336,
+            "thinking_chars": 2458,
+            "answer_chars": 1393
+          },
+          "engine_timings": {
+            "prompt_n": 1498,
+            "prompt_ms": 4746.9,
+            "prompt_per_second": 315.6,
+            "predicted_n": 1100,
+            "predicted_ms": 25943.6,
+            "predicted_per_second": 42.4,
+            "cached_tokens": 139264,
+            "wall_ms": 30730.2,
+            "draft_accepted": 774,
+            "draft_rejected": 203,
+            "cjk_chars": 0,
+            "cjk_ban": true
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-041936-exl3-served-n3-c147456-r2\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.07535590000043157,
+          "time_spent_s": 56.960191099999065,
+          "single_call_verified_task_s": 56.960191099999065,
+          "round": 2,
+          "run": "20260920-041936-exl3-served-n3-c147456-r2",
+          "response_s": 56.88483519999863,
+          "phases": {
+            "first_text_s": 5.1436751000001095,
+            "first_thinking_s": 5.1436751000001095,
+            "last_thinking_s": 50.76970379999693,
+            "first_answer_s": 50.9294908999982,
+            "thinking_observed_s": 45.78581579999809,
+            "request_wall_s": 56.88155740000002,
+            "thinking_chars": 5977,
+            "answer_chars": 1093
+          },
+          "engine_timings": {
+            "prompt_n": 1490,
+            "prompt_ms": 4684.1,
+            "prompt_per_second": 318.1,
+            "predicted_n": 2112,
+            "predicted_ms": 51898.1,
+            "predicted_per_second": 40.7,
+            "cached_tokens": 139264,
+            "wall_ms": 56623.2,
+            "draft_accepted": 1459,
+            "draft_rejected": 499,
+            "cjk_chars": 0,
+            "cjk_ban": true
+          }
+        }
+      ],
+      "lfu-storage-probe.json": {
+        "before_slots": 9,
+        "after_slots": 9,
+        "growth_slots": 0
+      },
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": true
+      }
+    },
+    {
+      "artifact": "gsq",
+      "round": 2,
+      "run": "20260920-042713-gsq-mtp-ngram-n3-c147456-r2",
+      "cold_response_s": 272.0607592000015,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-042713-gsq-mtp-ngram-n3-c147456-r2\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.07530490000135615,
+          "time_spent_s": 79.33124000000316,
+          "single_call_verified_task_s": 79.33124000000316,
+          "round": 2,
+          "run": "20260920-042713-gsq-mtp-ngram-n3-c147456-r2",
+          "response_s": 79.2559351000018,
+          "phases": {
+            "first_text_s": 7.191189900000609,
+            "first_thinking_s": 7.191189900000609,
+            "last_thinking_s": 71.69690529999934,
+            "first_answer_s": 71.7898368999995,
+            "thinking_observed_s": 64.59864699999889,
+            "request_wall_s": 79.19327159999739,
+            "thinking_chars": 7113,
+            "answer_chars": 1442
+          },
+          "engine_timings": {
+            "cache_n": 137914,
+            "prompt_n": 1133,
+            "prompt_ms": 4144.678,
+            "prompt_per_token_ms": 3.658144748455428,
+            "prompt_per_second": 273.36261103998913,
+            "predicted_n": 2513,
+            "predicted_ms": 71998.011,
+            "predicted_per_token_ms": 28.661628582802546,
+            "predicted_per_second": 34.88985272107031,
+            "draft_n": 2503,
+            "draft_n_accepted": 1763
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-042713-gsq-mtp-ngram-n3-c147456-r2\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.07912729999952717,
+          "time_spent_s": 117.26434949999748,
+          "single_call_verified_task_s": 117.26434949999748,
+          "round": 2,
+          "run": "20260920-042713-gsq-mtp-ngram-n3-c147456-r2",
+          "response_s": 117.18522219999795,
+          "phases": {
+            "first_text_s": 7.559203600001638,
+            "first_thinking_s": 7.559203600001638,
+            "last_thinking_s": 115.07104310000068,
+            "first_answer_s": 115.16615420000016,
+            "thinking_observed_s": 107.60695059999853,
+            "request_wall_s": 117.1216045000001,
+            "thinking_chars": 11606,
+            "answer_chars": 1031
+          },
+          "engine_timings": {
+            "cache_n": 138019,
+            "prompt_n": 1020,
+            "prompt_ms": 4617.27,
+            "prompt_per_token_ms": 4.526735294117647,
+            "prompt_per_second": 220.90975836370842,
+            "predicted_n": 3757,
+            "predicted_ms": 109535.337,
+            "predicted_per_token_ms": 29.162762779552715,
+            "predicted_per_second": 34.2903039591689,
+            "draft_n": 3906,
+            "draft_n_accepted": 2626
+          }
+        }
+      ],
+      "lfu-storage-probe.json": {
+        "before_slots": 9,
+        "after_slots": 9,
+        "growth_slots": 0
+      },
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": true
+      }
+    },
+    {
+      "artifact": "exl3",
+      "round": 3,
+      "run": "20260920-043535-exl3-served-n3-c147456-r3",
+      "cold_response_s": 313.6689383999983,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-043535-exl3-served-n3-c147456-r3\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.06728259999727015,
+          "time_spent_s": 58.101844099997834,
+          "single_call_verified_task_s": 58.101844099997834,
+          "round": 3,
+          "run": "20260920-043535-exl3-served-n3-c147456-r3",
+          "response_s": 58.034561500000564,
+          "phases": {
+            "first_text_s": 5.2383370000025025,
+            "first_thinking_s": 5.2383370000025025,
+            "last_thinking_s": 50.304300499999954,
+            "first_answer_s": 50.46508480000193,
+            "thinking_observed_s": 45.22674779999943,
+            "request_wall_s": 58.03107540000201,
+            "thinking_chars": 6050,
+            "answer_chars": 1412
+          },
+          "engine_timings": {
+            "prompt_n": 1498,
+            "prompt_ms": 4698.9,
+            "prompt_per_second": 318.8,
+            "predicted_n": 2176,
+            "predicted_ms": 52953.7,
+            "predicted_per_second": 41.1,
+            "cached_tokens": 139264,
+            "wall_ms": 57703.1,
+            "draft_accepted": 1520,
+            "draft_rejected": 447,
+            "cjk_chars": 0,
+            "cjk_ban": true
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-043535-exl3-served-n3-c147456-r3\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.06807589999880292,
+          "time_spent_s": 23.502696299998206,
+          "single_call_verified_task_s": 23.502696299998206,
+          "round": 3,
+          "run": "20260920-043535-exl3-served-n3-c147456-r3",
+          "response_s": 23.434620399999403,
+          "phases": {
+            "first_text_s": 5.1124715999976615,
+            "first_thinking_s": 5.1124715999976615,
+            "last_thinking_s": 17.213725999998132,
+            "first_answer_s": 17.372228799998993,
+            "thinking_observed_s": 12.259757200001332,
+            "request_wall_s": 23.431317800001125,
+            "thinking_chars": 1925,
+            "answer_chars": 1133
+          },
+          "engine_timings": {
+            "prompt_n": 1490,
+            "prompt_ms": 4667.2,
+            "prompt_per_second": 319.2,
+            "predicted_n": 818,
+            "predicted_ms": 18480.3,
+            "predicted_per_second": 44.3,
+            "cached_tokens": 139264,
+            "wall_ms": 23193.3,
+            "draft_accepted": 587,
+            "draft_rejected": 105,
+            "cjk_chars": 0,
+            "cjk_ban": true
+          }
+        }
+      ],
+      "lfu-storage-probe.json": {
+        "before_slots": 9,
+        "after_slots": 9,
+        "growth_slots": 0
+      },
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": true
+      }
+    },
+    {
+      "artifact": "gsq",
+      "round": 3,
+      "run": "20260920-044259-gsq-mtp-ngram-n3-c147456-r3",
+      "cold_response_s": 283.2267785999975,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-044259-gsq-mtp-ngram-n3-c147456-r3\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.0664444000030926,
+          "time_spent_s": 81.26721900000484,
+          "single_call_verified_task_s": 81.26721900000484,
+          "round": 3,
+          "run": "20260920-044259-gsq-mtp-ngram-n3-c147456-r3",
+          "response_s": 81.20077460000175,
+          "phases": {
+            "first_text_s": 7.116221300002508,
+            "first_thinking_s": 7.116221300002508,
+            "last_thinking_s": 78.4308658000009,
+            "first_answer_s": 78.52264520000244,
+            "thinking_observed_s": 71.40642389999994,
+            "request_wall_s": 81.13430200000221,
+            "thinking_chars": 8200,
+            "answer_chars": 1559
+          },
+          "engine_timings": {
+            "cache_n": 137914,
+            "prompt_n": 1133,
+            "prompt_ms": 4188.648,
+            "prompt_per_token_ms": 3.696953221535746,
+            "prompt_per_second": 270.4930087226236,
+            "predicted_n": 2899,
+            "predicted_ms": 74012.143,
+            "predicted_per_token_ms": 25.539041752933056,
+            "predicted_per_second": 39.155736917386655,
+            "draft_n": 3177,
+            "draft_n_accepted": 2137
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": false,
+          "exit_code": 1,
+          "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 8, in <module>\nNameError: name 'Node' is not defined. Did you mean: 'None'?\n",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-044259-gsq-mtp-ngram-n3-c147456-r3\\responses.jsonl",
+          "contract_ok": false,
+          "contract_violations": [
+            "no fenced python block"
+          ],
+          "accepted": false,
+          "status": "budget-limited",
+          "verification_s": 0.06865189999734866,
+          "time_spent_s": 132.32635069999742,
+          "single_call_verified_task_s": null,
+          "round": 3,
+          "run": "20260920-044259-gsq-mtp-ngram-n3-c147456-r3",
+          "response_s": 132.25769880000007,
+          "phases": {
+            "first_text_s": 7.59657370000059,
+            "first_thinking_s": 7.59657370000059,
+            "last_thinking_s": 132.1955885999996,
+            "first_answer_s": null,
+            "thinking_observed_s": null,
+            "request_wall_s": 132.19968879999942,
+            "thinking_chars": 13572,
+            "answer_chars": 0
+          },
+          "engine_timings": {
+            "cache_n": 138019,
+            "prompt_n": 1020,
+            "prompt_ms": 4720.243,
+            "prompt_per_token_ms": 4.627689215686275,
+            "prompt_per_second": 216.0905699134557,
+            "predicted_n": 4096,
+            "predicted_ms": 124598.528,
+            "predicted_per_token_ms": 30.426990964590967,
+            "predicted_per_second": 32.865556806578,
+            "draft_n": 4647,
+            "draft_n_accepted": 2801
+          }
+        }
+      ],
+      "lfu-storage-probe.json": {
+        "before_slots": 9,
+        "after_slots": 9,
+        "growth_slots": 0
+      }
+    },
+    {
+      "artifact": "nvfp4",
+      "round": 3,
+      "run": "20260920-045154-nvfp4-served-n3-c147456-r3",
+      "cold_response_s": 253.44199149999986,
+      "tasks": [
+        {
+          "case": "session-lfu_cache",
+          "passed": false,
+          "exit_code": 1,
+          "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 60, in <module>\n  File \"<string>\", line 56, in put\n  File \"<string>\", line 22, in _insert\nTypeError: 'int' object does not support item assignment\n",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-045154-nvfp4-served-n3-c147456-r3\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": false,
+          "status": "functional-failure",
+          "verification_s": 0.06262419999984559,
+          "time_spent_s": 29.765393200003018,
+          "single_call_verified_task_s": null,
+          "round": 3,
+          "run": "20260920-045154-nvfp4-served-n3-c147456-r3",
+          "response_s": 29.702769000003173,
+          "phases": {
+            "first_text_s": 6.808110499998293,
+            "first_thinking_s": 6.808110499998293,
+            "last_thinking_s": 16.17939539999861,
+            "first_answer_s": 16.280203599999368,
+            "thinking_observed_s": 9.472093100001075,
+            "request_wall_s": 29.64159109999673,
+            "thinking_chars": 825,
+            "answer_chars": 1782
+          },
+          "engine_timings": {
+            "cache_n": 137914,
+            "prompt_n": 1133,
+            "prompt_ms": 3894.554,
+            "prompt_per_token_ms": 3.4373821712268313,
+            "prompt_per_second": 290.9190628760058,
+            "predicted_n": 691,
+            "predicted_ms": 22830.102,
+            "predicted_per_token_ms": 33.087104347826084,
+            "predicted_per_second": 30.22325524432611,
+            "draft_n": 746,
+            "draft_n_accepted": 446
+          }
+        },
+        {
+          "case": "session-tree_codec",
+          "passed": true,
+          "exit_code": 0,
+          "stderr": "",
+          "source": "qwen38-tuning\\results\\gsq-time-quality-2026-09-20\\validation\\20260920-045154-nvfp4-served-n3-c147456-r3\\responses.jsonl",
+          "contract_ok": true,
+          "contract_violations": [],
+          "accepted": true,
+          "status": "accepted",
+          "verification_s": 0.06399940000119386,
+          "time_spent_s": 53.17205520000425,
+          "single_call_verified_task_s": 53.17205520000425,
+          "round": 3,
+          "run": "20260920-045154-nvfp4-served-n3-c147456-r3",
+          "response_s": 53.10805580000306,
+          "phases": {
+            "first_text_s": 7.131342000000586,
+            "first_thinking_s": 7.131342000000586,
+            "last_thinking_s": 48.512361999997665,
+            "first_answer_s": 48.606097100000625,
+            "thinking_observed_s": 41.47475510000004,
+            "request_wall_s": 53.04451469999913,
+            "thinking_chars": 4093,
+            "answer_chars": 1198
+          },
+          "engine_timings": {
+            "cache_n": 138019,
+            "prompt_n": 1020,
+            "prompt_ms": 4281.672,
+            "prompt_per_token_ms": 4.197717647058823,
+            "prompt_per_second": 238.22469353093842,
+            "predicted_n": 1370,
+            "predicted_ms": 45909.736,
+            "predicted_per_token_ms": 33.53523447772096,
+            "predicted_per_second": 29.819382973581032,
+            "draft_n": 1664,
+            "draft_n_accepted": 890
+          }
+        }
+      ],
+      "tree-depth-probe.json": {
+        "depth": 1500,
+        "round_trip": true
+      }
+    }
+  ],
+  "limits": "Single-response code tasks with external verification; successful-only statistics are conditional. No retry completion time is inferred."
+}

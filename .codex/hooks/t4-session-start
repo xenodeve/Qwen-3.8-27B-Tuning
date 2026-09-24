@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# SYNC: this file must stay BYTE-IDENTICAL to skills/t4/t4-project-bootstrap/references/hooks/t4-session-start
+#       (tests/hooks/test-bootstrap-sync.sh). Edit here, then copy over -- the bootstrap
+#       ships its own copies so a repo installed without the plugin is self-contained.
+# T4 SessionStart hook — inject the `using-t4` map into a T4 repo, once per session.
+#
+# Guard:  runs only when the current repo carries the `.claude/t4.json` marker.
+# Dedup:  a short time-window lock (shared path with the bootstrap copy) collapses
+#         the concurrent plugin (B) + repo (A) firings at one event, while still
+#         letting a LATER compact/clear re-inject (survives context compaction).
+# Source: prefers the plugin's own using-t4 SKILL.md, then a repo-local snapshot,
+#         then a minimal directive — so one script serves both delivery paths.
+set -uo pipefail
+
+input="$(cat)"
+
+# --- guard: T4 repo only -----------------------------------------------------
+[ -f ".claude/t4.json" ] || exit 0
+
+# --- per-session dedup -------------------------------------------------------
+sid=""
+[[ "$input" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]] && sid="${BASH_REMATCH[1]}"
+[ -n "$sid" ] || sid="unknown"
+lock_dir="${T4_HOOK_LOCK_DIR:-${TMPDIR:-/tmp}/t4-hooks}"
+mkdir -p "$lock_dir" 2>/dev/null || true
+lock="$lock_dir/${sid}.session-start"
+# Dedup only *concurrent* duplicate firings (the plugin B + repo A copies at the
+# same SessionStart event), NOT later events. A short time window lets a later
+# compact/clear (matcher: startup|clear|compact) RE-inject, so the map survives
+# context compaction — a permanent lock would silently kill that.
+window="${T4_HOOK_DEDUP_WINDOW:-10}"
+now="$(date +%s)"
+if [ -f "$lock" ]; then
+  last="$(cat "$lock" 2>/dev/null || printf 0)"
+  [ "$(( now - last ))" -lt "$window" ] && exit 0
+fi
+printf '%s' "$now" > "$lock"
+
+# --- resolve using-t4 content ------------------------------------------------
+content=""
+for f in "${CLAUDE_PLUGIN_ROOT:-}/skills/t4/using-t4/SKILL.md" ".claude/hooks/using-t4.snapshot.md"; do
+  # A file at literal /skills/... (empty CLAUDE_PLUGIN_ROOT) can't exist, so -f
+  # skips it naturally and we fall through to the snapshot / directive.
+  if [ -f "$f" ]; then content="$(<"$f")"; break; fi
+done
+[ -n "$content" ] || content="Invoke the \`using-t4\` skill now to load the T4 operating map before doing anything else."
+
+# Drop maintainer notes — but only lines that are ENTIRELY a comment. The map is
+# injected verbatim on every session start AND every compaction, and it sits at
+# ~99% of the 9000 B budget tests/hooks/test-dispatcher-content.sh enforces, so a
+# note aimed at whoever EDITS the skill would otherwise spend that budget forever
+# on a reader who cannot act on it.
+#
+# The first version dropped any line CONTAINING `<!--`, so a line mixing prose
+# with a trailing note vanished whole. That limitation was documented and
+# nothing enforced it, and the content test only guards five phrases — so losing
+# any other line passed silently. Content now always wins: a mixed line is
+# injected with its comment rather than lost.
+content="$(printf '%s\n' "$content" | awk '
+  # whole-line comment, opened and closed on the same line
+  /^[[:space:]]*<!--.*-->[[:space:]]*$/ { next }
+  # block opening on its own line
+  /^[[:space:]]*<!--/ && !/-->/          { inc = 1; next }
+  inc && /-->/                           { inc = 0; next }
+  inc                                    { next }
+                                         { print }
+')"
+
+wrapped="<EXTREMELY_IMPORTANT>
+You are in a T4 repo. Below is your \`using-t4\` map — route every task through it before acting.
+
+${content}
+</EXTREMELY_IMPORTANT>"
+
+# --- emit SessionStart context injection (Claude Code shape) -----------------
+escape_for_json() {
+  local s="$1"
+  s="${s//\\/\\\\}"; s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"; s="${s//$'\r'/\\r}"; s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+esc="$(escape_for_json "$wrapped")"
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$esc"
+exit 0

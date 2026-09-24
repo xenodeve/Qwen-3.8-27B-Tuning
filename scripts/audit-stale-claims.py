@@ -30,6 +30,16 @@ SCANNED_SUFFIXES = (".md", ".ps1", ".sh")
 SKIP_DIRS = (".git", "node_modules", "__pycache__", ".cache", ".venv", "researchs")
 
 RULES = [
+    ("gsq-language-only-stop",
+     r"Thai gate failed, expansion|Stop expansion|Expanded tuning is held|initial screen failed the Thai gate|failed Thai quality gate",
+     "language-only rejection was superseded by the user's time-per-verified-task and quality criterion; compare best validated configurations at a common context and evaluate repairable defects",
+     "CORRECTIONS.md 52, docs/plans/2026-09-20-gsq-comparison.md revised acceptance"),
+    ("code1-red-then-green",
+     r"A-code1-(codegate|noskill)-r1.{0,60}5/5|code1.{0,60}red_then_green.{0,20}True",
+     "scored 5/5 on a RED that was a Read of a file containing ValueError; "
+     "both are 4/5 and test_runs_seen was inflated in every code cell",
+     "CORRECTIONS.md 48, results 11"),
+
     ("exl3-decode-overstated",
      r"34–39 tok/s at 144,022|33\.4–34\.3|36\.4–39\.4|80–85 % of llama\.cpp",
      "EXL3 warm-round decode figures computed as time_generate - time_prefill; "
@@ -484,6 +494,14 @@ RULES = [
      "takes one of two values and switches on things that are not the arm "
      "under test; valid within a depth only",
      "report 24 section 6"),
+
+    ("exl3-cancel-decode-only",
+     r"CANCEL TEST: PASS|busy flipped false|cancelled=[1-9]",
+     "a cancel cut during DECODE proves only the write-failure path; the "
+     "prefill regime (no writes for 30+ s) needs its own cut with at most "
+     "the message_start chunk, and the probe must be transport-is-None, "
+     "never is_closing()",
+     "CORRECTIONS.md 49, issue #83"),
 ]
 
 

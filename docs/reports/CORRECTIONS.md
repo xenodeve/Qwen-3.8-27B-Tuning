@@ -1,5 +1,25 @@
 # Corrections register — every published claim this project later contradicted
 
+## 52. GSQ's language-only early stop used the wrong selection criterion
+
+The initial 2026-09-20 screen stopped expansion after Thai/Han defects and
+recommended against changing the primary model. Those defects were observed,
+but the stopping decision did not implement the user's intended tradeoff:
+time per verified task plus quality, with language defects eligible for repair.
+The replay also allocated 262144 to GSQ/EXL3 and 147456 to the NVFP4 reference;
+these exploratory rows cannot select a best configuration at a common window.
+
+The retained responses already illustrate the distinction: EXL3 reported the
+highest decode rate yet had a longer request wall time than NVFP4, with different
+reasoning/output lengths. This is descriptive evidence, not a controlled winner.
+All three responses include reasoning_content, which the initial assessment
+did not examine sufficiently before stopping. Raw evidence is in
+qwen38-tuning/results/gsq-2026-09-20/; the revised plan defines the next comparison.
+
+The language-only stop and refusal to expand are superseded. Preserve the
+failure examples; resume configuration screening, full thinking review,
+equal-window comparison and measured mitigation. No default is promoted.
+
 **Read this before trusting any number in reports 00–32.** These reports were
 written as the work happened, and several of them state things the machine
 later disproved. Each report carries its own correction banner, but a banner

@@ -28,6 +28,7 @@ import aiohttp
 from aiohttp import web
 
 import anthropic_compat as ac
+import cancel   # xeno: #83, disconnect probe for the outer stream
 
 PING_S = 5.0
 MIN_GEN = 256          # the fewest output tokens a request must have room for
@@ -204,10 +205,15 @@ async def _stream(request, req, url, session, metrics):
                 async def lines():
                     async for line in r.content:
                         yield line
-                async for ev, obj in ac.pump(lines(), tr, ping_s = PING_S):
-                    _record_stream_usage(metrics, ev, obj)
-                    _trace(rid, ev, obj, t0)
-                    await resp.write(ac.sse(ev, obj))
+                gen = lines()   # xeno: #83, aclosed below so an ESC'd stream stays out of the log
+                try:   # xeno
+                    async for ev, obj in ac.pump(gen, tr, ping_s = PING_S,   # xeno
+                                                 should_stop = lambda: cancel.client_gone(request)):   # xeno: #83
+                        _record_stream_usage(metrics, ev, obj)
+                        _trace(rid, ev, obj, t0)
+                        await resp.write(ac.sse(ev, obj))
+                finally:   # xeno
+                    await gen.aclose()   # xeno: abandoning it logs "Task exception was never retrieved"
         await resp.write_eof()
     except ConnectionResetError:
         pass

@@ -1,0 +1,16 @@
+[
+  {
+    "case": "merge_intervals",
+    "passed": true,
+    "exit_code": 0,
+    "stderr": "",
+    "source": "qwen38-tuning\\results\\gsq-2026-09-20\\20260920-011927-nvfp4-none-c65536-r1\\responses.jsonl"
+  },
+  {
+    "case": "bracket_matching",
+    "passed": false,
+    "exit_code": 1,
+    "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 33, in <module>\nAssertionError\n",
+    "source": "qwen38-tuning\\results\\gsq-2026-09-20\\20260920-011927-nvfp4-none-c65536-r1\\responses.jsonl"
+  }
+]

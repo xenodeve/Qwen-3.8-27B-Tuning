@@ -1,0 +1,1 @@
+{"case":"known-wrong","test":"assert answer() == 2","wall_s":2.0,"finish_reason":"stop","response":{"choices":[{"message":{"content":"```python\ndef answer():\n    return 1\n```"}}]}}

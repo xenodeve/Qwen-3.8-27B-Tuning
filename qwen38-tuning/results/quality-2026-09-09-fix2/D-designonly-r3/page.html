@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — จัดระเบียบข้อมูลโลก เพื่อทำให้ทุกคนเข้าถึงได้</title>
+<meta name="description" content="Google: เครื่องมือที่คนทั้งโลกใช้ทุกวัน ค้นหา แผนที่ อีเมล วิดีโอ และระบบปฏิบัติการ — ทั้งหมดออกแบบมาเพื่อทำให้ข้อมูลมีประโยชน์สำหรับทุกคน" />
+<meta property="og:title" content="Google — จัดระเบียบข้อมูลโลก" />
+<meta property="og:description" content="เครื่องมือที่คนทั้งโลกใช้ทุกวัน ค้นหา แผนที่ อีเมล วิดีโอ และระบบปฏิบัติการ" />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%93%8D%3C/text%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   GOOGLE — Editorial Minimalism × Modern Swiss × Liquid Glass
+   Type: Major Third (1.25x) scale · Grid: 12-col visible
+   Color: 60-30-10 (neutral 60 / surface 30 / blue accent 10)
+   ============================================================ */
+
+:root{
+  /* --- Light (base) --- */
+  --bg:        #F4F3EE;   /* warm paper white — Swiss editorial */
+  --surface:   #FFFFFF;
+  --surface-2: #EAE8E0;
+  --ink:       #1C1B17;
+  --ink-2:     #57544B;
+  --line:      rgba(28,27,23,.16);
+  --line-soft: rgba(28,27,23,.08);
+  --grid-line: rgba(28,27,23,.06);
+  --primary:   #1A66FF;   /* Google Blue — the 10% */
+  --primary-ink:#FFFFFF;
+  --red:       #EA4335;
+  --yellow:    #FBBC05;
+  --green:     #34A853;
+  --glass:     rgba(244,243,238,.62);
+  --glass-brd: rgba(28,27,23,.12);
+  --shadow:    0 24px 48px -24px rgba(28,27,23,.22);
+  --shadow-sm: 0 8px 24px -12px rgba(28,27,23,.18);
+
+  /* --- Type scale (1.25x) --- */
+  --t-base:  1rem;        /* 16   */
+  --t-h6:    1.25rem;     /* 20   */
+  --t-h5:    1.5625rem;   /* 25   */
+  --t-h4:    1.953rem;    /* 31.25*/
+  --t-h3:    2.441rem;    /* 39   */
+  --t-h2:    3.052rem;    /* 48.8 */
+  --t-h1:    3.815rem;    /* 61   */
+  --t-hero:  4.768rem;    /* 76.3 */
+
+  --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --maxw: 1240px;
+  --pad: clamp(20px, 4vw, 48px);
+}
+
+/* --- Dark: elevation via lighter surfaces, not shadows --- */
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:        #0E0D0B;
+    --surface:   #171613;
+    --surface-2: #1F1E1A;
+    --ink:       #F2F0EA;
+    --ink-2:     #A8A499;
+    --line:      rgba(242,240,234,.16);
+    --line-soft: rgba(242,240,234,.08);
+    --grid-line: rgba(242,240,234,.055);
+    --primary:   #5B8DFF;
+    --primary-ink:#0E0D0B;
+    --red:       #FF6F61;
+    --yellow:    #FDD663;
+    --green:     #6FCF97;
+    --glass:     rgba(14,13,11,.6);
+    --glass-brd: rgba(242,240,234,.14);
+    --shadow:    0 24px 48px -24px rgba(0,0,0,.6);
+    --shadow-sm: 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+}
+/* --- Manual toggle sits on top of the media query --- */
+html[data-theme="light"]{
+  --bg:#F4F3EE; --surface:#FFFFFF; --surface-2:#EAE8E0;
+  --ink:#1C1B17; --ink-2:#57544B;
+  --line:rgba(28,27,23,.16); --line-soft:rgba(28,27,23,.08); --grid-line:rgba(28,27,23,.06);
+  --primary:#1A66FF; --primary-ink:#FFFFFF;
+  --red:#EA4335; --yellow:#FBBC05; --green:#34A853;
+  --glass:rgba(244,243,238,.62); --glass-brd:rgba(28,27,23,.12);
+  --shadow:0 24px 48px -24px rgba(28,27,23,.22); --shadow-sm:0 8px 24px -12px rgba(28,27,23,.18);
+}
+html[data-theme="dark"]{
+  --bg:#0E0D0B; --surface:#171613; --surface-2:#1F1E1A;
+  --ink:#F2F0EA; --ink-2:#A8A499;
+  --line:rgba(242,240,234,.16); --line-soft:rgba(242,240,234,.08); --grid-line:rgba(242,240,234,.055);
+  --primary:#5B8DFF; --primary-ink:#0E0D0B;
+  --red:#FF6F61; --yellow:#FDD663; --green:#6FCF97;
+  --glass:rgba(14,13,11,.6); --glass-brd:rgba(242,240,234,.14);
+  --shadow:0 24px 48px -24px rgba(0,0,0,.6); --shadow-sm:0 8px 24px -12px rgba(0,0,0,.5);
+}
+
+*,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; }
+body{
+  font-family:var(--font-sans);
+  font-size:var(--t-base);
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{ background:var(--primary); color:var(--primary-ink); }
+
+/* ---------- VISIBLE GRID (the signature) ---------- */
+.grid-overlay{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  display:grid; grid-template-columns:repeat(12,1fr);
+  gap:clamp(12px,1.6vw,24px);
+  padding:0 var(--pad);
+}
+.grid-overlay span{
+  border-left:1px solid var(--grid-line);
+  border-right:1px solid var(--grid-line);
+}
+
+/* ---------- Layout helpers ---------- */
+.wrap{
+  position:relative; z-index:1;
+  max-width:var(--maxw);
+  margin:0 auto;
+  padding:0 var(--pad);
+}
+section{ position:relative; z-index:1; }
+.mono{
+  font-family:var(--font-mono);
+  font-size:.75rem;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-2);
+}
+.kicker{
+  display:inline-flex; align-items:center; gap:12px;
+  font-family:var(--font-mono);
+  font-size:.75rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink-2);
+}
+.kicker::before{
+  content:""; width:32px; height:1px; background:var(--primary);
+}
+.dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+/* Headline Pro hack: -2.5% tracking, 112% leading */
+h1,h2,h3{
+  letter-spacing:-0.025em;
+  line-height:1.12;
+  font-weight:600;
+}
+h1{ font-size:clamp(2.6rem, 6.4vw, var(--t-hero)); }
+h2{ font-size:clamp(2rem, 4.4vw, var(--t-h2)); }
+h3{ font-size:var(--t-h5); }
+p.lede{ font-size:var(--t-h6); line-height:1.5; color:var(--ink-2); max-width:56ch; }
+
+/* ---------- Buttons: 4 states ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  font-family:var(--font-sans); font-size:1rem; font-weight:500;
+  line-height:1; min-height:48px; padding:0 28px;
+  border-radius:999px; border:1px solid transparent;
+  cursor:pointer; text-decoration:none;
+  transition:transform .2s cubic-bezier(.2,.8,.2,1), background .2s, border-color .2s, box-shadow .2s, color .2s;
+}
+.btn svg{ width:20px; height:20px; }
+.btn-primary{ background:var(--primary); color:var(--primary-ink); }
+.btn-primary:hover{ background:var(--primary); filter:brightness(1.08); transform:scale(1.02); box-shadow:var(--shadow-sm); }
+.btn-primary:active{ transform:scale(.98); filter:brightness(.95); }
+.btn-primary:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-ghost{ background:transparent; color:var(--ink); border-color:var(--line); }
+.btn-ghost:hover{ border-color:var(--ink); background:var(--surface); transform:scale(1.02); }
+.btn-ghost:active{ transform:scale(.98); }
+.btn-ghost:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+.btn-sm{ min-height:40px; padding:0 20px; font-size:.9rem; }
+
+/* ---------- Header: liquid glass, mental-model placement ---------- */
+header{
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(18px) saturate(1.4);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  background:var(--glass);
+  border-bottom:1px solid transparent;
+  transition:border-color .3s, background .3s;
+}
+header.scrolled{ border-bottom-color:var(--glass-brd); }
+.nav{
+  display:flex; align-items:center; justify-content:space-between;
+  height:72px;
+}
+.logo{
+  display:inline-flex; align-items:center; gap:2px;
+  font-size:1.5rem; font-weight:600; letter-spacing:-0.03em;
+  text-decoration:none; color:var(--ink);
+}
+.logo .c1{ color:var(--primary); } .logo .c2{ color:var(--yellow); }
+.logo .c3{ color:var(--red); } .logo .c4{ color:var(--green); }
+.nav-links{ display:flex; align-items:center; gap:32px; }
+.nav-links a{
+  font-size:.95rem; color:var(--ink-2); text-decoration:none;
+  position:relative; padding:8px 0;
+  transition:color .2s;
+}
+.nav-links a::after{
+  content:""; position:absolute; left:0; bottom:0; height:2px; width:0;
+  background:var(--primary); transition:width .25s cubic-bezier(.2,.8,.2,1);
+}
+.nav-links a:hover{ color:var(--ink); }
+.nav-links a:hover::after{ width:100%; }
+.nav-right{ display:flex; align-items:center; gap:16px; }
+.theme-btn{
+  width:40px; height:40px; border-radius:50%;
+  border:1px solid var(--line); background:transparent; color:var(--ink);
+  display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  transition:transform .2s, background .2s, border-color .2s;
+}
+.theme-btn:hover{ transform:scale(1.06) rotate(15deg); border-color:var(--ink); background:var(--surface); }
+.theme-btn:active{ transform:scale(.94); }
+.theme-btn svg{ width:18px; height:18px; }
+
+/* ---------- Hero: leverage point ---------- */
+.hero{ padding:clamp(56px,9vw,120px) 0 clamp(48px,7vw,96px); }
+.hero-top{
+  display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(12px,1.6vw,24px);
+  align-items:end;
+}
+.hero-copy{ grid-column:1 / span 8; }
+.hero-visual{ grid-column:9 / span 4; position:relative; display:flex; justify-content:flex-end; }
+.hero h1{ margin-top:24px; }
+.hero h1 .accent{ color:var(--primary); }
+.hero .lede{ margin-top:24px; }
+.hero-cta{ display:flex; flex-wrap:wrap; gap:16px; margin-top:40px; }
+
+/* The G — dominant leverage point */
+.g-mark{
+  position:relative;
+  width:clamp(160px,20vw,240px); aspect-ratio:1;
+  display:flex; align-items:center; justify-content:center;
+}
+.g-mark .g{
+  font-size:clamp(120px,16vw,190px); font-weight:700; line-height:1;
+  color:var(--primary); letter-spacing:-0.04em;
+  user-select:none;
+}
+.spin-badge{
+  position:absolute; inset:-18%;
+  animation:spin 22s linear infinite;
+}
+.spin-badge text{
+  font-family:var(--font-mono); font-size:9.5px; letter-spacing:.32em;
+  fill:var(--ink-2); text-transform:uppercase;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+/* Glass search bar — the product, shown immediately */
+.search{
+  margin-top:56px;
+  display:flex; align-items:center; gap:12px;
+  max-width:640px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:8px 8px 8px 24px;
+  box-shadow:var(--shadow-sm);
+  backdrop-filter:blur(8px);
+  transition:box-shadow .3s, border-color .3s;
+}
+.search:focus-within{ border-color:var(--primary); box-shadow:0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent), var(--shadow-sm); }
+.search svg{ width:22px; height:22px; color:var(--ink-2); flex:none; }
+.search input{
+  flex:1; border:0; outline:0; background:transparent;
+  font-family:var(--font-sans); font-size:1.05rem; color:var(--ink);
+  min-width:0;
+}
+.search input::placeholder{ color:var(--ink-2); }
+.search .btn{ flex:none; }
+
+/* ---------- Stats band (rational brain: 4 chunks) ---------- */
+.stats{ padding:clamp(40px,6vw,72px) 0; border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft); }
+.stats-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:clamp(16px,2vw,32px); }
+.stat .num{
+  font-size:var(--t-h3); font-weight:600; letter-spacing:-0.03em; line-height:1;
+}
+.stat .num small{ font-size:.5em; color:var(--primary); vertical-align:super; }
+.stat .lbl{ margin-top:8px; color:var(--ink-2); font-size:.95rem; }
+.stat .tick{ width:24px; height:3px; border-radius:2px; margin-bottom:16px; }
+
+/* ---------- Section header pattern ---------- */
+.sec-head{
+  display:grid; grid-template-columns:repeat(12,1fr); gap:clamp(12px,1.6vw,24px);
+  align-items:end; margin-bottom:clamp(32px,5vw,56px);
+}
+.sec-head .kicker{ grid-column:1 / span 4; }
+.sec-head h2{ grid-column:1 / span 8; }
+.sec-head .side{ grid-column:10 / span 3; text-align:right; }
+
+/* ---------- Products: bento, one grid-break ---------- */
+.products{ padding:clamp(64px,9vw,120px) 0; }
+.bento{
+  display:grid; grid-template-columns:repeat(12,1fr);
+  gap:clamp(12px,1.6vw,24px);
+}
+.card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:32px;
+  display:flex; flex-direction:column;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s, border-color .35s;
+  position:relative; overflow:hidden;
+}
+.card:hover{ transform:translateY(-4px); box-shadow:var(--shadow); border-color:var(--line); }
+.card .idx{
+  font-family:var(--font-mono); font-size:.75rem; letter-spacing:.14em;
+  color:var(--ink-2);
+}
+.card h3{ margin-top:16px; font-size:var(--t-h4); }
+.card p{ margin-top:8px; color:var(--ink-2); font-size:.98rem; max-width:44ch; }
+.card .viz{ margin-top:auto; padding-top:24px; }
+.span-7{ grid-column:span 7; } .span-5{ grid-column:span 5; } .span-4{ grid-column:span 4; } .span-12{ grid-column:span 12; }
+
+/* Card mini-visuals */
+.mini-search{
+  display:flex; align-items:center; gap:10px;
+  border:1px solid var(--line); border-radius:999px; padding:10px 16px;
+  background:var(--bg); max-width:360px;
+}
+.mini-search .bar{ flex:1; height:10px; border-radius:5px; background:var(--line-soft); position:relative; overflow:hidden; }
+.mini-search .bar i{ position:absolute; inset:0; width:60%; background:var(--primary); opacity:.85; border-radius:5px; }
+.mini-search .go{ width:28px; height:28px; border-radius:50%; background:var(--primary); flex:none; }
+
+.route{ position:relative; height:72px; }
+.route svg{ width:100%; height:100%; }
+.route .pin{ position:absolute; width:14px; height:14px; border-radius:50%; border:3px solid var(--surface); box-shadow:0 0 0 1px var(--line); }
+
+.play-row{ display:flex; align-items:center; gap:16px; }
+.play{
+  width:56px; height:56px; border-radius:16px; background:var(--red);
+  display:flex; align-items:center; justify-content:center; flex:none;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1);
+}
+.card:hover .play{ transform:scale(1.08) rotate(-4deg); }
+.play svg{ width:22px; height:22px; color:#fff; margin-left:3px; }
+.play-row .meta{ flex:1; }
+.play-row .meta .t{ height:10px; border-radius:5px; background:var(--line-soft); margin-bottom:8px; }
+.play-row .meta .t.short{ width:60%; }
+.play-row .meta .prog{ height:6px; border-radius:3px; background:var(--line-soft); position:relative; }
+.play-row .meta .prog i{ position:absolute; inset:0 auto 0 0; width:38%; background:var(--red); border-radius:3px; }
+
+.mail{ display:flex; gap:12px; align-items:flex-start; max-width:380px; }
+.mail .env{ width:44px; height:34px; border-radius:8px; border:1.5px solid var(--line); position:relative; flex:none; }
+.mail .env::after{ content:""; position:absolute; left:0; right:0; top:50%; height:1.5px; background:var(--line); transform:rotate(-14deg); }
+.mail .lines{ flex:1; }
+.mail .lines .t{ height:10px; border-radius:5px; background:var(--line-soft); margin-bottom:8px; }
+.mail .lines .t.short{ width:55%; }
+.mail .lines .tag{ display:inline-block; margin-top:12px; font-family:var(--font-mono); font-size:.68rem; letter-spacing:.1em; color:var(--green); border:1px solid color-mix(in srgb,var(--green) 40%,transparent); border-radius:999px; padding:4px 10px; }
+
+.folder{ display:flex; align-items:center; gap:14px; }
+.folder .f{ width:48px; height:40px; border-radius:8px; background:var(--yellow); position:relative; flex:none; }
+.folder .f::before{ content:""; position:absolute; top:-8px; left:0; width:20px; height:10px; border-radius:6px 6px 0 0; background:var(--yellow); }
+.folder .f::after{ content:"+"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:600; color:rgba(0,0,0,.55); }
+.folder .lines{ flex:1; max-width:220px; }
+.folder .lines .t{ height:9px; border-radius:5px; background:var(--line-soft); margin-bottom:8px; }
+.folder .lines .t.short{ width:70%; }
+
+/* Grid-break: the quote card leans out of the grid (MAYA) */
+.card-quote{
+  grid-column:1 / span 12;
+  background:var(--ink); color:var(--bg);
+  border:0;
+  transform:rotate(-1.2deg);
+  padding:clamp(32px,5vw,56px);
+}
+.card-quote:hover{ transform:rotate(0deg) translateY(-4px); }
+.card-quote .q{ font-size:clamp(1.4rem,2.6vw,2rem); line-height:1.35; letter-spacing:-0.02em; font-weight:500; max-width:28ch; }
+.card-quote .q b{ color:var(--yellow); font-weight:600; }
+.card-quote .attr{ margin-top:24px; font-family:var(--font-mono); font-size:.75rem; letter-spacing:.14em; text-transform:uppercase; color:color-mix(in srgb,var(--bg) 60%,transparent); }
+.card-quote .mark{ font-size:3rem; line-height:0; color:var(--yellow); display:block; margin-bottom:16px; }
+
+/* ---------- Philosophy: 3 chunks ---------- */
+.philosophy{ padding:clamp(64px,9vw,120px) 0; background:var(--surface-2); border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft); }
+.phil-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:clamp(16px,2vw,32px); }
+.phil{
+  border-top:2px solid var(--ink);
+  padding-top:24px;
+}
+.phil .n{ font-family:var(--font-mono); font-size:.8rem; letter-spacing:.14em; color:var(--primary); }
+.phil h3{ margin-top:16px; font-size:var(--t-h4); }
+.phil p{ margin-top:12px; color:var(--ink-2); }
+
+/* ---------- Timeline: 4 milestones ---------- */
+.timeline{ padding:clamp(64px,9vw,120px) 0; }
+.tl-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:clamp(16px,2vw,32px); position:relative; }
+.tl-grid::before{
+  content:""; position:absolute; top:7px; left:0; right:0; height:1px; background:var(--line);
+}
+.tl{ position:relative; padding-top:32px; }
+.tl::before{
+  content:""; position:absolute; top:0; left:0; width:15px; height:15px; border-radius:50%;
+  background:var(--bg); border:3px solid var(--primary);
+}
+.tl .yr{ font-family:var(--font-mono); font-size:.85rem; letter-spacing:.1em; color:var(--primary); }
+.tl h3{ margin-top:8px; font-size:var(--t-h5); }
+.tl p{ margin-top:8px; color:var(--ink-2); font-size:.95rem; }
+
+/* ---------- Final CTA: release (vast space) ---------- */
+.cta{
+  padding:clamp(96px,14vw,180px) 0;
+  text-align:center;
+}
+.cta .kicker{ justify-content:center; }
+.cta .kicker::before{ display:none; }
+.cta h2{ font-size:clamp(2.4rem,5.6vw,var(--t-h2)); max-width:20ch; margin:24px auto 0; }
+.cta p{ margin:24px auto 0; max-width:48ch; }
+.cta .hero-cta{ justify-content:center; margin-top:40px; }
+
+/* ---------- Footer ---------- */
+footer{ border-top:1px solid var(--line); padding:clamp(48px,7vw,80px) 0 32px; position:relative; z-index:1; }
+.foot-word{
+  font-size:clamp(4rem,14vw,12rem); font-weight:700; letter-spacing:-0.04em; line-height:.9;
+  color:transparent; -webkit-text-stroke:1px var(--line);
+  user-select:none; margin-bottom:clamp(40px,6vw,64px);
+}
+.foot-grid{ display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:clamp(24px,3vw,48px); }
+.foot-grid h4{ font-family:var(--font-mono); font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-2); font-weight:500; margin-bottom:16px; }
+.foot-grid a{ display:block; color:var(--ink-2); text-decoration:none; font-size:.95rem; padding:6px 0; transition:color .2s, transform .2s; }
+.foot-grid a:hover{ color:var(--primary); transform:translateX(4px); }
+.foot-brand p{ color:var(--ink-2); max-width:32ch; margin-top:16px; font-size:.95rem; }
+.foot-bottom{
+  display:flex; flex-wrap:wrap; gap:16px; justify-content:space-between; align-items:center;
+  margin-top:clamp(40px,6vw,64px); padding-top:24px; border-top:1px solid var(--line-soft);
+  color:var(--ink-2); font-size:.85rem;
+}
+.foot-bottom .dots{ display:flex; gap:8px; }
+.foot-bottom .dots i{ width:10px; height:10px; border-radius:50%; }
+
+/* ---------- Reveal: heavy, staggered load-in ---------- */
+.reveal{ opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1); }
+.reveal.in{ opacity:1; transform:none; }
+.reveal[data-d="1"]{ transition-delay:.08s; }
+.reveal[data-d="2"]{ transition-delay:.16s; }
+.reveal[data-d="3"]{ transition-delay:.24s; }
+.reveal[data-d="4"]{ transition-delay:.32s; }
+
+/* ---------- Responsive ---------- */
+@media (max-width:1023px){
+  .nav-links{ display:none; }
+  .hero-visual{ grid-column:1 / span 12; justify-content:flex-start; margin-top:48px; }
+  .stats-grid{ grid-template-columns:repeat(2,1fr); row-gap:40px; }
+  .span-7,.span-5,.span-4{ grid-column:span 12; }
+  .phil-grid{ grid-template-columns:1fr; gap:40px; }
+  .tl-grid{ grid-template-columns:repeat(2,1fr); row-gap:48px; }
+  .tl-grid::before{ display:none; }
+  .foot-grid{ grid-template-columns:1fr 1fr; }
+  .sec-head h2{ grid-column:1 / span 12; }
+  .sec-head .side{ grid-column:1 / span 12; text-align:left; }
+}
+@media (max-width:639px){
+  .stats-grid{ grid-template-columns:1fr 1fr; }
+  .tl-grid{ grid-template-columns:1fr; }
+  .foot-grid{ grid-template-columns:1fr; }
+  .hero-cta .btn{ flex:1; }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  .reveal{ opacity:1; transform:none; transition:none; }
+  .spin-badge{ animation:none; }
+  *,*::before,*::after{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Visible 12-column grid, behind everything -->
+<div class="grid-overlay" aria-hidden="true">
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+</div>
+
+<!-- ================= HEADER ================= -->
+<header id="header">
+  <div class="wrap">
+    <nav class="nav" aria-label="เมนูหลัก">
+      <a class="logo" href="#top" aria-label="Google">
+        <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c1">l</span><span class="c2">e</span>
+      </a>
+      <div class="nav-links">
+        <a href="#products">ผลิตภัณฑ์</a>
+        <a href="#philosophy">ปรัชญา</a>
+        <a href="#timeline">เส้นทาง</a>
+        <a href="#contact">ติดต่อ</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-btn" id="themeBtn" aria-label="สลับธีมสว่าง/มืด" title="สลับธีม">
+          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+        </button>
+        <a class="btn btn-primary btn-sm" href="#contact">เริ่มต้นใช้งาน</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <span class="kicker reveal">Google · ตั้งแต่ปี 1998</span>
+          <h1 class="reveal" data-d="1">
+            จัดระเบียบข้อมูลของโลก<br />
+            แล้วทำให้<span class="accent">ทุกคน</span>เข้าถึงได้
+          </h1>
+          <p class="lede reveal" data-d="2">
+            ทุกวัน คนนับพันล้านใช้ Google เพื่อค้นหาสิ่งที่ไม่เคยรู้ วางแผนเส้นทาง
+            เขียนอีเมล ดูวิดีโอ และทำงานร่วมกัน — ทั้งหมดนี้ตั้งอยู่บนเป้าหมายเดียว:
+            ให้ข้อมูลมีประโยชน์สำหรับทุกคน ทั่วโลก
+          </p>
+          <div class="hero-cta reveal" data-d="3">
+            <a class="btn btn-primary" href="#products">
+              สำรวจผลิตภัณฑ์
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="#philosophy">อ่านปรัชญาของเรา</a>
+          </div>
+        </div>
+
+        <div class="hero-visual reveal" data-d="2">
+          <div class="g-mark" aria-hidden="true">
+            <span class="g">G</span>
+            <svg class="spin-badge" viewBox="0 0 100 100">
+              <defs><path id="circ" d="M50,50 m-38,0 a38,38 0 1,1 76,0 a38,38 0 1,1 -76,0"/></defs>
+              <text><textPath href="#circ">Search · Maps · Gmail · YouTube · Drive · Android ·</textPath></text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- The product itself, shown immediately -->
+      <div class="search reveal" data-d="4">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="text" placeholder="ค้นหาสิ่งที่คุณสงสัย…" aria-label="ค้นหา" />
+        <button class="btn btn-primary btn-sm" type="button">ค้นหา</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STATS ================= -->
+  <section class="stats" aria-label="สถิติ">
+    <div class="wrap">
+      <div class="stats-grid">
+        <div class="stat reveal">
+          <div class="tick" style="background:var(--primary)"></div>
+          <div class="num">27<small>+</small></div>
+          <div class="lbl">ปีแห่งการค้นพบ</div>
+        </div>
+        <div class="stat reveal" data-d="1">
+          <div class="tick" style="background:var(--red)"></div>
+          <div class="num">100<small>พันล้าน</small></div>
+          <div class="lbl">การค้นหาต่อวัน</div>
+        </div>
+        <div class="stat reveal" data-d="2">
+          <div class="tick" style="background:var(--yellow)"></div>
+          <div class="num">200<small>+</small></div>
+          <div class="lbl">ประเทศและภูมิภาค</div>
+        </div>
+        <div class="stat reveal" data-d="3">
+          <div class="tick" style="background:var(--green)"></div>
+          <div class="num">100<small>+</small></div>
+          <div class="lbl">ภาษาที่รองรับ</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PRODUCTS ================= -->
+  <section class="products" id="products">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker reveal">01 — ผลิตภัณฑ์</span>
+        <h2 class="reveal" data-d="1">เครื่องมือที่คนทั้งโลกใช้ทุกวัน</h2>
+        <p class="mono side reveal" data-d="2">Search / Maps / YouTube / Gmail / Drive</p>
+      </div>
+
+      <div class="bento">
+        <!-- Search -->
+        <article class="card span-7 reveal">
+          <span class="idx">01 / Search</span>
+          <h3>ค้นหา</h3>
+          <p>จุดเริ่มต้นของทุกคำถาม — ค้นหาข้อความ รูปภาพ วิดีโอ และข้อมูลแบบเรียลไทม์ พร้อมคำตอบที่ตรงประเด็นที่สุด</p>
+          <div class="viz">
+            <div class="mini-search" aria-hidden="true">
+              <div class="bar"><i></i></div>
+              <div class="go"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Maps -->
+        <article class="card span-5 reveal" data-d="1">
+          <span class="idx">02 / Maps</span>
+          <h3>แผนที่</h3>
+          <p>นำทางไปทุกที่บนโลก พร้อมข้อมูลจราจรแบบเรียลไทม์</p>
+          <div class="viz">
+            <div class="route" aria-hidden="true">
+              <svg viewBox="0 0 300 72" fill="none" preserveAspectRatio="none">
+                <path d="M8 56 C 80 56, 90 16, 150 16 S 250 44, 292 20" stroke="var(--primary)" stroke-width="2.5" stroke-dasharray="1 8" stroke-linecap="round"/>
+              </svg>
+              <span class="pin" style="left:4%; bottom:14px; background:var(--red)"></span>
+              <span class="pin" style="left:48%; top:8px; background:var(--yellow)"></span>
+              <span class="pin" style="right:2%; top:22px; background:var(--green)"></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- YouTube -->
+        <article class="card span-5 reveal">
+          <span class="idx">03 / YouTube</span>
+          <h3>YouTube</h3>
+          <p>แพลตฟอร์มวิดีโอที่ใหญ่ที่สุดในโลก เรียนรู้ สอน และแบ่งปันเรื่องราว</p>
+          <div class="viz">
+            <div class="play-row" aria-hidden="true">
+              <div class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+              <div class="meta">
+                <div class="t"></div>
+                <div class="t short"></div>
+                <div class="prog"><i></i></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Gmail -->
+        <article class="card span-7 reveal" data-d="1">
+          <span class="idx">04 / Gmail</span>
+          <h3>Gmail</h3>
+          <p>อีเมลที่เร็ว ปลอดภัย และจัดระเบียบตัวเอง — กรองสแปมอัตโนมัติ และค้นหาอีเมลเก่าได้เหมือนค้นหาเว็บ</p>
+          <div class="viz">
+            <div class="mail" aria-hidden="true">
+              <div class="env"></div>
+              <div class="lines">
+                <div class="t"></div>
+                <div class="t short"></div>
+                <span class="tag">inbox · 0 unread</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Drive -->
+        <article class="card span-4 reveal" data-d="1">
+          <span class="idx">05 / Drive</span>
+          <h3>Drive</h3>
+          <p>ไฟล์ของคุณทุกที่ ทุกอุปกรณ์</p>
+          <div class="viz">
+            <div class="folder" aria-hidden="true">
+              <div class="f"></div>
+              <div class="lines"><div class="t"></div><div class="t short"></div></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Grid-break quote card -->
+        <article class="card card-quote reveal" data-d="2">
+          <span class="mark" aria-hidden="true">“</span>
+          <p class="q">เป้าหมายของเราไม่ใช่การเป็นเจ้าของข้อมูลทั้งหมด แต่คือการทำให้ข้อมูล<b>มีประโยชน์</b>สำหรับทุกคน</p>
+          <p class="attr">— ปรัชญาตั้งต้น, Google Inc.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PHILOSOPHY ================= -->
+  <section class="philosophy" id="philosophy">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker reveal">02 — ปรัชญา</span>
+        <h2 class="reveal" data-d="1">สิ่งที่เราเชื่อมาตลอด 27 ปี</h2>
+        <p class="mono side reveal" data-d="2">Be fast / Be neutral / Be useful</p>
+      </div>
+      <div class="phil-grid">
+        <div class="phil reveal">
+          <span class="n">/ 01</span>
+          <h3>เร็วเสมอ</h3>
+          <p>ความเร็วคือความเคารพต่อเวลาของคุณ ทุกฟีเจอร์ถูกออกแบบมาให้ตอบสนองในเสี้ยววินาที เพราะทุกมิลลิวินาทีมีค่า</p>
+        </div>
+        <div class="phil reveal" data-d="1">
+          <span class="n">/ 02</span>
+          <h3>เป็นกลาง</h3>
+          <p>เราจัดระเบียบข้อมูล ไม่ใช่ตัดสินข้อมูล ผลการค้นหาควรมาจากคุณภาพของเนื้อหา ไม่ใช่จากใครจ่ายมากกว่า</p>
+        </div>
+        <div class="phil reveal" data-d="2">
+          <span class="n">/ 03</span>
+          <h3>มีประโยชน์</h3>
+          <p>เทคโนโลยีที่ดีต้องแก้ปัญหาจริง — ตั้งแต่การหาทางกลับบ้าน ไปจนถึงการค้นคว้างานวิจัยระดับมหาวิทยาลัย</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TIMELINE ================= -->
+  <section class="timeline" id="timeline">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker reveal">03 — เส้นทาง</span>
+        <h2 class="reveal" data-d="1">จากห้องสมุดมหาวิทยาลัย สู่ทุกหน้าจอ</h2>
+        <p class="mono side reveal" data-d="2">1998 → 2024</p>
+      </div>
+      <div class="tl-grid">
+        <div class="tl reveal">
+          <span class="yr">1998</span>
+          <h3>จุดเริ่มต้น</h3>
+          <p>BackRub เกิดขึ้นในหอพักมหาวิทยาลัย Stanford — อัลกอริทึมที่อ่าน “ลิงก์” เพื่อจัดอันดับหน้าเว็บ</p>
+        </div>
+        <div class="tl reveal" data-d="1">
+          <span class="yr">2004</span>
+          <h3>YouTube</h3>
+          <p>ยุคของวิดีโอออนไลน์เริ่มต้น — และกลายเป็นแพลตฟอร์มวิดีโอที่ใหญ่ที่สุดในโลกในเวลาไม่กี่ปี</p>
+        </div>
+        <div class="tl reveal" data-d="2">
+          <span class="yr">2015</span>
+          <h3>Google I/O</h3>
+          <p>ระบบนิเวศ Android ครอบคลุมอุปกรณ์มากกว่าพันล้านเครื่องทั่วโลก</p>
+        </div>
+        <div class="tl reveal" data-d="3">
+          <span class="yr">2024</span>
+          <h3>ยุค AI</h3>
+          <p>Gemini เข้ามาช่วยคิดค้นร่วมกับผู้ใช้ — ค้นหาที่เข้าใจคำถาม ไม่ใช่แค่คำค้น</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CTA ================= -->
+  <section class="cta" id="contact">
+    <div class="wrap">
+      <span class="kicker reveal">พร้อมหรือยัง</span>
+      <h2 class="reveal" data-d="1">คำถามถัดไปของคุณ<br />เริ่มจากที่นี่</h2>
+      <p class="lede reveal" data-d="2" style="margin-left:auto;margin-right:auto;">
+        สมัครใช้งานฟรี ใช้ได้ทันที ไม่ต้องมีบัตรเครดิต — เพราะข้อมูลควรถือเป็นสิทธิ์ของทุกคน
+      </p>
+      <div class="hero-cta reveal" data-d="3">
+        <a class="btn btn-primary" href="#top">
+          เริ่มใช้ Google
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="#products">ดูผลิตภัณฑ์ทั้งหมด</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================= FOOTER ================= -->
+<footer>
+  <div class="wrap">
+    <div class="foot-word" aria-hidden="true">Google</div>
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="logo" href="#top" aria-label="Google">
+          <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c1">l</span><span class="c2">e</span>
+        </a>
+        <p>จัดระเบียบข้อมูลของโลก เพื่อทำให้ทุกคนเข้าถึงได้และมีประโยชน์ — ตั้งแต่ปี 1998</p>
+      </div>
+      <div>
+        <h4>ผลิตภัณฑ์</h4>
+        <a href="#products">ค้นหา</a>
+        <a href="#products">แผนที่</a>
+        <a href="#products">Gmail</a>
+        <a href="#products">YouTube</a>
+        <a href="#products">Drive</a>
+      </div>
+      <div>
+        <h4>บริษัท</h4>
+        <a href="#philosophy">ปรัชญา</a>
+        <a href="#timeline">เส้นทางของเรา</a>
+        <a href="#contact">ร่วมงานกับเรา</a>
+        <a href="#contact">ติดต่อ</a>
+      </div>
+      <div>
+        <h4>กฎหมาย</h4>
+        <a href="#top">นโยบายความเป็นส่วนตัว</a>
+        <a href="#top">ข้อกำหนดการใช้งาน</a>
+        <a href="#top">นโยบายคุกกี้</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Google — หน้าแนะนำ (demo) สร้างเพื่อแสดงดีไซน์</span>
+      <span class="dots" aria-hidden="true">
+        <i style="background:var(--primary)"></i>
+        <i style="background:var(--red)"></i>
+        <i style="background:var(--yellow)"></i>
+        <i style="background:var(--green)"></i>
+      </span>
+      <span class="mono">Made with care · TH</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---------- Sticky header border on scroll ---------- */
+const header = document.getElementById('header');
+const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
+onScroll();
+window.addEventListener('scroll', onScroll, { passive:true });
+
+/* ---------- Theme toggle: system → light → dark ---------- */
+const themeBtn = document.getElementById('themeBtn');
+const themeIcon = document.getElementById('themeIcon');
+const ICONS = {
+  system: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>',
+  light:  '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/>',
+  dark:   '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>'
+};
+const ORDER = ['system','light','dark'];
+let mode = 'system';
+function applyTheme(){
+  if (mode === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', mode);
+  themeIcon.innerHTML = ICONS[mode];
+}
+themeBtn.addEventListener('click', () => {
+  mode = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+  applyTheme();
+});
+applyTheme();
+
+/* ---------- Staggered reveal on scroll (heavy load-in) ---------- */
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reveals = document.querySelectorAll('.reveal');
+if (reduced || !('IntersectionObserver' in window)) {
+  reveals.forEach(el => el.classList.add('in'));
+} else {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  reveals.forEach(el => io.observe(el));
+}
+</script>
+</body>
+</html>

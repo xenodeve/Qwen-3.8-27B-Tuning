@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google — A Field Guide</title>
+<meta name="description" content="An editorial study of Google. Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   GOOGLE — A FIELD GUIDE
+   Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid
+   Grid: 12 columns / 1px hairlines / paper & ink
+   ============================================================ */
+:root{
+  --paper:#F5F3EE;
+  --ink:#141412;
+  --ink-70:rgba(20,20,18,.70);
+  --ink-50:rgba(20,20,18,.50);
+  --ink-30:rgba(20,20,18,.30);
+  --hair:rgba(20,20,18,.14);
+  --hair-soft:rgba(20,20,18,.06);
+  --g-blue:#4285F4;
+  --g-red:#EA4335;
+  --g-yellow:#FBBC05;
+  --g-green:#34A853;
+  --serif:'Instrument Serif',Georgia,'Times New Roman',serif;
+  --sans:'Inter',system-ui,-apple-system,sans-serif;
+  --pad:clamp(20px,4vw,56px);
+  --max:1480px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+::selection{background:var(--g-yellow);color:var(--ink)}
+
+/* ---------- Scroll progress ---------- */
+#progress{
+  position:fixed;top:0;left:0;height:2px;width:0%;
+  background:var(--g-red);z-index:100;
+}
+
+/* ---------- Fixed nav — liquid glass ---------- */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:90;
+  height:60px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 var(--pad);
+  background:rgba(245,243,238,.62);
+  -webkit-backdrop-filter:blur(18px) saturate(1.5);
+  backdrop-filter:blur(18px) saturate(1.5);
+  border-bottom:1px solid var(--hair);
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:13px;letter-spacing:.14em}
+.brand .dots{display:flex;gap:4px}
+.brand .dots i{width:7px;height:7px;border-radius:50%;display:block}
+.brand .d1{background:var(--g-blue)} .brand .d2{background:var(--g-red)}
+.brand .d3{background:var(--g-yellow)} .brand .d4{background:var(--g-green)}
+.nav-links{display:flex;gap:32px}
+.nav-links a{
+  font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-70);text-decoration:none;position:relative;padding:4px 0;
+  transition:color .25s;
+}
+.nav-links a::after{
+  content:'';position:absolute;left:0;bottom:0;height:1px;width:0;
+  background:var(--ink);transition:width .3s cubic-bezier(.2,.6,.2,1);
+}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a:hover::after{width:100%}
+.nav-meta{display:flex;align-items:center;gap:18px;font-size:11px;letter-spacing:.12em;color:var(--ink-50);font-variant-numeric:tabular-nums}
+.nav-meta .clock{font-weight:600;color:var(--ink)}
+@media(max-width:860px){.nav-links{display:none}}
+
+/* ---------- Visible grid frame ---------- */
+.frame{
+  position:relative;
+  max-width:var(--max);
+  margin:0 auto;
+  background-image:linear-gradient(to right,var(--hair-soft) 1px,transparent 1px);
+  background-size:calc(100%/12) 100%;
+}
+.frame::before{ /* center guide */
+  content:'';position:absolute;top:0;bottom:0;left:50%;width:1px;
+  background:var(--hair-soft);pointer-events:none;
+}
+.wrap{padding-left:var(--pad);padding-right:var(--pad)}
+
+/* ---------- Section chrome ---------- */
+section{position:relative;padding:clamp(72px,10vw,140px) 0;border-top:1px solid var(--hair)}
+section:first-of-type{border-top:none}
+.sec-head{
+  display:flex;align-items:center;gap:16px;
+  margin-bottom:clamp(40px,6vw,72px);
+  font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-50);
+}
+.sec-head .idx{
+  font-family:var(--serif);font-size:20px;font-weight:400;
+  color:var(--ink);letter-spacing:0;
+}
+.sec-head .rule{flex:1;height:1px;background:var(--hair)}
+.sec-head .reg{font-family:var(--serif);font-size:16px;color:var(--ink-30)}
+
+/* ---------- Reveal ---------- */
+.rv{opacity:0;transform:translateY(26px);transition:opacity .9s cubic-bezier(.2,.6,.2,1),transform .9s cubic-bezier(.2,.6,.2,1)}
+.rv.on{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none;transition:none}
+  html{scroll-behavior:auto}
+}
+
+/* ============ HERO ============ */
+.hero{
+  min-height:100svh;
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding-top:110px;padding-bottom:40px;
+  border-top:none;
+}
+.hero-top{
+  display:flex;justify-content:space-between;
+  font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-50);
+  border-bottom:1px solid var(--hair);padding-bottom:14px;
+}
+.hero-mid{flex:1;display:flex;flex-direction:column;justify-content:center;position:relative}
+.hero-kicker{
+  display:flex;align-items:baseline;gap:18px;margin-bottom:8px;
+  font-size:12px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-70);
+}
+.hero-kicker .line{width:64px;height:1px;background:var(--ink)}
+.wordmark{
+  font-weight:800;
+  font-size:clamp(5.2rem,21vw,19rem);
+  line-height:.88;
+  letter-spacing:-.055em;
+  user-select:none;
+}
+.wordmark .c1{color:var(--g-blue)}
+.wordmark .c2{color:var(--g-red)}
+.wordmark .c3{color:var(--g-yellow)}
+.wordmark .c4{color:var(--g-blue)}
+.wordmark .c5{color:var(--g-green)}
+.wordmark .c6{color:var(--g-red)}
+.hero-sub{
+  margin-top:clamp(24px,4vw,48px);
+  max-width:560px;
+  font-size:clamp(1.05rem,1.6vw,1.35rem);
+  line-height:1.55;color:var(--ink-70);
+}
+.hero-sub em{font-family:var(--serif);font-style:italic;color:var(--ink);font-size:1.12em}
+.hero-meta{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--hair);
+  margin-top:clamp(32px,5vw,64px);
+}
+.hero-meta div{
+  padding:16px 18px 0 0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-50);line-height:1.8;
+}
+.hero-meta div + div{padding-left:18px;border-left:1px solid var(--hair-soft)}
+.hero-meta b{display:block;color:var(--ink);font-weight:600}
+.scroll-cue{
+  position:absolute;right:0;bottom:-4px;
+  font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-30);
+  writing-mode:vertical-rl;
+  animation:cue 2.4s ease-in-out infinite;
+}
+@keyframes cue{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}
+/* crosshairs at grid intersections */
+.xh{position:absolute;font-family:var(--serif);color:var(--ink-30);font-size:15px;pointer-events:none;line-height:1}
+@media(max-width:760px){
+  .hero-meta{grid-template-columns:1fr 1fr}
+  .hero-meta div:nth-child(3){border-left:none;padding-left:0}
+  .hero-top span:nth-child(2){display:none}
+}
+
+/* ============ MARQUEE ============ */
+.marquee{
+  overflow:hidden;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);
+  padding:18px 0;
+}
+.marquee-track{display:flex;width:max-content;animation:mq 32s linear infinite}
+.marquee:hover .marquee-track{animation-play-state:paused}
+.mq-set{display:flex;align-items:center;gap:44px;padding-right:44px}
+.mq-set span{
+  font-size:13px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;
+  color:var(--ink-70);white-space:nowrap;
+}
+.mq-set i{width:8px;height:8px;border-radius:50%;display:block}
+@keyframes mq{to{transform:translateX(-50%)}}
+@media(prefers-reduced-motion:reduce){.marquee-track{animation:none}}
+
+/* ============ ORIGIN ============ */
+.origin-grid{display:grid;grid-template-columns:5fr 7fr;gap:clamp(32px,5vw,80px)}
+.origin-lead{
+  font-family:var(--serif);
+  font-size:clamp(1.9rem,3.4vw,3.1rem);
+  line-height:1.18;letter-spacing:-.01em;
+}
+.origin-lead em{font-style:italic;color:var(--g-red)}
+.origin-body p{
+  font-size:clamp(.98rem,1.2vw,1.12rem);line-height:1.75;color:var(--ink-70);
+  max-width:58ch;
+}
+.origin-body p + p{margin-top:1.4em}
+.origin-body .drop{
+  font-family:var(--serif);font-size:1.35em;color:var(--ink);
+}
+.origin-facts{
+  margin-top:40px;display:grid;grid-template-columns:repeat(3,1fr);
+  border-top:1px solid var(--hair);
+}
+.origin-facts div{padding:18px 18px 0 0;font-size:12px;line-height:1.7;color:var(--ink-50)}
+.origin-facts div + div{padding-left:18px;border-left:1px solid var(--hair-soft)}
+.origin-facts b{display:block;font-size:15px;color:var(--ink);font-weight:600;letter-spacing:.02em}
+@media(max-width:860px){
+  .origin-grid{grid-template-columns:1fr}
+  .origin-facts{grid-template-columns:1fr}
+  .origin-facts div + div{border-left:none;padding-left:0;border-top:1px solid var(--hair-soft);margin-top:14px;padding-top:14px}
+}
+
+/* ============ TIMELINE ============ */
+.tl{border-top:1px solid var(--hair)}
+.tl-row{
+  display:grid;grid-template-columns:1fr 2fr;gap:clamp(24px,4vw,64px);
+  padding:clamp(28px,4vw,44px) 0;border-bottom:1px solid var(--hair);
+  position:relative;transition:background .3s;
+}
+.tl-row::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--g-red);transform:scaleY(0);transform-origin:top;
+  transition:transform .35s cubic-bezier(.2,.6,.2,1);
+}
+.tl-row:hover::before{transform:scaleY(1)}
+.tl-year{
+  font-family:var(--serif);
+  font-size:clamp(2.6rem,5.5vw,4.6rem);
+  line-height:1;letter-spacing:-.02em;
+}
+.tl-year small{
+  display:block;font-family:var(--sans);font-size:10px;font-weight:600;
+  letter-spacing:.24em;text-transform:uppercase;color:var(--ink-30);margin-top:10px;
+}
+.tl-txt h3{font-size:15px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px}
+.tl-txt p{font-size:.98rem;line-height:1.7;color:var(--ink-70);max-width:52ch}
+@media(max-width:760px){.tl-row{grid-template-columns:1fr;gap:12px}}
+
+/* ============ NUMBERS ============ */
+.numbers-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border:1px solid var(--hair);
+}
+.num-cell{
+  padding:clamp(28px,3.5vw,52px) clamp(20px,2.5vw,40px);
+  border-right:1px solid var(--hair);
+  position:relative;overflow:hidden;
+  transition:background .35s;
+}
+.num-cell:last-child{border-right:none}
+.num-cell:hover{background:rgba(255,255,255,.5)}
+.num-cell .n{
+  font-size:clamp(2.8rem,5.5vw,5.2rem);
+  font-weight:800;letter-spacing:-.045em;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.num-cell .n sup{font-size:.45em;font-weight:600;letter-spacing:0;vertical-align:super}
+.num-cell .l{
+  margin-top:14px;font-size:11px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-50);line-height:1.7;
+}
+.num-cell .dot{position:absolute;top:20px;right:20px;width:9px;height:9px;border-radius:50%}
+@media(max-width:900px){
+  .numbers-grid{grid-template-columns:1fr 1fr}
+  .num-cell:nth-child(2){border-right:none}
+  .num-cell:nth-child(-n+2){border-bottom:1px solid var(--hair)}
+}
+@media(max-width:520px){
+  .numbers-grid{grid-template-columns:1fr}
+  .num-cell{border-right:none;border-bottom:1px solid var(--hair)}
+  .num-cell:last-child{border-bottom:none}
+}
+
+/* ============ PRODUCTS — liquid glass ============ */
+.products{overflow:hidden}
+.blobs{position:absolute;inset:0;pointer-events:none;filter:blur(90px);opacity:.55;z-index:0}
+.blob{position:absolute;border-radius:50%}
+.blob.b1{width:44vw;height:44vw;left:-12vw;top:6%;background:radial-gradient(circle,rgba(66,133,244,.5),transparent 65%)}
+.blob.b2{width:36vw;height:36vw;right:-8vw;top:30%;background:radial-gradient(circle,rgba(251,188,5,.45),transparent 65%)}
+.blob.b3{width:38vw;height:38vw;left:24vw;bottom:-16%;background:radial-gradient(circle,rgba(52,168,83,.4),transparent 65%)}
+.prod-grid{
+  position:relative;z-index:1;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:var(--hair);
+  border:1px solid var(--hair);
+}
+.prod{
+  background:rgba(255,255,255,.5);
+  -webkit-backdrop-filter:blur(20px) saturate(1.5);
+  backdrop-filter:blur(20px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.75);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 24px 48px -30px rgba(20,20,18,.35);
+  padding:clamp(22px,2.4vw,34px);
+  min-height:250px;
+  display:flex;flex-direction:column;justify-content:space-between;gap:24px;
+  transition:transform .4s cubic-bezier(.2,.6,.2,1),background .4s;
+  cursor:default;
+}
+.prod:hover{transform:translateY(-6px);background:rgba(255,255,255,.72)}
+.prod .top{display:flex;justify-content:space-between;align-items:flex-start}
+.prod .idx{font-size:11px;font-weight:600;letter-spacing:.2em;color:var(--ink-30)}
+.prod .dot{width:10px;height:10px;border-radius:50%}
+.prod h3{font-size:clamp(1.25rem,1.7vw,1.6rem);font-weight:700;letter-spacing:-.01em}
+.prod p{font-size:.92rem;line-height:1.65;color:var(--ink-70)}
+.prod .tag{
+  font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-50);border-top:1px solid var(--hair-soft);padding-top:12px;
+}
+@media(max-width:1080px){.prod-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.prod-grid{grid-template-columns:1fr}}
+
+/* ============ PRINCIPLES ============ */
+.principles-list{border-top:1px solid var(--hair)}
+.pr-row{
+  display:grid;grid-template-columns:90px 1fr auto;gap:clamp(20px,3vw,48px);
+  align-items:baseline;
+  padding:clamp(24px,3.4vw,40px) 0;border-bottom:1px solid var(--hair);
+  transition:padding-left .35s cubic-bezier(.2,.6,.2,1);
+}
+.pr-row:hover{padding-left:16px}
+.pr-row .no{font-size:12px;font-weight:600;letter-spacing:.2em;color:var(--ink-30);font-variant-numeric:tabular-nums}
+.pr-row .txt{
+  font-family:var(--serif);
+  font-size:clamp(1.5rem,3vw,2.6rem);
+  line-height:1.2;letter-spacing:-.01em;
+}
+.pr-row .txt em{font-style:italic;color:var(--g-blue)}
+.pr-row .note{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-50);text-align:right}
+@media(max-width:760px){
+  .pr-row{grid-template-columns:48px 1fr}
+  .pr-row .note{display:none}
+}
+
+/* ============ MISSION / FOOTER ============ */
+.mission{padding-bottom:0}
+.mission .big{
+  font-family:var(--serif);
+  font-size:clamp(2.2rem,5.4vw,4.8rem);
+  line-height:1.14;letter-spacing:-.015em;max-width:22ch;
+}
+.mission .big em{font-style:italic}
+.mission .big .hl{color:var(--g-red)}
+footer{border-top:1px solid var(--hair);margin-top:clamp(64px,8vw,110px)}
+.foot-grid{
+  display:grid;grid-template-columns:2fr 1fr 1fr;
+  gap:clamp(24px,4vw,64px);
+  padding:clamp(40px,5vw,64px) 0;
+}
+.foot-grid h4{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-50);margin-bottom:16px}
+.foot-grid p{font-size:.9rem;line-height:1.75;color:var(--ink-70);max-width:44ch}
+.foot-grid ul{list-style:none}
+.foot-grid li{font-size:.9rem;line-height:2.1;color:var(--ink-70)}
+.foot-bar{
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  border-top:1px solid var(--hair);
+  padding:18px 0 26px;
+  font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-50);
+}
+@media(max-width:860px){.foot-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<!-- ================= NAV ================= -->
+<nav>
+  <div class="brand">
+    <span class="dots"><i class="d1"></i><i class="d2"></i><i class="d3"></i><i class="d4"></i></span>
+    GOOGLE — FIELD GUIDE
+  </div>
+  <div class="nav-links">
+    <a href="#origin">Origin</a>
+    <a href="#timeline">Timeline</a>
+    <a href="#numbers">Numbers</a>
+    <a href="#products">Products</a>
+    <a href="#principles">Principles</a>
+  </div>
+  <div class="nav-meta">
+    <span class="clock" id="clock">--:--:--</span>
+    <span>NO. 01 / 2026</span>
+  </div>
+</nav>
+
+<div class="frame">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero wrap">
+    <div class="hero-top">
+      <span>EST. 1998 — STANFORD, CA</span>
+      <span>37.4275° N, 122.1697° W</span>
+      <span>FIELD GUIDE — No. 01</span>
+    </div>
+
+    <div class="hero-mid">
+      <span class="xh" style="top:0;left:calc(100%/12)">+</span>
+      <span class="xh" style="top:0;left:calc(100%/12*7)">+</span>
+      <span class="xh" style="bottom:0;left:calc(100%/12*4)">+</span>
+      <div class="hero-kicker"><span class="line"></span>THE MOST-VISITED WEBSITE ON EARTH</div>
+      <h1 class="wordmark" aria-label="Google">
+        <span class="c1">G</span><span class="c2">o</span><span class="c3">o</span><span class="c4">g</span><span class="c5">l</span><span class="c6">e</span>
+      </h1>
+      <p class="hero-sub">
+        A search engine built in a garage became the front door of the internet.
+        <em>An editorial study</em> of the company that organizes the world's information —
+        set on a twelve-column grid, in paper, ink, and glass.
+      </p>
+      <span class="scroll-cue">SCROLL ↓</span>
+    </div>
+
+    <div class="hero-meta">
+      <div><b>8.5 BILLION</b>Searches per day</div>
+      <div><b>70,000+</b>Languages supported</div>
+      <div><b>100+</b>Products &amp; services</div>
+      <div><b>28 YEARS</b>And counting</div>
+    </div>
+  </section>
+
+  <!-- ================= MARQUEE ================= -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <div class="mq-set">
+        <span>Search</span><i style="background:var(--g-blue)"></i>
+        <span>Mail</span><i style="background:var(--g-red)"></i>
+        <span>Maps</span><i style="background:var(--g-yellow)"></i>
+        <span>Video</span><i style="background:var(--g-green)"></i>
+        <span>Cloud</span><i style="background:var(--g-blue)"></i>
+        <span>AI</span><i style="background:var(--g-red)"></i>
+        <span>Photos</span><i style="background:var(--g-yellow)"></i>
+        <span>Drive</span><i style="background:var(--g-green)"></i>
+      </div>
+      <div class="mq-set">
+        <span>Search</span><i style="background:var(--g-blue)"></i>
+        <span>Mail</span><i style="background:var(--g-red)"></i>
+        <span>Maps</span><i style="background:var(--g-yellow)"></i>
+        <span>Video</span><i style="background:var(--g-green)"></i>
+        <span>Cloud</span><i style="background:var(--g-blue)"></i>
+        <span>AI</span><i style="background:var(--g-red)"></i>
+        <span>Photos</span><i style="background:var(--g-yellow)"></i>
+        <span>Drive</span><i style="background:var(--g-green)"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 01 ORIGIN ================= -->
+  <section id="origin" class="wrap">
+    <header class="sec-head rv">
+      <span class="idx">01</span>
+      <span>Origin — 1998</span>
+      <span class="rule"></span>
+      <span class="reg">+</span>
+    </header>
+    <div class="origin-grid">
+      <h2 class="origin-lead rv">
+        Two PhD students, one garage, and a question:
+        <em>why does the web feel so hard to search?</em>
+      </h2>
+      <div class="origin-body rv">
+        <p>
+          <span class="drop">In 1998, Larry Page and Sergey Brin</span> — friends from Stanford's
+          computer science program — were building a search engine called <b>BackRub</b>,
+          named for the way it followed the links between pages. Their insight was simple
+          and radical: a page's importance could be read from the links pointing at it.
+        </p>
+        <p>
+          They named the company after the mathematical term <b>googol</b> — a one followed
+          by one hundred zeros — a nod to the mission of organizing an ocean of information.
+          What began on a dozen borrowed servers became the default answer to
+          8.5 billion questions a day.
+        </p>
+        <div class="origin-facts">
+          <div><b>BackRub</b>The original name, 1996–1998</div>
+          <div><b>Googol</b>10<sup>100</sup> — the name's origin</div>
+          <div><b>Mountain View</b>Home since 2003</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 02 TIMELINE ================= -->
+  <section id="timeline" class="wrap">
+    <header class="sec-head rv">
+      <span class="idx">02</span>
+      <span>Timeline — 1998 → 2024</span>
+      <span class="rule"></span>
+      <span class="reg">+</span>
+    </header>
+    <div class="tl">
+      <div class="tl-row rv">
+        <div class="tl-year">1998<small>BackRub</small></div>
+        <div class="tl-txt"><h3>The engine</h3><p>PageRank goes live. A search engine that reads the web's own links, not just its keywords, starts beating the incumbents.</p></div>
+      </div>
+      <div class="tl-row rv">
+        <div class="tl-year">1999<small>Founded</small></div>
+        <div class="tl-txt"><h3>Google, Inc.</h3><p>The company is incorporated. The first offices are a rented barn in Menlo Park, California.</p></div>
+      </div>
+      <div class="tl-row rv">
+        <div class="tl-year">2004<small>IPO</small></div>
+        <div class="tl-txt"><h3>Going public</h3><p>Google lists on NASDAQ, opening at $100 a share. "Don't be evil" enters the code of conduct — and the cultural record.</p></div>
+      </div>
+      <div class="tl-row rv">
+        <div class="tl-year">2006<small>Android</small></div>
+        <div class="tl-txt"><h3>The quiet bet</h3><p>Android is acquired for $50 million. A mobile operating system that will one day run on half the planet.</p></div>
+      </div>
+      <div class="tl-row rv">
+        <div class="tl-year">2012<small>Scale</small></div>
+        <div class="tl-txt"><h3>One billion</h3><p>Android passes one billion installs. Chrome becomes the world's most-used browser. The web is now, largely, a Google surface.</p></div>
+      </div>
+      <div class="tl-row rv">
+        <div class="tl-year">2015<small>Alphabet</small></div>
+        <div class="tl-txt"><h3>The reorganization</h3><p>Alphabet is born as a holding company — Google for the core, "Other Bets" for the moonshots: self-driving cars, loons, fiber.</p></div>
+      </div>
+      <div class="tl-row rv">
+        <div class="tl-year">2022<small>Gemini</small></div>
+        <div class="tl-txt"><h3>The model</h3><p>Gemini arrives. The search box begins to meet the model, and the answer starts to be written, not just linked.</p></div>
+      </div>
+      <div class="tl-row rv">
+        <div class="tl-year">2024<small>AI Overviews</small></div>
+        <div class="tl-txt"><h3>The blue links change</h3><p>AI Overviews roll out across search. Twenty-eight years after BackRub, the ten blue links begin to look different.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 03 NUMBERS ================= -->
+  <section id="numbers" class="wrap">
+    <header class="sec-head rv">
+      <span class="idx">03</span>
+      <span>The Numbers</span>
+      <span class="rule"></span>
+      <span class="reg">+</span>
+    </header>
+    <div class="numbers-grid rv">
+      <div class="num-cell">
+        <span class="dot" style="background:var(--g-blue)"></span>
+        <div class="n">8.5<sup>B</sup></div>
+        <div class="l">Searches<br>per day</div>
+      </div>
+      <div class="num-cell">
+        <span class="dot" style="background:var(--g-red)"></span>
+        <div class="n">90<sup>K</sup></div>
+        <div class="l">Searches<br>per second</div>
+      </div>
+      <div class="num-cell">
+        <span class="dot" style="background:var(--g-yellow)"></span>
+        <div class="n">70<sup>K+</sup></div>
+        <div class="l">Languages<br>supported</div>
+      </div>
+      <div class="num-cell">
+        <span class="dot" style="background:var(--g-green)"></span>
+        <div class="n">100<sup>+</sup></div>
+        <div class="l">Products &amp;<br>services</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 04 PRODUCTS ================= -->
+  <section id="products" class="products">
+    <div class="blobs" aria-hidden="true">
+      <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
+    </div>
+    <div class="wrap">
+      <header class="sec-head rv">
+        <span class="idx">04</span>
+        <span>The Ecosystem</span>
+        <span class="rule"></span>
+        <span class="reg">+</span>
+      </header>
+      <div class="prod-grid">
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.01</span><span class="dot" style="background:var(--g-blue)"></span></div>
+          <div><h3>Search</h3><p>8.5 billion questions, answered daily. The original product, still the center of gravity.</p></div>
+          <div class="tag">Since 1998</div>
+        </article>
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.02</span><span class="dot" style="background:var(--g-red)"></span></div>
+          <div><h3>Gemini</h3><p>The model behind the answers. Search, reimagined as a conversation.</p></div>
+          <div class="tag">Since 2023</div>
+        </article>
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.03</span><span class="dot" style="background:var(--g-yellow)"></span></div>
+          <div><h3>Gmail</h3><p>Three billion inboxes, one calm interface. Email, made almost bearable.</p></div>
+          <div class="tag">Since 2004</div>
+        </article>
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.04</span><span class="dot" style="background:var(--g-green)"></span></div>
+          <div><h3>YouTube</h3><p>The second-largest search engine on Earth, wearing a play button.</p></div>
+          <div class="tag">Since 2005</div>
+        </article>
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.05</span><span class="dot" style="background:var(--g-blue)"></span></div>
+          <div><h3>Maps</h3><p>Every road, redrawn by satellite, street view, and your phone's GPS.</p></div>
+          <div class="tag">Since 2005</div>
+        </article>
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.06</span><span class="dot" style="background:var(--g-red)"></span></div>
+          <div><h3>Android</h3><p>The operating system of half the planet, quietly running the world's phones.</p></div>
+          <div class="tag">Since 2008</div>
+        </article>
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.07</span><span class="dot" style="background:var(--g-yellow)"></span></div>
+          <div><h3>Chrome</h3><p>Where the open web is read. Fast, plain, and everywhere.</p></div>
+          <div class="tag">Since 2008</div>
+        </article>
+        <article class="prod rv">
+          <div class="top"><span class="idx">P.08</span><span class="dot" style="background:var(--g-green)"></span></div>
+          <div><h3>Drive</h3><p>Files that follow you everywhere — the paperless office's quiet backbone.</p></div>
+          <div class="tag">Since 2012</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 05 PRINCIPLES ================= -->
+  <section id="principles" class="wrap">
+    <header class="sec-head rv">
+      <span class="idx">05</span>
+      <span>Principles — "Ten Things We Know to Be True"</span>
+      <span class="rule"></span>
+      <span class="reg">+</span>
+    </header>
+    <div class="principles-list">
+      <div class="pr-row rv">
+        <span class="no">01</span>
+        <span class="txt">Focus on the user, and <em>all else will follow.</em></span>
+        <span class="note">The user</span>
+      </div>
+      <div class="pr-row rv">
+        <span class="no">02</span>
+        <span class="txt">Speed is a <em>feature.</em></span>
+        <span class="note">Performance</span>
+      </div>
+      <div class="pr-row rv">
+        <span class="no">03</span>
+        <span class="txt">There is <em>always more to do.</em></span>
+        <span class="note">Momentum</span>
+      </div>
+      <div class="pr-row rv">
+        <span class="no">04</span>
+        <span class="txt">The best way to remove uncertainty is <em>to act.</em></span>
+        <span class="note">Action</span>
+      </div>
+      <div class="pr-row rv">
+        <span class="no">05</span>
+        <span class="txt">It's possible to succeed doing something <em>no one else is trying to do.</em></span>
+        <span class="note">Originality</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MISSION + FOOTER ================= -->
+  <section class="mission wrap">
+    <header class="sec-head rv">
+      <span class="idx">06</span>
+      <span>Mission</span>
+      <span class="rule"></span>
+      <span class="reg">+</span>
+    </header>
+    <p class="big rv">
+      To organize the world's information and make it
+      <em>universally accessible</em> and <span class="hl">useful.</span>
+    </p>
+
+    <footer>
+      <div class="foot-grid">
+        <div>
+          <h4>Colophon</h4>
+          <p>Set in Inter &amp; Instrument Serif. Twelve-column grid, 1px hairlines,
+          paper #F5F3EE, ink #141412. Liquid glass at 20px blur.
+          A single HTML file — no frameworks, no build step.</p>
+        </div>
+        <div>
+          <h4>Style System</h4>
+          <ul>
+            <li>Editorial Minimalism</li>
+            <li>Modern Swiss</li>
+            <li>Liquid Glass</li>
+            <li>Visible Grid</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Index</h4>
+          <ul>
+            <li>01 — Origin</li>
+            <li>02 — Timeline</li>
+            <li>03 — Numbers</li>
+            <li>04 — Ecosystem</li>
+            <li>05 — Principles</li>
+            <li>06 — Mission</li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bar">
+        <span>© 2026 — An unofficial design study. Not affiliated with Google.</span>
+        <span>12-COL GRID / 1PX HAIRLINE</span>
+        <span>MOUNTAIN VIEW, CA</span>
+      </div>
+    </footer>
+  </section>
+
+</div><!-- /frame -->
+
+<script>
+/* ---------- Scroll progress ---------- */
+const bar = document.getElementById('progress');
+const onScroll = () => {
+  const h = document.documentElement;
+  const max = h.scrollHeight - h.clientHeight;
+  bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+};
+document.addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+
+/* ---------- Clock (Mountain View) ---------- */
+const clock = document.getElementById('clock');
+const tick = () => {
+  clock.textContent = new Date().toLocaleTimeString('en-GB', {
+    timeZone: 'America/Los_Angeles', hour12: false
+  }) + ' PT';
+};
+tick();
+setInterval(tick, 1000);
+
+/* ---------- Reveal on scroll ---------- */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+document.querySelectorAll('.rv').forEach(el => io.observe(el));
+</script>
+</body>
+</html>

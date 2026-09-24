@@ -26,7 +26,7 @@ TUNING = os.path.dirname(BENCH)
 ROOT = os.path.dirname(TUNING)
 SERVING = os.path.join(TUNING, "serving", "exl3")
 FORK = os.environ.get("EXL3_FORK_DIR", r"C:\AI\exllamav3-mia")
-OURS = ("live_timing", "effort", "anthropic_compat", "anthropic_routes", "watchdog", "loop_guard", "cjk_guard")
+OURS = ("live_timing", "effort", "anthropic_compat", "anthropic_routes", "watchdog", "loop_guard", "cjk_guard", "thai_sampler", "cancel")
 
 
 def read(name):
@@ -100,3 +100,17 @@ def test_the_launcher_runs_our_server_not_the_forks():
     code = [l for l in cmd.splitlines() if not l.strip().lower().startswith("rem")]
     assert any("python.exe C:\\AI\\qwen38-tuning\\serving\\exl3\\server.py" in l for l in code), code
     assert not any("tools\\serve_openai.py" in l for l in code)
+
+
+def test_sampler_opt_ins_reach_combosampler_with_noop_defaults():
+    """Issue #86: rep_p/freq_p/min_p ride per-request into ComboSampler; absent
+    keys behave exactly as today (ComboSampler's own no-op defaults)."""
+    server = read("server.py")
+    assert 'rep_p = _sampler_float(body.get("rep_p"), 1.0, 1.0, None)' in server
+    assert 'freq_p = _sampler_float(body.get("freq_p"), 0.0, 0.0, None)' in server
+    assert 'min_p = _sampler_float(body.get("min_p"), 0.0, 0.0, 1.0)' in server
+    assert "rep_p = rep_p, freq_p = freq_p, min_p = min_p" in server
+    assert "rep_p = req[\"rep_p\"], freq_p = req[\"freq_p\"], min_p = req[\"min_p\"]" in server
+    assert "rep_p = rep_p, freq_p = freq_p, min_p = min_p, logit_bias = ban" in server
+    compat = read("anthropic_compat.py")
+    assert '"rep_p", "freq_p", "min_p"' in compat

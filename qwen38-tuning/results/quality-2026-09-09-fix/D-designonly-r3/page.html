@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google — โลกทั้งใบ อยู่ในคำค้นหาเดียว</title>
+<meta name="description" content="แนะนำ Google — เครื่องมือค้นหา แผนที่ ปัญญาประดิษฐ์ และระบบที่จัดระเบียบข้อมูลของโลกให้ทุกคนเข้าถึงได้">
+<!-- Open Graph / social sharing -->
+<meta property="og:title" content="Google — โลกทั้งใบ อยู่ในคำค้นหาเดียว">
+<meta property="og:description" content="แนะนำ Google — ค้นหา แผนที่ AI และเครื่องมือที่ขับเคลื่อนการค้นพบของมนุษยชาติ">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=Noto+Serif+Thai:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  /* 60-30-10 */
+  --paper:      #F6F5F0;   /* 60% dominant — editorial paper */
+  --paper-2:    #EFEEE7;   /* 30% secondary surface */
+  --ink:        #141412;   /* primary text */
+  --ink-soft:   #5B594F;   /* muted text */
+  --ink-faint:  #6C695E;
+
+  /* lines / grid */
+  --line:       rgba(20,20,18,.12);
+  --line-soft:  rgba(20,20,18,.055);
+
+  /* liquid glass */
+  --glass:      rgba(255,255,255,.52);
+  --glass-2:    rgba(255,255,255,.72);
+  --glass-brd:  rgba(255,255,255,.75);
+
+  /* 10% accent — Google brand */
+  --g-blue:     #1A73E8;
+  --g-red:      #EA4335;
+  --g-yellow:   #FBBC05;
+  --g-green:    #34A853;
+  --accent:     var(--g-blue);
+  --accent-dk:  #1666CC;
+
+  /* type scale — Major Third 1.25x (base 16px) */
+  --t-base: 1rem;      /* 16 */
+  --t-h6: 1.25rem;     /* 20 */
+  --t-h5: 1.5625rem;   /* 25 */
+  --t-h4: 1.953rem;    /* 31 */
+  --t-h3: 2.441rem;    /* 39 */
+  --t-h2: 3.052rem;    /* 49 */
+  --t-h1: 3.815rem;    /* 61 */
+
+  --maxw: 1200px;
+  --font-sans:  "Anuphan", system-ui, -apple-system, sans-serif;
+  --font-serif: "Noto Serif Thai", Georgia, serif;
+  --font-mono:  "Space Mono", ui-monospace, monospace;
+
+  --ease: cubic-bezier(.22,1,.36,1);
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--font-sans);
+  background:var(--paper);
+  color:var(--ink);
+  font-size:var(--t-base);
+  line-height:1.6;
+  letter-spacing:0;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img,svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+ul{list-style:none}
+::selection{background:var(--g-blue);color:#fff}
+:where(a, .btn, .chip, .idx-row, .lang):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* ============================================================
+   VISIBLE GRID — fixed 12-column background
+   ============================================================ */
+.grid-lines{
+  position:fixed;
+  top:0;bottom:0;left:50%;
+  transform:translateX(-50%);
+  width:min(var(--maxw), 100% - 48px);
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  z-index:0;
+  pointer-events:none;
+}
+.grid-lines span{border-left:1px solid var(--line-soft)}
+.grid-lines span:first-child{border-left:1px solid var(--line)}
+.grid-lines span:last-child{border-right:1px solid var(--line)}
+
+/* soft light wash behind hero (liquid depth, not a blob) */
+.hero-light{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(60% 55% at 50% 34%, rgba(255,255,255,.9), rgba(255,255,255,0) 70%),
+    radial-gradient(40% 40% at 82% 8%, rgba(26,115,232,.06), transparent 70%),
+    radial-gradient(38% 38% at 12% 90%, rgba(52,168,83,.05), transparent 70%);
+}
+
+/* ============================================================
+   LAYOUT PRIMITIVES
+   ============================================================ */
+.wrap{
+  position:relative;
+  z-index:1;
+  width:min(var(--maxw), 100% - 48px);
+  margin-inline:auto;
+}
+section{position:relative;z-index:1}
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:.72rem;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  display:inline-flex;
+  align-items:center;
+  gap:.6em;
+}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}
+.eyebrow .num{color:var(--ink-faint)}
+
+/* Pro headline hack */
+.pro{
+  font-family:var(--font-serif);
+  letter-spacing:-0.025em;
+  line-height:1.1;
+  font-weight:600;
+}
+
+/* ============================================================
+   BUTTONS — 4 states
+   ============================================================ */
+.btn{
+  --h:52px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.55em;
+  height:var(--h);
+  padding:0 30px;
+  font-family:var(--font-sans);
+  font-size:.98rem;
+  font-weight:600;
+  border-radius:14px;
+  border:1px solid transparent;
+  cursor:pointer;
+  transition:transform .28s var(--ease), background .28s var(--ease),
+             box-shadow .28s var(--ease), border-color .28s var(--ease), color .28s var(--ease);
+  white-space:nowrap;
+}
+.btn svg{width:20px;height:20px;flex:none}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 1px 2px rgba(26,115,232,.25)}
+.btn-primary:hover{background:var(--accent-dk);transform:translateY(-2px);box-shadow:0 12px 28px -8px rgba(26,115,232,.55)}
+.btn-primary:active{transform:translateY(0) scale(.98);box-shadow:0 4px 12px -6px rgba(26,115,232,.5)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:rgba(255,255,255,.4);border-color:var(--line);color:var(--ink);backdrop-filter:blur(6px)}
+.btn-ghost:hover{background:rgba(255,255,255,.75);border-color:rgba(20,20,18,.28);transform:translateY(-2px)}
+.btn-ghost:active{transform:translateY(0) scale(.98)}
+.btn-ghost:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ============================================================
+   NAV — liquid glass, sticky
+   ============================================================ */
+.nav{
+  position:sticky;top:0;z-index:50;
+  transition:background .4s var(--ease), border-color .4s var(--ease), backdrop-filter .4s;
+  border-bottom:1px solid transparent;
+}
+.nav.scrolled{
+  background:rgba(246,245,240,.72);
+  backdrop-filter:blur(18px) saturate(180%);
+  -webkit-backdrop-filter:blur(18px) saturate(180%);
+  border-bottom-color:var(--line-soft);
+}
+.nav-inner{
+  display:flex;align-items:center;justify-content:space-between;
+  height:72px;
+}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:1.15rem;letter-spacing:-.01em}
+.brand .mark{
+  width:34px;height:34px;border-radius:9px;
+  background:var(--glass-2);
+  border:1px solid var(--glass-brd);
+  backdrop-filter:blur(8px);
+  display:grid;place-items:center;
+  box-shadow:0 2px 8px rgba(20,20,18,.06);
+}
+.brand .mark svg{width:18px;height:18px}
+.nav-links{display:flex;align-items:center;gap:34px}
+.nav-links a{
+  font-size:.92rem;font-weight:500;color:var(--ink-soft);
+  position:relative;transition:color .25s;
+}
+.nav-links a::after{
+  content:"";position:absolute;left:0;bottom:-6px;height:2px;width:0;
+  background:var(--accent);transition:width .3s var(--ease);
+}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a:hover::after{width:100%}
+.nav-cta{display:flex;align-items:center;gap:14px}
+.nav-cta .btn{--h:42px;padding:0 22px;font-size:.9rem;border-radius:11px}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{padding:56px 0 40px}
+.col-numbers{
+  display:grid;grid-template-columns:repeat(12,1fr);
+  margin-bottom:44px;
+}
+.col-numbers span{
+  font-family:var(--font-mono);font-size:.62rem;letter-spacing:.1em;
+  color:var(--ink-faint);text-align:left;
+}
+.hero-head{max-width:1000px}
+.hero-head .eyebrow{margin-bottom:28px}
+.hero h1{
+  font-size:clamp(2.9rem, 7.4vw, 6.2rem);
+  font-weight:700;
+}
+.hero h1 .line{display:block}
+.hero h1 .accent{color:var(--accent)}
+.hero h1 .u{position:relative;white-space:nowrap}
+.hero h1 .u::after{
+  content:"";position:absolute;left:0;right:0;bottom:.06em;height:.14em;
+  background:var(--g-yellow);opacity:.55;z-index:-1;
+}
+.hero-sub{
+  margin-top:32px;max-width:560px;
+  font-size:1.16rem;line-height:1.7;color:var(--ink-soft);
+}
+.hero-actions{margin-top:40px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.hero-note{
+  margin-top:22px;font-family:var(--font-mono);font-size:.74rem;
+  letter-spacing:.04em;color:var(--ink-faint);
+  display:flex;align-items:center;gap:10px;
+}
+.hero-note b{color:var(--ink-soft);font-weight:700}
+
+/* Google search card — the figure-ground focal element */
+.search-stage{
+  margin-top:72px;
+  display:grid;grid-template-columns:repeat(12,1fr);
+  align-items:center;
+}
+.search-card{
+  grid-column:2 / span 11;
+  background:var(--glass);
+  backdrop-filter:blur(22px) saturate(160%);
+  -webkit-backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid var(--glass-brd);
+  border-radius:26px;
+  padding:36px 40px 40px;
+  box-shadow:0 30px 60px -30px rgba(20,20,18,.28), inset 0 1px 0 rgba(255,255,255,.9);
+  position:relative;
+  overflow:hidden;
+}
+.search-card::before{ /* top sheen */
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);
+}
+.glogo{
+  display:flex;justify-content:center;gap:1px;
+  font-family:var(--font-sans);font-weight:700;
+  font-size:clamp(2.4rem,5vw,3.4rem);
+  letter-spacing:-.03em;line-height:1;margin-bottom:30px;
+  user-select:none;
+}
+.search-bar{
+  display:flex;align-items:center;gap:16px;
+  max-width:640px;margin:0 auto;
+  height:64px;padding:0 24px;
+  background:rgba(255,255,255,.85);
+  border:1px solid var(--line);
+  border-radius:999px;
+  box-shadow:0 2px 10px rgba(20,20,18,.05);
+  transition:box-shadow .3s var(--ease), border-color .3s;
+}
+.search-bar:focus-within{box-shadow:0 8px 24px -6px rgba(26,115,232,.3);border-color:rgba(26,115,232,.4)}
+.search-bar .ic{width:22px;height:22px;flex:none;color:var(--ink-faint)}
+.search-bar input{
+  flex:1;border:none;outline:none;background:transparent;
+  font-family:var(--font-sans);font-size:1.05rem;color:var(--ink);
+}
+.search-bar input::placeholder{color:var(--ink-faint)}
+.cursor{width:2px;height:22px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.search-bar .mic{width:22px;height:22px;flex:none;color:var(--g-red)}
+.search-bar .lens{width:24px;height:24px;flex:none}
+.search-btns{display:flex;justify-content:center;gap:12px;margin-top:26px;flex-wrap:wrap}
+.search-btns .btn{--h:44px;padding:0 24px;font-size:.92rem;border-radius:11px}
+.search-chips{display:flex;justify-content:center;gap:10px;margin-top:22px;flex-wrap:wrap}
+.chip{
+  font-size:.82rem;color:var(--ink-soft);
+  padding:7px 14px;border-radius:999px;
+  background:rgba(255,255,255,.5);border:1px solid var(--line);
+  transition:all .25s var(--ease);cursor:pointer;
+}
+.chip:hover{background:#fff;border-color:rgba(20,20,18,.2);color:var(--ink);transform:translateY(-1px)}
+
+/* ============================================================
+   STATS STRIP
+   ============================================================ */
+.stats{padding:24px 0 8px}
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+}
+.stat{
+  padding:36px 24px 36px 0;
+  border-right:1px solid var(--line-soft);
+}
+.stat:last-child{border-right:none}
+.stat .n{
+  font-family:var(--font-serif);font-weight:700;
+  font-size:clamp(2.2rem,4vw,3.1rem);letter-spacing:-.02em;line-height:1;
+}
+.stat .n .u{font-size:.5em;color:var(--accent);margin-left:.05em}
+.stat .l{margin-top:12px;font-size:.9rem;color:var(--ink-soft);line-height:1.5}
+
+/* ============================================================
+   SECTION HEADER
+   ============================================================ */
+.sec{padding:104px 0}
+.sec-head{
+  display:grid;grid-template-columns:repeat(12,1fr);gap:24px;
+  align-items:end;margin-bottom:56px;
+}
+.sec-head .idx{
+  grid-column:1 / span 3;
+  font-family:var(--font-mono);font-size:.78rem;letter-spacing:.12em;
+  color:var(--ink-faint);
+}
+.sec-head h2{grid-column:4 / span 9;font-size:clamp(2rem,4.4vw,3.4rem);font-weight:700}
+.sec-head .lead{grid-column:4 / span 9;margin-top:18px;max-width:520px;color:var(--ink-soft);font-size:1.05rem}
+
+/* ============================================================
+   FEATURES — 4 liquid glass cards (chunking)
+   ============================================================ */
+.feat-grid{
+  display:grid;grid-template-columns:repeat(12,1fr);gap:20px;
+}
+.feat{
+  position:relative;
+  background:var(--glass);
+  backdrop-filter:blur(16px) saturate(150%);
+  -webkit-backdrop-filter:blur(16px) saturate(150%);
+  border:1px solid var(--glass-brd);
+  border-radius:20px;
+  padding:32px;
+  overflow:hidden;
+  transition:transform .4s var(--ease), box-shadow .4s var(--ease), border-color .4s;
+}
+.feat::before{
+  content:"";position:absolute;inset:0 0 auto 0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);
+}
+.feat:hover{transform:translateY(-6px);box-shadow:0 30px 50px -28px rgba(20,20,18,.3);border-color:rgba(255,255,255,.95)}
+.feat .f-idx{
+  font-family:var(--font-mono);font-size:.72rem;letter-spacing:.1em;color:var(--ink-faint);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.feat .f-ico{
+  width:52px;height:52px;border-radius:14px;display:grid;place-items:center;
+  margin:24px 0 22px;
+  background:rgba(255,255,255,.7);border:1px solid var(--glass-brd);
+}
+.feat .f-ico svg{width:26px;height:26px}
+.feat h3{font-size:1.5rem;font-weight:700;letter-spacing:-.01em}
+.feat p{margin-top:12px;color:var(--ink-soft);font-size:.98rem;line-height:1.65}
+.feat .f-tag{
+  margin-top:22px;display:inline-flex;align-items:center;gap:8px;
+  font-size:.82rem;font-weight:600;
+}
+.feat .f-tag .ar{transition:transform .3s var(--ease)}
+.feat:hover .f-tag .ar{transform:translateX(4px)}
+/* asymmetric spans — Swiss */
+.feat.a{grid-column:1 / span 7}
+.feat.b{grid-column:8 / span 5}
+.feat.c{grid-column:1 / span 5}
+.feat.d{grid-column:6 / span 7}
+/* accent tints per card */
+.feat.a .f-ico{color:var(--g-blue);background:rgba(26,115,232,.09);border-color:rgba(26,115,232,.2)}
+.feat.b .f-ico{color:var(--g-red);background:rgba(234,67,53,.09);border-color:rgba(234,67,53,.2)}
+.feat.c .f-ico{color:var(--g-green);background:rgba(52,168,83,.1);border-color:rgba(52,168,83,.22)}
+.feat.d .f-ico{color:#B06000;background:rgba(251,188,5,.14);border-color:rgba(251,188,5,.35)}
+.feat.a .f-tag{color:var(--g-blue)}
+.feat.b .f-tag{color:var(--g-red)}
+.feat.c .f-tag{color:var(--g-green)}
+.feat.d .f-tag{color:#B06000}
+
+/* ============================================================
+   MANIFESTO — editorial linger
+   ============================================================ */
+.manifesto{background:var(--paper-2);border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+.mani-inner{
+  display:grid;grid-template-columns:repeat(12,1fr);gap:24px;padding:104px 0;
+}
+.mani-inner .m-idx{grid-column:1 / span 2;font-family:var(--font-mono);font-size:.78rem;letter-spacing:.12em;color:var(--ink-faint);padding-top:14px}
+.mani-inner .m-quote{
+  grid-column:3 / span 9;
+  font-family:var(--font-serif);font-weight:600;
+  font-size:clamp(1.9rem,4.2vw,3.2rem);line-height:1.28;letter-spacing:-.02em;
+}
+.mani-inner .m-quote .hl{color:var(--accent)}
+.mani-inner .m-body{grid-column:3 / span 7;margin-top:40px;color:var(--ink-soft);font-size:1.08rem;line-height:1.8}
+.mani-inner .m-body .sig{
+  margin-top:28px;font-family:var(--font-mono);font-size:.78rem;
+  letter-spacing:.06em;color:var(--ink-faint);
+}
+
+/* ============================================================
+   PRODUCT INDEX — Swiss typographic table
+   ============================================================ */
+.index-list{border-top:1px solid var(--line)}
+.idx-row{
+  display:grid;grid-template-columns:repeat(12,1fr);gap:24px;align-items:center;
+  padding:26px 0;border-bottom:1px solid var(--line-soft);
+  transition:background .3s var(--ease), padding-left .3s var(--ease);
+  cursor:pointer;position:relative;
+}
+.idx-row:hover{background:rgba(255,255,255,.5);padding-left:16px}
+.idx-row .no{grid-column:1 / span 1;font-family:var(--font-mono);font-size:.8rem;color:var(--ink-faint)}
+.idx-row .name{grid-column:2 / span 5;font-size:1.35rem;font-weight:600;letter-spacing:-.01em}
+.idx-row .name small{display:block;font-size:.82rem;font-weight:500;color:var(--ink-faint);margin-top:2px}
+.idx-row .cat{grid-column:7 / span 3;font-size:.9rem;color:var(--ink-soft)}
+.idx-row .go{grid-column:11 / span 2;display:flex;justify-content:flex-end}
+.idx-row .go svg{width:22px;height:22px;color:var(--ink-faint);transition:transform .3s var(--ease),color .3s}
+.idx-row:hover .go svg{transform:translate(4px,-4px);color:var(--accent)}
+.idx-row .bar{
+  position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--accent);
+  transition:width .4s var(--ease);
+}
+.idx-row:hover .bar{width:100%}
+
+/* ============================================================
+   CTA — release
+   ============================================================ */
+.cta{padding:120px 0}
+.cta-box{
+  position:relative;
+  background:var(--glass);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border:1px solid var(--glass-brd);
+  border-radius:30px;
+  padding:80px 40px;
+  text-align:center;
+  overflow:hidden;
+  box-shadow:0 40px 80px -40px rgba(20,20,18,.3);
+}
+.cta-box::before{
+  content:"";position:absolute;inset:0 0 auto 0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.95),transparent);
+}
+.cta-box .eyebrow{margin-bottom:24px;justify-content:center}
+.cta-box h2{font-size:clamp(2.2rem,5vw,4rem);font-weight:700;max-width:16ch;margin-inline:auto}
+.cta-box p{margin:24px auto 0;max-width:46ch;color:var(--ink-soft);font-size:1.1rem}
+.cta-box .hero-actions{justify-content:center;margin-top:40px}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer{border-top:1px solid var(--line);padding:72px 0 40px;background:var(--paper)}
+.foot-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:32px}
+.foot-brand{grid-column:1 / span 4}
+.foot-brand .brand{margin-bottom:20px}
+.foot-brand p{color:var(--ink-soft);font-size:.92rem;max-width:34ch;line-height:1.7}
+.foot-col{grid-column:span 2}
+.foot-col h4{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:18px}
+.foot-col a{display:block;font-size:.92rem;color:var(--ink-soft);padding:7px 0;transition:color .25s,padding-left .25s}
+.foot-col a:hover{color:var(--ink);padding-left:5px}
+.foot-bottom{
+  margin-top:56px;padding-top:28px;border-top:1px solid var(--line-soft);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;
+}
+.foot-bottom .lang{
+  display:inline-flex;align-items:center;gap:8px;font-size:.88rem;color:var(--ink-soft);
+  border:1px solid var(--line);border-radius:999px;padding:8px 16px;cursor:pointer;
+  transition:all .25s var(--ease);
+}
+.foot-bottom .lang:hover{background:#fff;border-color:rgba(20,20,18,.25)}
+.foot-bottom .legal{font-size:.82rem;color:var(--ink-faint)}
+.foot-bottom .legal .concept{color:var(--ink-soft)}
+
+/* ============================================================
+   REVEAL ANIMATION
+   ============================================================ */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease), transform .8s var(--ease)}
+.reveal.in-view{opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+  .reveal{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px){
+  .nav-links{display:none}
+  .grid-lines span{border-left-width:1px}
+  .feat.a,.feat.b,.feat.c,.feat.d{grid-column:1 / -1}
+  .sec-head .idx{grid-column:1 / -1;margin-bottom:8px}
+  .sec-head h2{grid-column:1 / -1}
+  .sec-head .lead{grid-column:1 / -1}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .stat{border-right:none;border-bottom:1px solid var(--line-soft)}
+  .stat:nth-child(odd){border-right:1px solid var(--line-soft)}
+  .mani-inner .m-idx{grid-column:1 / -1;padding-top:0;margin-bottom:8px}
+  .mani-inner .m-quote{grid-column:1 / -1}
+  .mani-inner .m-body{grid-column:1 / -1}
+  .idx-row .no{grid-column:1 / span 1}
+  .idx-row .name{grid-column:2 / span 7}
+  .idx-row .cat{display:none}
+  .idx-row .go{grid-column:9 / span 4}
+  .foot-brand{grid-column:1 / -1;margin-bottom:8px}
+  .foot-col{grid-column:span 6}
+}
+@media (max-width: 620px){
+  .grid-lines{display:none}
+  .col-numbers{display:none}
+  .search-card{grid-column:1 / -1;padding:28px 20px 32px}
+  .search-bar{height:56px;padding:0 16px;gap:10px}
+  .search-bar input{font-size:.95rem}
+  .search-bar .lens{display:none}
+  .hero{padding-top:32px}
+  .sec{padding:72px 0}
+  .mani-inner{padding:72px 0}
+  .cta-box{padding:56px 24px}
+  .idx-row .name{grid-column:2 / span 6;font-size:1.15rem}
+  .idx-row .go{grid-column:8 / span 5}
+  .foot-col{grid-column:1 / -1}
+  .foot-bottom{flex-direction:column;align-items:flex-start}
+  .nav-cta .btn-ghost{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- VISIBLE GRID -->
+<div class="grid-lines" aria-hidden="true">
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+</div>
+
+<!-- ============ NAV ============ -->
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top">
+      <span class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </span>
+      Google
+    </a>
+    <nav class="nav-links">
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#tech">เทคโนโลยี</a>
+      <a href="#story">เรื่องราว</a>
+      <a href="#index">สารบัญ</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="#index">สำรวจทั้งหมด</a>
+      <a class="btn btn-primary" href="#cta">เริ่มต้นใช้งาน</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-light" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="col-numbers" aria-hidden="true">
+      <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+      <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+    </div>
+
+    <div class="hero-head">
+      <span class="eyebrow reveal"><span class="dot"></span><span class="num">01</span> / แนะนำ Google · SINCE 1998</span>
+      <h1 class="pro reveal" data-delay="1">
+        <span class="line">โลกทั้งใบ</span>
+        <span class="line">อยู่ใน<span class="u">คำค้นหา</span></span>
+        <span class="line accent">เดียว</span>
+      </h1>
+      <p class="hero-sub reveal" data-delay="2">
+        จากห้องนอนสองห้องในสแตนฟอร์ด สู่ระบบที่จัดระเบียบข้อมูลของมนุษยชาติ —
+        Google คือจุดเริ่มต้นของทุกคำถามที่คุณเคยสงสัย เปลี่ยนความสงสัยให้กลายเป็นคำตอบ
+      </p>
+      <div class="hero-actions reveal" data-delay="3">
+        <a class="btn btn-primary" href="#cta">
+          ค้นหาเลย
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="#products">สำรวจผลิตภัณฑ์</a>
+      </div>
+      <div class="hero-note reveal" data-delay="4">
+        <b>9.99%</b> ของการค้นหาทั่วโลกเริ่มที่นี่ · รองรับ <b>133+</b> ภาษา
+      </div>
+    </div>
+
+    <!-- Google search card -->
+    <div class="search-stage">
+      <div class="search-card reveal" data-delay="2">
+        <div class="glogo" aria-label="Google">
+          <span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC05">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span>
+        </div>
+        <div class="search-bar">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="text" placeholder="ค้นหาอะไรก็ได้… ตัวอย่าง: ประวัติศาสตร์จักรวรรดิโรมัน" aria-label="ช่องค้นหา">
+          <span class="cursor" aria-hidden="true"></span>
+          <svg class="mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          <svg class="lens" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#4285F4" stroke-width="2"/><path d="M12 3v18M3 12h18" stroke="#EA4335" stroke-width="1.4" opacity=".7"/></svg>
+        </div>
+        <div class="search-btns">
+          <a class="btn btn-primary" href="#cta">ค้นหาด้วย Google</a>
+          <a class="btn btn-ghost" href="#products">I'm Feeling Lucky</a>
+        </div>
+        <div class="search-chips">
+          <span class="chip">ข่าววันนี้</span>
+          <span class="chip">สูตรอาหาร</span>
+          <span class="chip">แปลภาษา</span>
+          <span class="chip">เส้นทางเดินทาง</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STATS ============ -->
+<section class="stats">
+  <div class="wrap">
+    <div class="stats-grid reveal">
+      <div class="stat">
+        <div class="n">9.99<span class="u">%</span></div>
+        <div class="l">ส่วนแบ่งตลาดการค้นหา — เกือบ 10 ใน 10 คำค้นหาเริ่มที่นี่</div>
+      </div>
+      <div class="stat">
+        <div class="n">8.5<span class="u">B+</span></div>
+        <div class="l">คำค้นหาที่ประมวลผลทุกวัน ทั่วโลก</div>
+      </div>
+      <div class="stat">
+        <div class="n">133<span class="u">+</span></div>
+        <div class="l">ภาษาที่รองรับ ตั้งแต่ไทยจนถึงภาษาที่พูดน้อยที่สุด</div>
+      </div>
+      <div class="stat">
+        <div class="n">200<span class="u">+</span></div>
+        <div class="l">ประเทศและภูมิภาคที่เข้าถึงบริการได้</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="sec" id="products">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="idx reveal">02 / PRODUCE</div>
+      <h2 class="pro reveal" data-delay="1">เครื่องมือที่ขับเคลื่อน<br>การค้นพบของคุณ</h2>
+      <p class="lead reveal" data-delay="2">
+        ไม่ใช่แค่ช่องค้นหา — แต่คือระบบนิเวศที่เชื่อมโยงข้อมูล แผนที่
+        ปัญญาประดิษฐ์ และการทำงานเข้าด้วยกันอย่างไร้รอยต่อ
+      </p>
+    </div>
+
+    <div class="feat-grid">
+      <article class="feat a reveal">
+        <div class="f-idx"><span>01</span><span>SEARCH</span></div>
+        <div class="f-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </div>
+        <h3>ค้นหาที่เข้าใจคำถาม</h3>
+        <p>ไม่ใช่แค่จับคำสำคัญ — Google อ่านเจตนาของคุณ จัดลำดับคำตอบจากแหล่งข้อมูลนับล้าน และพาคุณไปถึงสิ่งที่ต้องการจริงในเสี้ยววินาที พร้อมภาพ วิดีโอ และคำตอบตรงๆ</p>
+        <span class="f-tag">ลองค้นหา <span class="ar">→</span></span>
+      </article>
+
+      <article class="feat b reveal" data-delay="1">
+        <div class="f-idx"><span>02</span><span>GEMINI</span></div>
+        <div class="f-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/><circle cx="12" cy="12" r="3.2"/></svg>
+        </div>
+        <h3>ผู้ช่วยที่คิดร่วมกับคุณ</h3>
+        <p>Gemini — โมเดล AI ที่ช่วยสรุป วิเคราะห์ และสร้างสิ่งใหม่ ทำงานคู่กับทุกบริการของ Google</p>
+        <span class="f-tag">รู้จัก Gemini <span class="ar">→</span></span>
+      </article>
+
+      <article class="feat c reveal">
+        <div class="f-idx"><span>03</span><span>MAPS</span></div>
+        <div class="f-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        </div>
+        <h3>นำทางทุกเส้นทาง</h3>
+        <p>แผนที่เรียลไทม์ เส้นทางที่ดีที่สุด รีวิวจากผู้ใช้จริง และข้อมูลสถานที่ครอบคลุมทั่วโลก</p>
+        <span class="f-tag">เปิดแผนที่ <span class="ar">→</span></span>
+      </article>
+
+      <article class="feat d reveal" data-delay="1">
+        <div class="f-idx"><span>04</span><span>WORKSPACE</span></div>
+        <div class="f-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 21h8"/></svg>
+        </div>
+        <h3>ทำงานร่วมกันไร้รอยต่อ</h3>
+        <p>Gmail, Docs, Drive และ Meet — เอกสาร อีเมล และไฟล์ของคุณเชื่อมต่อกัน ทำงานพร้อมกันได้จากทุกอุปกรณ์ เก็บข้อมูลอย่างปลอดภัยในคลาวด์</p>
+        <span class="f-tag">เริ่มใช้ Workspace <span class="ar">→</span></span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MANIFESTO ============ -->
+<section class="manifesto" id="story">
+  <div class="wrap mani-inner">
+    <div class="m-idx reveal">03 / MISSION</div>
+    <blockquote class="m-quote reveal" data-delay="1">
+      “จัดระเบียบข้อมูลของโลก ทำให้<span class="hl">เข้าถึง</span> และเกิด<span class="hl">ประโยชน์</span>กับผู้คนทั่วโลก”
+    </blockquote>
+    <div class="m-body reveal" data-delay="2">
+      <p>
+        ตั้งแต่ปี 1998 Google มุ่งมั่นทำสิ่งที่ดูเหมือนเป็นไปไม่ได้ —
+        รวบรวมข้อมูลมหาศาลของโลกให้กลายเป็นความรู้ที่ทุกคนเข้าถึงได้
+        ไม่ว่าคุณจะอยู่ที่ไหน พูดภาษาอะไร หรือถืออุปกรณ์แบบไหน
+        เป้าหมายไม่เคยเปลี่ยน: ทำให้คำตอบที่ถูกต้อง อยู่ตรงหน้าคนที่ต้องการมัน
+      </p>
+      <p class="sig">— เป้าหมายของ Google · Organize the world's information</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRODUCT INDEX ============ -->
+<section class="sec" id="index">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="idx reveal">04 / INDEX</div>
+      <h2 class="pro reveal" data-delay="1">สารบัญผลิตภัณฑ์</h2>
+      <p class="lead reveal" data-delay="2">ทุกบริการของ Google ในตารางเดียว — เลือกสิ่งที่คุณต้องการเริ่มใช้</p>
+    </div>
+
+    <div class="index-list">
+      <a class="idx-row reveal" href="#cta"><span class="no">01</span><span class="name">Search<small>เครื่องมือค้นหา</small></span><span class="cat">ค้นหา · คำตอบ</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+      <a class="idx-row reveal" href="#cta"><span class="no">02</span><span class="name">Gemini<small>ปัญญาประดิษฐ์</small></span><span class="cat">AI · ผู้ช่วย</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+      <a class="idx-row reveal" href="#cta"><span class="no">03</span><span class="name">Maps<small>แผนที่นำทาง</small></span><span class="cat">การเดินทาง</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+      <a class="idx-row reveal" href="#cta"><span class="no">04</span><span class="name">YouTube<small>แพลตฟอร์มวิดีโอ</small></span><span class="cat">วิดีโอ · ครีเอเตอร์</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+      <a class="idx-row reveal" href="#cta"><span class="no">05</span><span class="name">Gmail<small>อีเมล</small></span><span class="cat">การสื่อสาร</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+      <a class="idx-row reveal" href="#cta"><span class="no">06</span><span class="name">Drive<small>เก็บข้อมูลคลาวด์</small></span><span class="cat">ไฟล์ · คลาวด์</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+      <a class="idx-row reveal" href="#cta"><span class="no">07</span><span class="name">Android<small>ระบบปฏิบัติการมือถือ</small></span><span class="cat">อุปกรณ์</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+      <a class="idx-row reveal" href="#cta"><span class="no">08</span><span class="name">Chrome<small>เว็บเบราว์เซอร์</small></span><span class="cat">เบราว์เซอร์</span><span class="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span><span class="bar"></span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="cta" id="cta">
+  <div class="wrap">
+    <div class="cta-box reveal">
+      <span class="eyebrow"><span class="dot"></span>05 / GET STARTED</span>
+      <h2 class="pro">พร้อมค้นหาสิ่งใหม่แล้วหรือยัง?</h2>
+      <p>เริ่มต้นใช้งาน Google ฟรี — ไม่มีค่าใช้จ่าย ไม่มีข้อจำกัด โลกทั้งใบรออยู่แค่คำค้นหาเดียว</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#top">
+          เริ่มต้นใช้งานฟรี
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="#index">ดูสารบัญผลิตภัณฑ์</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="footer" id="tech">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top">
+          <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+          Google
+        </a>
+        <p>จัดระเบียบข้อมูลของโลก ทำให้เข้าถึง และเกิดประโยชน์กับผู้คนทั่วโลก — ตั้งแต่ 1998</p>
+      </div>
+      <div class="foot-col">
+        <h4>ผลิตภัณฑ์</h4>
+        <a href="#index">Search</a>
+        <a href="#index">Gemini</a>
+        <a href="#index">Maps</a>
+        <a href="#index">YouTube</a>
+        <a href="#index">Gmail</a>
+      </div>
+      <div class="foot-col">
+        <h4>บริษัท</h4>
+        <a href="#story">เกี่ยวกับเรา</a>
+        <a href="#story">การลงทุน</a>
+        <a href="#story">ร่วมงานกับเรา</a>
+        <a href="#story">บล็อก</a>
+      </div>
+      <div class="foot-col">
+        <h4>ทรัพยากร</h4>
+        <a href="#top">ศูนย์ช่วยเหลือ</a>
+        <a href="#top">ความเป็นส่วนตัว</a>
+        <a href="#top">ความปลอดภัย</a>
+        <a href="#top">API &amp; Developers</a>
+      </div>
+      <div class="foot-col">
+        <h4>ภาษา</h4>
+        <a href="#top">ไทย</a>
+        <a href="#top">English</a>
+        <a href="#top">日本語</a>
+        <a href="#top">Español</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span class="lang">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg>
+        ไทย (ประเทศไทย)
+      </span>
+      <span class="legal">© 2026 Google · <span class="concept">หน้านี้เป็นแนวคิดการออกแบบ (Design Concept) — ไม่ใช่เว็บไซต์ทางการ</span></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* nav background on scroll */
+  var nav = document.getElementById('nav');
+  var onScroll = function(){
+    nav.classList.toggle('scrolled', window.scrollY > 12);
+  };
+  onScroll();
+  window.addEventListener('scroll', onScroll, {passive:true});
+
+  /* staggered reveal via IntersectionObserver */
+  var els = document.querySelectorAll('.reveal');
+  if(reduce || !('IntersectionObserver' in window)){
+    els.forEach(function(el){ el.classList.add('in-view'); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        var d = parseInt(e.target.getAttribute('data-delay') || '0', 10);
+        e.target.style.transitionDelay = (d * 90) + 'ms';
+        e.target.classList.add('in-view');
+        io.unobserve(e.target);
+      }
+    });
+  }, {threshold:0.12, rootMargin:'0px 0px -8% 0px'});
+  els.forEach(function(el){ io.observe(el); });
+
+  /* search input: hide cursor when typing */
+  var input = document.querySelector('.search-bar input');
+  var cursor = document.querySelector('.cursor');
+  if(input && cursor){
+    input.addEventListener('input', function(){
+      cursor.style.display = input.value ? 'none' : 'block';
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+{
+  "swift": {
+    "runs": [
+      "validation-c65536\\20260920-103049-swift-stock-medium-mtp-ngram-n3-c65536-r2\\responses.jsonl",
+      "validation-c65536\\20260920-104415-swift-stock-medium-mtp-ngram-n3-c65536-r3\\responses.jsonl",
+      "validation-c65536\\20260920-104914-swift-stock-medium-mtp-ngram-n3-c65536-r4\\responses.jsonl"
+    ],
+    "code_successes": 6,
+    "code_attempts": 6,
+    "code_total_task_s": 71.67685389999679,
+    "code_seconds_per_verified_task": 11.946142316666132,
+    "code_verified_tasks_per_hour": 301.35251234849426,
+    "code_tokens_per_verified_task": 507.8333333333333,
+    "code_median_engine_decode_tps": 62.510644128530544,
+    "thai_repair_passes": 1,
+    "thai_repair_attempts": 3,
+    "math_passes": 6,
+    "math_attempts": 6,
+    "truncated_cases": [],
+    "deep_cold_prefill_tps": 703.7282581412853,
+    "deep_prompt_tokens": 45271,
+    "deep_code_passes": 2,
+    "deep_code_attempts": 2,
+    "deep_warm_code_seconds_per_verified_task": 12.458459949997632
+  },
+  "turbo": {
+    "runs": [
+      "validation-c65536\\20260920-103227-turbo-stock-medium-mtp-ngram-n3-c65536-r2\\responses.jsonl",
+      "validation-c65536\\20260920-103912-turbo-stock-medium-mtp-ngram-n3-c65536-r3\\responses.jsonl",
+      "validation-c65536\\20260920-105125-turbo-stock-medium-mtp-ngram-n3-c65536-r4\\responses.jsonl"
+    ],
+    "code_successes": 6,
+    "code_attempts": 6,
+    "code_total_task_s": 97.05293400001392,
+    "code_seconds_per_verified_task": 16.17548900000232,
+    "code_verified_tasks_per_hour": 222.5589594230804,
+    "code_tokens_per_verified_task": 631.6666666666666,
+    "code_median_engine_decode_tps": 50.017786378972886,
+    "thai_repair_passes": 0,
+    "thai_repair_attempts": 3,
+    "math_passes": 6,
+    "math_attempts": 6,
+    "truncated_cases": [
+      {
+        "run": "20260920-105125-turbo-stock-medium-mtp-ngram-n3-c65536-r4",
+        "case": "thai-incident-repair"
+      }
+    ],
+    "deep_cold_prefill_tps": 703.8009245348833,
+    "deep_prompt_tokens": 45271,
+    "deep_code_passes": 2,
+    "deep_code_attempts": 2,
+    "deep_warm_code_seconds_per_verified_task": 10.306503149997297
+  },
+  "dirk": {
+    "runs": [
+      "validation-c65536\\20260920-103510-dirk-stock-medium-mtp-ngram-n3-c65536-r2\\responses.jsonl",
+      "validation-c65536\\20260920-104115-dirk-stock-medium-mtp-ngram-n3-c65536-r3\\responses.jsonl",
+      "validation-c65536\\20260920-104555-dirk-stock-medium-mtp-ngram-n3-c65536-r4\\responses.jsonl"
+    ],
+    "code_successes": 6,
+    "code_attempts": 6,
+    "code_total_task_s": 128.9119915999836,
+    "code_seconds_per_verified_task": 21.4853319333306,
+    "code_verified_tasks_per_hour": 167.55617326140782,
+    "code_tokens_per_verified_task": 803.6666666666666,
+    "code_median_engine_decode_tps": 53.6108744541128,
+    "thai_repair_passes": 3,
+    "thai_repair_attempts": 3,
+    "math_passes": 6,
+    "math_attempts": 6,
+    "truncated_cases": [],
+    "deep_cold_prefill_tps": 694.9133815300279,
+    "deep_prompt_tokens": 45422,
+    "deep_code_passes": 2,
+    "deep_code_attempts": 2,
+    "deep_warm_code_seconds_per_verified_task": 15.290405700001429
+  },
+  "gsq": {
+    "runs": [
+      "validation-c65536\\20260920-103744-gsq-stock-medium-mtp-ngram-n3-c65536-r2\\responses.jsonl",
+      "validation-c65536\\20260920-104250-gsq-stock-medium-mtp-ngram-n3-c65536-r3\\responses.jsonl",
+      "validation-c65536\\20260920-104740-gsq-stock-medium-mtp-ngram-n3-c65536-r4\\responses.jsonl"
+    ],
+    "code_successes": 6,
+    "code_attempts": 6,
+    "code_total_task_s": 68.31250420001015,
+    "code_seconds_per_verified_task": 11.385417366668358,
+    "code_verified_tasks_per_hour": 316.1939421333172,
+    "code_tokens_per_verified_task": 557.1666666666666,
+    "code_median_engine_decode_tps": 70.17811189032143,
+    "thai_repair_passes": 2,
+    "thai_repair_attempts": 3,
+    "math_passes": 6,
+    "math_attempts": 6,
+    "truncated_cases": [],
+    "deep_cold_prefill_tps": 734.8505950421487,
+    "deep_prompt_tokens": 45271,
+    "deep_code_passes": 2,
+    "deep_code_attempts": 2,
+    "deep_warm_code_seconds_per_verified_task": 8.570131600001332
+  },
+  "_scope": {
+    "time_definition": "sum code preparation + generation + executable verification / accepted code attempts; excludes model boot and tuning; no retries hidden",
+    "sampling": "three rotated separate-boot rounds, seeds 29/43/71; only two unique code tasks",
+    "deep": "one round, explicit real-source corpus excerpt; shared-prefix warm code; not original session replay",
+    "best_config": "selected among tested candidates, not globally optimal or promotion-certified"
+  }
+}

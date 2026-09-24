@@ -1,0 +1,170 @@
+{
+  "protocol": "pal-journal-v1",
+  "task": "PAL #149 standalone run journal",
+  "baseline_sha": "200fcb9262d25e4002e30bf00c4364f55a42354e",
+  "rows": [
+    {
+      "arm": "gsq",
+      "status": "original_verified_audit_pending",
+      "task_wall_s": 742.6879999999946,
+      "client_s": 737.8440000000119,
+      "outcome": "verified",
+      "hidden": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "returncode": 0
+      },
+      "visible": {
+        "tests": 40,
+        "failures": 0,
+        "errors": 0,
+        "returncode": 0
+      },
+      "workflow": {
+        "tests_file_changed": true,
+        "red_then_green": true,
+        "test_runs": 4,
+        "evidence": {
+          "user-config-focused-0001.stdout": {
+            "bytes": 451,
+            "sha256": "40b4473502523a1bd7fff5623d51725e57626ec7ca07cc34ea265a20e9263e02"
+          },
+          "user-config-focused-0001.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0002.stdout": {
+            "bytes": 1623,
+            "sha256": "0e2d66b735db2194107c9879fbd85d59071f058d9e36fbf0068e04013d423df2"
+          },
+          "user-config-focused-0002.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0003.stdout": {
+            "bytes": 1086,
+            "sha256": "7911a3988ec545d7438dedb9f4f75ddfdeddccc5496d260f8af48d20914223bf"
+          },
+          "user-config-focused-0003.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0004.stdout": {
+            "bytes": 541,
+            "sha256": "caba155e3722302480fafc8662ae30527beaf039b0ed3bdb94165ccecdd6bc0b"
+          },
+          "user-config-focused-0004.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "visible-tests.jsonl": {
+            "bytes": 7035,
+            "sha256": "03ce72973c6d746ba3328d6d20ffa72e2c6598f54ef10af114db5c91e6a184f6"
+          }
+        }
+      },
+      "analysis": {
+        "assistant_messages": 15,
+        "tool_calls": {
+          "Edit": 3,
+          "Read": 15,
+          "mcp__visible-tests__run_visible_tests": 4
+        },
+        "tool_errors": 2,
+        "thinking_chars": 75396,
+        "answer_chars": 3729,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 15
+        },
+        "model_names": [
+          "Qwen3.8-27B-gsq-mtp-ngram"
+        ]
+      },
+      "context_high_water_tokens": 41275,
+      "evidence_root": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-journal-9u3dyvst/gsq"
+    },
+    {
+      "arm": "exl3",
+      "status": "failed",
+      "task_wall_s": 1024.8589999999967,
+      "client_s": 1018.0629999999946,
+      "outcome": "failed",
+      "hidden": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "returncode": 0
+      },
+      "visible": {
+        "tests": 21,
+        "failures": 0,
+        "errors": 0,
+        "returncode": 0
+      },
+      "workflow": {
+        "tests_file_changed": true,
+        "red_then_green": false,
+        "test_runs": 3,
+        "evidence": {
+          "user-config-focused-0001.stdout": {
+            "bytes": 451,
+            "sha256": "5b3090588e978b4c80f5f09bb7af4063047460e2268222fb739b3ce7ec5d280f"
+          },
+          "user-config-focused-0001.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0002.stdout": {
+            "bytes": 1623,
+            "sha256": "86d0285f4a671b8dd19701966187000a75728c51a4fc461f63953d7f070d7e6b"
+          },
+          "user-config-focused-0002.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "user-config-focused-0003.stdout": {
+            "bytes": 541,
+            "sha256": "5d245e7b477bd189a3685eb01ce5b54650ee74234d88bc23f992daedd601171a"
+          },
+          "user-config-focused-0003.stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "visible-tests.jsonl": {
+            "bytes": 5124,
+            "sha256": "c6f0fa1592b6d119240f2b94f765f94cbff16ffc08e6519e36db7612cf43d520"
+          }
+        }
+      },
+      "analysis": {
+        "assistant_messages": 16,
+        "tool_calls": {
+          "Bash": 1,
+          "Edit": 3,
+          "Read": 11,
+          "mcp__visible-tests__run_visible_tests": 3
+        },
+        "tool_errors": 1,
+        "thinking_chars": 101841,
+        "answer_chars": 3523,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 16
+        },
+        "model_names": [
+          "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5"
+        ]
+      },
+      "context_high_water_tokens": 42834,
+      "evidence_root": "C:/Users/xenod/AppData/Local/Temp/qwen-pal-journal-7m_1gibq/exl3"
+    }
+  ],
+  "interpretation": "GSQ passes hidden, visible, scope and measured RED/GREEN. EXL3 passes hidden/visible/scope but strict RED/GREEN gate is false; no accepted EXL3 task. This is a focused result, not the Q4-class five-task campaign.",
+  "original_pal_unchanged": true,
+  "ports_closed": true,
+  "other_arms": "not_run"
+}

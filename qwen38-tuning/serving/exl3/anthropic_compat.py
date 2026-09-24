@@ -147,7 +147,7 @@ def anthropic_to_openai(body):
             messages.extend(_user_turn(m.get("content"), unknown_blocks))
     req = {"model": body.get("model"), "messages": messages,
            "max_tokens": body.get("max_tokens"), "stream": bool(body.get("stream", False))}
-    for k in ("temperature", "top_p", "top_k"):
+    for k in ("temperature", "top_p", "top_k", "rep_p", "freq_p", "min_p"):   # issue #86: opt-in sampler keys ride along
         if k in body:
             req[k] = body[k]
     if body.get("stop_sequences"):
@@ -340,20 +340,37 @@ class StreamTranslator:
 PING = ("ping", {"type": "ping"})
 
 
-async def pump(lines, translator, ping_s = 5.0):
+async def pump(lines, translator, ping_s = 5.0, should_stop = None):   # xeno: #83
     """Async-iterate OpenAI SSE lines from `lines`, yield Anthropic (event, data)
     pairs from `translator`, and yield a `ping` whenever `ping_s` seconds pass
     with nothing from upstream — the prefill silence Claude Code otherwise
-    reports as an API error. Stops at `data: [DONE]` or end of stream."""
+    reports as an API error. Stops at `data: [DONE]` or end of stream.
+    should_stop is polled at most every second of silence (the wire keeps its
+    ping_s cadence); when true the outstanding read is cancelled and the pump
+    returns, so an ESC during prefill silence exits promptly."""
     it = lines.__aiter__()
     pending = None
+    idle = 0.0   # xeno
+    quantum = min(1.0, ping_s)   # xeno: probe often, ping at the old cadence
     while True:
         if pending is None:
             pending = asyncio.ensure_future(it.__anext__())
-        done, _ = await asyncio.wait({pending}, timeout = ping_s)
+        done, _ = await asyncio.wait({pending}, timeout = quantum)
         if not done:
-            yield PING
+            if should_stop is not None and should_stop():   # xeno: #83
+                pending.cancel()   # xeno: don't strand the read
+                try:   # xeno: let the cancellation settle before returning,
+                    await pending   # xeno: else the lines generator is still
+                except asyncio.CancelledError:   # xeno: running and the
+                    pass   # xeno: caller's aclose() raises RuntimeError
+                pending = None   # xeno
+                return   # xeno
+            idle += quantum   # xeno
+            if idle >= ping_s:   # xeno
+                idle = 0.0   # xeno
+                yield PING
             continue
+        idle = 0.0   # xeno
         try:
             line = pending.result()
         except StopAsyncIteration:

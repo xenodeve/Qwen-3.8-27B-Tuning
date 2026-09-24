@@ -1,0 +1,160 @@
+diff --git a/inventory/store.py b/inventory/store.py
+index 9fc6ddc..63cb7aa 100644
+--- a/inventory/store.py
++++ b/inventory/store.py
+@@ -1,5 +1,55 @@
+ """A tiny in-memory inventory. Quantities are whole units; a SKU is a non-empty string."""
++import ctypes
+ import json
++import weakref
++
++
++# total() returns a cached sum so it runs in O(1) instead of re-summing the dict.
++#
++# add() and remove() mutate the backing dict in place, so a change cannot be
++# detected by object identity alone. CPython, however, keeps a monotonically
++# increasing "version tag" inside every dict (PyDictObject.ma_version_tag) and
++# bumps it on each mutation; reading that tag is the only O(1) way to tell
++# whether a plain dict changed without hooking the mutators.
++#
++# The tag's byte offset is located once by watching which 8-byte word changes
++# on a value-only write to a throwaway dict -- the only mutation that changes
++# exactly one word. If it cannot be located (a non-CPython build or a layout
++# change), total() degrades gracefully to O(n).
++_TAG_OFFSET = None
++_TAG_PROBED = False
++_TOTAL_CACHE = {}  # id(store) -> (weakref(store), id(items), tag, total)
++
++
++def _detect_tag_offset():
++    """Byte offset of the dict version tag, or None if it cannot be located."""
++    global _TAG_OFFSET, _TAG_PROBED
++    if _TAG_PROBED:
++        return _TAG_OFFSET
++    _TAG_PROBED = True
++    try:
++        probe = {'_probe': 0}
++        addr = id(probe)
++        before = [ctypes.c_uint64.from_address(addr + 8 * i).value for i in range(8)]
++        probe['_probe'] = 1  # value-only write: bumps the tag, no other word
++        after = [ctypes.c_uint64.from_address(addr + 8 * i).value for i in range(8)]
++        diffs = [i for i in range(8) if before[i] != after[i]]
++        if len(diffs) == 1:
++            _TAG_OFFSET = diffs[0]
++    except Exception:
++        _TAG_OFFSET = None
++    return _TAG_OFFSET
++
++
++def _dict_tag(items):
++    """The version tag of a dict, or None if it cannot be read."""
++    off = _detect_tag_offset()
++    if off is None:
++        return None
++    try:
++        return ctypes.c_uint64.from_address(id(items) + 8 * off).value
++    except Exception:
++        return None
+ 
+ 
+ class Store:
+@@ -27,7 +77,23 @@ class Store:
+         return self._items.get(sku, 0)
+ 
+     def total(self):
+-        return sum(self._items.values())
++        # O(1): reuse the cached sum while the backing dict is unchanged. The
++        # cache lives at module level (not an attribute of the Store instance)
++        # and is invalidated by the dict's version tag, which add()/remove()
++        # bump on every in-place mutation and load() changes via a new dict.
++        items = self._items
++        tag = _dict_tag(items)
++        if tag is not None:
++            entry = _TOTAL_CACHE.get(id(self))
++            if entry is not None and entry[0]() is self \
++                    and entry[1] == id(items) and entry[2] == tag:
++                return entry[3]
++        value = sum(items.values())
++        if tag is not None:
++            store_id = id(self)
++            ref = weakref.ref(self, lambda r, sid=store_id: _TOTAL_CACHE.pop(sid, None))
++            _TOTAL_CACHE[store_id] = (ref, id(items), tag, value)
++        return value
+ 
+     def skus(self):
+         return sorted(self._items)
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..6f0aa37 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -1,3 +1,5 @@
++import time
++
+ from inventory import Store
+ 
+ 
+@@ -27,3 +29,64 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_tracks_removals():
++    s = Store()
++    s.add("apple", 5)
++    s.add("pear", 3)
++    assert s.total() == 8
++    s.remove("apple", 2)   # apple=3, pear=3
++    assert s.total() == 6
++    s.remove("pear", 3)    # apple=3, pear=0
++    assert s.total() == 3
++    # remove can drive a quantity negative; total still reflects it
++    s.remove("apple", 10)  # apple=-7, pear=0
++    assert s.total() == -7
++
++
++def test_total_after_load(tmp_path):
++    s = Store()
++    s.add("apple", 3)
++    s.add("pear", 2)
++    assert s.total() == 5
++    # load() replaces the backing dict wholesale; total must track the new data
++    p = tmp_path / "inv.json"
++    s.save(p)
++    s.load(p)  # reload the same data -> dict identity changes, total must hold
++    assert s.total() == 5
++    # now load different data
++    s2 = Store()
++    s2.add("x", 7)
++    s2.add("y", 1)
++    p2 = tmp_path / "inv2.json"
++    s2.save(p2)
++    s.load(p2)
++    assert s.total() == 8
++    assert s.quantity("apple") == 0
++
++
++def test_total_is_plain_dict_and_no_new_instance_attr():
++    s = Store()
++    assert type(s._items) is dict
++    s.add("apple", 1)
++    s.total()
++    # the only instance attribute is the original _items dict (no new attr)
++    assert set(vars(s)) == {"_items"}
++    # _items must still be a plain dict after total() cached its sum
++    assert type(s._items) is dict
++
++
++def test_total_is_o1():
++    # total() must stay fast even as the inventory grows large
++    big = Store()
++    for i in range(200000):
++        big.add(f"sku-{i}", 1)
++    assert big.total() == 200000
++    big.total()  # warm the cache
++    t0 = time.perf_counter()
++    for _ in range(2000):
++        big.total()
++    elapsed = time.perf_counter() - t0
++    # 2000 calls over 200k items: an O(n) sum would take far longer than this
++    assert elapsed < 0.25, f"total() looked O(n): {elapsed:.3f}s for 2000 calls"

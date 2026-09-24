@@ -1,0 +1,284 @@
+"""Experimental profiles and raw quality screening for issue #92.
+
+Reuses the arena's launcher recipe and coding fixtures. Does not change defaults.
+Only the process spawned here is terminated. No port-wide or name-wide kills.
+"""
+import argparse
+import hashlib
+import json
+import os
+import re
+import shlex
+from pathlib import Path
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+
+import dflash2_arena as arena
+from harness import CONTRACT, archs_missing_for_gpus, parse_layer_split, target_layer_count
+from tasks import TASKS
+
+ROOT = Path(__file__).resolve().parents[2]
+RESULTS = ROOT / 'qwen38-tuning/results/gsq-2026-09-20'
+GSQ = ROOT / 'models/ISTA-DASLab-Qwen3.8-27B-GSQ-RCO/Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf'
+EXL3 = ROOT / 'models/turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5'
+EXPECTED_GSQ = '58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f'
+
+
+def replay_request(anthropic_body, max_tokens):
+    sys.path.insert(0, str(ROOT / 'qwen38-tuning/serving/exl3'))
+    from anthropic_compat import anthropic_to_openai
+    body = anthropic_to_openai(anthropic_body)
+    body.update(stream=False, max_tokens=max_tokens, temperature=1.0,
+                top_p=.95, top_k=20, min_p=0.0, seed=42, cache_prompt=False,
+                reasoning_effort='medium', chat_template_kwargs={'reasoning_effort': 'medium'})
+    return body
+
+
+def replace_flag(argv, flag, value):
+    """Replace every previous occurrence so the recorded argv is unambiguous."""
+    out = []
+    i = 0
+    while i < len(argv):
+        if argv[i] == flag:
+            i += 2
+        else:
+            out.append(argv[i])
+            i += 1
+    return out + [flag, str(value)]
+
+
+def llama_argv(artifact, ctx, spec, split):
+    if artifact not in ('gsq', 'nvfp4'):
+        raise ValueError('Unknown llama.cpp artifact: ' + artifact)
+    if spec not in ('none', 'mtp', 'served'):
+        raise ValueError('Unknown speculation mode: ' + spec)
+    if artifact == 'gsq' and spec == 'served':
+        raise ValueError('GSQ has no validated served profile')
+    if ctx < 4096 or ctx > 262144:
+        raise ValueError('Context outside experiment bounds')
+    if spec == 'served':
+        _, extra, env = arena.arm_parts(arena.ARM_SETS['nvfp4-served'][0])
+        argv = arena.server_argv(ctx, extra, env)
+    else:
+        argv = arena.server_argv(ctx, [])
+    values = {'-m': GSQ if artifact == 'gsq' else arena.NVFP4_VERY_LOW,
+              '--alias': 'Qwen3.8-27B-' + artifact + '-' + spec,
+              '-sm': 'tensor', '-ts': split, '-ub': 1024}
+    if spec != 'served':
+        values['--spec-type'] = 'none' if spec == 'none' else 'draft-mtp'
+        if spec == 'mtp':
+            values['--spec-draft-n-max'] = 3
+    for flag, value in values.items():
+        argv = replace_flag(argv, flag, value)
+    return argv
+
+
+def response_record(response, ctx, wall):
+    choice = response['choices'][0]
+    usage = response.get('usage') or {}
+    content = choice['message'].get('content') or ''
+    return {'ctx': ctx, 'prompt_tokens': usage.get('prompt_tokens'),
+            'generated_tokens': usage.get('completion_tokens'),
+            'finish_reason': choice.get('finish_reason'), 'wall_s': wall,
+            'complete': choice.get('finish_reason') == 'stop' and bool(content.strip()),
+            'response': response}
+
+
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def gpu_snapshot():
+    p = subprocess.run(['nvidia-smi', '--query-gpu=index,uuid,name,memory.total,memory.used,memory.free,driver_version',
+                        '--format=csv,noheader,nounits'], capture_output=True, text=True, check=True)
+    return p.stdout.strip().splitlines()
+
+
+def request(base, route, body=None, timeout=900):
+    data = None if body is None else json.dumps(body, ensure_ascii=False).encode('utf-8')
+    req = urllib.request.Request(base + route, data=data, headers={'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return json.load(response)
+
+
+def screen_cases():
+    cases = [{'id': t['id'], 'messages': [{'role': 'system', 'content': CONTRACT},
+              {'role': 'user', 'content': t['prompt']}], 'test': t['test']}
+             for t in TASKS if t['id'] in ('merge_intervals', 'toposort')]
+    cases += [
+        {'id': 'thai-prose', 'messages': [{'role': 'user', 'content':
+          'อธิบายเป็นภาษาไทย 8 ประโยคว่าการดาวน์โหลดวิดีโอและสำรองไฟล์ควรทำอย่างไร '
+          'ใช้คำว่า เว็บไซต์ ลิงก์ โฟลเดอร์ ชื่อไฟล์ และข้อผิดพลาด ห้ามเขียนโค้ด'}]},
+        {'id': 'thai-incident-repair', 'messages': [{'role': 'user', 'content':
+          'แก้การสะกดของข้อความต่อไปนี้ให้เป็นภาษาไทยที่ถูกต้อง รักษาความหมายเดิม '
+          'ตอบเฉพาะข้อความที่แก้แล้ว: ผมจะสแกนโครงส้างโปรเจกตก่อนแล่วบอกร้่องคณภาพ'}]},
+    ]
+    return cases
+
+
+def production_nvfp4_argv(ctx):
+    """Resolve the actual worker rather than the arena's older snapshot."""
+    env = dict(os.environ, CUDA_PATH=r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3')
+    resolved = subprocess.run(['pwsh', '-NoProfile', '-File',
+        str(ROOT / 'qwen38-tuning/scripts/worker-q4-dual.ps1'),
+        '-Nvfp4', '-Ctx', str(ctx), '-WhatIf'], capture_output=True,
+        encoding='utf-8', errors='replace', check=True, env=env)
+    match = re.search(r'WhatIf: would run\s*\n\s*(.+)', resolved.stdout)
+    if not match:
+        raise RuntimeError('Worker did not resolve argv: ' + resolved.stdout[-2000:])
+    argv = [x.strip('"') for x in shlex.split(match[1].strip(), posix=False)]
+    if argv[argv.index('-m') + 1] != arena.NVFP4_VERY_LOW:
+        raise RuntimeError('NVFP4 worker no longer selects the pinned incumbent')
+    return argv
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--artifact', choices=['gsq', 'nvfp4', 'exl3'], required=True)
+    ap.add_argument('--ctx', type=int, default=65536)
+    ap.add_argument('--spec', choices=['none', 'mtp', 'served'], default='none')
+    ap.add_argument('--round', type=int, default=1)
+    ap.add_argument('--max-tokens', type=int, default=4096)
+    ap.add_argument('--what-if', action='store_true')
+    ap.add_argument('--replay', type=Path, help='Captured original-session Anthropic request; no synthetic filler')
+    args = ap.parse_args()
+    port = 8000 if args.artifact == 'exl3' else 8080
+    for busy_port in (8000, 8080):
+        with socket.socket() as probe:
+            if probe.connect_ex(('127.0.0.1', busy_port)) == 0:
+                raise RuntimeError(f'Port {busy_port} occupied; refusing overlapping inference')
+    gpu_before = gpu_snapshot()
+    budgets = [int(line.split(',')[-2].strip()) - (2500 if i == 0 else 512)
+               for i, line in enumerate(gpu_before)]
+    if len(budgets) != 2 or min(budgets) < 1024:
+        raise RuntimeError('Insufficient dual-GPU budget')
+    split = ','.join(map(str, budgets))
+    if args.artifact == 'exl3':
+        if args.ctx != 262144 or args.spec != 'served':
+            raise ValueError('EXL3 reference must use Profile G: --ctx 262144 --spec served')
+        argv = [str(ROOT / 'exllama3-venv/Scripts/python.exe'),
+                str(ROOT / 'qwen38-tuning/serving/exl3/server.py'), '-m', str(EXL3),
+                '-dm', 'mtp', '-cs', '262144', '-cq', '4', '--port', '8000',
+                '--host', '127.0.0.1', '--extra', '-tp -tpb native -gs 9,15.5 -ndt 3']
+        cwd = ROOT / 'exllamav3-mia'
+    else:
+        argv = (production_nvfp4_argv(args.ctx) if args.artifact == 'nvfp4' and args.spec == 'served'
+                else llama_argv(args.artifact, args.ctx, args.spec, split))
+        # Production verbosity 3 omits the architecture/layer evidence required
+        # by the measurement guards. Record this observability-only deviation.
+        if args.spec == 'served':
+            argv = replace_flag(argv, '-lv', 5)
+        cwd = ROOT
+    if args.what_if:
+        print(json.dumps({'argv': argv, 'gpu_before': gpu_before}, indent=2))
+        return
+    stamp = time.strftime('%Y%m%d-%H%M%S')
+    run = RESULTS / f'{stamp}-{args.artifact}-{args.spec}-c{args.ctx}-r{args.round}'
+    run.mkdir(parents=True, exist_ok=False)
+    (run / 'runner.py.txt').write_text(Path(__file__).read_text(encoding='utf-8'), encoding='utf-8')
+    manifest = {'argv': argv, 'cwd': str(cwd), 'artifact': args.artifact, 'ctx': args.ctx,
+                'spec': args.spec, 'round': args.round, 'gpu_before': gpu_before,
+                'comparison': 'short-quality-screen; not deep-context certification'}
+    files = list(EXL3.glob('model*.safetensors')) if args.artifact == 'exl3' else [Path(argv[argv.index('-m') + 1])]
+    manifest['files'] = [{'path': str(p), 'bytes': p.stat().st_size, 'sha256': digest(p)} for p in files]
+    if args.artifact == 'gsq' and manifest['files'][0]['sha256'] != EXPECTED_GSQ:
+        raise ValueError('GSQ checksum mismatch')
+    manifest['head'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    manifest['server_source_sha256'] = digest(ROOT / 'qwen38-tuning/serving/exl3/server.py') if args.artifact == 'exl3' else digest(argv[0])
+    manifest['runner_sha256'] = digest(__file__)
+    manifest['fixtures_sha256'] = digest(Path(__file__).with_name('tasks.py'))
+    manifest['measurement_notes'] = ['Single exploratory round, not a paired performance verdict',
+                                     'Server timings retained without cross-engine formula conversion',
+                                     'Requested seed may not be implemented by every engine',
+                                     'NVFP4 served profile uses -lv 5 for required boot evidence']
+    if args.artifact == 'exl3':
+        manifest['guard_sources'] = {name: digest(ROOT / 'qwen38-tuning/serving/exl3' / name)
+                                     for name in ('thai_sampler.py', 'cjk_guard.py', 'loop_guard.py', 'anthropic_compat.py')}
+    (run / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    base = f'http://127.0.0.1:{port}'
+    env = dict(os.environ, PYTHONIOENCODING='utf-8', CUDA_VISIBLE_DEVICES='0,1')
+    log_path = run / 'server.log'
+    print('RUN ' + str(run), flush=True)
+    with log_path.open('w', encoding='utf-8') as log:
+        p = subprocess.Popen(argv, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT,
+                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        manifest['pid'] = p.pid
+        try:
+            deadline = time.monotonic() + 600
+            while True:
+                if p.poll() is not None:
+                    raise RuntimeError(f'Server exited at load: {p.returncode}')
+                try:
+                    health = request(base, '/health', timeout=2)
+                    break
+                except Exception:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError('Server health timeout')
+                    time.sleep(2)
+            manifest['health'] = health
+            manifest['gpu_loaded'] = gpu_snapshot()
+            if args.artifact != 'exl3':
+                text = log_path.read_text(encoding='utf-8', errors='replace')
+                missing = archs_missing_for_gpus(text, ['8.9', '12.0'])
+                if missing:
+                    raise RuntimeError('Missing CUDA architectures: ' + str(missing))
+                manifest['layers'] = parse_layer_split(text, expect_layers=target_layer_count(text))
+                if manifest['layers'][1] != 0:
+                    raise RuntimeError('CPU layer spill')
+                manifest['props'] = request(base, '/props')
+            cases = screen_cases()
+            if args.replay:
+                captured = json.loads(args.replay.read_text(encoding='utf-8'))
+                cases = [{'id': 'original-session-replay', 'messages': [],
+                          'body': replay_request(captured, args.max_tokens)}]
+                manifest['replay_source'] = str(args.replay)
+                manifest['replay_sha256'] = digest(args.replay)
+                manifest['comparison'] = 'original-session replay; depth is response prompt_tokens, never allocated ctx'
+                if args.artifact == 'exl3':
+                    manifest['count_tokens'] = request(base, '/v1/messages/count_tokens', captured)
+            for case in cases:
+                body = {'model': args.artifact, 'messages': case['messages'],
+                        'max_tokens': args.max_tokens, 'temperature': 1.0,
+                        'top_p': .95, 'top_k': 20, 'min_p': 0.0, 'seed': 42,
+                        'reasoning_effort': 'medium', 'cache_prompt': False,
+                        'chat_template_kwargs': {'reasoning_effort': 'medium'}}
+                if case.get('body'):
+                    body = case['body']
+                    if args.artifact != 'exl3':
+                        body['model'] = argv[argv.index('--alias') + 1]
+                # EXL3's production Thai cap remains active; record this explicitly.
+                row = {'case': case['id'], 'artifact': args.artifact, 'request': body,
+                       'test': case.get('test'), 'guards': 'production' if args.artifact == 'exl3' else 'engine-default'}
+                t0 = time.perf_counter()
+                try:
+                    response = request(base, '/v1/chat/completions', body)
+                    row.update(response_record(response, args.ctx, time.perf_counter() - t0))
+                    if args.replay:
+                        row['incident_depth_reached'] = (row.get('prompt_tokens') or 0) >= 143200
+                except Exception as exc:
+                    row.update(error=repr(exc), wall_s=time.perf_counter() - t0)
+                row['gpu_after'] = gpu_snapshot()
+                with (run / 'responses.jsonl').open('a', encoding='utf-8') as out:
+                    out.write(json.dumps(row, ensure_ascii=False) + '\n')
+                print(json.dumps({k: row.get(k) for k in ('case', 'prompt_tokens', 'generated_tokens', 'finish_reason', 'wall_s', 'error')}), flush=True)
+                if row.get('error'):
+                    break
+        except Exception as exc:
+            manifest['error'] = repr(exc)
+            raise
+        finally:
+            manifest['exit_before_cleanup'] = p.poll()
+            if p.poll() is None:
+                subprocess.run(['taskkill', '/PID', str(p.pid), '/T', '/F'], capture_output=True)
+                p.wait(timeout=30)
+            manifest['exit_after_cleanup'] = p.returncode
+            manifest['gpu_end'] = gpu_snapshot()
+            (run / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+
+
+if __name__ == '__main__':
+    main()

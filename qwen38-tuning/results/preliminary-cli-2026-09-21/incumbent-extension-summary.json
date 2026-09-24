@@ -1,0 +1,202 @@
+{
+  "protocol": "preliminary-cli-code1-incumbents-v1",
+  "extends": "preliminary-cli-code1-v1",
+  "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-preliminary-incumbents-zj48yo_k",
+  "independent_checks_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-incumbents-independent-hsgzwwhv",
+  "rows": [
+    {
+      "artifact": "nvfp4",
+      "quant": "NVFP4-VERY-LOW",
+      "files": [
+        {
+          "path": "C:\\Users\\xenod\\.cache\\huggingface\\hub\\models--esatapedico--Qwen3.8-27B-NVFP4-MTP-GGUF\\snapshots\\bcd7a7d3e251d4ec0fd15c72584b5eb9e0981383\\Qwen3.8-27B-NVFP4-MTP-VERY-LOW.gguf",
+          "bytes": 14862277984,
+          "sha256": "74ea17ea05e0e0241af8d5b29cdea38b3f4509f66d9b96c1ab05f0e1f0e537d9"
+        }
+      ],
+      "task_wall_s": 141.73500000001513,
+      "setup_hash_guard_load_s": 29.39100000000326,
+      "task_status": "verified",
+      "hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.32800000000861473
+      },
+      "visible": {
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.3129999999946449
+      },
+      "scope_violations": [],
+      "generated_tests_detect_initial_bug": true,
+      "generated_tests_failed_on_initial_source": 6,
+      "context_high_water_tokens": 8192,
+      "analysis": {
+        "assistant_messages": 8,
+        "tool_calls": {
+          "Edit": 4,
+          "Read": 5
+        },
+        "tool_errors": 0,
+        "thinking_chars": 11030,
+        "answer_chars": 2217,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 8
+        },
+        "model_names": [
+          "Qwen3.8-27B-NVFP4-MTP"
+        ]
+      },
+      "generated_tokens": 5278,
+      "independent_reverification": true,
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-preliminary-incumbents-zj48yo_k\\nvfp4\\session"
+    },
+    {
+      "artifact": "exl3",
+      "quant": "SC4.0bpw-H5",
+      "files": [
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\model-00001-of-00002.safetensors",
+          "bytes": 8548255745,
+          "sha256": "2633b0cbcc4b250a2837f78fac315d2f4d6c9ce3decc51a625bbf30a2a5b214f"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\model-00002-of-00002.safetensors",
+          "bytes": 8152973892,
+          "sha256": "23879b3c29049377af1c14ba78a1a998d0bc7053bd9237f4a352821730a83c12"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\cal_trace.json",
+          "bytes": 3410836,
+          "sha256": "7a3436f016f3f1822bc5de1cdbb23797965c145411b3c5c600fb27812d87dd2d"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\chat_template.jinja",
+          "bytes": 8952,
+          "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\config.json",
+          "bytes": 4621,
+          "sha256": "c84700d9b76eb5fb90da30b51b2a0c5293c27a5eed387c4b644bb7e143309342"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\generation_config.json",
+          "bytes": 202,
+          "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\model.safetensors.index.json",
+          "bytes": 238664,
+          "sha256": "29cb5bf609813f9a36a8fd19c54af4d3772068816580cb27718e6385aff96945"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\preprocessor_config.json",
+          "bytes": 390,
+          "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\qbench_prompts_gen.json",
+          "bytes": 344109,
+          "sha256": "6070481d810633355e264a618f8a3727af0fc135b3c3671c917928dc6dc215ed"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\quantization_config.json",
+          "bytes": 629045,
+          "sha256": "06807302015533a03e09d9d85ea9235e6cf66b1cfe91ad214601c268ed594c5a"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\tokenizer.json",
+          "bytes": 12809320,
+          "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\tokenizer_config.json",
+          "bytes": 17928,
+          "sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\video_preprocessor_config.json",
+          "bytes": 385,
+          "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+        },
+        {
+          "path": "C:\\AI\\models\\turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5\\vocab.json",
+          "bytes": 6722759,
+          "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+        }
+      ],
+      "task_wall_s": 90.21799999999348,
+      "setup_hash_guard_load_s": 63.35899999999674,
+      "task_status": "verified",
+      "hidden": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.34400000001187436
+      },
+      "visible": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "returncode": 0,
+        "elapsed_s": 0.28099999998812564
+      },
+      "scope_violations": [],
+      "generated_tests_detect_initial_bug": true,
+      "generated_tests_failed_on_initial_source": 5,
+      "context_high_water_tokens": 4995,
+      "analysis": {
+        "assistant_messages": 5,
+        "tool_calls": {
+          "Edit": 3,
+          "Read": 3
+        },
+        "tool_errors": 0,
+        "thinking_chars": 5156,
+        "answer_chars": 1694,
+        "thinking_states": {
+          "unavailable": 0,
+          "present-empty": 0,
+          "present-text": 5
+        },
+        "model_names": [
+          "turboderp-Qwen3.8-27B-EXL3-SC4.0bpw-H5"
+        ]
+      },
+      "generated_tokens": 3433,
+      "independent_reverification": true,
+      "evidence_root": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-preliminary-incumbents-zj48yo_k\\exl3\\session"
+    }
+  ],
+  "manual_review": {
+    "finals": {
+      "reviewed": 2,
+      "total": 2
+    },
+    "visible_thinking": {
+      "reviewed_sessions": 2,
+      "total_sessions": 2
+    },
+    "workspace_diffs": {
+      "reviewed": 2,
+      "total": 2
+    }
+  },
+  "quality_notes": {
+    "nvfp4": "Functionally correct; long planning/rechecking and high token/time cost in this sample.",
+    "exl3": "Functionally correct, but final Thai contains repeated malformed marks/spacing and misspellings despite native guards."
+  },
+  "verdict": "Both pass code1; EXL3 is materially faster than NVFP4 in this sample but has a severe Thai-final quality defect. No stable winner."
+}

@@ -1,0 +1,34 @@
+{
+  "scope": "frozen-split-c65536; medium; spec none; seed 17; all 24 complete visible thinking fields and final answers read by main session",
+  "review_status": "baseline only; not a long-horizon agent verdict",
+  "turbo": {
+    "run": "20260920-095043-turbo-stock-medium-none-n3-c65536-r1",
+    "code": "Both solutions match their algorithmic reasoning and pass frozen assertions. merge_intervals sorts the caller list in place; prompt does not forbid mutation, so not a scored failure.",
+    "thai_repair": "Recognizes that บอกร่อง is not normal Thai, but retains it under an overly literal preserve-meaning interpretation. Final fails exact target and remains unnatural.",
+    "math": "Both correct; modular answer independently checks Fermat and squaring, adding work without changing answer.",
+    "thai_prose": "Required words present and readable Thai; eight intended clauses are not numbered. No full agent persistence inference."
+  },
+  "dirk": {
+    "run": "20260920-095344-dirk-stock-medium-none-n3-c65536-r1",
+    "code": "Brief interval reasoning, full min-heap topological-sort explanation; both correct against assertions.",
+    "thai_repair": "Intermediate drafts contain บอกรื่อง, then self-corrects to บอกเรื่อง in final. Correct final is supported by actual revision, not merely short thinking.",
+    "thai_prose": "Invents a claim that the prompt has intentional typos, listing identical before/after words. Final nevertheless provides eight readable numbered sentences and all required terms.",
+    "math": "Both correct with concise valid reasoning."
+  },
+  "gsq": {
+    "run": "20260920-095615-gsq-stock-medium-none-n3-c65536-r1",
+    "code": "Correct interval merge; topological sort re-derives edge direction and traces a concrete example plus empty/self-loop cases. Longer thought has identifiable checking content, not automatically a loop.",
+    "thai_repair": "Considers adding ว่า then rejects it and produces expected final; descriptions of Thai marks are inaccurate despite correct output.",
+    "thai_prose": "Final rewrites the eight-sentence draft into fewer clearly separable clauses; exact eight-sentence adherence is doubtful. Required words survive; no misspelled required terms observed.",
+    "math": "Both correct."
+  },
+  "swift": {
+    "run": "20260920-095836-swift-stock-medium-none-n3-c65536-r1",
+    "code": "Both algorithmic plans and final implementations agree and pass assertions. Accounts for target-only graph nodes.",
+    "thai_repair": "Produces expected final, but explanation about missing Thai tone marks is confused. Correct final does not imply correct linguistic explanation.",
+    "thai_prose": "Readable final preserves eight drafted clauses and required terms. Its internal word-location checklist contains minor incorrect sentence references.",
+    "math": "Both basic probes correct; insufficient to clear broader math regression concerns."
+  },
+  "unmeasured": ["tool misuse", "duplicate edits", "continuation nudges", "long-horizon abandonment", "guard false changes", "general math accuracy"],
+  "language_guard": "All baseline requests used conditional Han masking; absence of Han is not evidence of unguarded behavior."
+}

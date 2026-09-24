@@ -1,0 +1,36 @@
+diff --git a/tests/test_store.py b/tests/test_store.py
+index fb40e14..1d686b9 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -27,3 +27,31 @@ def test_save_and_load_roundtrip(tmp_path):
+     s.save(p)
+     t = Store().load(p)
+     assert t.quantity("apple") == 3 and t.skus() == ["apple"]
++
++
++def test_total_tracks_add_and_remove():
++    s = Store()
++    s.add("apple", 5)
++    s.add("pear", 3)
++    assert s.total() == 8
++    s.remove("apple", 2)
++    assert s.total() == 6
++    s.remove("pear", 3)
++    assert s.total() == 3
++
++
++def test_total_empty_store_is_zero():
++    assert Store().total() == 0
++
++
++def test_total_equals_sum_of_quantities():
++    s = Store()
++    for sku, qty in [("a", 1), ("b", 2), ("c", 3), ("a", 4)]:
++        s.add(sku, qty)
++    assert s.total() == sum(s.quantity(k) for k in s.skus())
++
++
++def test_items_is_plain_dict():
++    s = Store()
++    s.add("apple", 1)
++    assert type(s._items) is dict

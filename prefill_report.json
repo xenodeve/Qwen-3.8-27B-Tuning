@@ -1,0 +1,74 @@
+{
+  "findings": [
+    {
+      "technique": "Root-cause fix for Qwen 27B hybrid (Gated DeltaNet, ~75% recurrent layers) full re-prefill: use a build with recurrent_shrink / recurrent_expand (BeeLlama fork Anbeeld/beellama.cpp, or upstream PR #24785). The recurrent state is shrunk to 1 cell before prompt-cache save/load so it matches the restored KV, then re-expanded after, so context checkpoints stay valid and re-processing never triggers.",
+      "source_url": "https://github.com/ggml-org/llama.cpp/pull/24785",
+      "confidence": "high",
+      "claimed_gain": "Eliminates full re-processing across agent turns entirely; before fix 38K ctx cost ~207 s prefill/turn; after fix 5 consecutive agent turns (21K-24K ctx) all 'No re-processing' at 63-93 t/s",
+      "exact_steps": "Switch to BeeLlama fork build (Anbeeld/beellama.cpp, beellama-staging releases) which implements recurrent_shrink/expand, or test once upstream PR #24785 merges; on AMD also disable --ctx-checkpoints on non-recurrent models to avoid ROCm crash #20176; recurrent models keep checkpoints enabled.",
+      "hardware_measured": "AMD RX 7900 XTX 24GB, ROCm 7.2, CachyOS; Qwen3.6-35B-A3B MoE MTP Q4_K_M @ 96K ctx, n=2; also Qwen3.6-27B on RX 7800 XT"
+    },
+    {
+      "technique": "Raise --cache-ram so the single-conversation cache fits; the default cap is 8192 MiB and once the per-slot state exceeds it llama-server skips caching entirely and re-prefills. Budget = num cached prefixes x avg prefix tokens x bytes/token; use -1 for unlimited. Lower --checkpoint-min-step (-cms, default 8192, now an eviction floor) toward your median turn length so per-turn checkpoints are not discarded.",
+      "source_url": "https://particula.tech/blog/prompt-reprocessing-swa-hybrid-models-kv-cache",
+      "confidence": "high",
+      "claimed_gain": "Keeps the prompt cache warm and prevents forced full re-prefill; a 9,801 MiB single-conversation cache that blows the 8192 cap currently forces whole-conversation re-prefill. Context checkpoints run ~62-215 MiB each; 32 x 150 MiB ~ 4.7 GiB already > half the default 8 GiB cache-ram.",
+      "exact_steps": "Run server with '-lv 4' (trace; the re-processing line is SLT_TRC and hidden at default -lv 3) and grep 'forcing full prompt re-processing due to lack of cache data'; raise --cache-ram to >= ~10-12 GiB or -1; lower -cms toward median agent-turn length; keep ctx-checkpoints x checkpoint_size x --parallel <= cache-ram. Note: --checkpoint-every-n-tokens was DELETED (PR #22929, 2026-05-25); -cms is not a rename.",
+      "hardware_measured": "Discrete GPU quants (Qwen 27B q8_0 KV observed at 149.626 MiB/checkpoint); verified on Qwen 27B 131072 ctx, parallel 2"
+    },
+    {
+      "technique": "Persist KV cache across long agent sessions with --slot-save-path + POST /slots/{id}/save|restore, wired to pre/post-message hooks keyed by a stable per-conversation session-id. Survives process restarts and enables park-and-resume.",
+      "source_url": "https://github.com/ggml-org/llama.cpp/discussions/20572",
+      "confidence": "medium",
+      "claimed_gain": "Prefill per message >1 min -> ~0.2 s with slot restore on Qwen 27B @ 100k ctx; slot files ~1 GB (short) to ~4.4 GB (near 100k); sub-second overhead per message",
+      "exact_steps": "launch 'llama-server -m model.gguf -ngl 99 --flash-attn on -c 100000 -np 1 --slot-save-path PATH --jinja --swa-full'; before each message POST /slots/0/restore {filename}; after each response POST /slots/0/save; keep cache_prompt:true; --swa-full REQUIRED for SWA Qwen models or restored cache attends wrongly. Save on SSD.",
+      "hardware_measured": "Single RTX 3090 24GB, Qwen 27B UD-Q4_K_XL, 100k ctx, llama.cpp b4900+"
+    },
+    {
+      "technique": "Slot save/restore-to-disk additionally throws away the restored state on the first query after a process restart (forces full re-prefill) because checkpoint-coverage metadata lives only in process memory. Fix: write a sidecar metadata file at save time so restore can synthesize a valid non-tip checkpoint.",
+      "source_url": "https://www.reddit.com/r/LocalLLaMA/comments/1uohsov/llamaserver_is_throwing_away_your_perfectly_good/",
+      "confidence": "high",
+      "claimed_gain": "720.1 s -> 1.0 s (~720x) A/B: identical binary + state file, only the sidecar removed; full 100k re-prefill was ~17.5 min; 2.49 GB disk restore in 1.23 s",
+      "exact_steps": "Patch the turboquant fork (TheTom/llama-cpp-turboquant PR #206, commit eaf98e612) to write checkpoint-coverage sidecar on 'action=save'; on restore synthesize a checkpoint BEFORE the tip (a tip checkpoint can never serve the rollback, which always targets an earlier position). Bug also unfixed on upstream master. Body mirrored at https://gist.github.com/apollo-mg/6defe7c0e3aba47727c758df03360b3e",
+      "hardware_measured": "2x Tesla P100 layer-split, Qwopus3.6-27B Q6_K hybrid, turbo4 KV quant, 100k ctx"
+    },
+    {
+      "technique": "Host-memory prompt caching (llama.cpp v1.70+, PR #16391): store pre-computed prefix in system RAM and hot-swap into a slot on prefix-similarity hit; size --cram to hit rate.",
+      "source_url": "https://github.com/ggml-org/llama.cpp/discussions/20574",
+      "confidence": "medium",
+      "claimed_gain": "Up to 93% TTFT reduction for cached requests (4.2s -> 0.3s in tutorial benchmark); large system prompts (>5K tokens) 50-90% TTFT reduction",
+      "exact_steps": "Run with --cram N (MB); start ~128-256; 10 prefixes x 10K tokens x 8B ~ 800MB -> --cram 1024; use --system-prompt-file for a static shared prefix; debug with --debug-slot; raise --cram if hit-rate >80%, lower if <30%. CAUTION: commenters note --system-prompt-file may be removed on recent builds and this tutorial may be AI-assisted.",
+      "hardware_measured": "llama.cpp v1.70+; tutorial generic (np 4, ctx 32768)"
+    },
+    {
+      "technique": "Reference production-y config for Qwen 27B + opencode on Windows that keeps prefix caching warm: --cache-ram 18432 (18GB), --ctx-checkpoints 64, --cache-reuse 1, q8_0 K/V, flash-attn on, cache-prompt on, slot-prompt-similarity 0.1, cont-batching, reasoning on + preserve_thinking. Per-turn checkpoints (~149.626 MiB) restore successfully and only the delta is prefilled.",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/22746",
+      "confidence": "high",
+      "claimed_gain": "With a warm cache only the delta is prefilled at 168-177 tok/s (e.g. 9,287-token request with 8,887 cached => 400 tokens / 2374 ms), instead of full-conversation re-prefill; 18 GB cache-ram keeps checkpoints from being evicted.",
+      "exact_steps": "llama-server ... --cache-ram 18432 --ctx-checkpoints 64 --cache-reuse 1 --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on --cache-prompt --slot-prompt-similarity 0.1 --reasoning on --cont-batching --jinja; keep per-turn checkpoint spacing < 8192 tokens or the checkpoints are evicted; note --checkpoint-every-n-tokens is deprecated on current master.",
+      "hardware_measured": "RX 7800 XT 16GB, Ryzen 7700X, 32GB DDR5, Qwen3.6-27B IQ4_XS/Q4_K_M, ctx 131072, parallel 2, Windows HIP (llama b8977)"
+    },
+    {
+      "technique": "Avoid cheap cache loss: an oversized (over-context) request that gets rejected triggers LRU slot selection on the next request, collapsing the reuse point to ~0 and erasing every context checkpoint for hybrid/recurrent models. Compact client-side before hitting the wall; use --parallel 1 and raise -sps so LRU does not steal a warm slot.",
+      "source_url": "https://github.com/ggml-org/llama.cpp/issues/22746",
+      "confidence": "medium",
+      "claimed_gain": "Prevents discarding up to 2.19 GiB (15 x 149.626 MiB) of cached state plus a full 512-token-batch re-prefill in a single event; also raised --ctx-size clearly matters vs n_ctx_slot when --parallel > 1.",
+      "exact_steps": "Pre-flight the token budget client-side before each request; if a request can exceed per-slot context (n_ctx_slot = ctx_size / parallel), compact the conversation first; --parallel 1 (or map slots to concurrent sessions) and raise --slot-prompt-similarity so widely-different prompts do not swap slots.",
+      "hardware_measured": "Qwen3.6-27B on RX 7800 XT 16GB, ctx 131072, parallel 2 (n_ctx_slot 65536)"
+    }
+  ],
+  "top_candidates": [
+    "https://www.reddit.com/r/LocalLLaMA/comments/1vqrt86/after_pushing_1m_tokens_through_qwen_38_27b_here/ (Qwen3.8-27B 1M-token optimal config - content blocked, high relevance)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1tz7vgb/how_do_you_increase_prompt_processing_speed/ (content blocked)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1uu8g9f/need_help_tuning_cache_in_llamaserver/ (content blocked)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1vo5im4/what_kv_cache_tricks_do_you_guys_do_with_your/ (content blocked)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1sfnjoh/vllm_vs_llamacpp_huge_context_efficiency/ (Qwen3.5 context efficiency - content blocked)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1ta0pws/why_is_opencode_so_slow_in_processing_the_prompt/ (content blocked)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1vt8v4c/how_do_you_deal_with_longcontext_sessions_after/ (content blocked)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1v5k08a/cachyllamas_llamacpp_fork_with_persistent_kv/ (CachyLLama persistent-KV fork - content blocked)",
+    "https://www.reddit.com/r/LocalLLaMA/comments/1lp653l/reuse_nonprefix_kv_cache_and_speed_up_rag_by_3x/ (LMCache non-prefix KV reuse - content blocked)",
+    "https://discuss.huggingface.co/t/how-to-cache-common-instruction-prompt/101419 (content blocked)",
+    "https://discuss.huggingface.co/t/i-dont-get-it-why-llama-cpp-ggml-is-so-much-faster-than-pytorch/168708 (content blocked)"
+  ],
+  "sources_total": 17
+}

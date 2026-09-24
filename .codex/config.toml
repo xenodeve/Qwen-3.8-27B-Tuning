@@ -1,0 +1,9 @@
+[mcp_servers.serena]
+command = "serena"
+args = [
+    "start-mcp-server",
+    "--context",
+    "ide-assistant",
+    "--project",
+    "D:/Github/Agentic Framework",
+]

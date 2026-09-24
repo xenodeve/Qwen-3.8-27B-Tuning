@@ -1,0 +1,9 @@
+{"pid": 41140, "dedicated_mib": 23148.1, "shared_mib": 2740, "t": 0.0, "label": "gsq-mtp-262144-replay"}
+{"pid": 41140, "dedicated_mib": 23148.1, "shared_mib": 2740, "t": 5.0, "label": "gsq-mtp-262144-replay"}
+{"pid": 41140, "dedicated_mib": 23148.1, "shared_mib": 2740, "t": 10.0, "label": "gsq-mtp-262144-replay"}
+{"pid": 41140, "dedicated_mib": 23148.1, "shared_mib": 2740, "t": 15.0, "label": "gsq-mtp-262144-replay"}
+{"pid": 41140, "dedicated_mib": 23148.1, "shared_mib": 2740, "t": 20.0, "label": "gsq-mtp-262144-replay"}
+{"pid": 41140, "dedicated_mib": 23148.1, "shared_mib": 2740, "t": 25.0, "label": "gsq-mtp-262144-replay"}
+{"pid": 41140, "dedicated_mib": 23152.1, "shared_mib": 2740, "t": 30.0, "label": "gsq-mtp-262144-replay"}
+{"pid": 41140, "dedicated_mib": 23152.1, "shared_mib": 2740, "t": 35.0, "label": "gsq-mtp-262144-replay"}
+{"label": "gsq-mtp-262144-replay", "kind": "SUMMARY", "samples": 8, "peak_shared_mib": 2740, "peak_dedicated_mib": 23152.1, "shared_pct_of_dedicated": 11.83, "free_vram_mib": 1601, "under_load": false}

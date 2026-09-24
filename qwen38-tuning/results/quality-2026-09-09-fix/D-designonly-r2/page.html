@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google — ข้อมูลทั้งโลก เข้าถึงทุกคน</title>
+<meta name="description" content="หน้าแนะนำ Google ในสไตล์ Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid — ระบบนิเวศที่เชื่อมโยงการค้นหา แผนที่ สำนักงาน และ AI เข้าด้วยกัน" />
+
+<!-- Open Graph / Social (design-audit: 0s–5s) -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Google — ข้อมูลทั้งโลก เข้าถึงทุกคน" />
+<meta property="og:description" content="ระบบนิเวศ Google ที่เชื่อมโยงการค้นหา แผนที่ สำนักงาน และปัญญาประดิษฐ์เข้าด้วยกัน" />
+<meta property="og:image" content="https://placehold.co/1200x630/F3F1EA/141310?text=Google+%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%99%E0%B8%A7%E0%B8%B4%E0%B8%A7" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<!-- Fonts: Space Grotesk (display + body) + Space Mono (grid annotations) — 2 families max -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   TOKENS  —  60 / 30 / 10
+   60%  paper + ink  (warm neutrals)
+   30%  glass surfaces
+   10%  Google 4-color punctuation (blue/red/yellow/green)
+   ============================================================ */
+:root{
+  /* 60% — paper neutrals */
+  --paper:      #F3F1EA;
+  --paper-2:    #ECE9DF;
+  --ink:        #141310;
+  --ink-soft:   #4A4842;
+  --ink-faint:  #8C887C;
+  --line:       rgba(20,19,16,0.10);
+  --line-2:     rgba(20,19,16,0.20);
+
+  /* 30% — liquid glass */
+  --glass:      rgba(255,255,255,0.55);
+  --glass-2:    rgba(255,255,255,0.35);
+  --glass-brd:  rgba(255,255,255,0.75);
+  --glass-sh:   0 24px 70px -28px rgba(20,19,16,0.35);
+
+  /* 10% — Google accent punctuation */
+  --blue:   #1A73E8;
+  --red:    #EA4335;
+  --yellow: #FBBC05;
+  --green:  #34A853;
+
+  /* type scale — Major Third 1.25x, base 16px */
+  --s0: 1rem;        /* 16   */
+  --s1: 1.25rem;     /* 20   */
+  --s2: 1.5625rem;   /* 25   */
+  --s3: 1.953rem;    /* 31.25*/
+  --s4: 2.441rem;    /* 39   */
+  --s5: 3.052rem;    /* 48.8 */
+  --s6: 3.815rem;    /* 61   */
+
+  /* spacing — 8pt grid */
+  --sp1: 8px;  --sp2: 16px; --sp3: 24px; --sp4: 32px;
+  --sp6: 48px; --sp8: 64px; --sp12: 96px; --sp16: 128px;
+
+  --frame-max: 1200px;
+  --frame-pad: clamp(20px, 5vw, 56px);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font: "Space Grotesk", system-ui, sans-serif;
+  --mono: "Space Mono", ui-monospace, monospace;
+}
+
+/* ============================================================ RESET */
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+body{
+  font-family:var(--font);
+  background:var(--paper);
+  color:var(--ink);
+  font-size:var(--s0);
+  line-height:1.5;                 /* body legibility 150% */
+  letter-spacing:0;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+img{ max-width:100%; display:block; }
+a{ color:inherit; text-decoration:none; }
+::selection{ background:var(--blue); color:#fff; }
+
+/* ============================================================
+   VISIBLE GRID  (signature device)
+   12-column veil + corner registration crosshairs + top ruler
+   ============================================================ */
+.grid-veil{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+}
+.grid-veil__inner{
+  position:absolute; inset:0;
+  max-width:var(--frame-max); margin:0 auto;
+  display:grid; grid-template-columns:repeat(12,1fr);
+}
+.grid-veil__inner i{
+  border-left:1px solid var(--line);
+  display:block; height:100%;
+}
+.grid-veil__inner i:last-child{ border-right:1px solid var(--line); }
+
+/* corner registration crosshairs */
+.cross{
+  position:fixed; z-index:1; pointer-events:none;
+  width:20px; height:20px; opacity:.5;
+}
+.cross::before,.cross::after{
+  content:""; position:absolute; background:var(--line-2);
+}
+.cross::before{ left:50%; top:0; width:1px; height:100%; transform:translateX(-.5px); }
+.cross::after{ top:50%; left:0; height:1px; width:100%; transform:translateY(-.5px); }
+.cross.tl{ top:16px; left:16px; } .cross.tr{ top:16px; right:16px; }
+.cross.bl{ bottom:16px; left:16px; } .cross.br{ bottom:16px; right:16px; }
+
+/* top column ruler */
+.ruler{
+  position:relative; z-index:2;
+  max-width:var(--frame-max); margin:0 auto;
+  padding:0 var(--frame-pad);
+  display:grid; grid-template-columns:repeat(12,1fr);
+  border-bottom:1px solid var(--line);
+}
+.ruler span{
+  font-family:var(--mono); font-size:10px; color:var(--ink-faint);
+  padding:8px 0 8px 8px; border-left:1px solid var(--line);
+  letter-spacing:.04em;
+}
+.ruler span:first-child{ border-left:none; }
+
+/* ============================================================
+   COLOR FIELDS  (soft, flat washes behind glass — NOT neon blobs)
+   ============================================================ */
+.fields{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+.field{
+  position:absolute; border-radius:50%;
+  filter:blur(20px);
+  will-change:transform;
+}
+.field.f1{ width:60vw; height:60vw; top:-18vw; right:-14vw;
+  background:radial-gradient(circle at center, rgba(26,115,232,.20), transparent 62%); }
+.field.f2{ width:46vw; height:46vw; top:24vh; left:-16vw;
+  background:radial-gradient(circle at center, rgba(234,67,53,.13), transparent 62%); }
+.field.f3{ width:52vw; height:52vw; bottom:-16vw; right:6vw;
+  background:radial-gradient(circle at center, rgba(52,168,83,.14), transparent 62%); }
+.field.f4{ width:40vw; height:40vw; bottom:10vh; left:20vw;
+  background:radial-gradient(circle at center, rgba(251,188,5,.16), transparent 62%); }
+
+/* ============================================================
+   LAYOUT FRAME
+   ============================================================ */
+.frame{
+  position:relative; z-index:2;
+  max-width:var(--frame-max); margin:0 auto;
+  padding:0 var(--frame-pad);
+}
+section{ position:relative; z-index:2; }
+
+/* index label (mono) */
+.idx{
+  font-family:var(--mono); font-size:12px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-faint);
+  display:inline-flex; align-items:center; gap:12px;
+}
+.idx::before{
+  content:""; width:32px; height:1px; background:var(--line-2);
+}
+.idx b{ color:var(--ink); font-weight:700; }
+
+/* 4-color dot motif (Google identity punctuation) */
+.dots{ display:inline-flex; gap:6px; align-items:center; }
+.dots i{ width:9px; height:9px; border-radius:50%; display:block; }
+.dots i:nth-child(1){ background:var(--blue); }
+.dots i:nth-child(2){ background:var(--red); }
+.dots i:nth-child(3){ background:var(--yellow); }
+.dots i:nth-child(4){ background:var(--green); }
+
+/* ============================================================
+   TYPE
+   ============================================================ */
+h1,h2,h3{ font-weight:700; letter-spacing:-0.025em; line-height:1.06; }
+.h1{ font-size:clamp(3.4rem, 9vw, 7rem); line-height:0.98; }
+.h2{ font-size:clamp(2.2rem, 5.2vw, var(--s5)); line-height:1.05; }
+.h3{ font-size:var(--s3); line-height:1.12; }
+.lead{ font-size:clamp(1.05rem, 1.6vw, var(--s1)); color:var(--ink-soft); max-width:52ch; }
+.mono{ font-family:var(--mono); }
+.kicker{ font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-faint); }
+
+/* ============================================================
+   LIQUID GLASS utility
+   ============================================================ */
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(22px) saturate(1.5);
+  backdrop-filter:blur(22px) saturate(1.5);
+  border:1px solid var(--glass-brd);
+  box-shadow:var(--glass-sh);
+  position:relative;
+}
+.glass::before{ /* top inner highlight */
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  background:linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 42%);
+  pointer-events:none;
+}
+
+/* ============================================================
+   BUTTONS  —  4 states (default / hover / active / disabled)
+   ============================================================ */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  font-family:var(--font); font-weight:600; font-size:var(--s0);
+  height:52px; padding:0 32px; border-radius:999px;
+  border:1px solid transparent; cursor:pointer;
+  transition:transform .35s var(--ease), background .35s var(--ease),
+             color .35s var(--ease), border-color .35s var(--ease), box-shadow .35s var(--ease);
+}
+.btn svg{ width:20px; height:20px; }   /* icon = line-height of text */
+.btn--ink{ background:var(--ink); color:var(--paper); }
+.btn--ink:hover{ background:#000; transform:translateY(-2px); box-shadow:0 14px 30px -14px rgba(0,0,0,.5); }
+.btn--ink:active{ transform:translateY(0) scale(.98); }
+.btn--ghost{ background:transparent; color:var(--ink); border-color:var(--line-2); }
+.btn--ghost:hover{ border-color:var(--ink); background:rgba(20,19,16,.04); transform:translateY(-2px); }
+.btn--ghost:active{ transform:translateY(0) scale(.98); }
+.btn--blue{ background:var(--blue); color:#fff; }
+.btn--blue:hover{ background:#1765c9; transform:translateY(-2px); box-shadow:0 14px 30px -14px rgba(26,115,232,.7); }
+.btn--blue:active{ transform:translateY(0) scale(.98); }
+.btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn--sm{ height:44px; padding:0 24px; font-size:15px; }
+
+/* text link with arrow nudge */
+.tlink{
+  display:inline-flex; align-items:center; gap:8px; font-weight:600;
+  border-bottom:1px solid var(--line-2); padding-bottom:2px;
+  transition:gap .3s var(--ease), border-color .3s var(--ease);
+}
+.tlink:hover{ gap:14px; border-color:var(--ink); }
+
+/* ============================================================
+   NAV  (sticky glass)
+   ============================================================ */
+.nav{
+  position:sticky; top:0; z-index:50;
+  transition:background .4s var(--ease), border-color .4s var(--ease);
+  border-bottom:1px solid transparent;
+}
+.nav.scrolled{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  backdrop-filter:blur(18px) saturate(1.4);
+  border-bottom:1px solid var(--line);
+}
+.nav__in{
+  max-width:var(--frame-max); margin:0 auto; padding:16px var(--frame-pad);
+  display:flex; align-items:center; justify-content:space-between; gap:24px;
+}
+.brand{ display:flex; align-items:center; gap:12px; font-weight:700; font-size:var(--s1); letter-spacing:-0.02em; }
+.brand .dots i{ width:8px; height:8px; }
+.nav__links{ display:flex; align-items:center; gap:32px; }
+.nav__links a{ font-size:15px; font-weight:500; color:var(--ink-soft); position:relative; }
+.nav__links a::after{ content:""; position:absolute; left:0; bottom:-6px; width:0; height:2px; background:var(--ink); transition:width .3s var(--ease); }
+.nav__links a:hover{ color:var(--ink); }
+.nav__links a:hover::after{ width:100%; }
+.nav__cta{ display:flex; align-items:center; gap:16px; }
+.nav__burger{ display:none; }
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{ padding:clamp(48px,8vw,112px) 0 clamp(48px,7vw,96px); }
+.hero__grid{
+  display:grid; grid-template-columns:repeat(12,1fr); gap:24px;
+  align-items:end;
+}
+.hero__idx{ grid-column:1 / -1; margin-bottom:8px; }
+.hero__title{ grid-column:1 / 9; }
+.hero__title .l2{ display:block; margin-left:clamp(0px,4vw,64px); position:relative; }
+.hero__title .l2::after{
+  content:""; display:block; height:6px; margin-top:20px; width:min(220px,60%);
+  background:linear-gradient(90deg,var(--blue) 0 25%,var(--red) 25% 50%,var(--yellow) 50% 75%,var(--green) 75% 100%);
+}
+.hero__side{ grid-column:9 / 13; display:flex; flex-direction:column; gap:24px; }
+.hero__lead{ color:var(--ink-soft); font-size:var(--s1); max-width:38ch; }
+
+/* glass search bar — the "work" shown immediately */
+.search{
+  margin-top:40px; grid-column:1 / 13;
+  display:flex; align-items:center; gap:8px;
+  padding:8px 8px 8px 24px; border-radius:999px; max-width:640px;
+}
+.search svg{ width:24px; height:24px; color:var(--ink-faint); flex:none; }
+.search input{
+  flex:1; border:none; background:transparent; outline:none;
+  font-family:var(--font); font-size:var(--s1); color:var(--ink); height:48px;
+}
+.search input::placeholder{ color:var(--ink-faint); }
+.search .btn{ height:48px; padding:0 28px; }
+.hero__meta{
+  grid-column:1 / 13; margin-top:40px;
+  display:flex; flex-wrap:wrap; align-items:center; gap:16px 28px;
+}
+.chip{
+  font-family:var(--mono); font-size:13px; color:var(--ink-soft);
+  display:inline-flex; align-items:center; gap:8px;
+}
+.chip b{ color:var(--ink); font-weight:700; }
+.chip .d{ width:7px; height:7px; border-radius:50%; }
+.scrollcue{
+  grid-column:1 / 13; margin-top:56px;
+  display:flex; align-items:center; gap:12px;
+  font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint);
+}
+.scrollcue .bar{ width:1px; height:40px; background:var(--line-2); position:relative; overflow:hidden; }
+.scrollcue .bar::after{ content:""; position:absolute; top:-40px; left:0; width:1px; height:40px; background:var(--ink); animation:drop 2.2s var(--ease) infinite; }
+@keyframes drop{ 0%{ top:-40px; } 60%,100%{ top:40px; } }
+
+/* ============================================================
+   SECTION SHELL
+   ============================================================ */
+.sec{ padding:clamp(64px,9vw,128px) 0; }
+.sec__head{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:clamp(40px,6vw,72px); }
+.sec__head .h2{ max-width:16ch; }
+
+/* ---- 02 intro ---- */
+.intro__grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:24px; }
+.intro__label{ grid-column:1 / 4; }
+.intro__body{ grid-column:4 / 13; }
+.intro__body p{ font-size:clamp(1.4rem,2.6vw,var(--s4)); line-height:1.28; letter-spacing:-0.01em; }
+.intro__body p .hl{ color:var(--blue); }
+
+/* ---- 03 products (asymmetric, NOT uniform 3-col) ---- */
+.prod{ display:grid; grid-template-columns:repeat(12,1fr); gap:24px; }
+.pcard{
+  border-radius:20px; padding:32px; min-height:280px;
+  display:flex; flex-direction:column; justify-content:space-between; gap:24px;
+  transition:transform .5s var(--ease), box-shadow .5s var(--ease);
+}
+.pcard:hover{ transform:translateY(-6px); }
+.pcard__no{ font-family:var(--mono); font-size:13px; color:var(--ink-faint); }
+.pcard__tag{
+  align-self:flex-start; font-family:var(--mono); font-size:11px; letter-spacing:.12em;
+  text-transform:uppercase; padding:6px 12px; border-radius:999px;
+  background:rgba(20,19,16,.05); border:1px solid var(--line);
+}
+.pcard h3{ font-size:var(--s3); }
+.pcard p{ color:var(--ink-soft); font-size:15px; max-width:40ch; }
+.pcard--a{ grid-column:1 / 8; }
+.pcard--b{ grid-column:8 / 13; }
+.pcard--c{ grid-column:1 / 6; }
+.pcard--d{ grid-column:6 / 13; }
+/* accent top rule per card (color punctuation) */
+.pcard::after{ content:""; position:absolute; }
+.pcard{ position:relative; overflow:hidden; }
+.pcard .rule{ position:absolute; top:0; left:0; height:4px; width:100%; }
+.pcard--a .rule{ background:var(--blue); }
+.pcard--b .rule{ background:var(--red); }
+.pcard--c .rule{ background:var(--yellow); }
+.pcard--d .rule{ background:var(--green); }
+
+/* ---- 04 stats band ---- */
+.stats{ background:var(--paper-2); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.stats__grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:24px; }
+.stat{ grid-column:span 3; padding:8px 0; border-left:1px solid var(--line-2); padding-left:24px; }
+.stat:first-child{ border-left:none; padding-left:0; }
+.stat__num{ font-size:clamp(2.6rem,6vw,var(--s6)); font-weight:700; letter-spacing:-0.03em; line-height:1; }
+.stat__num .u{ font-size:.5em; color:var(--ink-soft); }
+.stat__lab{ font-family:var(--mono); font-size:13px; color:var(--ink-soft); margin-top:16px; letter-spacing:.02em; }
+
+/* ---- 05 glass feature (Gemini) ---- */
+.gem{ position:relative; }
+.gem__panel{
+  border-radius:28px; padding:clamp(32px,5vw,64px);
+  display:grid; grid-template-columns:repeat(12,1fr); gap:24px; align-items:center;
+}
+.gem__copy{ grid-column:1 / 7; }
+.gem__copy .h2{ margin:16px 0 24px; }
+.gem__copy p{ color:var(--ink-soft); font-size:var(--s1); max-width:44ch; }
+.gem__chips{ grid-column:7 / 13; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.gchip{
+  border-radius:16px; padding:20px; background:var(--glass-2);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  border:1px solid var(--glass-brd);
+  display:flex; align-items:center; gap:14px;
+  transition:transform .4s var(--ease);
+}
+.gchip:hover{ transform:translateY(-4px); }
+.gchip .ic{ width:40px; height:40px; border-radius:12px; display:grid; place-items:center; flex:none; color:#fff; }
+.gchip:nth-child(1) .ic{ background:var(--blue); }
+.gchip:nth-child(2) .ic{ background:var(--green); }
+.gchip:nth-child(3) .ic{ background:var(--red); }
+.gchip:nth-child(4) .ic{ background:var(--yellow); color:var(--ink); }
+.gchip .ic svg{ width:22px; height:22px; }
+.gchip b{ font-size:15px; display:block; }
+.gchip small{ font-family:var(--mono); font-size:11px; color:var(--ink-soft); }
+
+/* ---- 06 pull quote ---- */
+.quote{ text-align:center; }
+.quote blockquote{
+  font-size:clamp(2rem,5.5vw,var(--s6)); font-weight:700; letter-spacing:-0.03em; line-height:1.08;
+  max-width:20ch; margin:0 auto;
+}
+.quote blockquote .hl{ color:var(--blue); }
+.quote cite{ display:block; margin-top:32px; font-family:var(--mono); font-style:normal; font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); }
+
+/* ---- 07 final CTA ---- */
+.cta__box{
+  border-radius:28px; padding:clamp(48px,7vw,96px); text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:24px;
+}
+.cta__box .h2{ max-width:14ch; }
+.cta__box p{ color:var(--ink-soft); font-size:var(--s1); max-width:46ch; }
+.cta__row{ display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-top:8px; }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer{ border-top:1px solid var(--line); padding:clamp(48px,7vw,80px) 0 40px; margin-top:24px; }
+.footer__top{ display:grid; grid-template-columns:repeat(12,1fr); gap:24px; }
+.footer__brand{ grid-column:1 / 5; }
+.footer__brand .brand{ font-size:var(--s2); margin-bottom:16px; }
+.footer__brand p{ color:var(--ink-soft); font-size:14px; max-width:32ch; }
+.fcol{ grid-column:span 3; }
+.fcol h4{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:16px; }
+.fcol a{ display:block; font-size:14px; color:var(--ink-soft); padding:6px 0; transition:color .25s; }
+.fcol a:hover{ color:var(--ink); }
+.footer__bot{
+  max-width:var(--frame-max); margin:56px auto 0; padding:24px var(--frame-pad) 0;
+  border-top:1px solid var(--line);
+  display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px;
+  font-family:var(--mono); font-size:12px; color:var(--ink-faint);
+}
+
+/* ============================================================
+   REVEAL (weighted, staggered load)
+   ============================================================ */
+.reveal{ opacity:0; transform:translateY(28px); transition:opacity .9s var(--ease), transform .9s var(--ease); transition-delay:calc(var(--i,0) * 90ms); }
+.reveal.in{ opacity:1; transform:none; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:900px){
+  .nav__links{ display:none; }
+  .hero__grid{ grid-template-columns:1fr; }
+  .hero__title,.hero__side,.hero__lead{ grid-column:1 / -1; }
+  .hero__title .l2{ margin-left:0; }
+  .search{ grid-column:1 / -1; }
+  .intro__label,.intro__body{ grid-column:1 / -1; }
+  .pcard--a,.pcard--b,.pcard--c,.pcard--d{ grid-column:1 / -1; min-height:auto; }
+  .stat{ grid-column:span 6; border-left:none; padding-left:0; margin-bottom:24px; }
+  .gem__copy,.gem__chips{ grid-column:1 / -1; }
+  .footer__brand{ grid-column:1 / -1; margin-bottom:24px; }
+  .fcol{ grid-column:span 6; }
+}
+@media (max-width:560px){
+  .stat{ grid-column:1 / -1; }
+  .fcol{ grid-column:1 / -1; }
+  .gem__chips{ grid-template-columns:1fr; }
+  .search{ flex-wrap:wrap; border-radius:24px; padding:12px; }
+  .search .btn{ width:100%; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *{ animation:none !important; transition:none !important; }
+  .reveal{ opacity:1; transform:none; }
+  .field{ transform:none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- VISIBLE GRID VEIL -->
+<div class="grid-veil" aria-hidden="true">
+  <div class="grid-veil__inner">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+</div>
+<span class="cross tl" aria-hidden="true"></span>
+<span class="cross tr" aria-hidden="true"></span>
+<span class="cross bl" aria-hidden="true"></span>
+<span class="cross br" aria-hidden="true"></span>
+
+<!-- SOFT COLOR FIELDS (behind glass) -->
+<div class="fields" aria-hidden="true">
+  <div class="field f1" data-speed="0.06"></div>
+  <div class="field f2" data-speed="-0.05"></div>
+  <div class="field f3" data-speed="0.04"></div>
+  <div class="field f4" data-speed="-0.03"></div>
+</div>
+
+<!-- COLUMN RULER -->
+<div class="ruler" aria-hidden="true">
+  <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span>
+  <span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span>
+</div>
+
+<!-- NAV -->
+<header class="nav" id="nav">
+  <div class="nav__in">
+    <a href="#top" class="brand" aria-label="Google">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      Google
+    </a>
+    <nav class="nav__links" aria-label="หลัก">
+      <a href="#ecosystem">ระบบนิเวศ</a>
+      <a href="#products">ผลิตภัณฑ์</a>
+      <a href="#numbers">ตัวเลข</a>
+      <a href="#gemini">Gemini</a>
+    </nav>
+    <div class="nav__cta">
+      <a href="#start" class="btn btn--ink btn--sm">เริ่มใช้งาน</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ============ HERO ============ -->
+  <section class="hero" id="top">
+    <div class="frame">
+      <div class="hero__grid">
+        <div class="idx hero__idx reveal"><b>01</b> แนะนำ Google</div>
+
+        <h1 class="h1 hero__title reveal" style="--i:1">
+          ข้อมูลทั้งโลก
+          <span class="l2">เข้าถึงทุกคน</span>
+        </h1>
+
+        <div class="hero__side reveal" style="--i:2">
+          <p class="hero__lead">Google ทำให้ข้อมูลทั่วทั้งโลก ค้นหาได้ เข้าถึงได้ และใช้งานได้จริง — ตั้งแต่การค้นหายอดนิยม ไปจนถึงปัญญาประดิษฐ์ที่เข้าใจคุณ</p>
+          <a href="#products" class="tlink">สำรวจผลิตภัณฑ์ทั้งหมด <span aria-hidden="true">→</span></a>
+        </div>
+
+        <!-- glass search bar -->
+        <form class="search glass reveal" style="--i:3" onsubmit="return false;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="text" placeholder="ค้นหาอะไรก็ได้จาก Google…" aria-label="ค้นหา" />
+          <button type="submit" class="btn btn--blue">ค้นหา</button>
+        </form>
+
+        <div class="hero__meta reveal" style="--i:4">
+          <span class="chip"><span class="d" style="background:var(--blue)"></span><b>100+</b> ภาษา</span>
+          <span class="chip"><span class="d" style="background:var(--red)"></span><b>200+</b> ประเทศ</span>
+          <span class="chip"><span class="d" style="background:var(--yellow)"></span><b>5,000M+</b> การค้นหา/วัน</span>
+        </div>
+
+        <div class="scrollcue reveal" style="--i:5"><span class="bar"></span> เลื่อนเพื่อสำรวจ</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 INTRO ============ -->
+  <section class="sec" id="ecosystem">
+    <div class="frame">
+      <div class="intro__grid">
+        <div class="idx intro__label reveal"><b>02</b> คืออะไร</div>
+        <div class="intro__body reveal" style="--i:1">
+          <p>ตลอดกว่าสองทศวรรษ Google ขยายจากหน้าเว็บค้นหาหน้าเดียว สู่ระบบนิเวศที่เชื่อมโยงการค้นคว้า การทำงาน การเดินทาง และการเรียนรู้เข้าด้วยกัน — ด้วยหลักการเดียว: ทำให้<span class="hl">ข้อมูลทั้งโลก</span>มีประโยชน์และเข้าถึงได้สำหรับทุกคน</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 PRODUCTS ============ -->
+  <section class="sec" id="products">
+    <div class="frame">
+      <div class="sec__head">
+        <div>
+          <div class="idx reveal"><b>03</b> ผลิตภัณฑ์</div>
+          <h2 class="h2 reveal" style="--i:1; margin-top:24px">ระบบนิเวศ ท่ีทำงานร่่วมกััน</h2>
+        </div>
+        <a href="#start" class="tlink reveal" style="--i:2">ดูผลิตภัณฑ์ทั้งหมด <span aria-hidden="true">→</span></a>
+      </div>
+
+      <div class="prod">
+        <article class="pcard pcard--a glass reveal">
+          <span class="rule"></span>
+          <span class="pcard__no">P.01</span>
+          <span class="pcard__tag">ค้นหา</span>
+          <h3>ค้นหาทุกคำตอบ ในเสี้ยววินาที</h3>
+          <p>ผลลัพธ์ที่แม่นยำจากข้อมูลทั่วทั้งโลก พร้อม AI Overviews ที่สรุปคำตอบให้คุณทันที</p>
+        </article>
+
+        <article class="pcard pcard--b glass reveal" style="--i:1">
+          <span class="rule"></span>
+          <span class="pcard__no">P.02</span>
+          <span class="pcard__tag">แผนที่</span>
+          <h3>นำทางทุกเส้นทาง</h3>
+          <p>แผนที่แบบเรียลไทม์ การจราจร เส้นทาง และข้อมูลสถานที่กว่า 250 ล้านแห่ง</p>
+        </article>
+
+        <article class="pcard pcard--c glass reveal" style="--i:2">
+          <span class="rule"></span>
+          <span class="pcard__no">P.03</span>
+          <span class="pcard__tag">Workspace</span>
+          <h3>ทำงานจากทุกที่</h3>
+          <p>Gmail, Docs, Drive และ Meet ที่ทำงานร่วมกันได้แบบเรียลไทม์</p>
+        </article>
+
+        <article class="pcard pcard--d glass reveal" style="--i:3">
+          <span class="rule"></span>
+          <span class="pcard__no">P.04</span>
+          <span class="pcard__tag">AI · Gemini</span>
+          <h3>ปัญญาที่เข้าใจคุณ</h3>
+          <p>โมเดล AI ที่ช่วยคิด ช่วยเขียน และช่วยสร้าง — ฝังอยู่ในทุกผลิตภัณฑ์ของ Google</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 STATS ============ -->
+  <section class="sec stats" id="numbers">
+    <div class="frame">
+      <div class="sec__head">
+        <div>
+          <div class="idx reveal"><b>04</b> ตัวเลข</div>
+          <h2 class="h2 reveal" style="--i:1; margin-top:24px">ขนาด ที่วัดเป็นตัวเลข</h2>
+        </div>
+      </div>
+      <div class="stats__grid">
+        <div class="stat reveal">
+          <div class="stat__num"><span data-count="5000" data-suffix="M+">0</span></div>
+          <div class="stat__lab">การค้นหาต่อวัน</div>
+        </div>
+        <div class="stat reveal" style="--i:1">
+          <div class="stat__num"><span data-count="100" data-suffix="+">0</span></div>
+          <div class="stat__lab">ภาษาที่รองรับ</div>
+        </div>
+        <div class="stat reveal" style="--i:2">
+          <div class="stat__num"><span data-count="250" data-suffix="M+">0</span></div>
+          <div class="stat__lab">สถานที่ใน Maps</div>
+        </div>
+        <div class="stat reveal" style="--i:3">
+          <div class="stat__num"><span data-count="20" data-suffix="+ ปี">0</span></div>
+          <div class="stat__lab">ของนวัตกรรม</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 GEMINI (liquid glass feature) ============ -->
+  <section class="sec gem" id="gemini">
+    <div class="frame">
+      <div class="gem__panel glass reveal">
+        <div class="gem__copy">
+          <div class="idx"><b>05</b> Gemini</div>
+          <h2 class="h2">AI ที่อยู่ในทุกที่</h2>
+          <p>Gemini เชื่อมโยงกับ Search, Gmail, Docs และ Android — ทำให้ AI ไม่ใช่ฟีเจอร์แยก แต่เป็นส่วนหนึ่งของทุกสิ่งที่คุณทำ</p>
+        </div>
+        <div class="gem__chips">
+          <div class="gchip reveal" style="--i:1">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+            <span><b>สรุปอีเมล</b><small>Gmail</small></span>
+          </div>
+          <div class="gchip reveal" style="--i:2">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 6-6 6 6 6"/><path d="m16 6 6 6-6 6"/></svg></span>
+            <span><b>เขียนโค้ด</b><small>Code Assist</small></span>
+          </div>
+          <div class="gchip reveal" style="--i:3">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></span>
+            <span><b>สร้างภาพ</b><small>Imagen</small></span>
+          </div>
+          <div class="gchip reveal" style="--i:4">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h7M9 3v2c0 4-2 7-5 8"/><path d="M5 9c0 3 3 5 6 6"/><path d="m13 20 4-9 4 9M14.5 17h5"/></svg></span>
+            <span><b>แปลภาษา</b><small>100+ ภาษา</small></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 06 QUOTE ============ -->
+  <section class="sec quote">
+    <div class="frame">
+      <div class="idx reveal" style="justify-content:center; width:100%"><b>06</b> วิสัยทัศน์</div>
+      <blockquote class="reveal" style="--i:1; margin-top:32px">เราเชื่อว่า ข้อมูลที่<span class="hl">เข้าถึงได้</span> จะเปลี่ยนโลก</blockquote>
+      <cite class="reveal" style="--i:2">— วิสัยทัศน์ของ Google</cite>
+    </div>
+  </section>
+
+  <!-- ============ 07 CTA ============ -->
+  <section class="sec" id="start">
+    <div class="frame">
+      <div class="cta__box glass reveal">
+        <div class="idx" style="justify-content:center; width:100%"><b>07</b> เริ่มต้น</div>
+        <h2 class="h2">พร้อมจะค้นพบหรือยัง</h2>
+        <p>เริ่มใช้ Google ได้ฟรี — บนมือถือ เว็บ และทุกอุปกรณ์ที่คุณใช้ทุกวัน</p>
+        <div class="cta__row">
+          <a href="#top" class="btn btn--ink">เริ่มใช้งานฟรี</a>
+          <a href="#products" class="btn btn--ghost">ดูผลิตภัณฑ์ทั้งหมด</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="footer">
+  <div class="frame">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <div class="brand"><span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Google</div>
+        <p>ทำให้ข้อมูลทั้งโลกเข้าถึงได้ และมีประโยชน์สำหรับทุกคน</p>
+      </div>
+      <div class="fcol">
+        <h4>ผลิตภัณฑ์</h4>
+        <a href="#products">Search</a>
+        <a href="#products">Maps</a>
+        <a href="#products">Gmail</a>
+        <a href="#gemini">Gemini</a>
+      </div>
+      <div class="fcol">
+        <h4>บริษัท</h4>
+        <a href="#ecosystem">เกี่ยวกับ</a>
+        <a href="#ecosystem">การลงทุน</a>
+        <a href="#ecosystem">บล็อก</a>
+      </div>
+      <div class="fcol">
+        <h4>ช่วยเหลือ</h4>
+        <a href="#top">ศูนย์ช่วยเหลือ</a>
+        <a href="#top">ความปลอดภัย</a>
+        <a href="#top">ความเป็นส่วนตัว</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer__bot">
+    <span>© 2026 Google — หน้าแนะนำเพื่อการศึกษา</span>
+    <span>ออกแบบด้วย Editorial × Swiss × Liquid Glass × Visible Grid</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- sticky nav glass ---- */
+  var nav = document.getElementById('nav');
+  function onNav(){ nav.classList.toggle('scrolled', window.scrollY > 24); }
+  onNav(); window.addEventListener('scroll', onNav, {passive:true});
+
+  /* ---- reveal on scroll (weighted, staggered) ---- */
+  var reveals = document.querySelectorAll('.reveal');
+  if(reduce){
+    reveals.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, {threshold:0.12, rootMargin:'0px 0px -8% 0px'});
+    reveals.forEach(function(el){ io.observe(el); });
+  }
+
+  /* ---- parallax color fields + hero fade (heavy, weighted) ---- */
+  var fields = document.querySelectorAll('.field');
+  if(!reduce && fields.length){
+    var ticking = false;
+    function parallax(){
+      var y = window.scrollY;
+      fields.forEach(function(f){
+        var s = parseFloat(f.dataset.speed || 0);
+        f.style.transform = 'translateY(' + (y * s) + 'px)';
+      });
+      ticking = false;
+    }
+    window.addEventListener('scroll', function(){
+      if(!ticking){ requestAnimationFrame(parallax); ticking = true; }
+    }, {passive:true});
+    parallax();
+  }
+
+  /* ---- count-up numbers ---- */
+  var counters = document.querySelectorAll('[data-count]');
+  function fmt(n){ return n.toLocaleString('en-US'); }
+  function runCounter(el){
+    var target = parseInt(el.dataset.count, 10);
+    var suffix = el.dataset.suffix || '';
+    if(reduce){ el.textContent = fmt(target) + suffix; return; }
+    var dur = 1400, start = null;
+    function step(ts){
+      if(!start) start = ts;
+      var p = Math.min((ts - start) / dur, 1);
+      var eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      el.textContent = fmt(Math.round(target * eased)) + suffix;
+      if(p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  if(counters.length){
+    var cio = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){ runCounter(e.target); cio.unobserve(e.target); }
+      });
+    }, {threshold:0.5});
+    counters.forEach(function(el){ cio.observe(el); });
+  }
+})();
+</script>
+</body>
+</html>

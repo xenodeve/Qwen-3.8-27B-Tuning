@@ -1,0 +1,78 @@
+{
+  "cell": "D",
+  "arm": "designonly",
+  "rep": 3,
+  "task": "page",
+  "model": "vllm/Qwen/Qwen3.8-27B-FP8",
+  "backend": "remote",
+  "ctx": 131072,
+  "work_dir": "D:\\qbench-work\\D-designonly-r3",
+  "effort": "medium",
+  "brief": "สร้าง Landing Page แนะนำ Google โดยใช้ Editorial Minimalism × Modern Swiss × Liquid Glass × Visible Grid | ทำเป็น HTML ไฟล์เดียว | /using-design  /ask-xeno | ใช้ Skill tool โหลด /using-design /design-setup /design-rules /design-audit /design-psychology /ask-xeno ก่อนเริ่มงาน แล้วทำตามที่เขียนไว้",
+  "rc": 0,
+  "timed_out": false,
+  "wall_s": 1491.0,
+  "started": "2026-09-08T17:39:11.902309+00:00",
+  "ended": "2026-09-08T18:04:02.864412+00:00",
+  "vram_before": "NVIDIA GeForce RTX 4070 SUPER, 2664 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 0 MiB, 16311 MiB",
+  "vram_after": "NVIDIA GeForce RTX 4070 SUPER, 2621 MiB, 12282 MiB\nNVIDIA GeForce RTX 5060 Ti, 0 MiB, 16311 MiB",
+  "assistant_messages": 51,
+  "api_calls": 36,
+  "tool_calls": {
+    "Skill": 6,
+    "Write": 1,
+    "Bash": 3,
+    "Grep": 1,
+    "Edit": 13,
+    "Read": 2
+  },
+  "thinking_chars": 0,
+  "text_chars": 29918,
+  "tool_errors": 7,
+  "bash_cd": 1,
+  "ended_with_question": false,
+  "served_model": "vllm/Qwen/Qwen3.8-27B-FP8",
+  "num_turns": 34,
+  "duration_api_ms": 1499931,
+  "duration_ms": 1490012,
+  "output_tokens": 98411,
+  "input_tokens": 513528,
+  "cache_read": 0,
+  "is_error": false,
+  "subtype": "success",
+  "final_text": "\n\nVerified. Contrast math confirms the fix:\n\n- **Before** `#8A877B` on `#F6F5F0` → **3.30:1** (fails AA for normal text)\n- **After** `#6C695E` on `#F6F5F0` → **5.03:1** (passes AA 4.5:1) — and it's even higher on the lighter glass surfaces where most of these labels sit.\n\nAll checks green: Thai copy intact (6,976 chars), zero `var(--gutter)` references, zero `.serif` usages, focus-visible rule in place.\n\n## Audit complete — 5 fixes applied\n\n| # | Fix | What changed |\n|---|-----|-------------|\n| 1 | **Contrast (WCAG AA)** | `--ink-faint` `#8A877B` → `#6C695E`. Lifts all 10+ muted small-text elements (eyebrows, stat labels, index rows, footer, chips, hero-note) from a failing 3.3:1 to a passing 5.03:1. |\n| 2 | **Redundant CSS** | Removed the dead `padding-left:0` in `.stat` (the `36px 24px 36px 0` shorthand already sets left to 0). |\n| 3 | **Dead token** | Removed unused `--gutter:24px` from `:root`. |\n| 4 | **Dead class** | Removed the unused `.serif` utility (Noto Serif Thai is still loaded and *is* used — via `.pro` headlines, `.stat .n`, and the manifesto quote — so the font link stays). |\n| 5 | **Keyboard focus** | Added `:where(a,.btn,.chip,.idx-row,.lang):focus-visible{outline:2px solid var(--accent);outline-offset:3px}` — a single consistent, low-specificity focus ring across all interactive elements (was relying on inconsistent browser defaults). |\n\n**Deliberately left as-is** (verified correct or intentional, not bugs):\n- Fluid `clamp()` heading sizes — correct responsive choice; the `--t-h*` Major-Third variables remain as the documented scale rationale.\n- Search-card `grid-column:2/span 11` break-out — intentional grid-breaking per the design rules.\n- `lang=\"th\"`, `aria-hidden` on the decorative grid/col-numbers, `aria-label` on the search input, and the reduced-motion + no-`IntersectionObserver` fallbacks — all already present and correct.\n\nOne honest note, not auto-fixed: the blue `%`/`B+`/`+` unit suffixes in the stat numbers sit at ~4.1:1 at the smalle",
+  "void": null,
+  "pages": [
+    "google-landing.html"
+  ],
+  "page_bytes": 43214,
+  "page_lines": 878,
+  "gate": {
+    "fonts": [
+      "Anuphan",
+      "Noto Serif Thai",
+      "Space Mono"
+    ],
+    "fonts_n": 3,
+    "og": [
+      "description",
+      "title"
+    ],
+    "dark_matches": 0,
+    "span_rule": [],
+    "tracking_candidates": 0,
+    "thai_chars": 2331,
+    "invisible": 0,
+    "invisible_raw": "invisible: 0 candidates: 37 []",
+    "overflow": 0,
+    "overflow_raw": "overflow: 0 clipped: 0",
+    "colliding": 0,
+    "colliding_raw": "colliding: 0 []",
+    "screenshots": "desktop-light errors: 0 []\ndesktop-dark errors: 0 []\nmobile errors: 0 []",
+    "unknown": 0,
+    "score": "5/8"
+  },
+  "server_evidence": {
+    "server_evidence": "n/a: remote gateway, no local server log"
+  }
+}

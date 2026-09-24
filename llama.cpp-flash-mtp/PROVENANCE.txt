@@ -1,0 +1,20 @@
+Qwen3.8-Flash-Next serving binary with MTP -- pinned 2026-09-24. Do not rebuild in place.
+Previous binary (no MTP) stays at C:\AI\llama.cpp-flash-vnni-cache for rollback.
+
+source   C:\AI\llama.cpp-upstream-fn, branch vnni-cache-mtp, HEAD 7a0ac666
+         e6ab7c1a  upstream ggml-org/llama.cpp master (2026-09-22)
+         32cdc316  x86 VNNI Q2_0 dot product                          (PR #26348)
+         654e1828  VNNI vector-lane accumulation                      (PR #26348)
+         8b211fae  GPU-resident LRU cache for host MoE experts        (PR #27861)
+         1c6af3af  Windows port of the MoE routing log lock           (local)
+         998881bd  Qwen3.8-Flash-Next MTP -- net diff of PR #28243 @6fcaa16f
+         0dc20c83  expert cache serves small verify batches, LLAMA_MOE_CACHE_MAX_TOKENS (local)
+         25c4fce5  flatten multi-token expert ids before the cache lookup (local)
+         7a0ac666  cache cap and LRU observer raised to 8 tokens       (local)
+build    build-c.cmd (Ninja Release, CUDA 89;120a, shared libs, GGML_BACKEND_DL, all CPU variants).
+runtime  cudart64_13 / cublas64_13 / cublasLt64_13 from CUDA v13.3 bin\x64.
+head     C:\AI\models\unsloth-Qwen3.8-Flash-Next-MTP\MTP\mtp-Qwen3.8-Flash-Next-shared-Q4_K_M.gguf
+         (1,907,151,936 B, unsloth/Qwen3.8-Flash-Next-GGUF).
+version  version: 0.4.1-dev (build 9, commit 7a0ac666)
+sha256   llama-server.exe 8d9cc85804b4e12affd46efcd525e4661553094d0c28d6a9a7b44420b674f356
+evidence qwen38-tuning/results/flash-next-optimization/spec-mtp.csv, logs/mtp-*, logs/duo-*.

@@ -1,0 +1,18 @@
+{
+  "indexes": [
+    {
+      "path": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-pal-remaining-independent-0uf2mbom\\private-evidence-index.json",
+      "sha256": "f9b1d60f96893caee1825681200282f2214bcce0638fb0a22584ba0bf58059aa",
+      "files": 8435
+    },
+    {
+      "path": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-pal-remaining-independent-npx71ghm\\private-evidence-index.json",
+      "sha256": "c09ccf30751904abcdad052096d8284bfedcb802f6d48e88a8804dd9e19657bc",
+      "files": 2285
+    }
+  ],
+  "supplemental_exclusion": {
+    "path": "C:\\Users\\xenod\\AppData\\Local\\Temp\\qwen-pal-remaining-8wqifpvm\\EXL3-CLEANUP-EXCLUSION.json",
+    "sha256": "ff44d6bec9a365dc7b575b4fd75c96cb63f1405d09dbcf7dad95c2c8a6337967"
+  }
+}

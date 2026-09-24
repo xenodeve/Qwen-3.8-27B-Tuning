@@ -1,0 +1,83 @@
+{
+  "argv": [
+    "C:\\AI\\llama.cpp-blackwell\\llama-server.exe",
+    "-c",
+    "147456",
+    "-ngl",
+    "auto",
+    "--fit",
+    "on",
+    "--fit-target",
+    "768",
+    "-fa",
+    "on",
+    "-np",
+    "1",
+    "-t",
+    "18",
+    "-b",
+    "2048",
+    "-ctk",
+    "q4_0",
+    "-ctv",
+    "q4_0",
+    "--no-mmproj-auto",
+    "-lv",
+    "5",
+    "--reasoning-effort",
+    "medium",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8080",
+    "-m",
+    "C:\\AI\\models\\ISTA-DASLab-Qwen3.8-27B-GSQ-RCO\\Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+    "--alias",
+    "Qwen3.8-27B-gsq-mtp",
+    "-sm",
+    "tensor",
+    "-ts",
+    "7457,15538",
+    "-ub",
+    "1024",
+    "--spec-type",
+    "draft-mtp",
+    "--spec-draft-n-max",
+    "2"
+  ],
+  "cwd": "C:\\AI",
+  "artifact": "gsq",
+  "ctx": 147456,
+  "spec": "mtp",
+  "round": 1,
+  "gpu_before": [
+    "0, GPU-fba37e4b-ea9e-66e9-c3fd-a16b2e833bc4, NVIDIA GeForce RTX 4070 SUPER, 12282, 2041, 9957, 616.64",
+    "1, GPU-059b90e2-2b5c-00b8-f3ba-f6dea8de083e, NVIDIA GeForce RTX 5060 Ti, 16311, 0, 16050, 616.64"
+  ],
+  "comparison": "short-quality-screen; not deep-context certification",
+  "candidate_parameters": {
+    "draft_n": 2,
+    "temperature": 0.6,
+    "han_guard": true,
+    "split_mode": null,
+    "seed": 42,
+    "stream": true
+  },
+  "files": [
+    {
+      "path": "C:\\AI\\models\\ISTA-DASLab-Qwen3.8-27B-GSQ-RCO\\Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+      "bytes": 12120016960,
+      "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f"
+    }
+  ],
+  "head": "d769a678120c2738ac914ace620672ce9e02ed84",
+  "server_source_sha256": "27775626b22d493a562edc31adba06f8cc192c3bc998489214071496904cfaee",
+  "runner_sha256": "798dad144effb04d6a633f919e0a8e047004eb2afc89c801a05669415d4c72f9",
+  "fixtures_sha256": "b034a5f0ef32a8b22c005bb4fdc2ba33578d497ca142477ddc5144865d505517",
+  "measurement_notes": [
+    "Single exploratory round, not a paired performance verdict",
+    "Server timings retained without cross-engine formula conversion",
+    "Requested seed may not be implemented by every engine",
+    "NVFP4 served profile uses -lv 5 for required boot evidence"
+  ]
+}

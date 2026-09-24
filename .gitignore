@@ -95,3 +95,8 @@ qwen38-tuning/results/quality-*/RUN*.err
 
 # local model weights (2.4 GB safetensors) never belong in git
 models-typhoon/
+# local llama.cpp builds and source checkouts (own git repos / binaries)
+llama.cpp-flash-mtp/
+llama.cpp-flash-vnni-cache/
+llama.cpp-upstream-fn/
+llama.cpp-upstream-fn-a/
