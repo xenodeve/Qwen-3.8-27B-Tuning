@@ -63,6 +63,10 @@ echo.
 echo     I   262,144 context, ngram only         long workflows
 echo     J   131,072 context, MTP + ngram        faster prefill
 echo.
+echo   BOTH CARDS, ThinkingCap-Qwen3.8-27B IQ4_XS  -- efficient-thinking finetune
+echo.
+echo     K   262,144 context, MTP + ngram        equal to H on result 35
+echo.
 echo     Q   quit                                  (one key, no Enter)
 echo.
 echo   1 and 2 both take pictures. 2 goes deeper and finishes a large request
@@ -103,8 +107,8 @@ REM  command is incorrect" instead of saying the input was wrong -- observed
 REM  here on 2026-08-29. choice restricts the keystroke itself, needs no Enter,
 REM  and cannot hand a broken value to the comparison below. It returns the
 REM  POSITION in the key list, so 1-6 line up with the printed numbers; H is 17
-REM  I is 18, J is 19, and Q is 20.
-choice /c 123456789ABCDEFGHIJQ /n /m "  Choose 1-9, A-J, or Q to quit: "
+REM  I is 18, J is 19, K is 20, and Q is 21.
+choice /c 123456789ABCDEFGHIJKQ /n /m "  Choose 1-9, A-K, or Q to quit: "
 set "SEL=%ERRORLEVEL%"
 
 REM  BOTH NAMES ARE SPELLED OUT, not built by appending "-lan" to a stem. A
@@ -125,7 +129,12 @@ if "%SEL%"=="19" (
     set "WIDE=serve-flash-next-128k-lan.bat"
     goto :ask_lan
 )
-if "%SEL%"=="20" goto :done
+if "%SEL%"=="20" (
+    set "LOOP=serve-thinkingcap.bat"
+    set "WIDE=serve-thinkingcap-lan.bat"
+    goto :ask_lan
+)
+if "%SEL%"=="21" goto :done
 if "%SEL%"=="1" (
     set "LOOP=serve-dual-nvfp4.bat"
     set "WIDE=serve-dual-nvfp4-lan.bat"
