@@ -53,6 +53,8 @@ EXPECTED = sorted([
     # binary than the 27B pair. Two contexts, measured 2026-09-23 (D-D, D-C).
     "serve-flash-next.bat", "serve-flash-next-lan.bat",
     "serve-flash-next-128k.bat", "serve-flash-next-128k-lan.bat",
+    "serve-thinkingcap.bat",
+    "serve-thinkingcap-lan.bat",
 ])
 
 
@@ -89,7 +91,8 @@ def test_each_launcher_reaches_the_entry_point_from_where_it_now_lives(name):
     # qwen38-tuning\scripts\serve-flash-next.cmd for the qwen4exp key.
     hits = [l for l in live
             if ("serve.ps1" in l or "serve-exl3.cmd" in l or
-                "serve-gsq.cmd" in l or "serve-flash-next.cmd" in l)
+                "serve-gsq.cmd" in l or "serve-flash-next.cmd" in l
+                or "serve-thinkingcap.cmd" in l)
             and "%~dp0" in l]
     assert hits, "%s no longer names an entry point" % name
     for line in hits:
